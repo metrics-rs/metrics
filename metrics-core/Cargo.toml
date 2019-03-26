@@ -1,0 +1,17 @@
+[package]
+name = "metrics-core"
+version = "0.1.2"
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+edition = "2018"
+
+license = "MIT"
+
+description = "Foundational traits for interoperable metrics libraries in Rust."
+
+homepage = "https://github.com/metrics-rs/metrics"
+repository = "https://github.com/metrics-rs/metrics"
+documentation = "https://docs.rs/metrics-core"
+
+readme = "README.md"
+
+keywords = ["metrics", "interface", "common"]
