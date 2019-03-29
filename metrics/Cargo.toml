@@ -1,0 +1,38 @@
+[package]
+name = "metrics"
+version = "0.9.0"
+authors = ["Toby Lawrence <toby@metrics-rs.com>"]
+edition = "2018"
+
+license = "MIT"
+
+description = "high-speed metrics collection library"
+
+homepage = "https://github.com/metrics-rs/metrics"
+repository = "https://github.com/metrics-rs/metrics"
+documentation = "https://docs.rs/metrics"
+
+readme = "README.md"
+
+keywords = ["metrics", "telemetry", "histogram", "counter", "gauge"]
+
+[profile.release]
+debug = true
+opt-level = 3
+lto = true
+
+[dependencies]
+metrics-core = "^0.1"
+crossbeam-channel = "^0.3"
+parking_lot = "^0.7"
+fnv = "^1.0"
+hashbrown = "^0.1"
+quanta = { version = "^0.2", features = ["asm"] }
+derivative = "^1.0"
+tokio-sync = "^0.1"
+
+[dev-dependencies]
+log = "^0.4"
+env_logger = "^0.6"
+getopts = "^0.2"
+hdrhistogram = "^6.1"
