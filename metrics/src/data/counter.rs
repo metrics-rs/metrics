@@ -1,6 +1,6 @@
+use crate::data::ScopedKey;
 use fnv::FnvBuildHasher;
 use hashbrown::HashMap;
-use crate::data::ScopedKey;
 
 pub(crate) struct Counter {
     data: HashMap<ScopedKey, u64, FnvBuildHasher>,
@@ -9,7 +9,7 @@ pub(crate) struct Counter {
 impl Counter {
     pub fn new() -> Counter {
         Counter {
-            data: HashMap::<ScopedKey, u64, FnvBuildHasher>::default(),
+            data: HashMap::default(),
         }
     }
 
@@ -18,7 +18,9 @@ impl Counter {
         *value = value.wrapping_add(delta);
     }
 
-    pub fn values(&self) -> Vec<(ScopedKey, u64)> { self.data.iter().map(|(k, v)| (k.clone(), *v)).collect() }
+    pub fn values(&self) -> Vec<(ScopedKey, u64)> {
+        self.data.iter().map(|(k, v)| (k.clone(), *v)).collect()
+    }
 }
 
 #[cfg(test)]

@@ -23,7 +23,9 @@ impl Default for Configuration {
 
 impl Configuration {
     /// Creates a new [`Configuration`] with default values.
-    pub fn new() -> Configuration { Default::default() }
+    pub fn new() -> Configuration {
+        Default::default()
+    }
 
     /// Sets the buffer capacity.
     ///
@@ -38,7 +40,7 @@ impl Configuration {
     /// at our default value, we preallocate roughly ~32KB.
     ///
     /// Generally speaking, sending and processing metrics is fast enough that the default value of
-    /// 4096 supports millions of samples per second.
+    /// 512 supports millions of samples per second.
     pub fn capacity(mut self, capacity: usize) -> Self {
         self.capacity = capacity;
         self
@@ -50,8 +52,8 @@ impl Configuration {
     ///
     /// This controls the size of message batches that we collect for processing.  The only real
     /// reason to tweak this is to control the latency from the sender side.  Larger batches lower
-    /// the ingest latency in the face of high metric ingest pressure at the cost of higher tail
-    /// latencies.
+    /// the ingest latency in the face of high metric ingest pressure at the cost of higher ingest
+    /// tail latencies.
     ///
     /// Long story short, you shouldn't need to change this, but it's here if you really do.
     pub fn batch_size(mut self, batch_size: usize) -> Self {
@@ -63,17 +65,12 @@ impl Configuration {
     ///
     /// Defaults to a 10 second window with 1 second granularity.
     ///
-    /// This controls how long of a time frame the histogram will track, on a rolling window.
-    /// We'll create enough underlying histogram buckets so that we have (window / granularity)
-    /// buckets, and every interval that passes (granularity), we'll add a new bucket and drop the
-    /// oldest one, thereby providing a rolling window.
+    /// This controls both how long of a time window we track histogram data for, and the
+    /// granularity in which we roll off old data.
     ///
-    /// Histograms, under the hood, are hard-coded to track three significant digits, and will take
-    /// a theoretical maximum of around 60KB per bucket, so a single histogram metric with the
-    /// default window/granularity will take a maximum of around 600KB.
-    ///
-    /// In practice, this should be much smaller based on the maximum values pushed into the
-    /// histogram, as the underlying histogram storage is automatically resized on the fly.
+    /// As an example, with the default values, we would keep the last 10 seconds worth of
+    /// histogram data, and would remove 1 seconds worth of data at a time as the window rolled
+    /// forward.
     pub fn histogram(mut self, window: Duration, granularity: Duration) -> Self {
         self.histogram_window = window;
         self.histogram_granularity = granularity;
@@ -81,5 +78,7 @@ impl Configuration {
     }
 
     /// Create a [`Receiver`] based on this configuration.
-    pub fn build(self) -> Receiver { Receiver::from_config(self) }
+    pub fn build(self) -> Receiver {
+        Receiver::from_config(self)
+    }
 }

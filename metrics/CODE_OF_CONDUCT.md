@@ -4,7 +4,9 @@ This document is based on the [Rust Code of Conduct](https://www.rust-lang.org/c
 
 ## Conduct
 
-**Contact**: [toby@nuclearfurnace.com](mailto:toby@nuclearfurnace.com)
+**Contact**:
+[toby@nuclearfurnace.com](mailto:toby@nuclearfurnace.com)
+[luciofranco14@gmail.com](mailto:luciofranco14@gmail.com)
 
 * We are committed to providing a friendly, safe and welcoming environment for all, regardless of level of experience, gender identity and expression, sexual orientation, disability, personal appearance, body size, race, ethnicity, age, religion, nationality, or other similar characteristic.
 * Avoid using overtly sexual nicknames or other nicknames that might detract from a friendly, safe and welcoming environment for all.
@@ -17,7 +19,7 @@ This document is based on the [Rust Code of Conduct](https://www.rust-lang.org/c
 
 ## Moderation
 
-These are the policies for upholding our community's standards of conduct. If you feel that a thread needs moderation, please use the contact information above, or mention @tobz in the thread.
+These are the policies for upholding our community's standards of conduct. If you feel that a thread needs moderation, please use the contact information above, or mention @tobz or @LucioFranco in the thread.
 
 1. Remarks that violate this Code of Conduct, including hateful, hurtful, oppressive, or exclusionary remarks, are not allowed. (Cursing is allowed, but never targeting another user, and never in a hateful manner.)
 2. Remarks that moderators find inappropriate, whether listed in the code of conduct or not, are also not allowed.

@@ -1,6 +1,6 @@
 use super::histogram::HistogramSnapshot;
-use std::fmt::Display;
 use metrics_core::MetricsExporter;
+use std::fmt::Display;
 
 /// A typed metric measurement, used in snapshots.
 ///
@@ -36,7 +36,8 @@ impl Snapshot {
     where
         T: Display,
     {
-        self.measurements.push(TypedMeasurement::Gauge(key.to_string(), value));
+        self.measurements
+            .push(TypedMeasurement::Gauge(key.to_string(), value));
     }
 
     /// Sets timing percentiles for the given metric key.
@@ -71,24 +72,26 @@ impl Snapshot {
                     for value in hs.values() {
                         exporter.export_histogram(key, *value);
                     }
-                },
+                }
                 TypedMeasurement::ValueHistogram(key, hs) => {
                     for value in hs.values() {
                         exporter.export_histogram(key, *value);
                     }
-                },
+                }
             }
         }
     }
 
     /// Converts this [`Snapshot`] to the underlying vector of measurements.
-    pub fn into_measurements(self) -> Vec<TypedMeasurement> { self.measurements }
+    pub fn into_measurements(self) -> Vec<TypedMeasurement> {
+        self.measurements
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::{HistogramSnapshot, MetricsExporter, Snapshot, TypedMeasurement};
     use std::collections::HashMap;
-    use super::{Snapshot, HistogramSnapshot, TypedMeasurement, MetricsExporter};
 
     #[derive(Default)]
     struct MockExporter {

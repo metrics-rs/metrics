@@ -1,5 +1,5 @@
 use crate::{
-    data::{Sample, MetricKey, ScopedKey},
+    data::{MetricKey, Sample, ScopedKey},
     helper::io_error,
     receiver::MessageFrame,
     scopes::Scopes,
@@ -34,7 +34,10 @@ pub struct Sink {
 
 impl Sink {
     pub(crate) fn new(
-        msg_tx: Sender<MessageFrame>, clock: Clock, scopes: Arc<Scopes>, scope: String,
+        msg_tx: Sender<MessageFrame>,
+        clock: Clock,
+        scopes: Arc<Scopes>,
+        scope: String,
     ) -> Sink {
         let scope_id = scopes.register(scope.clone());
 
@@ -48,7 +51,11 @@ impl Sink {
     }
 
     pub(crate) fn new_with_scope_id(
-        msg_tx: Sender<MessageFrame>, clock: Clock, scopes: Arc<Scopes>, scope: String, scope_id: u64,
+        msg_tx: Sender<MessageFrame>,
+        clock: Clock,
+        scopes: Arc<Scopes>,
+        scope: String,
+        scope_id: u64,
     ) -> Sink {
         Sink {
             msg_tx,
@@ -82,11 +89,18 @@ impl Sink {
     pub fn scoped<'a, S: AsScoped<'a> + ?Sized>(&self, scope: &'a S) -> Sink {
         let new_scope = scope.as_scoped(self.scope.clone());
 
-        Sink::new(self.msg_tx.clone(), self.clock.clone(), self.scopes.clone(), new_scope)
+        Sink::new(
+            self.msg_tx.clone(),
+            self.clock.clone(),
+            self.scopes.clone(),
+            new_scope,
+        )
     }
 
     /// Reference to the internal high-speed clock interface.
-    pub fn clock(&self) -> &Clock { &self.clock }
+    pub fn clock(&self) -> &Clock {
+        &self.clock
+    }
 
     /// Records the count for a given metric.
     pub fn record_count<K: Into<MetricKey>>(&self, key: K, delta: u64) {
@@ -94,9 +108,7 @@ impl Sink {
         self.send(Sample::Count(scoped_key, delta))
     }
 
-    /// Records the value for a given metric.
-    ///
-    /// This can be used either for setting a gauge or updating a value histogram.
+    /// Records the gauge for a given metric.
     pub fn record_gauge<K: Into<MetricKey>>(&self, key: K, value: i64) {
         let scoped_key = ScopedKey(self.scope_id, key.into());
         self.send(Sample::Gauge(scoped_key, value))
