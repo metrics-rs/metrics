@@ -8,7 +8,7 @@ extern crate metrics_core;
 
 use getopts::Options;
 use hdrhistogram::Histogram;
-use metrics::{Receiver, Sink, snapshot::TypedMeasurement};
+use metrics::{snapshot::TypedMeasurement, Receiver, Sink};
 use std::{
     env,
     sync::{
@@ -81,10 +81,25 @@ fn print_usage(program: &str, opts: &Options) {
 pub fn opts() -> Options {
     let mut opts = Options::new();
 
-    opts.optopt("d", "duration", "number of seconds to run the benchmark", "INTEGER");
+    opts.optopt(
+        "d",
+        "duration",
+        "number of seconds to run the benchmark",
+        "INTEGER",
+    );
     opts.optopt("p", "producers", "number of producers", "INTEGER");
-    opts.optopt("c", "capacity", "maximum number of unprocessed items", "INTEGER");
-    opts.optopt("b", "batch-size", "maximum number of items in a batch", "INTEGER");
+    opts.optopt(
+        "c",
+        "capacity",
+        "maximum number of unprocessed items",
+        "INTEGER",
+    );
+    opts.optopt(
+        "b",
+        "batch-size",
+        "maximum number of items in a batch",
+        "INTEGER",
+    );
     opts.optflag("h", "help", "print this help menu");
 
     opts
@@ -102,7 +117,7 @@ fn main() {
         Err(f) => {
             error!("Failed to parse command line args: {}", f);
             return;
-        },
+        }
     };
 
     if matches.opt_present("help") {
@@ -183,19 +198,21 @@ fn main() {
         let end = Instant::now();
         snapshot_hist.saturating_record(duration_as_nanos(end - start) as u64);
 
-        let turn_total = snapshot.unwrap().into_measurements()
+        let turn_total = snapshot
+            .unwrap()
+            .into_measurements()
             .iter()
             .fold(0, |mut acc, m| {
                 match m {
                     TypedMeasurement::Counter(key, value) => {
                         println!("got counter {} -> {}", key, value);
                         acc += *value;
-                    },
+                    }
                     TypedMeasurement::Gauge(key, value) => {
                         println!("got counter {} -> {}", key, value);
                         acc += *value as u64;
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 }
 
                 acc
@@ -229,7 +246,9 @@ fn main() {
     }
 }
 
-fn duration_as_nanos(d: Duration) -> f64 { (d.as_secs() as f64 * 1e9) + d.subsec_nanos() as f64 }
+fn duration_as_nanos(d: Duration) -> f64 {
+    (d.as_secs() as f64 * 1e9) + d.subsec_nanos() as f64
+}
 
 fn nanos_to_readable(t: u64) -> String {
     let f = t as f64;

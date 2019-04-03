@@ -1,7 +1,4 @@
-use crate::{
-    data::ScopedKey,
-    helper::duration_as_nanos,
-};
+use crate::{data::ScopedKey, helper::duration_as_nanos};
 use fnv::FnvBuildHasher;
 use hashbrown::HashMap;
 use std::time::{Duration, Instant};
@@ -17,7 +14,7 @@ impl Histogram {
         Histogram {
             window,
             granularity,
-            data: HashMap::<ScopedKey, WindowedRawHistogram, FnvBuildHasher>::default(),
+            data: HashMap::default(),
         }
     }
 
@@ -38,7 +35,10 @@ impl Histogram {
     }
 
     pub fn values(&self) -> Vec<(ScopedKey, HistogramSnapshot)> {
-        self.data.iter().map(|(k, v)| (k.clone(), v.snapshot())).collect()
+        self.data
+            .iter()
+            .map(|(k, v)| (k.clone(), v.snapshot()))
+            .collect()
     }
 }
 
@@ -52,7 +52,8 @@ pub(crate) struct WindowedRawHistogram {
 
 impl WindowedRawHistogram {
     pub fn new(window: Duration, granularity: Duration) -> WindowedRawHistogram {
-        let num_buckets = ((duration_as_nanos(window) / duration_as_nanos(granularity)) as usize) + 1;
+        let num_buckets =
+            ((duration_as_nanos(window) / duration_as_nanos(granularity)) as usize) + 1;
         let mut buckets = Vec::with_capacity(num_buckets);
 
         for _ in 0..num_buckets {
@@ -92,22 +93,26 @@ impl WindowedRawHistogram {
     }
 }
 
+/// A point-in-time snapshot of a single histogram.
 #[derive(Debug, PartialEq, Eq)]
 pub struct HistogramSnapshot {
-    values: Vec<u64>
+    values: Vec<u64>,
 }
 
 impl HistogramSnapshot {
-    pub fn new(values: Vec<u64>) -> Self {
+    pub(crate) fn new(values: Vec<u64>) -> Self {
         HistogramSnapshot { values }
     }
 
-    pub fn values(&self) -> &Vec<u64> { &self.values }
+    /// Gets the raw values that compromise the entire histogram.
+    pub fn values(&self) -> &Vec<u64> {
+        &self.values
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Histogram, WindowedRawHistogram, ScopedKey};
+    use super::{Histogram, ScopedKey, WindowedRawHistogram};
     use std::time::{Duration, Instant};
 
     #[test]
@@ -139,7 +144,7 @@ mod tests {
         assert_eq!(values.len(), 1);
 
         let hdr = &values[0].1;
-        assert_eq!(hdr.values().len(), 1);
+        assert_eq!(hdr.values().len(), 4);
         assert_eq!(hdr.values().get(0).unwrap(), &1245);
         assert_eq!(hdr.values().get(1).unwrap(), &213);
         assert_eq!(hdr.values().get(2).unwrap(), &1022);

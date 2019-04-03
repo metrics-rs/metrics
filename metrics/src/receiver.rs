@@ -62,10 +62,12 @@ impl Receiver {
         }
     }
 
-    /// Gets a builder to configure a `Receiver` instance with.
-    pub fn builder() -> Configuration { Configuration::default() }
+    /// Gets a builder to configure a [`Receiver`] instance with.
+    pub fn builder() -> Configuration {
+        Configuration::default()
+    }
 
-    /// Creates a `Sink` bound to this receiver.
+    /// Creates a [`Sink`] bound to this receiver.
     pub fn get_sink(&self) -> Sink {
         Sink::new_with_scope_id(
             self.msg_tx.clone(),
@@ -76,10 +78,14 @@ impl Receiver {
         )
     }
 
-    /// Creates a `Controller` bound to this receiver.
-    pub fn get_controller(&self) -> Controller { Controller::new(self.control_tx.clone()) }
+    /// Creates a [`Controller`] bound to this receiver.
+    pub fn get_controller(&self) -> Controller {
+        Controller::new(self.control_tx.clone())
+    }
 
     /// Run the receiver.
+    ///
+    /// This is blocking, and should be run in a dedicated background thread.
     pub fn run(&mut self) {
         let batch_size = self.config.batch_size;
         let mut batch = Vec::with_capacity(batch_size);
@@ -136,7 +142,9 @@ impl Receiver {
             return Some(key.into_string_scoped("".to_owned()));
         }
 
-        self.scopes.get(scope_id).map(|scope| key.into_string_scoped(scope))
+        self.scopes
+            .get(scope_id)
+            .map(|scope| key.into_string_scoped(scope))
     }
 
     /// Gets a snapshot of the current metrics/facets.
@@ -180,33 +188,31 @@ impl Receiver {
             ControlFrame::Snapshot(tx) => {
                 let snapshot = self.get_snapshot();
                 let _ = tx.send(snapshot);
-            },
+            }
             ControlFrame::SnapshotAsync(tx) => {
                 let snapshot = self.get_snapshot();
                 let _ = tx.send(snapshot);
-            },
+            }
         }
     }
 
     /// Processes a message frame.
     fn process_msg_frame(&mut self, msg: MessageFrame) {
         match msg {
-            MessageFrame::Data(sample) => {
-                match sample {
-                    Sample::Count(key, count) => {
-                        self.counter.update(key, count);
-                    },
-                    Sample::Gauge(key, value) => {
-                        self.gauge.update(key, value);
-                    },
-                    Sample::TimingHistogram(key, start, end) => {
-                        let delta = end - start;
-                        self.counter.update(key.clone(), 1);
-                        self.thistogram.update(key, delta);
-                    },
-                    Sample::ValueHistogram(key, value) => {
-                        self.vhistogram.update(key, value);
-                    },
+            MessageFrame::Data(sample) => match sample {
+                Sample::Count(key, count) => {
+                    self.counter.update(key, count);
+                }
+                Sample::Gauge(key, value) => {
+                    self.gauge.update(key, value);
+                }
+                Sample::TimingHistogram(key, start, end) => {
+                    let delta = end - start;
+                    self.counter.update(key.clone(), 1);
+                    self.thistogram.update(key, delta);
+                }
+                Sample::ValueHistogram(key, value) => {
+                    self.vhistogram.update(key, value);
                 }
             },
         }

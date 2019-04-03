@@ -32,7 +32,9 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub(crate) fn new(control_tx: Sender<ControlFrame>) -> Controller { Controller { control_tx } }
+    pub(crate) fn new(control_tx: Sender<ControlFrame>) -> Controller {
+        Controller { control_tx }
+    }
 
     /// Retrieves a snapshot of the current metric state.
     pub fn get_snapshot(&self) -> Result<Snapshot, SnapshotError> {

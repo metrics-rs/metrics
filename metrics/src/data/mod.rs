@@ -50,8 +50,12 @@ pub(crate) enum Sample {
 pub(crate) struct ScopedKey(pub u64, pub MetricKey);
 
 impl ScopedKey {
-    pub(crate) fn id(&self) -> u64 { self.0 }
-    pub(crate) fn into_string_scoped(self, scope: String) -> StringScopedKey { StringScopedKey(scope, self.1) }
+    pub(crate) fn id(&self) -> u64 {
+        self.0
+    }
+    pub(crate) fn into_string_scoped(self, scope: String) -> StringScopedKey {
+        StringScopedKey(scope, self.1)
+    }
 }
 
 /// A string scoped metric key.

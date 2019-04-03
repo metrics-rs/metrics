@@ -4,10 +4,14 @@ use std::{
 };
 
 /// Helpers to create an I/O error from a string.
-pub fn io_error(reason: &str) -> Error { Error::new(ErrorKind::Other, reason) }
+pub fn io_error(reason: &str) -> Error {
+    Error::new(ErrorKind::Other, reason)
+}
 
 /// Converts a duration to nanoseconds.
-pub fn duration_as_nanos(d: Duration) -> u64 { (d.as_secs() * 1_000_000_000) + u64::from(d.subsec_nanos()) }
+pub fn duration_as_nanos(d: Duration) -> u64 {
+    (d.as_secs() * 1_000_000_000) + u64::from(d.subsec_nanos())
+}
 
 #[cfg(test)]
 mod tests {

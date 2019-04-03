@@ -1,6 +1,6 @@
+use crate::data::ScopedKey;
 use fnv::FnvBuildHasher;
 use hashbrown::HashMap;
-use crate::data::ScopedKey;
 
 pub(crate) struct Gauge {
     data: HashMap<ScopedKey, i64, FnvBuildHasher>,
@@ -9,7 +9,7 @@ pub(crate) struct Gauge {
 impl Gauge {
     pub fn new() -> Gauge {
         Gauge {
-            data: HashMap::<ScopedKey, i64, FnvBuildHasher>::default(),
+            data: HashMap::default(),
         }
     }
 
@@ -18,7 +18,9 @@ impl Gauge {
         *ivalue = value;
     }
 
-    pub fn values(&self) -> Vec<(ScopedKey, i64)> { self.data.iter().map(|(k, v)| (k.clone(), *v)).collect() }
+    pub fn values(&self) -> Vec<(ScopedKey, i64)> {
+        self.data.iter().map(|(k, v)| (k.clone(), *v)).collect()
+    }
 }
 
 #[cfg(test)]

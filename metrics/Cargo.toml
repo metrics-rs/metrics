@@ -1,7 +1,7 @@
 [package]
 name = "metrics"
 version = "0.9.0"
-authors = ["Toby Lawrence <toby@metrics-rs.com>"]
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
 license = "MIT"
@@ -27,8 +27,7 @@ crossbeam-channel = "^0.3"
 parking_lot = "^0.7"
 fnv = "^1.0"
 hashbrown = "^0.1"
-quanta = { version = "^0.2", features = ["asm"] }
-derivative = "^1.0"
+quanta = "^0.2"
 tokio-sync = "^0.1"
 
 [dev-dependencies]
