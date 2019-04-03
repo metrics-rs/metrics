@@ -125,7 +125,7 @@ fn main() {
         return;
     }
 
-    info!("hotmic benchmark");
+    info!("metrics benchmark");
 
     // Build our sink and configure the facets.
     let seconds = matches
