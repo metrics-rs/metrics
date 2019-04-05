@@ -202,20 +202,12 @@ fn main() {
             .unwrap()
             .into_measurements()
             .iter()
-            .fold(0, |mut acc, m| {
-                match m {
-                    TypedMeasurement::Counter(key, value) => {
-                        println!("got counter {} -> {}", key, value);
-                        acc += *value;
-                    }
-                    TypedMeasurement::Gauge(key, value) => {
-                        println!("got counter {} -> {}", key, value);
-                        acc += *value as u64;
-                    }
-                    _ => {}
+            .fold(0, |acc, m| {
+                acc + match m {
+                    TypedMeasurement::Counter(_key, value) => *value,
+                    TypedMeasurement::Gauge(_key, value) => *value as u64,
+                    _ => 0,
                 }
-
-                acc
             });
 
         let turn_delta = turn_total - total;
