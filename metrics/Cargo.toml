@@ -22,7 +22,7 @@ opt-level = 3
 lto = true
 
 [dependencies]
-metrics-core = "^0.2"
+metrics-core = { path = "../metrics-core", version = "^0.2" }
 crossbeam-channel = "^0.3"
 parking_lot = "^0.7"
 fnv = "^1.0"

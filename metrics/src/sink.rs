@@ -97,9 +97,9 @@ impl Sink {
         )
     }
 
-    /// Reference to the internal high-speed clock interface.
-    pub fn clock(&self) -> &Clock {
-        &self.clock
+    /// Gets the current time, in nanoseconds, from the internal high-speed clock.
+    pub fn now(&self) -> u64 {
+        self.clock.now()
     }
 
     /// Records the count for a given metric.
