@@ -1,0 +1,19 @@
+[package]
+name = "metrics-util"
+version = "0.1.0"
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+edition = "2018"
+
+license = "MIT"
+
+description = "helper types/functions used by the metrics ecosystem"
+
+homepage = "https://github.com/metrics-rs/metrics"
+repository = "https://github.com/metrics-rs/metrics-util"
+documentation = "https://docs.rs/metrics-util"
+
+readme = "README.md"
+
+keywords = ["metrics", "quantile", "percentile"]
+
+[dependencies]
