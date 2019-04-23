@@ -1,5 +1,5 @@
 use super::histogram::HistogramSnapshot;
-use metrics_core::MetricsExporter;
+use metrics_core::MetricsRecorder;
 use std::fmt::Display;
 
 /// A typed metric measurement, used in snapshots.
@@ -62,21 +62,17 @@ impl Snapshot {
             .push(TypedMeasurement::ValueHistogram(key.to_string(), h));
     }
 
-    /// Exports this [`Snapshot`] to the provided [`MetricsExporter`].
-    pub fn export<M: MetricsExporter>(&self, exporter: &mut M) {
+    /// Records this [`Snapshot`] to the provided [`MetricsRecorder`].
+    pub fn record<R: MetricsRecorder>(&self, recorder: &mut R) {
         for measurement in &self.measurements {
             match measurement {
-                TypedMeasurement::Counter(key, value) => exporter.export_counter(key, *value),
-                TypedMeasurement::Gauge(key, value) => exporter.export_gauge(key, *value),
+                TypedMeasurement::Counter(key, value) => recorder.record_counter(key, *value),
+                TypedMeasurement::Gauge(key, value) => recorder.record_gauge(key, *value),
                 TypedMeasurement::TimingHistogram(key, hs) => {
-                    for value in hs.values() {
-                        exporter.export_histogram(key, *value);
-                    }
+                    recorder.record_histogram(key, hs.values().as_slice());
                 }
                 TypedMeasurement::ValueHistogram(key, hs) => {
-                    for value in hs.values() {
-                        exporter.export_histogram(key, *value);
-                    }
+                    recorder.record_histogram(key, hs.values().as_slice());
                 }
             }
         }
@@ -90,17 +86,17 @@ impl Snapshot {
 
 #[cfg(test)]
 mod tests {
-    use super::{HistogramSnapshot, MetricsExporter, Snapshot, TypedMeasurement};
+    use super::{HistogramSnapshot, MetricsRecorder, Snapshot, TypedMeasurement};
     use std::collections::HashMap;
 
     #[derive(Default)]
-    struct MockExporter {
+    struct MockRecorder {
         counter: HashMap<String, u64>,
         gauge: HashMap<String, i64>,
         histogram: HashMap<String, u64>,
     }
 
-    impl MockExporter {
+    impl MockRecorder {
         pub fn get_counter_value(&self, key: &String) -> Option<&u64> {
             self.counter.get(key)
         }
@@ -114,18 +110,18 @@ mod tests {
         }
     }
 
-    impl MetricsExporter for MockExporter {
-        fn export_counter<K: AsRef<str>>(&mut self, key: K, value: u64) {
+    impl MetricsRecorder for MockRecorder {
+        fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64) {
             let entry = self.counter.entry(key.as_ref().to_owned()).or_insert(0);
             *entry += value;
         }
 
-        fn export_gauge<K: AsRef<str>>(&mut self, key: K, value: i64) {
+        fn record_gauge<K: AsRef<str>>(&mut self, key: K, value: i64) {
             let entry = self.gauge.entry(key.as_ref().to_owned()).or_insert(0);
             *entry += value;
         }
 
-        fn export_histogram<K: AsRef<str>>(&mut self, key: K, value: u64) {
+        fn record_histogram<K: AsRef<str>>(&mut self, key: K, value: u64) {
             let entry = self.histogram.entry(key.as_ref().to_owned()).or_insert(0);
             *entry += value;
         }
@@ -145,7 +141,7 @@ mod tests {
     }
 
     #[test]
-    fn test_snapshot_exporter() {
+    fn test_snapshot_recorder() {
         let key = "ok".to_owned();
         let mut snapshot = Snapshot::default();
         snapshot.set_count(key.clone(), 7);
@@ -155,11 +151,11 @@ mod tests {
         let histogram = HistogramSnapshot::new(hvalues);
         snapshot.set_timing_histogram(key.clone(), histogram);
 
-        let mut exporter = MockExporter::default();
-        snapshot.export(&mut exporter);
+        let mut recorder = MockRecorder::default();
+        snapshot.export(&mut recorder);
 
-        assert_eq!(exporter.get_counter_value(&key), Some(&7));
-        assert_eq!(exporter.get_gauge_value(&key), Some(&42));
-        assert_eq!(exporter.get_histogram_value(&key), Some(&174));
+        assert_eq!(recorder.get_counter_value(&key), Some(&7));
+        assert_eq!(recorder.get_gauge_value(&key), Some(&42));
+        assert_eq!(recorder.get_histogram_value(&key), Some(&174));
     }
 }

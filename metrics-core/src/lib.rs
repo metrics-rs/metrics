@@ -33,29 +33,29 @@
 //! Histograms are a convenient way to measure behavior not only at the median, but at the edges of
 //! normal operating behavior.
 
-/// A value that exports collected metrics.
-pub trait MetricsExporter {
-    /// Exports a counter.
+/// A value that records metrics.
+pub trait MetricsRecorder {
+    /// Records a counter.
     ///
-    /// From the perspective of an exportr, a counter and gauge are essentially identical, insofar
+    /// From the perspective of an recorder, a counter and gauge are essentially identical, insofar
     /// as they are both a single value tied to a key.  From the perspective of a collector,
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exportr side, both are provided.
-    fn export_counter<K: AsRef<str>>(&mut self, key: K, value: u64);
+    fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64);
 
-    /// Exports a gauge.
+    /// Records a gauge.
     ///
-    /// From the perspective of a exportr, a counter and gauge are essentially identical, insofar
+    /// From the perspective of a recorder, a counter and gauge are essentially identical, insofar
     /// as they are both a single value tied to a key.  From the perspective of a collector,
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exportr side, both are provided.
-    fn export_gauge<K: AsRef<str>>(&mut self, key: K, value: i64);
+    fn record_gauge<K: AsRef<str>>(&mut self, key: K, value: i64);
 
-    /// Exports a histogram.
+    /// Records a histogram.
     ///
-    /// Exporters are expected to tally their own histogram views, which means this method will be
-    /// called for each observed value in the underlying histogram.
-    fn export_histogram<K: AsRef<str>>(&mut self, key: K, value: u64);
+    /// Recorders are expected to tally their own histogram views, so this will be called with all
+    /// of the underlying observed values, and callers will need to process them accordingly.
+    fn record_histogram<K: AsRef<str>>(&mut self, key: K, values: &[u64]);
 }
