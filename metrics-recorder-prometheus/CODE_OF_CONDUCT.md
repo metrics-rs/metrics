@@ -26,5 +26,5 @@ And if someone takes issue with something you said or did, resist the urge to be
 
 ## Contacts:
 
-- [toby@nuclearfurnace.com](mailto:toby@nuclearfurnace.com)
-- [luciofranco14@gmail.com](mailto:luciofranco14@gmail.com)
+- Toby Lawrence ([toby@nuclearfurnace.com](mailto:toby@nuclearfurnace.com))
+- Lucio Franco ([luciofranco14@gmail.com](mailto:luciofranco14@gmail.com))
