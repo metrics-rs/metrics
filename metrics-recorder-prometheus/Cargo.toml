@@ -1,0 +1,18 @@
+[package]
+name = "metrics-recorder-prometheus"
+version = "0.1.0"
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+edition = "2018"
+
+license = "MIT"
+
+description = "metric recorder for Prometheus exposition output"
+
+homepage = "https://github.com/metrics-rs/metrics"
+repository = "https://github.com/metrics-rs/metrics-recorder-prometheus"
+documentation = "https://docs.rs/metrics-recorder-prometheus"
+
+[dependencies]
+metrics-core = { path = "../metrics-core", version = "^0.2" }
+metrics-util = { path = "../metrics-util", version = "^0.1" }
+hdrhistogram = "^6.1"

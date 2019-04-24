@@ -1,0 +1,9 @@
+[workspace]
+members = [
+  "metrics-core",
+  "metrics",
+  "metrics-util",
+  "metrics-exporter-log",
+  "metrics-recorder-text",
+  "metrics-recorder-prometheus",
+]

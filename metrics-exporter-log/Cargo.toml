@@ -1,0 +1,20 @@
+[package]
+name = "metrics-exporter-log"
+version = "0.1.0"
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+edition = "2018"
+
+license = "MIT"
+
+description = "metric exporter for outputting to logs"
+
+homepage = "https://github.com/metrics-rs/metrics"
+repository = "https://github.com/metrics-rs/metrics-exporter-log"
+documentation = "https://docs.rs/metrics-exporter-log"
+
+[dependencies]
+metrics-core = { path = "../metrics-core", version = "^0.2" }
+metrics = { path = "../metrics", version = "^0.9" }
+log = "^0.4"
+futures = "^0.1"
+tokio-timer = "^0.2"
