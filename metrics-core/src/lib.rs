@@ -32,6 +32,7 @@
 //!
 //! Histograms are a convenient way to measure behavior not only at the median, but at the edges of
 //! normal operating behavior.
+use futures::future::Future;
 
 /// A value that records metrics.
 pub trait MetricsRecorder {
@@ -41,7 +42,7 @@ pub trait MetricsRecorder {
     /// as they are both a single value tied to a key.  From the perspective of a collector,
     /// counters and gauges usually have slightly different modes of operation.
     ///
-    /// For the sake of flexibility on the exportr side, both are provided.
+    /// For the sake of flexibility on the exporter side, both are provided.
     fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64);
 
     /// Records a gauge.
@@ -50,7 +51,7 @@ pub trait MetricsRecorder {
     /// as they are both a single value tied to a key.  From the perspective of a collector,
     /// counters and gauges usually have slightly different modes of operation.
     ///
-    /// For the sake of flexibility on the exportr side, both are provided.
+    /// For the sake of flexibility on the exporter side, both are provided.
     fn record_gauge<K: AsRef<str>>(&mut self, key: K, value: i64);
 
     /// Records a histogram.
@@ -58,4 +59,29 @@ pub trait MetricsRecorder {
     /// Recorders are expected to tally their own histogram views, so this will be called with all
     /// of the underlying observed values, and callers will need to process them accordingly.
     fn record_histogram<K: AsRef<str>>(&mut self, key: K, values: &[u64]);
+}
+
+/// A value that holds a point-in-time view of collected metrics.
+pub trait MetricsSnapshot {
+    /// Records the snapshot to the given recorder.
+    fn record<R: MetricsRecorder>(&self, recorder: &mut R);
+}
+
+/// A value that can provide on-demand snapshots.
+pub trait SnapshotProvider {
+    type Snapshot;
+    type SnapshotError;
+
+    /// Gets a snapshot.
+    fn get_snapshot(&self) -> Result<Self::Snapshot, Self::SnapshotError>;
+}
+
+/// A value that can provide on-demand snapshots asynchronously.
+pub trait AsyncSnapshotProvider {
+    type Snapshot;
+    type SnapshotError;
+    type SnapshotFuture: Future<Item = Self::Snapshot, Error = Self::SnapshotError>;
+
+    /// Gets a snapshot asynchronously.
+    fn get_snapshot_async(&self) -> Self::SnapshotFuture;
 }
