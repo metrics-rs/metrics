@@ -1,5 +1,5 @@
 use super::histogram::HistogramSnapshot;
-use metrics_core::MetricsRecorder;
+use metrics_core::{MetricsSnapshot, MetricsRecorder};
 use std::fmt::Display;
 
 /// A typed metric measurement, used in snapshots.
@@ -62,8 +62,15 @@ impl Snapshot {
             .push(TypedMeasurement::ValueHistogram(key.to_string(), h));
     }
 
-    /// Records this [`Snapshot`] to the provided [`MetricsRecorder`].
-    pub fn record<R: MetricsRecorder>(&self, recorder: &mut R) {
+    /// Converts this [`Snapshot`] to the underlying vector of measurements.
+    pub fn into_measurements(self) -> Vec<TypedMeasurement> {
+        self.measurements
+    }
+}
+
+impl MetricsSnapshot for Snapshot {
+    /// Records the snapshot to the given recorder.
+    fn record<R: MetricsRecorder>(&self, recorder: &mut R) {
         for measurement in &self.measurements {
             match measurement {
                 TypedMeasurement::Counter(key, value) => recorder.record_counter(key, *value),
@@ -77,23 +84,19 @@ impl Snapshot {
             }
         }
     }
-
-    /// Converts this [`Snapshot`] to the underlying vector of measurements.
-    pub fn into_measurements(self) -> Vec<TypedMeasurement> {
-        self.measurements
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{HistogramSnapshot, MetricsRecorder, Snapshot, TypedMeasurement};
     use std::collections::HashMap;
+    use metrics_core::MetricsSnapshot;
 
     #[derive(Default)]
     struct MockRecorder {
         counter: HashMap<String, u64>,
         gauge: HashMap<String, i64>,
-        histogram: HashMap<String, u64>,
+        histogram: HashMap<String, Vec<u64>>,
     }
 
     impl MockRecorder {
@@ -105,25 +108,22 @@ mod tests {
             self.gauge.get(key)
         }
 
-        pub fn get_histogram_value(&self, key: &String) -> Option<&u64> {
+        pub fn get_histogram_values(&self, key: &String) -> Option<&Vec<u64>> {
             self.histogram.get(key)
         }
     }
 
     impl MetricsRecorder for MockRecorder {
         fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64) {
-            let entry = self.counter.entry(key.as_ref().to_owned()).or_insert(0);
-            *entry += value;
+            let _ = self.counter.insert(key.as_ref().to_owned(), value);
         }
 
         fn record_gauge<K: AsRef<str>>(&mut self, key: K, value: i64) {
-            let entry = self.gauge.entry(key.as_ref().to_owned()).or_insert(0);
-            *entry += value;
+            let _ = self.gauge.insert(key.as_ref().to_owned(), value);
         }
 
-        fn record_histogram<K: AsRef<str>>(&mut self, key: K, value: u64) {
-            let entry = self.histogram.entry(key.as_ref().to_owned()).or_insert(0);
-            *entry += value;
+        fn record_histogram<K: AsRef<str>>(&mut self, key: K, values: &[u64]) {
+            let _ = self.histogram.insert(key.as_ref().to_owned(), values.to_vec());
         }
     }
 
@@ -152,10 +152,12 @@ mod tests {
         snapshot.set_timing_histogram(key.clone(), histogram);
 
         let mut recorder = MockRecorder::default();
-        snapshot.export(&mut recorder);
+        snapshot.record(&mut recorder);
 
         assert_eq!(recorder.get_counter_value(&key), Some(&7));
         assert_eq!(recorder.get_gauge_value(&key), Some(&42));
-        assert_eq!(recorder.get_histogram_value(&key), Some(&174));
+
+        let hsum = recorder.get_histogram_values(&key).map(|x| x.iter().sum());
+        assert_eq!(hsum, Some(174));
     }
 }

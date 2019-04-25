@@ -14,7 +14,6 @@ documentation = "https://docs.rs/metrics-exporter-log"
 
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.2" }
-metrics = { path = "../metrics", version = "^0.9" }
 log = "^0.4"
 futures = "^0.1"
 tokio-timer = "^0.2"

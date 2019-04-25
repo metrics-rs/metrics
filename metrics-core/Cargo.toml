@@ -15,3 +15,6 @@ documentation = "https://docs.rs/metrics-core"
 readme = "README.md"
 
 keywords = ["metrics", "interface", "common"]
+
+[dependencies]
+futures = "^0.1"

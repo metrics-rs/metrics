@@ -7,35 +7,39 @@
 //! # Run Modes
 //! - `run` can be used to block the current thread, taking snapshots and exporting them on an
 //! interval
-//! - `turn` can be used to take a single snapshot and log it
 //! - `into_future` will return a [`Future`] that when driven will take a snapshot on the 
 //! configured interval and log it
 #[macro_use]
 extern crate log;
 
+use std::fmt::Display;
 use std::thread;
 use std::time::Duration;
-use metrics::Controller;
-use metrics_core::MetricsRecorder;
+use metrics_core::{MetricsRecorder, MetricsSnapshot, SnapshotProvider, AsyncSnapshotProvider};
 use log::Level;
 use futures::prelude::*;
 use tokio_timer::Interval;
 
 /// Exports metrics by converting them to a textual representation and logging them.
-pub struct LogExporter<R> {
-    controller: Controller,
+pub struct LogExporter<C, R> {
+    controller: C,
     recorder: R,
     level: Level,
 }
 
-impl<R> LogExporter<R>
+impl<C, R> LogExporter<C, R>
 where
-    R: MetricsRecorder + Clone + Into<String>
+    C: SnapshotProvider + AsyncSnapshotProvider,
+    <C as SnapshotProvider>::Snapshot: MetricsSnapshot,
+    <C as SnapshotProvider>::SnapshotError: Display,
+    <C as AsyncSnapshotProvider>::Snapshot: MetricsSnapshot,
+    <C as AsyncSnapshotProvider>::SnapshotError: Display,
+    R: MetricsRecorder + Clone + Into<String>,
 {
     /// Creates a new [`LogExporter`] that logs at the configurable level.
     ///
     /// Recorders expose their output by being converted into strings.
-    pub fn new(controller: Controller, recorder: R, level: Level) -> Self {
+    pub fn new(controller: C, recorder: R, level: Level) -> Self {
         LogExporter {
             controller,
             recorder,
@@ -54,7 +58,15 @@ where
 
     /// Run this exporter, logging output only once.
     pub fn turn(&self) {
-        run_once(&self.controller, self.recorder.clone(), self.level);
+        match self.controller.get_snapshot() {
+            Ok(snapshot) => {
+                let mut recorder = self.recorder.clone();
+                snapshot.record(&mut recorder);
+                let output = recorder.into();
+                log!(self.level, "{}", output);
+            },
+            Err(e) => log!(Level::Error, "failed to get snapshot: {}", e),
+        }
     }
 
     /// Converts this exporter into a future which logs output on the given interval.
@@ -66,23 +78,16 @@ where
         Interval::new_interval(interval)
             .map_err(|_| ())
             .for_each(move |_| {
-                let recorder = recorder.clone();
-                run_once(&controller, recorder, level);
-                Ok(())
-            })
-    }
-}
+                let mut recorder = recorder.clone();
 
-fn run_once<R>(controller: &Controller, mut recorder: R, level: Level)
-where
-    R: MetricsRecorder + Into<String>
-{
-    match controller.get_snapshot() {
-        Ok(snapshot) => {
-            snapshot.record(&mut recorder);
-            let output = recorder.into();
-            log!(level, "{}", output);
-        },
-        Err(e) => log!(Level::Error, "failed to capture snapshot: {}", e),
+                controller.get_snapshot_async()
+                    .and_then(move |snapshot| {
+                        snapshot.record(&mut recorder);
+                        let output = recorder.into();
+                        log!(level, "{}", output);
+                        Ok(())
+                    })
+                    .map_err(|e| log!(Level::Error, "failed to get snapshot: {}", e))
+            })
     }
 }
