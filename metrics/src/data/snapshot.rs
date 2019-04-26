@@ -1,5 +1,5 @@
 use super::histogram::HistogramSnapshot;
-use metrics_core::{MetricsSnapshot, MetricsRecorder};
+use metrics_core::{Snapshot as MetricsSnapshot, Recorder};
 use std::fmt::Display;
 
 /// A typed metric measurement, used in snapshots.
@@ -70,7 +70,7 @@ impl Snapshot {
 
 impl MetricsSnapshot for Snapshot {
     /// Records the snapshot to the given recorder.
-    fn record<R: MetricsRecorder>(&self, recorder: &mut R) {
+    fn record<R: Recorder>(&self, recorder: &mut R) {
         for measurement in &self.measurements {
             match measurement {
                 TypedMeasurement::Counter(key, value) => recorder.record_counter(key, *value),
@@ -88,9 +88,8 @@ impl MetricsSnapshot for Snapshot {
 
 #[cfg(test)]
 mod tests {
-    use super::{HistogramSnapshot, MetricsRecorder, Snapshot, TypedMeasurement};
+    use super::{HistogramSnapshot, MetricsSnapshot, Recorder, Snapshot, TypedMeasurement};
     use std::collections::HashMap;
-    use metrics_core::MetricsSnapshot;
 
     #[derive(Default)]
     struct MockRecorder {
@@ -113,7 +112,7 @@ mod tests {
         }
     }
 
-    impl MetricsRecorder for MockRecorder {
+    impl Recorder for MockRecorder {
         fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64) {
             let _ = self.counter.insert(key.as_ref().to_owned(), value);
         }

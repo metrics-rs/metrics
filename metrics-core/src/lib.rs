@@ -32,10 +32,11 @@
 //!
 //! Histograms are a convenient way to measure behavior not only at the median, but at the edges of
 //! normal operating behavior.
+use std::fmt::Display;
 use futures::future::Future;
 
 /// A value that records metrics.
-pub trait MetricsRecorder {
+pub trait Recorder {
     /// Records a counter.
     ///
     /// From the perspective of an recorder, a counter and gauge are essentially identical, insofar
@@ -62,15 +63,15 @@ pub trait MetricsRecorder {
 }
 
 /// A value that holds a point-in-time view of collected metrics.
-pub trait MetricsSnapshot {
+pub trait Snapshot {
     /// Records the snapshot to the given recorder.
-    fn record<R: MetricsRecorder>(&self, recorder: &mut R);
+    fn record<R: Recorder>(&self, recorder: &mut R);
 }
 
 /// A value that can provide on-demand snapshots.
 pub trait SnapshotProvider {
-    type Snapshot;
-    type SnapshotError;
+    type Snapshot: Snapshot;
+    type SnapshotError: Display;
 
     /// Gets a snapshot.
     fn get_snapshot(&self) -> Result<Self::Snapshot, Self::SnapshotError>;
@@ -78,8 +79,8 @@ pub trait SnapshotProvider {
 
 /// A value that can provide on-demand snapshots asynchronously.
 pub trait AsyncSnapshotProvider {
-    type Snapshot;
-    type SnapshotError;
+    type Snapshot: Snapshot;
+    type SnapshotError: Display;
     type SnapshotFuture: Future<Item = Self::Snapshot, Error = Self::SnapshotError>;
 
     /// Gets a snapshot asynchronously.
