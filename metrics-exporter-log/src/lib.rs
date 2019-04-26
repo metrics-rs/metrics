@@ -82,7 +82,7 @@ where
                         log!(level, "{}", output);
                         Ok(())
                     })
-                    .map_err(|e| log!(Level::Error, "failed to get snapshot: {}", e))
+                    .map_err(|e| error!("failed to get snapshot: {}", e))
             })
     }
 }
