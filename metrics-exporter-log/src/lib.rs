@@ -12,10 +12,9 @@
 #[macro_use]
 extern crate log;
 
-use std::fmt::Display;
 use std::thread;
 use std::time::Duration;
-use metrics_core::{MetricsRecorder, MetricsSnapshot, SnapshotProvider, AsyncSnapshotProvider};
+use metrics_core::{Recorder, Snapshot, SnapshotProvider, AsyncSnapshotProvider};
 use log::Level;
 use futures::prelude::*;
 use tokio_timer::Interval;
@@ -30,11 +29,7 @@ pub struct LogExporter<C, R> {
 impl<C, R> LogExporter<C, R>
 where
     C: SnapshotProvider + AsyncSnapshotProvider,
-    <C as SnapshotProvider>::Snapshot: MetricsSnapshot,
-    <C as SnapshotProvider>::SnapshotError: Display,
-    <C as AsyncSnapshotProvider>::Snapshot: MetricsSnapshot,
-    <C as AsyncSnapshotProvider>::SnapshotError: Display,
-    R: MetricsRecorder + Clone + Into<String>,
+    R: Recorder + Clone + Into<String>,
 {
     /// Creates a new [`LogExporter`] that logs at the configurable level.
     ///
