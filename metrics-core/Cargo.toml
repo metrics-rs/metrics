@@ -1,6 +1,6 @@
 [package]
 name = "metrics-core"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
