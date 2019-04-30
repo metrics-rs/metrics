@@ -50,13 +50,14 @@
 //! // to, so you need to track the overall value on your own.
 //! sink.record_gauge("red_balloons", 99);
 //!
-//! // We can update a timing histogram.  For timing, you also must measure the start and end
-//! // time using the built-in `Clock` exposed by the sink.  The receiver internally converts the
-//! // raw values to calculate the actual wall clock time (in nanoseconds) on your behalf, so you
-//! // can't just pass in any old number.. otherwise you'll get erroneous measurements!
-//! let start = sink.clock().start();
+//! // We can update a timing histogram.  For timing, we're using the built-in `Sink::now` method
+//! // which utilizes a high-speed internal clock.  This method returns the time in nanoseconds, so
+//! // we get great resolution, but giving the time in nanoseconds isn't required!  If you want to
+//! // send it in another unit, that's fine, but just pay attention to that fact when viewing and
+//! // using those metrics once exported.
+//! let start = sink.now();
 //! thread::sleep(Duration::from_millis(10));
-//! let end = sink.clock().end();
+//! let end = sink.now();
 //! sink.record_timing("db.gizmo_query", start, end);
 //!
 //! // Finally, we can update a value histogram.  Technically speaking, value histograms aren't
@@ -119,6 +120,12 @@ mod helper;
 mod receiver;
 mod scopes;
 mod sink;
+
+#[cfg(any(feature = "metrics-exporter-log"))]
+pub mod exporters;
+
+#[cfg(any(feature = "metrics-recorder-text", feature = "metrics-recorder-prometheus"))]
+pub mod recorders;
 
 pub use self::{
     configuration::Configuration,

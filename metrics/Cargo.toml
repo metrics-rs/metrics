@@ -21,6 +21,11 @@ debug = true
 opt-level = 3
 lto = true
 
+[features]
+default = ["exporters", "recorders"]
+exporters = ["metrics-exporter-log"]
+recorders = ["metrics-recorder-text", "metrics-recorder-prometheus"]
+
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.2" }
 crossbeam-channel = "^0.3"
@@ -28,7 +33,11 @@ parking_lot = "^0.7"
 fnv = "^1.0"
 hashbrown = "^0.1"
 quanta = "^0.2"
+futures = "^0.1"
 tokio-sync = "^0.1"
+metrics-exporter-log = { path = "../metrics-exporter-log", version = "^0.1", optional = true }
+metrics-recorder-text = { path = "../metrics-recorder-text", version = "^0.1", optional = true }
+metrics-recorder-prometheus = { path = "../metrics-recorder-prometheus", version = "^0.1", optional = true }
 
 [dev-dependencies]
 log = "^0.4"
