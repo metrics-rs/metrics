@@ -9,6 +9,7 @@ extern crate metrics_core;
 use getopts::Options;
 use hdrhistogram::Histogram;
 use metrics::{snapshot::TypedMeasurement, Receiver, Sink};
+use metrics_core::SnapshotProvider;
 use std::{
     env,
     sync::{
@@ -45,13 +46,13 @@ impl Generator {
             }
 
             self.gauge += 1;
-            let t1 = self.stats.clock().now();
+            let t1 = self.stats.now();
 
             if let Some(t0) = self.t0 {
-                let start = self.stats.clock().now();
+                let start = self.stats.now();
                 let _ = self.stats.record_timing("ok", t0, t1);
                 let _ = self.stats.record_gauge("total", self.gauge);
-                let delta = self.stats.clock().now() - start;
+                let delta = self.stats.now() - start;
                 self.hist.saturating_record(delta);
             }
             self.t0 = Some(t1);

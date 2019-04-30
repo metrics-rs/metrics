@@ -45,7 +45,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
 use hdrhistogram::Histogram;
-use metrics_core::MetricsRecorder;
+use metrics_core::Recorder;
 use metrics_util::{Quantile, parse_quantiles};
 
 /// Records metrics in a hierarchical, text-based format.
@@ -75,7 +75,7 @@ impl TextRecorder {
     }
 }
 
-impl MetricsRecorder for TextRecorder {
+impl Recorder for TextRecorder {
     fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64) {
         let (name_parts, name) = name_to_parts(key.as_ref());
         let mut values = single_value_to_values(name, value);

@@ -1,16 +1,35 @@
 use super::data::snapshot::Snapshot;
 use crossbeam_channel::{bounded, Sender};
+use std::error::Error;
 use std::fmt;
+use metrics_core::{SnapshotProvider, AsyncSnapshotProvider};
+use futures::prelude::*;
 use tokio_sync::oneshot;
 
 /// Error conditions when retrieving a snapshot.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SnapshotError {
     /// There was an internal error when trying to collect a snapshot.
     InternalError,
 
     /// A snapshot was requested but the receiver is shutdown.
     ReceiverShutdown,
+}
+
+impl Error for SnapshotError {
+}
+
+impl fmt::Display for SnapshotError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SnapshotError::InternalError => {
+                write!(f, "internal error while collecting snapshot")
+            },
+            SnapshotError::ReceiverShutdown => {
+                write!(f, "receiver is shutdown")
+            },
+        }
+    }
 }
 
 /// Various control actions performed by a controller.
@@ -35,9 +54,14 @@ impl Controller {
     pub(crate) fn new(control_tx: Sender<ControlFrame>) -> Controller {
         Controller { control_tx }
     }
+}
 
-    /// Retrieves a snapshot of the current metric state.
-    pub fn get_snapshot(&self) -> Result<Snapshot, SnapshotError> {
+impl SnapshotProvider for Controller {
+    type Snapshot = Snapshot;
+    type SnapshotError = SnapshotError;
+
+    /// Gets a snapshot.
+    fn get_snapshot(&self) -> Result<Snapshot, SnapshotError> {
         let (tx, rx) = bounded(0);
         let msg = ControlFrame::Snapshot(tx);
 
@@ -46,24 +70,39 @@ impl Controller {
             .map_err(|_| SnapshotError::ReceiverShutdown)
             .and_then(move |_| rx.recv().map_err(|_| SnapshotError::InternalError))
     }
+}
 
-    /// Retrieves a snapshot of the current metric state asynchronously.
-    pub fn get_snapshot_async(&self) -> Result<oneshot::Receiver<Snapshot>, SnapshotError> {
+impl AsyncSnapshotProvider for Controller {
+    type Snapshot = Snapshot;
+    type SnapshotError = SnapshotError;
+    type SnapshotFuture = SnapshotFuture;
+
+    /// Gets a snapshot asynchronously.
+    fn get_snapshot_async(&self) -> Self::SnapshotFuture {
         let (tx, rx) = oneshot::channel();
         let msg = ControlFrame::SnapshotAsync(tx);
 
         self.control_tx
             .send(msg)
-            .map_err(|_| SnapshotError::ReceiverShutdown)
-            .map(move |_| rx)
+            .map(move |_| SnapshotFuture::Waiting(rx))
+            .unwrap_or(SnapshotFuture::Errored(SnapshotError::ReceiverShutdown))
     }
 }
 
-impl fmt::Display for SnapshotError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+/// A future representing collecting a snapshot.
+pub enum SnapshotFuture {
+    Waiting(oneshot::Receiver<Snapshot>),
+    Errored(SnapshotError),
+}
+
+impl Future for SnapshotFuture {
+    type Item = Snapshot;
+    type Error = SnapshotError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self {
-            SnapshotError::InternalError => write!(f, "internal error during snapshot generation"),
-            SnapshotError::ReceiverShutdown => write!(f, "the receiver is not currently running"),
+            SnapshotFuture::Waiting(rx) => rx.poll().map_err(|_| SnapshotError::InternalError),
+            SnapshotFuture::Errored(err) => Err(err.clone()),
         }
     }
 }

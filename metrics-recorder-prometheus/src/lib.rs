@@ -1,7 +1,7 @@
 //! Records metrics in the Prometheus exposition format.
 use std::time::SystemTime;
 use hdrhistogram::Histogram;
-use metrics_core::MetricsRecorder;
+use metrics_core::Recorder;
 use metrics_util::{Quantile, parse_quantiles};
 
 /// Records metrics in the Prometheus exposition format.
@@ -30,7 +30,7 @@ impl PrometheusRecorder {
     }
 }
 
-impl MetricsRecorder for PrometheusRecorder {
+impl Recorder for PrometheusRecorder {
     fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64) {
         let label = key.as_ref().replace('.', "_");
         self.output.push_str("\n# TYPE ");
