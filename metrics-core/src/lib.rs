@@ -32,7 +32,6 @@
 //!
 //! Histograms are a convenient way to measure behavior not only at the median, but at the edges of
 //! normal operating behavior.
-use std::fmt::Display;
 use futures::future::Future;
 
 /// A value that records metrics.
