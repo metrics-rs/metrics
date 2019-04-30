@@ -12,6 +12,7 @@
 #[macro_use]
 extern crate log;
 
+use std::error::Error;
 use std::thread;
 use std::time::Duration;
 use metrics_core::{Recorder, Snapshot, SnapshotProvider, AsyncSnapshotProvider};
@@ -28,7 +29,6 @@ pub struct LogExporter<C, R> {
 
 impl<C, R> LogExporter<C, R>
 where
-    C: SnapshotProvider + AsyncSnapshotProvider,
     R: Recorder + Clone + Into<String>,
 {
     /// Creates a new [`LogExporter`] that logs at the configurable level.
@@ -43,7 +43,11 @@ where
     }
 
     /// Runs this exporter on the current thread, logging output on the given interval.
-    pub fn run(&mut self, interval: Duration) {
+    pub fn run(&mut self, interval: Duration)
+    where
+        C: SnapshotProvider,
+        C::SnapshotError: Error,
+    {
         loop {
             thread::sleep(interval);
 
@@ -52,7 +56,11 @@ where
     }
 
     /// Run this exporter, logging output only once.
-    pub fn turn(&self) {
+    pub fn turn(&self)
+    where
+        C: SnapshotProvider,
+        C::SnapshotError: Error,
+    {
         match self.controller.get_snapshot() {
             Ok(snapshot) => {
                 let mut recorder = self.recorder.clone();
@@ -65,7 +73,11 @@ where
     }
 
     /// Converts this exporter into a future which logs output on the given interval.
-    pub fn into_future(self, interval: Duration) -> impl Future<Item = (), Error = ()> {
+    pub fn into_future(self, interval: Duration) -> impl Future<Item = (), Error = ()>
+    where
+        C: AsyncSnapshotProvider,
+        C::SnapshotError: Error,
+    {
         let controller = self.controller;
         let recorder = self.recorder;
         let level = self.level;

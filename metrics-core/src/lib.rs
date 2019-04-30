@@ -71,7 +71,7 @@ pub trait Snapshot {
 /// A value that can provide on-demand snapshots.
 pub trait SnapshotProvider {
     type Snapshot: Snapshot;
-    type SnapshotError: Display;
+    type SnapshotError;
 
     /// Gets a snapshot.
     fn get_snapshot(&self) -> Result<Self::Snapshot, Self::SnapshotError>;
@@ -80,7 +80,7 @@ pub trait SnapshotProvider {
 /// A value that can provide on-demand snapshots asynchronously.
 pub trait AsyncSnapshotProvider {
     type Snapshot: Snapshot;
-    type SnapshotError: Display;
+    type SnapshotError;
     type SnapshotFuture: Future<Item = Self::Snapshot, Error = Self::SnapshotError>;
 
     /// Gets a snapshot asynchronously.
