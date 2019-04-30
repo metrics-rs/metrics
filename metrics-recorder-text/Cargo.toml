@@ -13,6 +13,6 @@ repository = "https://github.com/metrics-rs/metrics-recorder-text"
 documentation = "https://docs.rs/metrics-recorder-text"
 
 [dependencies]
-metrics-core = { path = "../metrics-core", version = "^0.2" }
+metrics-core = { path = "../metrics-core", version = "^0.3" }
 metrics-util = { path = "../metrics-util", version = "^0.1" }
 hdrhistogram = "^6.1"
