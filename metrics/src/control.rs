@@ -1,5 +1,6 @@
 use super::data::snapshot::Snapshot;
 use crossbeam_channel::{bounded, Sender};
+use std::error::Error;
 use std::fmt;
 use metrics_core::{SnapshotProvider, AsyncSnapshotProvider};
 use futures::prelude::*;
@@ -13,6 +14,22 @@ pub enum SnapshotError {
 
     /// A snapshot was requested but the receiver is shutdown.
     ReceiverShutdown,
+}
+
+impl Error for SnapshotError {
+}
+
+impl fmt::Display for SnapshotError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SnapshotError::InternalError => {
+                write!(f, "internal error while collecting snapshot")
+            },
+            SnapshotError::ReceiverShutdown => {
+                write!(f, "receiver is shutdown")
+            },
+        }
+    }
 }
 
 /// Various control actions performed by a controller.
@@ -72,6 +89,7 @@ impl AsyncSnapshotProvider for Controller {
     }
 }
 
+/// A future representing collecting a snapshot.
 pub enum SnapshotFuture {
     Waiting(oneshot::Receiver<Snapshot>),
     Errored(SnapshotError),
@@ -85,15 +103,6 @@ impl Future for SnapshotFuture {
         match self {
             SnapshotFuture::Waiting(rx) => rx.poll().map_err(|_| SnapshotError::InternalError),
             SnapshotFuture::Errored(err) => Err(err.clone()),
-        }
-    }
-}
-
-impl fmt::Display for SnapshotError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            SnapshotError::InternalError => write!(f, "internal error during snapshot generation"),
-            SnapshotError::ReceiverShutdown => write!(f, "the receiver is not currently running"),
         }
     }
 }
