@@ -1,5 +1,5 @@
 use super::histogram::HistogramSnapshot;
-use metrics_core::{Snapshot as MetricsSnapshot, Recorder};
+use metrics_core::{Recorder, Snapshot as MetricsSnapshot};
 use std::fmt::Display;
 
 /// A typed metric measurement, used in snapshots.
@@ -122,7 +122,9 @@ mod tests {
         }
 
         fn record_histogram<K: AsRef<str>>(&mut self, key: K, values: &[u64]) {
-            let _ = self.histogram.insert(key.as_ref().to_owned(), values.to_vec());
+            let _ = self
+                .histogram
+                .insert(key.as_ref().to_owned(), values.to_vec());
         }
     }
 

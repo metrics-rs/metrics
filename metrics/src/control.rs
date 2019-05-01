@@ -1,9 +1,9 @@
 use super::data::snapshot::Snapshot;
 use crossbeam_channel::{bounded, Sender};
+use futures::prelude::*;
+use metrics_core::{AsyncSnapshotProvider, SnapshotProvider};
 use std::error::Error;
 use std::fmt;
-use metrics_core::{SnapshotProvider, AsyncSnapshotProvider};
-use futures::prelude::*;
 use tokio_sync::oneshot;
 
 /// Error conditions when retrieving a snapshot.
@@ -16,18 +16,13 @@ pub enum SnapshotError {
     ReceiverShutdown,
 }
 
-impl Error for SnapshotError {
-}
+impl Error for SnapshotError {}
 
 impl fmt::Display for SnapshotError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            SnapshotError::InternalError => {
-                write!(f, "internal error while collecting snapshot")
-            },
-            SnapshotError::ReceiverShutdown => {
-                write!(f, "receiver is shutdown")
-            },
+            SnapshotError::InternalError => write!(f, "internal error while collecting snapshot"),
+            SnapshotError::ReceiverShutdown => write!(f, "receiver is shutdown"),
         }
     }
 }
