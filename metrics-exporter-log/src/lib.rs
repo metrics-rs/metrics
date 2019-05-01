@@ -7,17 +7,17 @@
 //! # Run Modes
 //! - `run` can be used to block the current thread, taking snapshots and exporting them on an
 //! interval
-//! - `into_future` will return a [`Future`] that when driven will take a snapshot on the 
+//! - `into_future` will return a [`Future`] that when driven will take a snapshot on the
 //! configured interval and log it
 #[macro_use]
 extern crate log;
 
+use futures::prelude::*;
+use log::Level;
+use metrics_core::{AsyncSnapshotProvider, Recorder, Snapshot, SnapshotProvider};
 use std::error::Error;
 use std::thread;
 use std::time::Duration;
-use metrics_core::{Recorder, Snapshot, SnapshotProvider, AsyncSnapshotProvider};
-use log::Level;
-use futures::prelude::*;
 use tokio_timer::Interval;
 
 /// Exports metrics by converting them to a textual representation and logging them.
@@ -67,7 +67,7 @@ where
                 snapshot.record(&mut recorder);
                 let output = recorder.into();
                 log!(self.level, "{}", output);
-            },
+            }
             Err(e) => log!(Level::Error, "failed to get snapshot: {}", e),
         }
     }
@@ -87,7 +87,8 @@ where
             .for_each(move |_| {
                 let mut recorder = recorder.clone();
 
-                controller.get_snapshot_async()
+                controller
+                    .get_snapshot_async()
                     .and_then(move |snapshot| {
                         snapshot.record(&mut recorder);
                         let output = recorder.into();
