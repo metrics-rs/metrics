@@ -1,6 +1,6 @@
 [package]
 name = "metrics"
-version = "0.9.0"
+version = "0.9.1"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -35,9 +35,9 @@ hashbrown = "^0.1"
 quanta = "^0.2"
 futures = "^0.1"
 tokio-sync = "^0.1"
-metrics-exporter-log = { path = "../metrics-exporter-log", version = "^0.1", optional = true }
-metrics-recorder-text = { path = "../metrics-recorder-text", version = "^0.1", optional = true }
-metrics-recorder-prometheus = { path = "../metrics-recorder-prometheus", version = "^0.1", optional = true }
+metrics-exporter-log = { path = "../metrics-exporter-log", version = "^0.2", optional = true }
+metrics-recorder-text = { path = "../metrics-recorder-text", version = "^0.2", optional = true }
+metrics-recorder-prometheus = { path = "../metrics-recorder-prometheus", version = "^0.2", optional = true }
 
 [dev-dependencies]
 log = "^0.4"

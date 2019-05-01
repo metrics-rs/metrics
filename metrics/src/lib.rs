@@ -124,7 +124,10 @@ mod sink;
 #[cfg(any(feature = "metrics-exporter-log"))]
 pub mod exporters;
 
-#[cfg(any(feature = "metrics-recorder-text", feature = "metrics-recorder-prometheus"))]
+#[cfg(any(
+    feature = "metrics-recorder-text",
+    feature = "metrics-recorder-prometheus"
+))]
 pub mod recorders;
 
 pub use self::{
