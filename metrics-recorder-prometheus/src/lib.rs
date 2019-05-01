@@ -1,8 +1,8 @@
 //! Records metrics in the Prometheus exposition format.
-use std::time::SystemTime;
 use hdrhistogram::Histogram;
 use metrics_core::Recorder;
-use metrics_util::{Quantile, parse_quantiles};
+use metrics_util::{parse_quantiles, Quantile};
+use std::time::SystemTime;
 
 /// Records metrics in the Prometheus exposition format.
 pub struct PrometheusRecorder {
@@ -16,11 +16,15 @@ impl PrometheusRecorder {
     /// Configures the recorder with these default quantiles: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and
     /// 1.0.  If you want to customize the quantiles used, you can call
     ///   [`PrometheusRecorder::with_quantiles`].
+    ///
+    /// The configured quantiles are used when rendering any histograms.
     pub fn new() -> Self {
         Self::with_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0])
     }
 
     /// Creates a new [`PrometheusRecorder`] with the given set of quantiles.
+    ///
+    /// The configured quantiles are used when rendering any histograms.
     pub fn with_quantiles(quantiles: &[f64]) -> Self {
         let actual_quantiles = parse_quantiles(quantiles);
         Self {
@@ -102,9 +106,13 @@ impl Into<String> for PrometheusRecorder {
 }
 
 fn get_prom_expo_header() -> String {
-    let ts = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+    let ts = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
-    format!("# metrics snapshot (ts={}) (prometheus exposition format)", ts)
+    format!(
+        "# metrics snapshot (ts={}) (prometheus exposition format)",
+        ts
+    )
 }
