@@ -42,11 +42,11 @@
 //!   connect_time max: 139389
 //! ```
 //!
-use std::collections::{HashMap, VecDeque};
-use std::fmt::Display;
 use hdrhistogram::Histogram;
 use metrics_core::Recorder;
-use metrics_util::{Quantile, parse_quantiles};
+use metrics_util::{parse_quantiles, Quantile};
+use std::collections::{HashMap, VecDeque};
+use std::fmt::Display;
 
 /// Records metrics in a hierarchical, text-based format.
 pub struct TextRecorder {
@@ -60,11 +60,15 @@ impl TextRecorder {
     /// Configures the recorder with these default quantiles: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and
     /// 1.0.  If you want to customize the quantiles used, you can call
     ///   [`TextRecorder::with_quantiles`].
+    ///
+    /// The configured quantiles are used when rendering any histograms.
     pub fn new() -> Self {
         Self::with_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0])
     }
 
     /// Creates a new [`TextRecorder`] with the given set of quantiles.
+    ///
+    /// The configured quantiles are used when rendering any histograms.
     pub fn with_quantiles(quantiles: &[f64]) -> Self {
         let actual_quantiles = parse_quantiles(quantiles);
 
@@ -249,12 +253,7 @@ fn hist_to_values(name: String, hist: Histogram<u64>, quantiles: &[Quantile]) ->
     values.push(format!("{} count: {}", name, hist.len()));
     for quantile in quantiles {
         let value = hist.value_at_quantile(quantile.value());
-        values.push(format!(
-            "{} {}: {}",
-            name,
-            quantile.label(),
-            value,
-        ));
+        values.push(format!("{} {}: {}", name, quantile.label(), value));
     }
 
     values
