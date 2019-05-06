@@ -121,7 +121,10 @@ mod receiver;
 mod scopes;
 mod sink;
 
-#[cfg(any(feature = "metrics-exporter-log"))]
+#[cfg(any(
+    feature = "metrics-exporter-log",
+    feature = "metrics-exporter-http"
+))]
 pub mod exporters;
 
 #[cfg(any(

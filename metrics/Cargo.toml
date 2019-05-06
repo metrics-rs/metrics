@@ -23,7 +23,7 @@ lto = true
 
 [features]
 default = ["exporters", "recorders"]
-exporters = ["metrics-exporter-log"]
+exporters = ["metrics-exporter-log", "metrics-exporter-http"]
 recorders = ["metrics-recorder-text", "metrics-recorder-prometheus"]
 
 [dependencies]
@@ -36,6 +36,7 @@ quanta = "^0.2"
 futures = "^0.1"
 tokio-sync = "^0.1"
 metrics-exporter-log = { path = "../metrics-exporter-log", version = "^0.2", optional = true }
+metrics-exporter-http = { path = "../metrics-exporter-http", version = "^0.1", optional = true }
 metrics-recorder-text = { path = "../metrics-recorder-text", version = "^0.2", optional = true }
 metrics-recorder-prometheus = { path = "../metrics-recorder-prometheus", version = "^0.2", optional = true }
 
