@@ -1,6 +1,6 @@
 [package]
 name = "metrics-util"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -16,4 +16,19 @@ readme = "README.md"
 
 keywords = ["metrics", "quantile", "percentile"]
 
+[[bench]]
+name = "bucket"
+harness = false
+
+[[bench]]
+name = "streaming_integers"
+harness = false
+
 [dependencies]
+crossbeam-epoch = "^0.7"
+
+[dev-dependencies]
+crossbeam = "^0.7"
+criterion = "^0.2.9"
+lazy_static = "^1.3"
+rand = "^0.6"
