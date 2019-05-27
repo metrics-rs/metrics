@@ -1,6 +1,6 @@
 [package]
 name = "metrics-recorder-text"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -14,5 +14,5 @@ documentation = "https://docs.rs/metrics-recorder-text"
 
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.3" }
-metrics-util = { path = "../metrics-util", version = "^0.1" }
+metrics-util = { path = "../metrics-util", version = "^0.2" }
 hdrhistogram = "^6.1"
