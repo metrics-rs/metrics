@@ -1,44 +1,19 @@
-use crate::data::ScopedKey;
-use fnv::FnvBuildHasher;
-use hashbrown::HashMap;
+use crate::common::MetricValue;
 
-pub(crate) struct Counter {
-    data: HashMap<ScopedKey, u64, FnvBuildHasher>,
+/// Proxy object to update a counter.
+pub struct Counter {
+    handle: MetricValue,
 }
 
 impl Counter {
-    pub fn new() -> Counter {
-        Counter {
-            data: HashMap::default(),
-        }
-    }
-
-    pub fn update(&mut self, key: ScopedKey, delta: u64) {
-        let value = self.data.entry(key).or_insert(0);
-        *value = value.wrapping_add(delta);
-    }
-
-    pub fn values(&self) -> Vec<(ScopedKey, u64)> {
-        self.data.iter().map(|(k, v)| (k.clone(), *v)).collect()
+    /// Records a value for the counter.
+    pub fn record(&self, value: u64) {
+        self.handle.update_counter(value);
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{Counter, ScopedKey};
-
-    #[test]
-    fn test_counter_simple_update() {
-        let mut counter = Counter::new();
-
-        let key = ScopedKey(0, "foo".into());
-        counter.update(key, 42);
-
-        let key2 = ScopedKey(0, "foo".to_owned().into());
-        counter.update(key2, 31);
-
-        let values = counter.values();
-        assert_eq!(values.len(), 1);
-        assert_eq!(values[0].1, 73);
+impl From<MetricValue> for Counter {
+    fn from(handle: MetricValue) -> Self {
+        Self { handle }
     }
 }
