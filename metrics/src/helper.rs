@@ -1,12 +1,4 @@
-use std::{
-    io::{Error, ErrorKind},
-    time::Duration,
-};
-
-/// Helpers to create an I/O error from a string.
-pub fn io_error(reason: &str) -> Error {
-    Error::new(ErrorKind::Other, reason)
-}
+use std::time::Duration;
 
 /// Converts a duration to nanoseconds.
 pub fn duration_as_nanos(d: Duration) -> u64 {

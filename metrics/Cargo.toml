@@ -28,13 +28,14 @@ recorders = ["metrics-recorder-text", "metrics-recorder-prometheus"]
 
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.3" }
-crossbeam-channel = "^0.3"
+metrics-util = { path = "../metrics-util", version = "^0.2" }
+im = "^12"
+fxhash = "^0.2"
+arc-swap = "^0.3"
 parking_lot = "^0.7"
-fnv = "^1.0"
-hashbrown = "^0.1"
-quanta = "^0.2"
+hashbrown = "^0.3"
+quanta = "^0.3"
 futures = "^0.1"
-tokio-sync = "^0.1"
 metrics-exporter-log = { path = "../metrics-exporter-log", version = "^0.2", optional = true }
 metrics-exporter-http = { path = "../metrics-exporter-http", version = "^0.1", optional = true }
 metrics-recorder-text = { path = "../metrics-recorder-text", version = "^0.2", optional = true }
