@@ -1,0 +1,20 @@
+jobs:
+- job: test_metrics_minimum
+  displayName: Test Metrics Minimum
+  strategy:
+    matrix:
+      Linux:
+        vmImage: ubuntu-16.04
+      MacOS:
+        vmImage: macOS-10.13
+      Windows:
+        vmImage: vs2017-win2016
+  pool:
+    vmImage: $(vmImage)
+
+  steps:
+  - template: azure-install-rust.yml
+    parameters:
+      rust_version: 1.34.0
+  - script: cargo test
+    displayName: cargo test
