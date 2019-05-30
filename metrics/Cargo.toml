@@ -33,6 +33,7 @@ harness = false
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.3" }
 metrics-util = { path = "../metrics-util", version = "^0.2" }
+metrics-facade = { path = "../metrics-facade", version = "^0.1" }
 im = "^12"
 fxhash = "^0.2"
 arc-swap = "^0.3"

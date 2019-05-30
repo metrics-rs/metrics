@@ -32,7 +32,21 @@
 //!
 //! Histograms are a convenient way to measure behavior not only at the median, but at the edges of
 //! normal operating behavior.
+use std::borrow::Cow;
 use futures::future::Future;
+
+/// An optimized metric name.
+///
+/// As some metrics might be sent at high frequency, it makes no sense to constantly allocate and
+/// reallocate owned [`String`]s when a static [`str`] would suffice.  As we don't want to limit
+/// callers, though, we opt to use a copy-on-write pointer -- [`Cow`] -- to allow callers
+/// flexiblity in how and what they pass.
+///
+/// While this is within the core crate of the metrics ecosystem, we do not enforce its usage
+/// within the core traits themselves at this point in time.  Doing some would prevent metrics
+/// systems from making different choices, such as using enums for their metric names.  In the end,
+/// we expect that the output from a metrics system must end up being a string, but requiring
+pub type MetricName = Cow<'static, str>;
 
 /// A value that records metrics.
 pub trait Recorder {
@@ -58,6 +72,8 @@ pub trait Recorder {
     ///
     /// Recorders are expected to tally their own histogram views, so this will be called with all
     /// of the underlying observed values, and callers will need to process them accordingly.
+    ///
+    /// There is no guarantee that this method will not be called multiple times for the same key.
     fn record_histogram<K: AsRef<str>>(&mut self, key: K, values: &[u64]);
 }
 
