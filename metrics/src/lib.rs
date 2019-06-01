@@ -165,6 +165,8 @@
 //!
 //! [metrics_core]: https://docs.rs/metrics-core
 //! [`Recorder`]: https://docs.rs/metrics-core/0.3.1/metrics_core/trait.Recorder.html
+#![deny(missing_docs)]
+#![warn(unused_extern_crates)]
 mod builder;
 mod common;
 mod config;

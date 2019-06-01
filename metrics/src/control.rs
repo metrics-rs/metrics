@@ -11,6 +11,9 @@ use std::sync::Arc;
 pub enum SnapshotError {
     /// The future was polled again after returning the snapshot.
     AlreadyUsed,
+
+    #[doc(hidden)]
+    _NonExhaustive,
 }
 
 impl Error for SnapshotError {}
@@ -19,6 +22,7 @@ impl fmt::Display for SnapshotError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             SnapshotError::AlreadyUsed => write!(f, "snapshot already returned from future"),
+            SnapshotError::_NonExhaustive => write!(f, "non-exhaustive matching"),
         }
     }
 }

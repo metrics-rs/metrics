@@ -1,4 +1,4 @@
-use crate::Receiver;
+use crate::{config::Configuration, Receiver};
 use std::error::Error;
 use std::fmt;
 use std::time::Duration;
@@ -20,6 +20,9 @@ pub enum BuilderError {
     /// that the read and write operations exclusively rely on.  While this source is not as
     /// up-to-date as the real clock, it is much faster to access.
     UpkeepFailure,
+
+    #[doc(hidden)]
+    _NonExhaustive,
 }
 
 impl Error for BuilderError {}
@@ -28,6 +31,7 @@ impl fmt::Display for BuilderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             BuilderError::UpkeepFailure => write!(f, "failed to spawn quanta upkeep thread"),
+            BuilderError::_NonExhaustive => write!(f, "non-exhaustive matching"),
         }
     }
 }
@@ -37,6 +41,7 @@ impl fmt::Display for BuilderError {
 pub struct Builder {
     pub(crate) histogram_window: Duration,
     pub(crate) histogram_granularity: Duration,
+    pub(crate) upkeep_interval: Duration,
 }
 
 impl Default for Builder {
@@ -44,6 +49,7 @@ impl Default for Builder {
         Self {
             histogram_window: Duration::from_secs(10),
             histogram_granularity: Duration::from_secs(1),
+            upkeep_interval: Duration::from_millis(50),
         }
     }
 }
@@ -70,8 +76,23 @@ impl Builder {
         self
     }
 
+    /// Sets the upkeep interval.
+    ///
+    /// Defaults to 50 milliseconds.
+    ///
+    /// This controls how often the time source, used internally by histograms, is updated with the
+    /// real time.  For performance reasons, histograms use a sampled time source when they perform
+    /// checks to see if internal maintenance needs to occur.  If the histogram granularity is set
+    /// very low, then this interval might need to be similarly reduced to make sure we're able to
+    /// update the time more often than histograms need to perform upkeep.
+    pub fn upkeep_interval(mut self, interval: Duration) -> Self {
+        self.upkeep_interval = interval;
+        self
+    }
+
     /// Create a [`Receiver`] based on this configuration.
     pub fn build(self) -> Result<Receiver, BuilderError> {
-        Receiver::from_builder(self)
+        let config = Configuration::from_builder(&self);
+        Receiver::from_config(config)
     }
 }

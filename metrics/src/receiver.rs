@@ -1,14 +1,13 @@
 use crate::{
     builder::{Builder, BuilderError},
     common::MetricScope,
-    config::MetricConfiguration,
+    config::Configuration,
     control::Controller,
     registry::{MetricRegistry, ScopeRegistry},
     sink::Sink,
 };
 use quanta::{Builder as UpkeepBuilder, Clock, Handle as UpkeepHandle};
 use std::sync::Arc;
-use std::time::Duration;
 
 /// Central store for metrics.
 ///
@@ -23,23 +22,20 @@ pub struct Receiver {
 }
 
 impl Receiver {
-    pub(crate) fn from_builder(builder: Builder) -> Result<Receiver, BuilderError> {
+    pub(crate) fn from_config(config: Configuration) -> Result<Receiver, BuilderError> {
         // Configure our clock and configure the quanta upkeep thread. The upkeep thread does that
         // for us, and keeps us within `upkeep_interval` of the true time.  The reads of this cache
         // time are faster than calling the underlying time source directly, and for histogram
         // windowing, we can afford to have a very granular value compared to the raw nanosecond
         // precsion provided by quanta by default.
         let clock = Clock::new();
-        let upkeep_interval = Duration::from_millis(50);
-        let upkeep = UpkeepBuilder::new_with_clock(upkeep_interval, clock.clone());
+        let upkeep = UpkeepBuilder::new_with_clock(config.upkeep_interval, clock.clone());
         let _upkeep_handle = upkeep.start().map_err(|_| BuilderError::UpkeepFailure)?;
-
-        let metric_config = MetricConfiguration::from_builder(&builder);
 
         let scope_registry = Arc::new(ScopeRegistry::new());
         let metric_registry = Arc::new(MetricRegistry::new(
             scope_registry.clone(),
-            metric_config,
+            config,
             clock.clone(),
         ));
 

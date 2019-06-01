@@ -71,9 +71,9 @@ impl Generator {
                     0
                 };
 
-                //let _ = self.stats.record_count("ok", 1);
+                let _ = self.stats.record_count("ok", 1);
                 let _ = self.stats.record_timing("ok", t0, t1);
-                //let _ = self.stats.record_gauge("total", self.gauge);
+                let _ = self.stats.record_gauge("total", self.gauge);
 
                 if start != 0 {
                     let delta = self.stats.now() - start;
@@ -81,7 +81,7 @@ impl Generator {
 
                     // We also increment our global counter for the sample rate here.
                     self.rate_counter
-                        .fetch_add(LOOP_SAMPLE * 1, Ordering::AcqRel);
+                        .fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
                 }
             }
 
@@ -114,9 +114,9 @@ impl Generator {
                     0
                 };
 
-                //let _ = counter_handle.record(1);
+                let _ = counter_handle.record(1);
                 let _ = timing_handle.record_timing(t0, t1);
-                //let _ = gauge_handle.record(self.gauge);
+                let _ = gauge_handle.record(self.gauge);
 
                 if start != 0 {
                     let delta = self.stats.now() - start;
@@ -124,7 +124,7 @@ impl Generator {
 
                     // We also increment our global counter for the sample rate here.
                     self.rate_counter
-                        .fetch_add(LOOP_SAMPLE * 1, Ordering::AcqRel);
+                        .fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
                 }
             }
 
