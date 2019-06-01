@@ -37,6 +37,7 @@ impl fmt::Display for SinkError {
 /// scope, to avoid needing to allocate in the case where we want to be able to specify multiple
 /// scope levels in a single go.
 pub trait AsScoped<'a> {
+    /// Creates a new [`MetricScope`] by adding `self` to the `base` scope.
     fn as_scoped(&'a self, base: MetricScope) -> MetricScope;
 }
 

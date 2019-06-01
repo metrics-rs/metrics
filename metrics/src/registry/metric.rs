@@ -1,5 +1,5 @@
 use crate::common::{MetricIdentifier, MetricKind, MetricValue};
-use crate::config::MetricConfiguration;
+use crate::config::Configuration;
 use crate::data::Snapshot;
 use crate::registry::ScopeRegistry;
 use arc_swap::{ptr_eq, ArcSwap};
@@ -11,16 +11,12 @@ use std::sync::Arc;
 pub(crate) struct MetricRegistry {
     scope_registry: Arc<ScopeRegistry>,
     metrics: ArcSwap<HashMap<MetricIdentifier, MetricValue>>,
-    config: MetricConfiguration,
+    config: Configuration,
     clock: Clock,
 }
 
 impl MetricRegistry {
-    pub fn new(
-        scope_registry: Arc<ScopeRegistry>,
-        config: MetricConfiguration,
-        clock: Clock,
-    ) -> Self {
+    pub fn new(scope_registry: Arc<ScopeRegistry>, config: Configuration, clock: Clock) -> Self {
         MetricRegistry {
             scope_registry,
             metrics: ArcSwap::new(Arc::new(HashMap::new())),
@@ -39,9 +35,9 @@ impl MetricRegistry {
                     };
 
                     let value_handle = match kind {
-                        MetricKind::Counter => MetricValue::new_counter(),
-                        MetricKind::Gauge => MetricValue::new_gauge(),
-                        MetricKind::Histogram => MetricValue::new_histogram(
+                        MetricKind::Counter => MetricValue::counter(),
+                        MetricKind::Gauge => MetricValue::gauge(),
+                        MetricKind::Histogram => MetricValue::histogram(
                             self.config.histogram_window,
                             self.config.histogram_granularity,
                             self.clock.clone(),

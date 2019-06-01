@@ -20,7 +20,10 @@ pub type MetricName = Cow<'static, str>;
 /// See also: [Sink::scoped](crate::Sink::scoped).
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum MetricScope {
+    /// Root scope.
     Root,
+
+    /// A nested scope, with arbitrarily deep nesting.
     Nested(Vec<String>),
 }
 
@@ -79,15 +82,15 @@ impl MetricValue {
         }
     }
 
-    pub(crate) fn new_counter() -> Self {
+    pub fn counter() -> Self {
         Self::new(ValueState::Counter(AtomicU64::new(0)))
     }
 
-    pub(crate) fn new_gauge() -> Self {
+    pub fn gauge() -> Self {
         Self::new(ValueState::Gauge(AtomicI64::new(0)))
     }
 
-    pub(crate) fn new_histogram(window: Duration, granularity: Duration, clock: Clock) -> Self {
+    pub fn histogram(window: Duration, granularity: Duration, clock: Clock) -> Self {
         Self::new(ValueState::Histogram(AtomicWindowedHistogram::new(
             window,
             granularity,
@@ -95,7 +98,7 @@ impl MetricValue {
         )))
     }
 
-    pub(crate) fn update_counter(&self, value: u64) {
+    pub fn update_counter(&self, value: u64) {
         match self.state.deref() {
             ValueState::Counter(inner) => {
                 inner.fetch_add(value, Ordering::Release);
@@ -104,21 +107,21 @@ impl MetricValue {
         }
     }
 
-    pub(crate) fn update_gauge(&self, value: i64) {
+    pub fn update_gauge(&self, value: i64) {
         match self.state.deref() {
             ValueState::Gauge(inner) => inner.store(value, Ordering::Release),
             _ => unreachable!("tried to access as gauge, not a gauge"),
         }
     }
 
-    pub(crate) fn update_histogram(&self, value: u64) {
+    pub fn update_histogram(&self, value: u64) {
         match self.state.deref() {
             ValueState::Histogram(inner) => inner.record(value),
             _ => unreachable!("tried to access as histogram, not a histogram"),
         }
     }
 
-    pub(crate) fn snapshot(&self) -> ValueSnapshot {
+    pub fn snapshot(&self) -> ValueSnapshot {
         match self.state.deref() {
             ValueState::Counter(inner) => {
                 let value = inner.load(Ordering::Acquire);
@@ -138,6 +141,10 @@ impl MetricValue {
 
 /// Trait for types that represent time and can be subtracted from each other to generate a delta.
 pub trait Delta {
+    /// Get the delta between this value and another value.
+    ///
+    /// For `Instant`, we explicitly return the nanosecond difference.  For `u64`, we return the
+    /// integer difference, but the timescale itself can be whatever the user desires.
     fn delta(&self, other: Self) -> u64;
 }
 
@@ -203,14 +210,14 @@ mod tests {
 
     #[test]
     fn test_metric_values() {
-        let counter = MetricValue::new_counter();
+        let counter = MetricValue::counter();
         counter.update_counter(42);
         match counter.snapshot() {
             ValueSnapshot::Counter(value) => assert_eq!(value, 42),
             _ => panic!("incorrect value snapshot type for counter"),
         }
 
-        let gauge = MetricValue::new_gauge();
+        let gauge = MetricValue::gauge();
         gauge.update_gauge(23);
         match gauge.snapshot() {
             ValueSnapshot::Gauge(value) => assert_eq!(value, 23),
@@ -219,7 +226,7 @@ mod tests {
 
         let (mock, _) = Clock::mock();
         let histogram =
-            MetricValue::new_histogram(Duration::from_secs(10), Duration::from_secs(1), mock);
+            MetricValue::histogram(Duration::from_secs(10), Duration::from_secs(1), mock);
         histogram.update_histogram(8675309);
         histogram.update_histogram(5551212);
         match histogram.snapshot() {
