@@ -1,7 +1,9 @@
 use crate::common::{Delta, MetricValue};
 use crate::helper::duration_as_nanos;
+use crossbeam_utils::Backoff;
 use metrics_util::{AtomicBucket, StreamingIntegers};
 use quanta::Clock;
+use std::cmp;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
 
@@ -29,20 +31,39 @@ impl From<MetricValue> for Histogram {
     }
 }
 
+/// An atomic windowed histogram.
+///
+/// This histogram provides a windowed view of values that rolls forward over time, dropping old
+/// values as they exceed the window of the histogram.  Writes into the histogram are lock-free, as
+/// well as snapshots of the histogram.
 #[derive(Debug)]
 pub struct AtomicWindowedHistogram {
     buckets: Vec<AtomicBucket<u64>>,
     bucket_count: usize,
     granularity: u64,
+    upkeep_index: AtomicUsize,
     index: AtomicUsize,
     next_upkeep: AtomicU64,
     clock: Clock,
 }
 
 impl AtomicWindowedHistogram {
+    /// Creates a new [`AtomicWindowedHistogram`].
+    ///
+    /// Internally, a number of buckets will be created, based on how many times `granularity` goes
+    /// into `window`.  As time passes, buckets will be cleared to avoid values older than the
+    /// `window` duration.
+    ///
+    /// As buckets will hold values represneting a period of time up to `granularity`, the
+    /// granularity can be lowered or raised to roll values off more precisely, or less precisely,
+    /// against the provided clock.
+    ///
+    /// # Panics
+    /// Panics if `granularity` is larger than `window`.
     pub fn new(window: Duration, granularity: Duration, clock: Clock) -> Self {
         let window_ns = duration_as_nanos(window);
         let granularity_ns = duration_as_nanos(granularity);
+        assert!(window_ns > granularity_ns);
         let now = clock.recent();
 
         let bucket_count = ((window_ns / granularity_ns) as usize) + 1;
@@ -57,62 +78,122 @@ impl AtomicWindowedHistogram {
             buckets,
             bucket_count,
             granularity: granularity_ns,
+            upkeep_index: AtomicUsize::new(0),
             index: AtomicUsize::new(0),
             next_upkeep: AtomicU64::new(next_upkeep),
             clock,
         }
     }
 
+    /// Takes a snapshot of the current histogram.
+    ///
+    /// Returns a [`StreamingIntegers`] value, representing all observed values in the
+    /// histogram.  As writes happen concurrently, along with buckets being cleared, a snapshot is
+    /// not guaranteed to have all values present at the time the method was called.
     pub fn snapshot(&self) -> StreamingIntegers {
         // Run upkeep to make sure our window reflects any time passage since the last write.
-        let _ = self.upkeep();
+        let index = self.upkeep();
 
         let mut streaming = StreamingIntegers::new();
-        for bucket in &self.buckets {
+
+        // Start from the bucket ahead of the currently-being-written-to-bucket so that we outrace
+        // any upkeep and get access to more of the data.
+        for i in 0..self.bucket_count {
+            let bucket_index = (index + i + 1) % self.bucket_count;
+            let bucket = &self.buckets[bucket_index];
             bucket.data_with(|block| streaming.compress(block));
         }
         streaming
     }
 
+    /// Records a value to the histogram.
     pub fn record(&self, value: u64) {
         let index = self.upkeep();
         self.buckets[index].push(value);
     }
 
     fn upkeep(&self) -> usize {
-        loop {
-            let now = self.clock.recent();
-            let index = self.index.load(Ordering::Acquire);
+        let backoff = Backoff::new();
 
-            // See if we need to update the index because we're past our upkeep target.
+        loop {
+            // Start by figuring out if the histogram needs to perform upkeep.
+            let now = self.clock.recent();
             let next_upkeep = self.next_upkeep.load(Ordering::Acquire);
-            if now < next_upkeep {
-                return index;
+            if now <= next_upkeep {
+                let index = self.index.load(Ordering::Acquire);
+                let actual_index = index % self.bucket_count;
+
+                //println!("upkeep -> not yet time, index={} bucket={}", index, actual_index);
+
+                return actual_index;
             }
 
-            let new_index = (index + 1) % self.bucket_count;
-            if self
-                .index
-                .compare_and_swap(index, new_index, Ordering::AcqRel)
-                == index
-            {
-                // If we've had to update the index, go ahead and clear the bucket in front of our
-                // new bucket.  Since we write low to high/left to right, the "oldest" bucket,
-                // which is the one that should be dropped, is the one we just updated our index
-                // to, but we always add an extra bucket on top of what we need so that we can
-                // clear that one, instead of clearing the one we're going to be writing to next so
-                // that we don't clear the values of writers who start writing to the new bucket
-                // while we're doing the clear.
-                self.buckets[new_index].clear();
+            // We do need to perform upkeep, but someone *else* might actually be doing it already,
+            // so go ahead and wait until the index is caught up with the upkeep index: the upkeep
+            // index will be ahead of index until upkeep is complete.
+            let mut upkeep_in_progress = false;
+            let mut index = 0;
+            //println!("upkeep -> checking to make sure upkeep not running");
+            loop {
+                index = self.index.load(Ordering::Acquire);
+                let upkeep_index = self.upkeep_index.load(Ordering::Acquire);
+                if index == upkeep_index {
+                    //println!("upkeep -> operation concluded/no operation running");
+                    break;
+                }
 
-                // Since another write could outrun us, just do a single CAS.  99.99999999% of the
-                // time, the CAS will go through, because it takes nanoseconds and our granularity
-                // will be in the hundreds of milliseconds, if not seconds.
-                self.next_upkeep.compare_and_swap(
-                    next_upkeep,
-                    next_upkeep + self.granularity,
-                    Ordering::AcqRel,
-                );
+                upkeep_in_progress = true;
+                backoff.snooze();
+            }
+
+            // If we waited for another upkeep operation to complete, then there's the chance that
+            // enough time has passed that we're due for upkeep again, so restart our loop.
+            if upkeep_in_progress {
+                //println!("upkeep -> restarting loop as upkeep was running");
+                continue;
+            }
+
+            // Figure out how many buckets, up to the maximum, need to be cleared based on the
+            // delta between the target upkeep time and the actual time.  We always clear at least
+            // one bucket, but may need to clear them all.
+            let delta = now - next_upkeep;
+            let bucket_depth = cmp::min((delta / self.granularity) as usize, self.bucket_count) + 1;
+            //println!("upkeep -> clearing {} buckets", bucket_depth);
+
+            // Now that we we know how many buckets we need to clear, update the index to pointer
+            // writers at the next bucket past the last one that we will be clearing.
+            let new_index = index + bucket_depth;
+            let prev_index = self
+                .index
+                .compare_and_swap(index, new_index, Ordering::SeqCst);
+            if prev_index == index {
+                //println!("upkeep -> updated index from {} to {} (bucket #{} -> #{})", prev_index, new_index, prev_index % self.bucket_count, new_index % self.bucket_count);
+                // We won the race to update the index, so we're going to do two things:
+                // - update the next upkeep time value
+                // - actually do upkeep and clear the buckets
+
+                // We have to update the upkeep target so that writers can proceed through the "is
+                // it time for upkeep?" check.  We do this before the actual upkeep so writers can
+                // proceed as soon as possible after the index update.
+                let now = self.clock.now();
+                let next_upkeep = now + self.granularity;
+                self.next_upkeep.store(next_upkeep, Ordering::Release);
+                //println!("upkeep -> next upkeep set as {} (now={})", next_upkeep, now);
+
+                // Now we clear the buckets.  We want to clear everything from the starting value
+                // of index up to the new index we've set.  We don't want to clear the now-current
+                // bucket because we'd be clearing very recent values.
+                while index < new_index {
+                    index += 1;
+                    let clear_index = index % self.bucket_count;
+                    self.buckets[clear_index].clear();
+                    //println!("upkeep -> cleared bucket #{}", clear_index);
+                }
+
+                // We've cleared the old buckets, so upkeep is done.  Push our upkeep index forward
+                // so that writers who were blocked waiting for upkeep to conclude can restart.
+                self.upkeep_index.store(new_index, Ordering::Release);
+                //println!("upkeep -> concluded, upkeep index is now {}", new_index);
             }
         }
     }
@@ -121,6 +202,7 @@ impl AtomicWindowedHistogram {
 #[cfg(test)]
 mod tests {
     use super::{AtomicWindowedHistogram, Clock};
+    use crossbeam_utils::thread;
     use std::time::Duration;
 
     #[test]
@@ -162,7 +244,12 @@ mod tests {
     #[test]
     fn test_windowed_histogram_rollover() {
         let (clock, ctl) = Clock::mock();
-        let h = AtomicWindowedHistogram::new(Duration::from_secs(5), Duration::from_secs(1), clock);
+
+        // Set our granularity at right below a second, so that when we when add a second, we don't
+        // land on the same exact value, and our "now" time should always be ahead of the upkeep
+        // time when we expect it to be.
+        let h =
+            AtomicWindowedHistogram::new(Duration::from_secs(5), Duration::from_millis(999), clock);
 
         // Histogram is empty, snapshot is empty.
         let snapshot = h.snapshot();
@@ -225,5 +312,53 @@ mod tests {
         ctl.increment(Duration::from_secs(1));
         let snapshot = h.snapshot();
         assert_eq!(snapshot.len(), 0);
+    }
+
+    #[test]
+    fn test_histogram_write_gauntlet_mt() {
+        let clock = Clock::new();
+        let clock2 = clock.clone();
+        let target = clock.now() + Duration::from_secs(5).as_nanos() as u64;
+        let h = AtomicWindowedHistogram::new(
+            Duration::from_secs(20),
+            Duration::from_millis(500),
+            clock,
+        );
+
+        thread::scope(|s| {
+            let t1 = s.spawn(|_| {
+                let mut total = 0;
+                while clock2.now() < target {
+                    h.record(42);
+                    total += 1;
+                }
+                total
+            });
+            let t2 = s.spawn(|_| {
+                let mut total = 0;
+                while clock2.now() < target {
+                    h.record(42);
+                    total += 1;
+                }
+                total
+            });
+            let t3 = s.spawn(|_| {
+                let mut total = 0;
+                while clock2.now() < target {
+                    h.record(42);
+                    total += 1;
+                }
+                total
+            });
+
+            let t1_total = t1.join().expect("thread 1 panicked during test");
+            let t2_total = t2.join().expect("thread 2 panicked during test");
+            let t3_total = t3.join().expect("thread 3 panicked during test");
+
+            let total = t1_total + t2_total + t3_total;
+            let snap = h.snapshot();
+            assert_eq!(total, snap.len());
+        })
+        .unwrap();
     }
 }

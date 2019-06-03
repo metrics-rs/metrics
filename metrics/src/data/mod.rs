@@ -6,8 +6,7 @@ mod gauge;
 pub use gauge::Gauge;
 
 mod histogram;
-pub(crate) use histogram::AtomicWindowedHistogram;
-pub use histogram::Histogram;
+pub use histogram::{AtomicWindowedHistogram, Histogram};
 
 mod snapshot;
 pub use snapshot::Snapshot;
