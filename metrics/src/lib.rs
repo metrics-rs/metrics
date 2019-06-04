@@ -7,16 +7,18 @@
 //!
 //! The library follows a pattern of "senders" and a "receiver."
 //!
-//! Callers create a [`Receiver`], which acts as a contained unit: metric registration,
-//! aggregation, and summarization.  The [`Receiver`] is intended to be spawned onto a dedicated
-//! background thread.
+//! Callers create a [`Receiver`], which acts as a registry for all metrics that flow through it.
+//! It allows creating new sinks as well as controllers, both necessary to push in and pull out
+//! metrics from the system.  It also manages background resources necessary for the registry to
+//! operate.
 //!
 //! Once a [`Receiver`] is created, callers can either create a [`Sink`] for sending metrics, or a
 //! [`Controller`] for getting metrics out.
 //!
-//! A [`Sink`] can be cheaply cloned and does not require a mutable reference to send metrics, so
-//! callers have increased flexibility in usage and control over whether or not to clone sinks,
-//! share references, etc.
+//! A [`Sink`] can be cheaply cloned, and offers convenience methods for getting the current time
+//! as well as getting direct handles to a given metric.  This allows users to either work with the
+//! fuller API exposed by [`Sink`] or to take a compositional approach and embed fields that
+//! represent each particular metric to be sent.
 //!
 //! A [`Controller`] provides both a synchronous and asynchronous snapshotting interface, which is
 //! [`metrics-core`][metrics_core] compatible for exporting.  This allows flexibility in
@@ -25,8 +27,11 @@
 //!
 //! # Performance
 //!
-//! Being based on [`crossbeam-channel`][crossbeam_channel] allows us to process close to ten
-//! million metrics per second using a single core, with average ingest latencies of around 100ns.
+//! Users can expect to be able to send tens of millions of samples per second, with ingest
+//! latencies at roughly 65-70ns at p50, and 250ns at p99.  Depending on the workload -- counters
+//! vs histograms -- latencies may be even lower, as counters and gauges are markedly faster to
+//! update than histograms.  Concurrent updates of the same metric will also cause natural
+//! contention and lower the throughput/increase the latency of ingestion.
 //!
 //! # Metrics
 //!
@@ -39,8 +44,8 @@
 //! # extern crate metrics;
 //! use metrics::Receiver;
 //! use std::{thread, time::Duration};
-//! let receiver = Receiver::builder().build();
-//! let sink = receiver.get_sink();
+//! let receiver = Receiver::builder().build().expect("failed to create receiver");
+//! let mut sink = receiver.get_sink();
 //!
 //! // We can update a counter.  Counters are monotonic, unsigned integers that start at 0 and
 //! // increase over time.
@@ -54,18 +59,18 @@
 //! // which utilizes a high-speed internal clock.  This method returns the time in nanoseconds, so
 //! // we get great resolution, but giving the time in nanoseconds isn't required!  If you want to
 //! // send it in another unit, that's fine, but just pay attention to that fact when viewing and
-//! // using those metrics once exported.
+//! // using those metrics once exported.  We also support passing `Instant` values -- both `start`
+//! // and `end` need to be the same type, though! -- and we'll take the nanosecond output of that.
 //! let start = sink.now();
 //! thread::sleep(Duration::from_millis(10));
 //! let end = sink.now();
-//! sink.record_timing("db.gizmo_query", start, end);
+//! sink.record_timing("db.queries.select_products_ns", start, end);
 //!
 //! // Finally, we can update a value histogram.  Technically speaking, value histograms aren't
 //! // fundamentally different from timing histograms.  If you use a timing histogram, we do the
-//! // math for you of getting the time difference, and we make sure the metric name has the right
-//! // unit suffix so you can tell it's measuring time, but other than that, nearly identical!
-//! let buf_size = 4096;
-//! sink.record_value("buf_size", buf_size);
+//! // math for you of getting the time difference, but other than that, identical under the hood.
+//! let row_count = 46;
+//! sink.record_value("db.queries.select_products_num_rows", row_count);
 //! ```
 //!
 //! # Scopes
@@ -82,24 +87,24 @@
 //! ```
 //! # extern crate metrics;
 //! use metrics::Receiver;
-//! let receiver = Receiver::builder().build();
+//! let receiver = Receiver::builder().build().expect("failed to create receiver");
 //!
 //! // This sink has no scope aka the root scope.  The metric will just end up as "widgets".
-//! let root_sink = receiver.get_sink();
+//! let mut root_sink = receiver.get_sink();
 //! root_sink.record_count("widgets", 42);
 //!
 //! // This sink is under the "secret" scope.  Since we derived ourselves from the root scope,
 //! // we're not nested under anything, but our metric name will end up being "secret.widgets".
-//! let scoped_sink = root_sink.scoped("secret");
+//! let mut scoped_sink = root_sink.scoped("secret");
 //! scoped_sink.record_count("widgets", 42);
 //!
 //! // This sink is under the "supersecret" scope, but we're also nested!  The metric name for this
 //! // sample will end up being "secret.supersecret.widget".
-//! let scoped_sink_two = scoped_sink.scoped("supersecret");
+//! let mut scoped_sink_two = scoped_sink.scoped("supersecret");
 //! scoped_sink_two.record_count("widgets", 42);
 //!
 //! // Sinks retain their scope even when cloned, so the metric name will be the same as above.
-//! let cloned_sink = scoped_sink_two.clone();
+//! let mut cloned_sink = scoped_sink_two.clone();
 //! cloned_sink.record_count("widgets", 42);
 //!
 //! // This sink will be nested two levels deeper than its parent by using a slightly different
@@ -107,24 +112,72 @@
 //! // nesting N levels deep.
 //! //
 //! // This metric name will end up being "super.secret.ultra.special.widgets".
-//! let scoped_sink_three = scoped_sink.scoped(&["super", "secret", "ultra", "special"]);
+//! let mut scoped_sink_three = scoped_sink.scoped(&["super", "secret", "ultra", "special"]);
 //! scoped_sink_two.record_count("widgets", 42);
 //! ```
 //!
-//! [crossbeam_channel]: https://docs.rs/crossbeam-channel
+//! # Snapshots
+//!
+//! Naturally, we need a way to get the metrics out of the system, which is where snapshots come
+//! into play.  By utilizing a [`Controller`], we can take a snapshot of the current metrics in the
+//! registry, and then output them to any desired system/interface by utilizing
+//! [`Recorder`](metrics_core::Recorder).  A number of pre-baked recorders (which only concern
+//! themselves with formatting the data) and exporters (which take the formatted data and either
+//! serve it up, such as exposing an HTTP endpoint, or write it somewhere, like stdout) are
+//! available, some of which are exposed by this crate.
+//!
+//! Let's take an example of writing out our metrics in a yaml-like format, writing them via
+//! `log!`:
+//! ```
+//! # extern crate metrics;
+//! use metrics::{Receiver, recorders::TextRecorder, exporters::LogExporter};
+//! use log::Level;
+//! use std::{thread, time::Duration};
+//! let receiver = Receiver::builder().build().expect("failed to create receiver");
+//! let mut sink = receiver.get_sink();
+//!
+//! // We can update a counter.  Counters are monotonic, unsigned integers that start at 0 and
+//! // increase over time.
+//! // Take some measurements, similar to what we had in other examples:
+//! sink.record_count("widgets", 5);
+//! sink.record_gauge("red_balloons", 99);
+//!
+//! let start = sink.now();
+//! thread::sleep(Duration::from_millis(10));
+//! let end = sink.now();
+//! sink.record_timing("db.queries.select_products_ns", start, end);
+//! sink.record_timing("db.gizmo_query", start, end);
+//!
+//! let num_rows = 46;
+//! sink.record_value("db.queries.select_products_num_rows", num_rows);
+//!
+//! // Now create our exporter/recorder configuration, and wire it up.
+//! let exporter = LogExporter::new(receiver.get_controller(), TextRecorder::new(), Level::Info);
+//!
+//! // This exporter will now run every 5 seconds, taking a snapshot, rendering it, and writing it
+//! // via `log!` at the informational level. This particular exporter is running directly on the
+//! // current thread, and not on a background thread.
+//! //
+//! // exporter.run(Duration::from_secs(5));
+//! ```
+//! Most exporters have the ability to run on the current thread or to be converted into a future
+//! which can be spawned on any Tokio-compatible runtime.
+//!
 //! [metrics_core]: https://docs.rs/metrics-core
-mod configuration;
+//! [`Recorder`]: https://docs.rs/metrics-core/0.3.1/metrics_core/trait.Recorder.html
+#![deny(missing_docs)]
+#![warn(unused_extern_crates)]
+mod builder;
+mod common;
+mod config;
 mod control;
-mod data;
+pub mod data;
 mod helper;
 mod receiver;
-mod scopes;
+mod registry;
 mod sink;
 
-#[cfg(any(
-    feature = "metrics-exporter-log",
-    feature = "metrics-exporter-http"
-))]
+#[cfg(any(feature = "metrics-exporter-log", feature = "metrics-exporter-http"))]
 pub mod exporters;
 
 #[cfg(any(
@@ -134,13 +187,9 @@ pub mod exporters;
 pub mod recorders;
 
 pub use self::{
-    configuration::Configuration,
+    builder::{Builder, BuilderError},
+    common::{Delta, MetricName, MetricScope},
     control::{Controller, SnapshotError},
-    data::histogram::HistogramSnapshot,
     receiver::Receiver,
     sink::{AsScoped, Sink, SinkError},
 };
-
-pub mod snapshot {
-    pub use super::data::snapshot::{Snapshot, TypedMeasurement};
-}

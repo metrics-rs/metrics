@@ -1,68 +1,72 @@
 use crate::{
-    data::{MetricKey, Sample, ScopedKey},
-    helper::io_error,
-    receiver::MessageFrame,
-    scopes::Scopes,
+    common::{
+        Delta, MetricIdentifier, MetricKind, MetricName, MetricScope, MetricScopeHandle,
+        MetricValue,
+    },
+    data::{Counter, Gauge, Histogram},
+    registry::{MetricRegistry, ScopeRegistry},
 };
-use crossbeam_channel::Sender;
+use fxhash::FxBuildHasher;
 use quanta::Clock;
+use std::error::Error;
+use std::fmt;
 use std::sync::Arc;
 
-/// Erorrs during sink creation.
-#[derive(Debug)]
+type FastHashMap<K, V> = hashbrown::HashMap<K, V, FxBuildHasher>;
+
+/// Errors during sink creation.
+#[derive(Debug, Clone)]
 pub enum SinkError {
     /// The scope value given was invalid i.e. empty or illegal characters.
     InvalidScope,
 }
 
-/// A value that can be used as a metric scope.
-pub trait AsScoped<'a> {
-    fn as_scoped(&'a self, base: String) -> String;
+impl Error for SinkError {}
+
+impl fmt::Display for SinkError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SinkError::InvalidScope => write!(f, "given scope is invalid"),
+        }
+    }
 }
 
-/// Handle for sending metric samples into the receiver.
+/// A value that can be used as a metric scope.
 ///
-/// [`Sink`] is cloneable, and can not only send metric samples but can register and deregister
-/// metric facets at any time.
+/// This helper trait allows us to accept either a single string or a slice of strings to use as a
+/// scope, to avoid needing to allocate in the case where we want to be able to specify multiple
+/// scope levels in a single go.
+pub trait AsScoped<'a> {
+    /// Creates a new [`MetricScope`] by adding `self` to the `base` scope.
+    fn as_scoped(&'a self, base: MetricScope) -> MetricScope;
+}
+
+/// Handle for sending metric samples.
 pub struct Sink {
-    msg_tx: Sender<MessageFrame>,
+    metric_registry: Arc<MetricRegistry>,
+    metric_cache: FastHashMap<MetricIdentifier, MetricValue>,
+    scope_registry: Arc<ScopeRegistry>,
+    scope: MetricScope,
+    scope_handle: MetricScopeHandle,
     clock: Clock,
-    scopes: Arc<Scopes>,
-    scope: String,
-    scope_id: u64,
 }
 
 impl Sink {
     pub(crate) fn new(
-        msg_tx: Sender<MessageFrame>,
+        metric_registry: Arc<MetricRegistry>,
+        scope_registry: Arc<ScopeRegistry>,
+        scope: MetricScope,
         clock: Clock,
-        scopes: Arc<Scopes>,
-        scope: String,
     ) -> Sink {
-        let scope_id = scopes.register(scope.clone());
+        let scope_handle = scope_registry.register(scope.clone());
 
         Sink {
-            msg_tx,
-            clock,
-            scopes,
+            metric_registry,
+            metric_cache: FastHashMap::default(),
+            scope_registry,
             scope,
-            scope_id,
-        }
-    }
-
-    pub(crate) fn new_with_scope_id(
-        msg_tx: Sender<MessageFrame>,
-        clock: Clock,
-        scopes: Arc<Scopes>,
-        scope: String,
-        scope_id: u64,
-    ) -> Sink {
-        Sink {
-            msg_tx,
+            scope_handle,
             clock,
-            scopes,
-            scope,
-            scope_id,
         }
     }
 
@@ -90,10 +94,10 @@ impl Sink {
         let new_scope = scope.as_scoped(self.scope.clone());
 
         Sink::new(
-            self.msg_tx.clone(),
-            self.clock.clone(),
-            self.scopes.clone(),
+            self.metric_registry.clone(),
+            self.scope_registry.clone(),
             new_scope,
+            self.clock.clone(),
         )
     }
 
@@ -102,58 +106,113 @@ impl Sink {
         self.clock.now()
     }
 
-    /// Records the count for a given metric.
-    pub fn record_count<K: Into<MetricKey>>(&self, key: K, delta: u64) {
-        let scoped_key = ScopedKey(self.scope_id, key.into());
-        self.send(Sample::Count(scoped_key, delta))
+    /// Records a value for a counter identified by the given name.
+    pub fn record_count<N: Into<MetricName>>(&mut self, name: N, value: u64) {
+        let identifier =
+            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Counter);
+        let value_handle = self.get_cached_value_handle(identifier);
+        value_handle.update_counter(value);
     }
 
-    /// Records the gauge for a given metric.
-    pub fn record_gauge<K: Into<MetricKey>>(&self, key: K, value: i64) {
-        let scoped_key = ScopedKey(self.scope_id, key.into());
-        self.send(Sample::Gauge(scoped_key, value))
+    /// Records the value for a gauge identified by the given name.
+    pub fn record_gauge<N: Into<MetricName>>(&mut self, name: N, value: i64) {
+        let identifier =
+            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Gauge);
+        let value_handle = self.get_cached_value_handle(identifier);
+        value_handle.update_gauge(value);
     }
 
-    /// Records the timing histogram for a given metric.
-    pub fn record_timing<K: Into<MetricKey>>(&self, key: K, start: u64, end: u64) {
-        let scoped_key = ScopedKey(self.scope_id, key.into());
-        self.send(Sample::TimingHistogram(scoped_key, start, end))
+    /// Records the value for a timing histogram identified by the given name.
+    ///
+    /// Both the start and end times must be supplied, but any values that implement [`Delta`] can
+    /// be used which allows for raw values from [`quanta::Clock`] to be used, or measurements from
+    /// [`Instant::now`].
+    pub fn record_timing<N: Into<MetricName>, V: Delta>(&mut self, name: N, start: V, end: V) {
+        let value = end.delta(start);
+        self.record_value(name, value);
     }
 
-    /// Records the value histogram for a given metric.
-    pub fn record_value<K: Into<MetricKey>>(&self, key: K, value: u64) {
-        let scoped_key = ScopedKey(self.scope_id, key.into());
-        self.send(Sample::ValueHistogram(scoped_key, value))
+    /// Records the value for a value histogram identified by the given name.
+    pub fn record_value<N: Into<MetricName>>(&mut self, name: N, value: u64) {
+        let identifier =
+            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Histogram);
+        let value_handle = self.get_cached_value_handle(identifier);
+        value_handle.update_histogram(value);
     }
 
-    /// Sends a raw metric sample to the receiver.
-    fn send(&self, sample: Sample) {
-        let _ = self
-            .msg_tx
-            .send(MessageFrame::Data(sample))
-            .map_err(|_| io_error("failed to send sample"));
+    /// Creates a handle to the given counter.
+    ///
+    /// This handle can be embedded into an existing type and used to directly update the
+    /// underlying counter.  It is merely a proxy, so multiple handles to the same counter can be
+    /// held and used.
+    pub fn counter<N: Into<MetricName>>(&mut self, name: N) -> Counter {
+        let identifier =
+            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Counter);
+        self.get_cached_value_handle(identifier).clone().into()
+    }
+
+    /// Creates a handle to the given gauge.
+    ///
+    /// This handle can be embedded into an existing type and used to directly update the
+    /// underlying gauge.  It is merely a proxy, so multiple handles to the same gauge can be
+    /// held and used.
+    pub fn gauge<N: Into<MetricName>>(&mut self, name: N) -> Gauge {
+        let identifier =
+            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Gauge);
+        self.get_cached_value_handle(identifier).clone().into()
+    }
+
+    /// Creates a handle to the given histogram.
+    ///
+    /// This handle can be embedded into an existing type and used to directly update the
+    /// underlying histogram.  It is merely a proxy, so multiple handles to the same histogram
+    /// can be held and used.
+    pub fn histogram<N: Into<MetricName>>(&mut self, name: N) -> Histogram {
+        let identifier =
+            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Histogram);
+        self.get_cached_value_handle(identifier).clone().into()
+    }
+
+    fn get_cached_value_handle(&mut self, identifier: MetricIdentifier) -> &MetricValue {
+        // This gross hack gets around lifetime rules until full NLL is stable.  Without it, the
+        // borrow checker doesn't understand the flow control and thinks the reference lives all
+        // the way until the of the function, which breaks when we try to take a mutable reference
+        // for inserting into the handle cache.
+        if let Some(handle) = self.metric_cache.get(&identifier) {
+            return unsafe { &*(handle as *const MetricValue) };
+        }
+
+        let handle = self.metric_registry.get_value_handle(identifier.clone());
+        self.metric_cache.insert(identifier.clone(), handle);
+        self.metric_cache.get(&identifier).unwrap()
     }
 }
 
 impl Clone for Sink {
     fn clone(&self) -> Sink {
         Sink {
-            msg_tx: self.msg_tx.clone(),
-            clock: self.clock.clone(),
-            scopes: self.scopes.clone(),
+            metric_registry: self.metric_registry.clone(),
+            metric_cache: self.metric_cache.clone(),
+            scope_registry: self.scope_registry.clone(),
             scope: self.scope.clone(),
-            scope_id: self.scope_id,
+            scope_handle: self.scope_handle,
+            clock: self.clock.clone(),
         }
     }
 }
 
 impl<'a> AsScoped<'a> for str {
-    fn as_scoped(&'a self, mut base: String) -> String {
-        if !base.is_empty() {
-            base.push_str(".");
+    fn as_scoped(&'a self, base: MetricScope) -> MetricScope {
+        match base {
+            MetricScope::Root => {
+                let parts = vec![self.to_owned()];
+                MetricScope::Nested(parts)
+            }
+            MetricScope::Nested(mut parts) => {
+                parts.push(self.to_owned());
+                MetricScope::Nested(parts)
+            }
         }
-        base.push_str(self);
-        base
     }
 }
 
@@ -162,13 +221,17 @@ where
     &'a T: AsRef<[&'b str]>,
     T: 'a,
 {
-    fn as_scoped(&'a self, mut base: String) -> String {
-        for item in self.as_ref() {
-            if !base.is_empty() {
-                base.push('.');
+    fn as_scoped(&'a self, base: MetricScope) -> MetricScope {
+        match base {
+            MetricScope::Root => {
+                let parts = self.as_ref().iter().map(|s| s.to_string()).collect();
+                MetricScope::Nested(parts)
             }
-            base.push_str(item);
+            MetricScope::Nested(mut parts) => {
+                let mut new_parts = self.as_ref().iter().map(|s| s.to_string()).collect();
+                parts.append(&mut new_parts);
+                MetricScope::Nested(parts)
+            }
         }
-        base
     }
 }
