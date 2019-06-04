@@ -11,13 +11,13 @@
 #[macro_use]
 extern crate log;
 
+use hyper::rt::run as hyper_run;
+use hyper::rt::Future;
+use hyper::service::service_fn;
+use hyper::{Body, Response, Server};
 use metrics_core::{AsyncSnapshotProvider, Recorder, Snapshot};
 use std::error::Error;
 use std::net::SocketAddr;
-use hyper::{Body, Response, Server};
-use hyper::service::service_fn;
-use hyper::rt::run as hyper_run;
-use hyper::rt::Future;
 
 /// Exports metrics over HTTP.
 pub struct HttpExporter<C, R> {
@@ -54,7 +54,6 @@ where
     }
 
     /// Converts this exporter into a future which can be driven externally.
-    /// logs output on the given interval.
     ///
     /// This starts an HTTP server on the `address` the exporter was originally configured with,
     /// responding to any request with the output of the configured recorder.
@@ -67,7 +66,11 @@ where
     }
 }
 
-fn build_hyper_server<C, R>(controller: C, recorder: R, address: SocketAddr) -> impl Future<Item = (), Error = ()>
+fn build_hyper_server<C, R>(
+    controller: C,
+    recorder: R,
+    address: SocketAddr,
+) -> impl Future<Item = (), Error = ()>
 where
     C: AsyncSnapshotProvider + Clone + Send + 'static,
     C::SnapshotFuture: Send + 'static,
@@ -81,14 +84,15 @@ where
         service_fn(move |_| {
             let recorder3 = recorder2.clone();
 
-            controller2.get_snapshot_async()
+            controller2
+                .get_snapshot_async()
                 .then(move |result| match result {
                     Ok(snapshot) => {
                         let mut r = recorder3.clone();
                         snapshot.record(&mut r);
                         let output = r.into();
                         Ok(Response::new(Body::from(output)))
-                    },
+                    }
                     Err(e) => Err(e),
                 })
         })

@@ -1,6 +1,6 @@
 [package]
 name = "metrics"
-version = "0.9.1"
+version = "0.10.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -26,15 +26,21 @@ default = ["exporters", "recorders"]
 exporters = ["metrics-exporter-log", "metrics-exporter-http"]
 recorders = ["metrics-recorder-text", "metrics-recorder-prometheus"]
 
+[[bench]]
+name = "histogram"
+harness = false
+
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.3" }
-crossbeam-channel = "^0.3"
+metrics-util = { path = "../metrics-util", version = "^0.2" }
+im = "^12"
+fxhash = "^0.2"
+arc-swap = "^0.3"
 parking_lot = "^0.7"
-fnv = "^1.0"
-hashbrown = "^0.1"
-quanta = "^0.2"
+hashbrown = "^0.3"
+quanta = "^0.3"
 futures = "^0.1"
-tokio-sync = "^0.1"
+crossbeam-utils = "^0.6"
 metrics-exporter-log = { path = "../metrics-exporter-log", version = "^0.2", optional = true }
 metrics-exporter-http = { path = "../metrics-exporter-http", version = "^0.1", optional = true }
 metrics-recorder-text = { path = "../metrics-recorder-text", version = "^0.2", optional = true }
@@ -45,3 +51,5 @@ log = "^0.4"
 env_logger = "^0.6"
 getopts = "^0.2"
 hdrhistogram = "^6.1"
+criterion = "^0.2.9"
+lazy_static = "^1.3"
