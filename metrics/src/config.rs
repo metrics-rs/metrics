@@ -2,7 +2,7 @@ use crate::Builder;
 use std::time::Duration;
 
 /// Holds the configuration for complex metric types.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct Configuration {
     pub histogram_window: Duration,
     pub histogram_granularity: Duration,
