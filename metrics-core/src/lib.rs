@@ -33,20 +33,35 @@
 //! Histograms are a convenient way to measure behavior not only at the median, but at the edges of
 //! normal operating behavior.
 use std::borrow::Cow;
+use std::time::Duration;
 use futures::future::Future;
 
-/// An optimized metric name.
+/// An optimized metric key.
 ///
 /// As some metrics might be sent at high frequency, it makes no sense to constantly allocate and
 /// reallocate owned [`String`]s when a static [`str`] would suffice.  As we don't want to limit
 /// callers, though, we opt to use a copy-on-write pointer -- [`Cow`] -- to allow callers
 /// flexiblity in how and what they pass.
+pub type Key = Cow<'static, str>;
+
+/// A value which can be converted into a nanosecond representation.
 ///
-/// While this is within the core crate of the metrics ecosystem, we do not enforce its usage
-/// within the core traits themselves at this point in time.  Doing some would prevent metrics
-/// systems from making different choices, such as using enums for their metric names.  In the end,
-/// we expect that the output from a metrics system must end up being a string, but requiring
-pub type MetricName = Cow<'static, str>;
+/// This trait allows us to interchangably accept raw integer time values, ones already in
+/// nanoseconds, as well as the more conventional [`Duration`] which is a result of getting the
+/// difference between two [`Instant`](std::time::Instant)s.
+pub trait AsNanoseconds {
+    fn as_nanos(&self) -> u64;
+}
+
+impl AsNanoseconds for u64 {
+    fn as_nanos(&self) -> u64 { *self }
+}
+
+impl AsNanoseconds for Duration {
+    fn as_nanos(&self) -> u64 {
+        self.as_nanos() as u64
+    }
+}
 
 /// A value that records metrics.
 pub trait Recorder {
@@ -57,7 +72,7 @@ pub trait Recorder {
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64);
+    fn record_counter(&mut self, key: Key, value: u64);
 
     /// Records a gauge.
     ///
@@ -66,7 +81,7 @@ pub trait Recorder {
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn record_gauge<K: AsRef<str>>(&mut self, key: K, value: i64);
+    fn record_gauge(&mut self, key: Key, value: i64);
 
     /// Records a histogram.
     ///
@@ -74,7 +89,7 @@ pub trait Recorder {
     /// of the underlying observed values, and callers will need to process them accordingly.
     ///
     /// There is no guarantee that this method will not be called multiple times for the same key.
-    fn record_histogram<K: AsRef<str>>(&mut self, key: K, values: &[u64]);
+    fn record_histogram(&mut self, key: Key, values: &[u64]);
 }
 
 /// A value that holds a point-in-time view of collected metrics.
