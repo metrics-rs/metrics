@@ -1,6 +1,6 @@
 //! Records metrics in the Prometheus exposition format.
 use hdrhistogram::Histogram;
-use metrics_core::{Recorder, Key};
+use metrics_core::{Key, Recorder};
 use metrics_util::{parse_quantiles, Quantile};
 use std::time::SystemTime;
 

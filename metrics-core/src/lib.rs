@@ -32,9 +32,9 @@
 //!
 //! Histograms are a convenient way to measure behavior not only at the median, but at the edges of
 //! normal operating behavior.
+use futures::future::Future;
 use std::borrow::Cow;
 use std::time::Duration;
-use futures::future::Future;
 
 /// An optimized metric key.
 ///
@@ -54,7 +54,9 @@ pub trait AsNanoseconds {
 }
 
 impl AsNanoseconds for u64 {
-    fn as_nanos(&self) -> u64 { *self }
+    fn as_nanos(&self) -> u64 {
+        *self
+    }
 }
 
 impl AsNanoseconds for Duration {

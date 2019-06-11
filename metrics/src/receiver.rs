@@ -6,11 +6,11 @@ use crate::{
     registry::{MetricRegistry, ScopeRegistry},
     sink::Sink,
 };
+use metrics_core::Key;
+use metrics_facade::Recorder;
 use quanta::{Builder as UpkeepBuilder, Clock, Handle as UpkeepHandle};
 use std::cell::RefCell;
 use std::sync::Arc;
-use metrics_core::Key;
-use metrics_facade::Recorder;
 
 thread_local! {
     static SINK: RefCell<Option<Sink>> = RefCell::new(None);

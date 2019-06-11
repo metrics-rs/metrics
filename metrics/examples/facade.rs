@@ -12,7 +12,7 @@ extern crate metrics_facade;
 use getopts::Options;
 use hdrhistogram::Histogram;
 use metrics::{Receiver, Sink};
-use metrics_core::{Recorder, Key, Snapshot, SnapshotProvider};
+use metrics_core::{Key, Recorder, Snapshot, SnapshotProvider};
 use quanta::Clock;
 use std::{
     env,
@@ -36,11 +36,7 @@ struct Generator {
 }
 
 impl Generator {
-    fn new(
-        done: Arc<AtomicBool>,
-        rate_counter: Arc<AtomicU64>,
-        clock: Clock,
-    ) -> Generator {
+    fn new(done: Arc<AtomicBool>, rate_counter: Arc<AtomicU64>, clock: Clock) -> Generator {
         Generator {
             t0: None,
             gauge: 0,
@@ -72,7 +68,7 @@ impl Generator {
                 };
 
                 counter!("ok", 1);
-                timing!("ok", t1-t0);
+                timing!("ok", t1 - t0);
                 gauge!("total", self.gauge);
 
                 if start != 0 {

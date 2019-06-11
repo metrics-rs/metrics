@@ -43,7 +43,7 @@
 //! ```
 //!
 use hdrhistogram::Histogram;
-use metrics_core::{Recorder, Key};
+use metrics_core::{Key, Recorder};
 use metrics_util::{parse_quantiles, Quantile};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;

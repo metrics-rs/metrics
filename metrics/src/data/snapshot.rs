@@ -1,5 +1,5 @@
 use crate::common::ValueSnapshot;
-use metrics_core::{Recorder, Key, Snapshot as MetricsSnapshot};
+use metrics_core::{Key, Recorder, Snapshot as MetricsSnapshot};
 use std::borrow::Cow;
 
 /// A point-in-time view of metric data.

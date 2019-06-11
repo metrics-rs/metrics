@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate metrics_facade;
 
-use metrics_facade::Recorder;
 use metrics_core::Key;
+use metrics_facade::Recorder;
 
 #[allow(dead_code)]
 static RECORDER: PrintRecorder = PrintRecorder;

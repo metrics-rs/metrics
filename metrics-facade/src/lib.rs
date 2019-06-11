@@ -145,11 +145,11 @@
 //!
 //! [metrics]: https://docs.rs/metrics
 #![deny(missing_docs)]
+use metrics_core::{AsNanoseconds, Key};
 #[cfg(feature = "std")]
 use std::error;
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use metrics_core::{Key, AsNanoseconds};
 
 #[macro_use]
 mod macros;
@@ -161,7 +161,8 @@ const UNINITIALIZED: usize = 0;
 const INITIALIZING: usize = 1;
 const INITIALIZED: usize = 2;
 
-static SET_RECORDER_ERROR: &'static str = "attempted to set a recorder after the metrics system was already initialized";
+static SET_RECORDER_ERROR: &'static str =
+    "attempted to set a recorder after the metrics system was already initialized";
 
 /// A value that records metrics behind the facade.
 pub trait Recorder {
@@ -195,9 +196,9 @@ pub trait Recorder {
 struct NoopRecorder;
 
 impl Recorder for NoopRecorder {
-    fn record_counter(&self, _key: Key, _value: u64) { }
-    fn record_gauge(&self, _key: Key, _value: i64) { }
-    fn record_histogram(&self, _key: Key, _value: u64) { }
+    fn record_counter(&self, _key: Key, _value: u64) {}
+    fn record_gauge(&self, _key: Key, _value: i64) {}
+    fn record_histogram(&self, _key: Key, _value: u64) {}
 }
 
 /// Sets the global recorder to a `&'static Recorder`.

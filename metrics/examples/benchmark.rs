@@ -9,7 +9,7 @@ extern crate metrics_core;
 use getopts::Options;
 use hdrhistogram::Histogram;
 use metrics::{Receiver, Sink};
-use metrics_core::{Recorder, Key, Snapshot, SnapshotProvider};
+use metrics_core::{Key, Recorder, Snapshot, SnapshotProvider};
 use quanta::Clock;
 use std::{
     env,
