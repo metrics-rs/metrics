@@ -154,7 +154,7 @@ use metrics_core::{Key, AsNanoseconds};
 #[macro_use]
 mod macros;
 
-static mut RECORDER: &'static Recorder = &NopRecorder;
+static mut RECORDER: &'static Recorder = &NoopRecorder;
 static STATE: AtomicUsize = AtomicUsize::new(0);
 
 const UNINITIALIZED: usize = 0;
@@ -192,9 +192,9 @@ pub trait Recorder {
     fn record_histogram(&self, key: Key, value: u64);
 }
 
-struct NopRecorder;
+struct NoopRecorder;
 
-impl Recorder for NopRecorder {
+impl Recorder for NoopRecorder {
     fn record_counter(&self, _key: Key, _value: u64) { }
     fn record_gauge(&self, _key: Key, _value: i64) { }
     fn record_histogram(&self, _key: Key, _value: u64) { }
@@ -309,8 +309,8 @@ impl error::Error for SetRecorderError {
 pub fn recorder() -> &'static Recorder {
     unsafe {
         if STATE.load(Ordering::SeqCst) != INITIALIZED {
-            static NOP: NopRecorder = NopRecorder;
-            &NOP
+            static NOOP: NoopRecorder = NoopRecorder;
+            &NOOP
         } else {
             RECORDER
         }
