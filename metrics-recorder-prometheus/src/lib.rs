@@ -1,6 +1,6 @@
 //! Records metrics in the Prometheus exposition format.
 use hdrhistogram::Histogram;
-use metrics_core::Recorder;
+use metrics_core::{Recorder, Key};
 use metrics_util::{parse_quantiles, Quantile};
 use std::time::SystemTime;
 
@@ -35,8 +35,8 @@ impl PrometheusRecorder {
 }
 
 impl Recorder for PrometheusRecorder {
-    fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64) {
-        let label = key.as_ref().replace('.', "_");
+    fn record_counter<K: Into<Key>>(&mut self, key: K, value: u64) {
+        let label = key.into().as_ref().replace('.', "_");
         self.output.push_str("\n# TYPE ");
         self.output.push_str(label.as_str());
         self.output.push_str(" counter\n");
@@ -46,8 +46,8 @@ impl Recorder for PrometheusRecorder {
         self.output.push_str("\n");
     }
 
-    fn record_gauge<K: AsRef<str>>(&mut self, key: K, value: i64) {
-        let label = key.as_ref().replace('.', "_");
+    fn record_gauge<K: Into<Key>>(&mut self, key: K, value: i64) {
+        let label = key.into().as_ref().replace('.', "_");
         self.output.push_str("\n# TYPE ");
         self.output.push_str(label.as_str());
         self.output.push_str(" gauge\n");
@@ -57,7 +57,7 @@ impl Recorder for PrometheusRecorder {
         self.output.push_str("\n");
     }
 
-    fn record_histogram<K: AsRef<str>>(&mut self, key: K, values: &[u64]) {
+    fn record_histogram<K: Into<Key>>(&mut self, key: K, values: &[u64]) {
         let mut sum = 0;
         let mut h = Histogram::<u64>::new(3).expect("failed to create histogram");
         for value in values {
@@ -65,7 +65,7 @@ impl Recorder for PrometheusRecorder {
             sum += *value;
         }
 
-        let label = key.as_ref().replace('.', "_");
+        let label = key.into().as_ref().replace('.', "_");
         self.output.push_str("\n# TYPE ");
         self.output.push_str(label.as_str());
         self.output.push_str(" summary\n");
