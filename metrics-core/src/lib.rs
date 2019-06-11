@@ -72,7 +72,7 @@ pub trait Recorder {
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn record_counter(&mut self, key: Key, value: u64);
+    fn record_counter<K: Into<Key>>(&mut self, key: K, value: u64);
 
     /// Records a gauge.
     ///
@@ -81,7 +81,7 @@ pub trait Recorder {
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn record_gauge(&mut self, key: Key, value: i64);
+    fn record_gauge<K: Into<Key>>(&mut self, key: K, value: i64);
 
     /// Records a histogram.
     ///
@@ -89,7 +89,7 @@ pub trait Recorder {
     /// of the underlying observed values, and callers will need to process them accordingly.
     ///
     /// There is no guarantee that this method will not be called multiple times for the same key.
-    fn record_histogram(&mut self, key: Key, values: &[u64]);
+    fn record_histogram<K: Into<Key>>(&mut self, key: K, values: &[u64]);
 }
 
 /// A value that holds a point-in-time view of collected metrics.
