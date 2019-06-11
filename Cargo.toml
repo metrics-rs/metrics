@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "metrics-core",
+  "metrics-facade",
   "metrics",
   "metrics-util",
   "metrics-exporter-log",
