@@ -1,6 +1,6 @@
 [package]
 name = "metrics-exporter-log"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -13,7 +13,7 @@ repository = "https://github.com/metrics-rs/metrics-exporter-log"
 documentation = "https://docs.rs/metrics-exporter-log"
 
 [dependencies]
-metrics-core = { path = "../metrics-core", version = "^0.3" }
+metrics-core = { path = "../metrics-core", version = "^0.4" }
 log = "^0.4"
 futures = "^0.1"
 tokio-timer = "^0.2"
