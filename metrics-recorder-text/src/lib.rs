@@ -43,7 +43,7 @@
 //! ```
 //!
 use hdrhistogram::Histogram;
-use metrics_core::Recorder;
+use metrics_core::{Recorder, Key};
 use metrics_util::{parse_quantiles, Quantile};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
@@ -80,25 +80,25 @@ impl TextRecorder {
 }
 
 impl Recorder for TextRecorder {
-    fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64) {
-        let (name_parts, name) = name_to_parts(key.as_ref());
+    fn record_counter<K: Into<Key>>(&mut self, key: K, value: u64) {
+        let (name_parts, name) = name_to_parts(key.into().as_ref());
         let mut values = single_value_to_values(name, value);
         self.structure.insert(name_parts, &mut values);
     }
 
-    fn record_gauge<K: AsRef<str>>(&mut self, key: K, value: i64) {
-        let (name_parts, name) = name_to_parts(key.as_ref());
+    fn record_gauge<K: Into<Key>>(&mut self, key: K, value: i64) {
+        let (name_parts, name) = name_to_parts(key.into().as_ref());
         let mut values = single_value_to_values(name, value);
         self.structure.insert(name_parts, &mut values);
     }
 
-    fn record_histogram<K: AsRef<str>>(&mut self, key: K, values: &[u64]) {
+    fn record_histogram<K: Into<Key>>(&mut self, key: K, values: &[u64]) {
         let mut h = Histogram::new(3).expect("failed to create histogram");
         for value in values {
             h.record(*value).expect("failed to record histogram value");
         }
 
-        let (name_parts, name) = name_to_parts(key.as_ref());
+        let (name_parts, name) = name_to_parts(key.into().as_ref());
         let mut values = hist_to_values(name, h, &self.quantiles);
         self.structure.insert(name_parts, &mut values);
     }
