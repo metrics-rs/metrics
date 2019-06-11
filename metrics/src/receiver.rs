@@ -6,8 +6,15 @@ use crate::{
     registry::{MetricRegistry, ScopeRegistry},
     sink::Sink,
 };
+use metrics_core::Key;
+use metrics_facade::Recorder;
 use quanta::{Builder as UpkeepBuilder, Clock, Handle as UpkeepHandle};
+use std::cell::RefCell;
 use std::sync::Arc;
+
+thread_local! {
+    static SINK: RefCell<Option<Sink>> = RefCell::new(None);
+}
 
 /// Central store for metrics.
 ///
@@ -52,6 +59,11 @@ impl Receiver {
         Builder::default()
     }
 
+    /// Installs this receiver as the global metrics facade.
+    pub fn install(self) {
+        metrics_facade::set_boxed_recorder(Box::new(self)).unwrap();
+    }
+
     /// Creates a [`Sink`] bound to this receiver.
     pub fn get_sink(&self) -> Sink {
         Sink::new(
@@ -65,5 +77,43 @@ impl Receiver {
     /// Creates a [`Controller`] bound to this receiver.
     pub fn get_controller(&self) -> Controller {
         Controller::new(self.metric_registry.clone(), self.scope_registry.clone())
+    }
+}
+
+impl Recorder for Receiver {
+    fn record_counter(&self, key: Key, value: u64) {
+        SINK.with(move |sink| {
+            let mut sink = sink.borrow_mut();
+            if sink.is_none() {
+                let new_sink = self.get_sink();
+                *sink = Some(new_sink);
+            }
+
+            sink.as_mut().unwrap().record_count(key, value);
+        });
+    }
+
+    fn record_gauge(&self, key: Key, value: i64) {
+        SINK.with(move |sink| {
+            let mut sink = sink.borrow_mut();
+            if sink.is_none() {
+                let new_sink = self.get_sink();
+                *sink = Some(new_sink);
+            }
+
+            sink.as_mut().unwrap().record_gauge(key, value);
+        });
+    }
+
+    fn record_histogram(&self, key: Key, value: u64) {
+        SINK.with(move |sink| {
+            let mut sink = sink.borrow_mut();
+            if sink.is_none() {
+                let new_sink = self.get_sink();
+                *sink = Some(new_sink);
+            }
+
+            sink.as_mut().unwrap().record_value(key, value);
+        });
     }
 }

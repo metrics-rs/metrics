@@ -1,6 +1,6 @@
 [package]
 name = "metrics-exporter-http"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -13,6 +13,6 @@ repository = "https://github.com/metrics-rs/metrics-exporter-http"
 documentation = "https://docs.rs/metrics-exporter-http"
 
 [dependencies]
-metrics-core = { path = "../metrics-core", version = "^0.3" }
+metrics-core = { path = "../metrics-core", version = "^0.4" }
 hyper = "^0.12"
 log = "^0.4"

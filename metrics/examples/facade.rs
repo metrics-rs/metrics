@@ -6,6 +6,9 @@ extern crate hdrhistogram;
 extern crate metrics;
 extern crate metrics_core;
 
+#[macro_use]
+extern crate metrics_facade;
+
 use getopts::Options;
 use hdrhistogram::Histogram;
 use metrics::{Receiver, Sink};
@@ -24,7 +27,6 @@ use std::{
 const LOOP_SAMPLE: u64 = 1000;
 
 struct Generator {
-    stats: Sink,
     t0: Option<u64>,
     gauge: i64,
     hist: Histogram<u64>,
@@ -34,14 +36,8 @@ struct Generator {
 }
 
 impl Generator {
-    fn new(
-        stats: Sink,
-        done: Arc<AtomicBool>,
-        rate_counter: Arc<AtomicU64>,
-        clock: Clock,
-    ) -> Generator {
+    fn new(done: Arc<AtomicBool>, rate_counter: Arc<AtomicU64>, clock: Clock) -> Generator {
         Generator {
-            stats,
             t0: None,
             gauge: 0,
             hist: Histogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap(),
@@ -62,64 +58,21 @@ impl Generator {
 
             self.gauge += 1;
 
-            let t1 = self.stats.now();
-
-            if let Some(t0) = self.t0 {
-                let start = if counter % 33 == 0 {
-                    self.stats.now()
-                } else {
-                    0
-                };
-
-                let _ = self.stats.record_count("ok", 1);
-                let _ = self.stats.record_timing("ok", t0, t1);
-                let _ = self.stats.record_gauge("total", self.gauge);
-
-                if start != 0 {
-                    let delta = self.stats.now() - start;
-                    self.hist.saturating_record(delta);
-
-                    // We also increment our global counter for the sample rate here.
-                    self.rate_counter
-                        .fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
-                }
-            }
-
-            self.t0 = Some(t1);
-        }
-    }
-
-    fn run_cached(&mut self) {
-        let mut counter = 0;
-
-        let counter_handle = self.stats.counter("ok");
-        let timing_handle = self.stats.histogram("ok");
-        let gauge_handle = self.stats.gauge("total");
-
-        loop {
-            counter += 1;
-
-            if self.done.load(Ordering::Relaxed) {
-                break;
-            }
-
-            self.gauge += 1;
-
-            let t1 = self.clock.recent();
+            let t1 = self.clock.now();
 
             if let Some(t0) = self.t0 {
                 let start = if counter % LOOP_SAMPLE == 0 {
-                    self.stats.now()
+                    self.clock.now()
                 } else {
                     0
                 };
 
-                let _ = counter_handle.record(1);
-                let _ = timing_handle.record_timing(t0, t1);
-                let _ = gauge_handle.record(self.gauge);
+                counter!("ok", 1);
+                timing!("ok", t1 - t0);
+                gauge!("total", self.gauge);
 
                 if start != 0 {
-                    let delta = self.stats.now() - start;
+                    let delta = self.clock.now() - start;
                     self.hist.saturating_record(delta);
 
                     // We also increment our global counter for the sample rate here.
@@ -209,10 +162,9 @@ fn main() {
         .build()
         .expect("failed to build receiver");
 
-    let sink = receiver.get_sink();
-    let sink = sink.scoped(&["alpha", "pools", "primary"]);
-
-    info!("sink configured");
+    let controller = receiver.get_controller();
+    receiver.install();
+    info!("receiver configured");
 
     // Spin up our sample producers.
     let done = Arc::new(AtomicBool::new(false));
@@ -221,19 +173,15 @@ fn main() {
     let clock = Clock::new();
 
     for _ in 0..producers {
-        let s = sink.clone();
         let d = done.clone();
         let r = rate_counter.clone();
         let c = clock.clone();
         let handle = thread::spawn(move || {
-            Generator::new(s, d, r, c).run_cached();
+            Generator::new(d, r, c).run();
         });
 
         handles.push(handle);
     }
-
-    // Spin up the sink and let 'er rip.
-    let controller = receiver.get_controller();
 
     // Poll the controller to figure out the sample rate.
     let mut total = 0;
