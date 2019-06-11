@@ -1,5 +1,6 @@
 use crate::common::ValueSnapshot;
-use metrics_core::{Recorder, Snapshot as MetricsSnapshot};
+use metrics_core::{Recorder, Key, Snapshot as MetricsSnapshot};
+use std::borrow::Cow;
 
 /// A point-in-time view of metric data.
 #[derive(Default, Debug)]
@@ -17,11 +18,14 @@ impl MetricsSnapshot for Snapshot {
     /// Records the snapshot to the given recorder.
     fn record<R: Recorder>(&self, recorder: &mut R) {
         for (key, snapshot) in &self.measurements {
+            // TODO: switch this to Key::Owned once type_alias_enum_variants lands
+            // in 1.37.0 (#61682)
+            let owned_key: Key = Cow::Owned(key.clone());
             match snapshot {
-                ValueSnapshot::Counter(value) => recorder.record_counter(key, *value),
-                ValueSnapshot::Gauge(value) => recorder.record_gauge(key, *value),
+                ValueSnapshot::Counter(value) => recorder.record_counter(owned_key.clone(), *value),
+                ValueSnapshot::Gauge(value) => recorder.record_gauge(owned_key.clone(), *value),
                 ValueSnapshot::Histogram(stream) => stream.decompress_with(|values| {
-                    recorder.record_histogram(key, values);
+                    recorder.record_histogram(owned_key.clone(), values);
                 }),
             }
         }
@@ -31,6 +35,7 @@ impl MetricsSnapshot for Snapshot {
 #[cfg(test)]
 mod tests {
     use super::{MetricsSnapshot, Recorder, Snapshot, ValueSnapshot};
+    use metrics_core::Key;
     use metrics_util::StreamingIntegers;
     use std::collections::HashMap;
 
@@ -56,18 +61,18 @@ mod tests {
     }
 
     impl Recorder for MockRecorder {
-        fn record_counter<K: AsRef<str>>(&mut self, key: K, value: u64) {
-            let _ = self.counter.insert(key.as_ref().to_owned(), value);
+        fn record_counter<K: Into<Key>>(&mut self, key: K, value: u64) {
+            let _ = self.counter.insert(key.into().to_string(), value);
         }
 
-        fn record_gauge<K: AsRef<str>>(&mut self, key: K, value: i64) {
-            let _ = self.gauge.insert(key.as_ref().to_owned(), value);
+        fn record_gauge<K: Into<Key>>(&mut self, key: K, value: i64) {
+            let _ = self.gauge.insert(key.into().to_string(), value);
         }
 
-        fn record_histogram<K: AsRef<str>>(&mut self, key: K, values: &[u64]) {
+        fn record_histogram<K: Into<Key>>(&mut self, key: K, values: &[u64]) {
             let _ = self
                 .histogram
-                .insert(key.as_ref().to_owned(), values.to_vec());
+                .insert(key.into().to_string(), values.to_vec());
         }
     }
 

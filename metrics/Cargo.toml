@@ -31,14 +31,14 @@ name = "histogram"
 harness = false
 
 [dependencies]
-metrics-core = { path = "../metrics-core", version = "^0.3" }
+metrics-core = { path = "../metrics-core", version = "^0.4" }
 metrics-util = { path = "../metrics-util", version = "^0.2" }
-metrics-facade = { path = "../metrics-facade", version = "^0.1" }
+metrics-facade = { path = "../metrics-facade", version = "^0.1", features = ["std"] }
 im = "^12"
 fxhash = "^0.2"
 arc-swap = "^0.3"
-parking_lot = "^0.7"
-hashbrown = "^0.3"
+parking_lot = "^0.8"
+hashbrown = "^0.4"
 quanta = "^0.3"
 futures = "^0.1"
 crossbeam-utils = "^0.6"

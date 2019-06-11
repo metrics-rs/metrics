@@ -9,9 +9,8 @@ use crate::{
 use quanta::{Builder as UpkeepBuilder, Clock, Handle as UpkeepHandle};
 use std::cell::RefCell;
 use std::sync::Arc;
-use std::time::Duration;
-use metrics_core::MetricName;
-use metrics_facade::MetricsRecorder;
+use metrics_core::Key;
+use metrics_facade::Recorder;
 
 thread_local! {
     static SINK: RefCell<Option<Sink>> = RefCell::new(None);
@@ -60,6 +59,7 @@ impl Receiver {
         Builder::default()
     }
 
+    /// Installs this receiver as the global metrics facade.
     pub fn install(self) {
         metrics_facade::set_boxed_recorder(Box::new(self)).unwrap();
     }
@@ -80,8 +80,8 @@ impl Receiver {
     }
 }
 
-impl MetricsRecorder for Receiver {
-    fn record_counter(&self, key: MetricName, value: u64) {
+impl Recorder for Receiver {
+    fn record_counter(&self, key: Key, value: u64) {
         SINK.with(move |sink| {
             let mut sink = sink.borrow_mut();
             if sink.is_none() {
@@ -93,7 +93,7 @@ impl MetricsRecorder for Receiver {
         });
     }
 
-    fn record_gauge(&self, key: MetricName, value: i64) {
+    fn record_gauge(&self, key: Key, value: i64) {
         SINK.with(move |sink| {
             let mut sink = sink.borrow_mut();
             if sink.is_none() {
@@ -105,7 +105,7 @@ impl MetricsRecorder for Receiver {
         });
     }
 
-    fn record_histogram(&self, key: MetricName, value: u64) {
+    fn record_histogram(&self, key: Key, value: u64) {
         SINK.with(move |sink| {
             let mut sink = sink.borrow_mut();
             if sink.is_none() {

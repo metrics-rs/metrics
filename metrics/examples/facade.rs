@@ -12,7 +12,7 @@ extern crate metrics_facade;
 use getopts::Options;
 use hdrhistogram::Histogram;
 use metrics::{Receiver, Sink};
-use metrics_core::{Recorder, Snapshot, SnapshotProvider};
+use metrics_core::{Recorder, Key, Snapshot, SnapshotProvider};
 use quanta::Clock;
 use std::{
     env,
@@ -244,15 +244,15 @@ impl TotalRecorder {
 }
 
 impl Recorder for TotalRecorder {
-    fn record_counter<K: AsRef<str>>(&mut self, _key: K, value: u64) {
+    fn record_counter<K: Into<Key>>(&mut self, _key: K, value: u64) {
         self.total += value;
     }
 
-    fn record_gauge<K: AsRef<str>>(&mut self, _key: K, value: i64) {
+    fn record_gauge<K: Into<Key>>(&mut self, _key: K, value: i64) {
         self.total += value as u64;
     }
 
-    fn record_histogram<K: AsRef<str>>(&mut self, _key: K, values: &[u64]) {
+    fn record_histogram<K: Into<Key>>(&mut self, _key: K, values: &[u64]) {
         self.total += values.len() as u64;
     }
 }
