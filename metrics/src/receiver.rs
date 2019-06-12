@@ -20,7 +20,7 @@ thread_local! {
 ///
 /// `Receiver` is the nucleus for all metrics operations.  While no operations are performed by it
 /// directly, it holds the registeries and references to resources and so it must live as long as
-/// any [`Sink`] or `[`Controller`] does.
+/// any [`Sink`] or [`Controller`] does.
 pub struct Receiver {
     metric_registry: Arc<MetricRegistry>,
     scope_registry: Arc<ScopeRegistry>,
