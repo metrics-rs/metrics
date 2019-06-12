@@ -167,9 +167,8 @@
 //!
 //! `metrics` is `metrics-facade` compatible, and can be installed as the global metrics facade:
 //! ```
-//! # extern crate metrics;
-//! #[macro_use]
-//! extern crate metrics_facade;
+//! # #[macro_use] extern crate metrics_facade;
+//! extern crate metrics;
 //! use metrics::Receiver;
 //!
 //! Receiver::builder()
