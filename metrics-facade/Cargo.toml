@@ -1,10 +1,10 @@
 [package]
 name = "metrics-facade"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 license = "MIT"
 edition = "2018"
-repository = "https://github.com/metrics-rs/metrics-facade"
+repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics-facade"
 description = """
 A lightweight metrics facade for Rust
