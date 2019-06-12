@@ -163,6 +163,23 @@
 //! Most exporters have the ability to run on the current thread or to be converted into a future
 //! which can be spawned on any Tokio-compatible runtime.
 //!
+//! # Facade
+//!
+//! `metrics` is `metrics-facade` compatible, and can be installed as the global metrics facade:
+//! ```
+//! # extern crate metrics;
+//! #[macro_use]
+//! extern crate metrics_facade;
+//! use metrics::Receiver;
+//!
+//! Receiver::builder()
+//!     .build()
+//!     .expect("failed to create receiver")
+//!     .install();
+//!
+//! counter!("items_processed", 42);
+//! ```
+//!
 //! [metrics_core]: https://docs.rs/metrics-core
 //! [`Recorder`]: https://docs.rs/metrics-core/0.3.1/metrics_core/trait.Recorder.html
 #![deny(missing_docs)]
