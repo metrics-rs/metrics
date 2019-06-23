@@ -80,25 +80,25 @@ impl TextRecorder {
 }
 
 impl Recorder for TextRecorder {
-    fn record_counter<K: Into<Key>>(&mut self, key: K, value: u64) {
-        let (name_parts, name) = name_to_parts(key.into().as_ref());
+    fn record_counter(&mut self, key: Key, value: u64) {
+        let (name_parts, name) = name_to_parts(key);
         let mut values = single_value_to_values(name, value);
         self.structure.insert(name_parts, &mut values);
     }
 
-    fn record_gauge<K: Into<Key>>(&mut self, key: K, value: i64) {
-        let (name_parts, name) = name_to_parts(key.into().as_ref());
+    fn record_gauge(&mut self, key: Key, value: i64) {
+        let (name_parts, name) = name_to_parts(key);
         let mut values = single_value_to_values(name, value);
         self.structure.insert(name_parts, &mut values);
     }
 
-    fn record_histogram<K: Into<Key>>(&mut self, key: K, values: &[u64]) {
+    fn record_histogram(&mut self, key: Key, values: &[u64]) {
         let mut h = Histogram::new(3).expect("failed to create histogram");
         for value in values {
             h.record(*value).expect("failed to record histogram value");
         }
 
-        let (name_parts, name) = name_to_parts(key.into().as_ref());
+        let (name_parts, name) = name_to_parts(key);
         let mut values = hist_to_values(name, h, &self.quantiles);
         self.structure.insert(name_parts, &mut values);
     }
@@ -229,8 +229,9 @@ impl std::cmp::Ord for SortEntry {
     }
 }
 
-fn name_to_parts(name: &str) -> (VecDeque<String>, String) {
-    let mut parts = name
+fn name_to_parts(key: Key) -> (VecDeque<String>, String) {
+    let mut parts = key
+        .name()
         .split('.')
         .map(ToOwned::to_owned)
         .collect::<VecDeque<_>>();

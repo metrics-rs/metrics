@@ -1,8 +1,8 @@
-use crate::common::MetricValue;
+use crate::common::ValueHandle;
 
 /// Proxy object to update a counter.
 pub struct Counter {
-    handle: MetricValue,
+    handle: ValueHandle,
 }
 
 impl Counter {
@@ -12,8 +12,8 @@ impl Counter {
     }
 }
 
-impl From<MetricValue> for Counter {
-    fn from(handle: MetricValue) -> Self {
+impl From<ValueHandle> for Counter {
+    fn from(handle: ValueHandle) -> Self {
         Self { handle }
     }
 }

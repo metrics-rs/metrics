@@ -1,12 +1,10 @@
 use crate::{
-    common::{
-        Delta, MetricIdentifier, MetricKind, MetricName, MetricScope, MetricScopeHandle,
-        MetricValue,
-    },
+    common::{Delta, Identifier, Kind, Scope, ScopeHandle, ValueHandle},
     data::{Counter, Gauge, Histogram},
     registry::{MetricRegistry, ScopeRegistry},
 };
 use fxhash::FxBuildHasher;
+use metrics_core::{IntoKey, IntoLabels, ScopedString};
 use quanta::Clock;
 use std::error::Error;
 use std::fmt;
@@ -37,17 +35,17 @@ impl fmt::Display for SinkError {
 /// scope, to avoid needing to allocate in the case where we want to be able to specify multiple
 /// scope levels in a single go.
 pub trait AsScoped<'a> {
-    /// Creates a new [`MetricScope`] by adding `self` to the `base` scope.
-    fn as_scoped(&'a self, base: MetricScope) -> MetricScope;
+    /// Creates a new [`Scope`] by adding `self` to the `base` scope.
+    fn as_scoped(&'a self, base: Scope) -> Scope;
 }
 
 /// Handle for sending metric samples.
 pub struct Sink {
     metric_registry: Arc<MetricRegistry>,
-    metric_cache: FastHashMap<MetricIdentifier, MetricValue>,
+    metric_cache: FastHashMap<Identifier, ValueHandle>,
     scope_registry: Arc<ScopeRegistry>,
-    scope: MetricScope,
-    scope_handle: MetricScopeHandle,
+    scope: Scope,
+    scope_handle: ScopeHandle,
     clock: Clock,
 }
 
@@ -55,7 +53,7 @@ impl Sink {
     pub(crate) fn new(
         metric_registry: Arc<MetricRegistry>,
         scope_registry: Arc<ScopeRegistry>,
-        scope: MetricScope,
+        scope: Scope,
         clock: Clock,
     ) -> Sink {
         let scope_handle = scope_registry.register(scope.clone());
@@ -107,18 +105,44 @@ impl Sink {
     }
 
     /// Records a value for a counter identified by the given name.
-    pub fn record_count<N: Into<MetricName>>(&mut self, name: N, value: u64) {
-        let identifier =
-            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Counter);
-        let value_handle = self.get_cached_value_handle(identifier);
+    pub fn record_counter<N>(&mut self, name: N, value: u64)
+    where
+        N: IntoKey,
+    {
+        let id = Identifier::new(name.into_key(), self.scope_handle, Kind::Counter);
+        let value_handle = self.get_cached_value_handle(id);
         value_handle.update_counter(value);
     }
 
-    /// Records the value for a gauge identified by the given name.
-    pub fn record_gauge<N: Into<MetricName>>(&mut self, name: N, value: i64) {
-        let identifier =
-            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Gauge);
-        let value_handle = self.get_cached_value_handle(identifier);
+    /// Records a value for a counter identified by the given name and labels.
+    pub fn record_counter_with_labels<N, L>(&mut self, name: N, labels: L, value: u64)
+    where
+        N: Into<ScopedString>,
+        L: IntoLabels,
+    {
+        let id = Identifier::new((name, labels), self.scope_handle, Kind::Counter);
+        let value_handle = self.get_cached_value_handle(id);
+        value_handle.update_counter(value);
+    }
+
+    /// Records a value for a gauge identified by the given name.
+    pub fn record_gauge<N>(&mut self, name: N, value: i64)
+    where
+        N: IntoKey,
+    {
+        let id = Identifier::new(name.into_key(), self.scope_handle, Kind::Gauge);
+        let value_handle = self.get_cached_value_handle(id);
+        value_handle.update_gauge(value);
+    }
+
+    /// Records a value for a gauge identified by the given name and labels.
+    pub fn record_gauge_with_labels<N, L>(&mut self, name: N, labels: L, value: i64)
+    where
+        N: Into<ScopedString>,
+        L: IntoLabels,
+    {
+        let id = Identifier::new((name, labels), self.scope_handle, Kind::Gauge);
+        let value_handle = self.get_cached_value_handle(id);
         value_handle.update_gauge(value);
     }
 
@@ -127,16 +151,48 @@ impl Sink {
     /// Both the start and end times must be supplied, but any values that implement [`Delta`] can
     /// be used which allows for raw values from [`quanta::Clock`] to be used, or measurements from
     /// [`Instant::now`].
-    pub fn record_timing<N: Into<MetricName>, V: Delta>(&mut self, name: N, start: V, end: V) {
-        let value = end.delta(start);
-        self.record_value(name, value);
+    pub fn record_timing<N, V>(&mut self, name: N, start: V, end: V)
+    where
+        N: IntoKey,
+        V: Delta,
+    {
+        let delta = end.delta(start);
+        self.record_value(name, delta);
+    }
+
+    /// Records the value for a timing histogram identified by the given name and labels.
+    ///
+    /// Both the start and end times must be supplied, but any values that implement [`Delta`] can
+    /// be used which allows for raw values from [`quanta::Clock`] to be used, or measurements from
+    /// [`Instant::now`].
+    pub fn record_timing_with_labels<N, L, V>(&mut self, name: N, labels: L, start: V, end: V)
+    where
+        N: Into<ScopedString>,
+        L: IntoLabels,
+        V: Delta,
+    {
+        let delta = end.delta(start);
+        self.record_value_with_labels(name, labels, delta);
     }
 
     /// Records the value for a value histogram identified by the given name.
-    pub fn record_value<N: Into<MetricName>>(&mut self, name: N, value: u64) {
-        let identifier =
-            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Histogram);
-        let value_handle = self.get_cached_value_handle(identifier);
+    pub fn record_value<N>(&mut self, name: N, value: u64)
+    where
+        N: IntoKey,
+    {
+        let id = Identifier::new(name.into_key(), self.scope_handle, Kind::Histogram);
+        let value_handle = self.get_cached_value_handle(id);
+        value_handle.update_histogram(value);
+    }
+
+    /// Records the value for a value histogram identified by the given name and labels.
+    pub fn record_value_with_labels<N, L>(&mut self, name: N, labels: L, value: u64)
+    where
+        N: Into<ScopedString>,
+        L: IntoLabels,
+    {
+        let id = Identifier::new((name, labels), self.scope_handle, Kind::Histogram);
+        let value_handle = self.get_cached_value_handle(id);
         value_handle.update_histogram(value);
     }
 
@@ -145,10 +201,25 @@ impl Sink {
     /// This handle can be embedded into an existing type and used to directly update the
     /// underlying counter.  It is merely a proxy, so multiple handles to the same counter can be
     /// held and used.
-    pub fn counter<N: Into<MetricName>>(&mut self, name: N) -> Counter {
-        let identifier =
-            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Counter);
-        self.get_cached_value_handle(identifier).clone().into()
+    pub fn counter<N>(&mut self, name: N) -> Counter
+    where
+        N: IntoKey,
+    {
+        self.get_owned_value_handle(name, Kind::Counter).into()
+    }
+
+    /// Creates a handle to the given counter, with labels attached.
+    ///
+    /// This handle can be embedded into an existing type and used to directly update the
+    /// underlying counter.  It is merely a proxy, so multiple handles to the same counter can be
+    /// held and used.
+    pub fn counter_with_labels<N, L>(&mut self, name: N, labels: L) -> Counter
+    where
+        N: Into<ScopedString>,
+        L: IntoLabels,
+    {
+        self.get_owned_value_handle((name, labels), Kind::Counter)
+            .into()
     }
 
     /// Creates a handle to the given gauge.
@@ -156,10 +227,25 @@ impl Sink {
     /// This handle can be embedded into an existing type and used to directly update the
     /// underlying gauge.  It is merely a proxy, so multiple handles to the same gauge can be
     /// held and used.
-    pub fn gauge<N: Into<MetricName>>(&mut self, name: N) -> Gauge {
-        let identifier =
-            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Gauge);
-        self.get_cached_value_handle(identifier).clone().into()
+    pub fn gauge<N>(&mut self, name: N) -> Gauge
+    where
+        N: IntoKey,
+    {
+        self.get_owned_value_handle(name, Kind::Gauge).into()
+    }
+
+    /// Creates a handle to the given gauge.
+    ///
+    /// This handle can be embedded into an existing type and used to directly update the
+    /// underlying gauge.  It is merely a proxy, so multiple handles to the same gauge can be
+    /// held and used.
+    pub fn gauge_with_labels<N, L>(&mut self, name: N, labels: L) -> Gauge
+    where
+        N: Into<ScopedString>,
+        L: IntoLabels,
+    {
+        self.get_owned_value_handle((name, labels), Kind::Gauge)
+            .into()
     }
 
     /// Creates a handle to the given histogram.
@@ -167,19 +253,42 @@ impl Sink {
     /// This handle can be embedded into an existing type and used to directly update the
     /// underlying histogram.  It is merely a proxy, so multiple handles to the same histogram
     /// can be held and used.
-    pub fn histogram<N: Into<MetricName>>(&mut self, name: N) -> Histogram {
-        let identifier =
-            MetricIdentifier::Unlabeled(name.into(), self.scope_handle, MetricKind::Histogram);
-        self.get_cached_value_handle(identifier).clone().into()
+    pub fn histogram<N>(&mut self, name: N) -> Histogram
+    where
+        N: IntoKey,
+    {
+        self.get_owned_value_handle(name, Kind::Histogram).into()
     }
 
-    fn get_cached_value_handle(&mut self, identifier: MetricIdentifier) -> &MetricValue {
+    /// Creates a handle to the given histogram.
+    ///
+    /// This handle can be embedded into an existing type and used to directly update the
+    /// underlying histogram.  It is merely a proxy, so multiple handles to the same histogram
+    /// can be held and used.
+    pub fn histogram_with_labels<N, L>(&mut self, name: N, labels: L) -> Histogram
+    where
+        N: Into<ScopedString>,
+        L: IntoLabels,
+    {
+        self.get_owned_value_handle((name, labels), Kind::Histogram)
+            .into()
+    }
+
+    fn get_owned_value_handle<K>(&mut self, key: K, kind: Kind) -> ValueHandle
+    where
+        K: IntoKey,
+    {
+        let id = Identifier::new(key.into_key(), self.scope_handle, kind);
+        self.get_cached_value_handle(id).clone().into()
+    }
+
+    fn get_cached_value_handle(&mut self, identifier: Identifier) -> &ValueHandle {
         // This gross hack gets around lifetime rules until full NLL is stable.  Without it, the
         // borrow checker doesn't understand the flow control and thinks the reference lives all
         // the way until the of the function, which breaks when we try to take a mutable reference
         // for inserting into the handle cache.
         if let Some(handle) = self.metric_cache.get(&identifier) {
-            return unsafe { &*(handle as *const MetricValue) };
+            return unsafe { &*(handle as *const ValueHandle) };
         }
 
         let handle = self.metric_registry.get_value_handle(identifier.clone());
@@ -202,15 +311,15 @@ impl Clone for Sink {
 }
 
 impl<'a> AsScoped<'a> for str {
-    fn as_scoped(&'a self, base: MetricScope) -> MetricScope {
+    fn as_scoped(&'a self, base: Scope) -> Scope {
         match base {
-            MetricScope::Root => {
+            Scope::Root => {
                 let parts = vec![self.to_owned()];
-                MetricScope::Nested(parts)
+                Scope::Nested(parts)
             }
-            MetricScope::Nested(mut parts) => {
+            Scope::Nested(mut parts) => {
                 parts.push(self.to_owned());
-                MetricScope::Nested(parts)
+                Scope::Nested(parts)
             }
         }
     }
@@ -221,16 +330,16 @@ where
     &'a T: AsRef<[&'b str]>,
     T: 'a,
 {
-    fn as_scoped(&'a self, base: MetricScope) -> MetricScope {
+    fn as_scoped(&'a self, base: Scope) -> Scope {
         match base {
-            MetricScope::Root => {
+            Scope::Root => {
                 let parts = self.as_ref().iter().map(|s| s.to_string()).collect();
-                MetricScope::Nested(parts)
+                Scope::Nested(parts)
             }
-            MetricScope::Nested(mut parts) => {
+            Scope::Nested(mut parts) => {
                 let mut new_parts = self.as_ref().iter().map(|s| s.to_string()).collect();
                 parts.append(&mut new_parts);
-                MetricScope::Nested(parts)
+                Scope::Nested(parts)
             }
         }
     }

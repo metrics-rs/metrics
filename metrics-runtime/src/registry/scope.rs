@@ -1,11 +1,11 @@
-use crate::common::{MetricScope, MetricScopeHandle};
+use crate::common::{Scope, ScopeHandle};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 
 struct Inner {
     id: u64,
-    forward: HashMap<MetricScope, MetricScopeHandle>,
-    backward: HashMap<MetricScopeHandle, MetricScope>,
+    forward: HashMap<Scope, ScopeHandle>,
+    backward: HashMap<ScopeHandle, Scope>,
 }
 
 impl Inner {
@@ -29,7 +29,7 @@ impl ScopeRegistry {
         }
     }
 
-    pub fn register(&self, scope: MetricScope) -> u64 {
+    pub fn register(&self, scope: Scope) -> u64 {
         let mut wg = self.inner.write();
 
         // If the key is already registered, send back the existing scope ID.
@@ -46,12 +46,9 @@ impl ScopeRegistry {
         scope_id
     }
 
-    pub fn get(&self, scope_id: MetricScopeHandle) -> MetricScope {
+    pub fn get(&self, scope_id: ScopeHandle) -> Scope {
         // See if we have an entry for the scope ID, and clone the scope if so.
         let rg = self.inner.read();
-        rg.backward
-            .get(&scope_id)
-            .cloned()
-            .unwrap_or(MetricScope::Root)
+        rg.backward.get(&scope_id).cloned().unwrap_or(Scope::Root)
     }
 }

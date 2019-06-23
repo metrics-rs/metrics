@@ -35,8 +35,8 @@ impl PrometheusRecorder {
 }
 
 impl Recorder for PrometheusRecorder {
-    fn record_counter<K: Into<Key>>(&mut self, key: K, value: u64) {
-        let label = key.into().as_ref().replace('.', "_");
+    fn record_counter(&mut self, key: Key, value: u64) {
+        let label = key.name().replace('.', "_");
         self.output.push_str("\n# TYPE ");
         self.output.push_str(label.as_str());
         self.output.push_str(" counter\n");
@@ -46,8 +46,8 @@ impl Recorder for PrometheusRecorder {
         self.output.push_str("\n");
     }
 
-    fn record_gauge<K: Into<Key>>(&mut self, key: K, value: i64) {
-        let label = key.into().as_ref().replace('.', "_");
+    fn record_gauge(&mut self, key: Key, value: i64) {
+        let label = key.name().replace('.', "_");
         self.output.push_str("\n# TYPE ");
         self.output.push_str(label.as_str());
         self.output.push_str(" gauge\n");
@@ -57,7 +57,7 @@ impl Recorder for PrometheusRecorder {
         self.output.push_str("\n");
     }
 
-    fn record_histogram<K: Into<Key>>(&mut self, key: K, values: &[u64]) {
+    fn record_histogram(&mut self, key: Key, values: &[u64]) {
         let mut sum = 0;
         let mut h = Histogram::<u64>::new(3).expect("failed to create histogram");
         for value in values {
@@ -65,7 +65,7 @@ impl Recorder for PrometheusRecorder {
             sum += *value;
         }
 
-        let label = key.into().as_ref().replace('.', "_");
+        let label = key.name().replace('.', "_");
         self.output.push_str("\n# TYPE ");
         self.output.push_str(label.as_str());
         self.output.push_str(" summary\n");
