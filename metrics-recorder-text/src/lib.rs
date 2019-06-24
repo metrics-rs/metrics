@@ -42,6 +42,7 @@
 //!   connect_time max: 139389
 //! ```
 //!
+#![deny(missing_docs)]
 use hdrhistogram::Histogram;
 use metrics_core::{Key, Recorder};
 use metrics_util::{parse_quantiles, Quantile};
