@@ -145,7 +145,8 @@
 //!
 //! [metrics-runtime]: https://docs.rs/metrics-runtime
 #![deny(missing_docs)]
-use metrics_core::{AsNanoseconds, Key};
+use metrics_core::AsNanoseconds;
+pub use metrics_core::{Key, Label};
 #[cfg(feature = "std")]
 use std::error;
 use std::fmt;

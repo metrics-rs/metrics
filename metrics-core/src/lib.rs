@@ -36,6 +36,7 @@
 use futures::future::Future;
 use std::borrow::Cow;
 use std::fmt;
+use std::iter::FromIterator;
 use std::slice::Iter;
 use std::time::Duration;
 
@@ -59,6 +60,16 @@ impl Label {
     {
         Label(key.into(), value.into())
     }
+
+    /// The key of this label.
+    pub fn key(&self) -> &str {
+        self.0.as_ref()
+    }
+
+    /// The value of this label.
+    pub fn value(&self) -> &str {
+        self.1.as_ref()
+    }
 }
 
 /// A metric key.
@@ -67,10 +78,9 @@ impl Label {
 /// the metric.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Key {
+    name: ScopedString,
     #[doc(hidden)]
-    pub name: ScopedString,
-    #[doc(hidden)]
-    pub labels: Option<Vec<Label>>,
+    labels: Option<Vec<Label>>,
 }
 
 impl Key {
@@ -95,6 +105,21 @@ impl Key {
             name: name.into(),
             labels: Some(labels.into()),
         }
+    }
+
+    /// Adds a new set of labels to this key.
+    ///
+    /// New labels will be appended to any existing labels.
+    pub fn add_labels(&mut self, new_labels: Vec<Label>) {
+        let labels = match self.labels.take() {
+            Some(mut labels) => {
+                labels.extend(new_labels);
+                labels
+            }
+            None => Vec::from_iter(new_labels),
+        };
+
+        self.labels = Some(labels);
     }
 
     /// Name of this key.
@@ -181,13 +206,22 @@ pub trait IntoLabels {
     fn into_labels(self) -> Vec<Label>;
 }
 
-impl<T> IntoLabels for T
+impl IntoLabels for Vec<Label> {
+    fn into_labels(self) -> Vec<Label> {
+        self
+    }
+}
+
+impl<'a, T, K, V> IntoLabels for &'a T
 where
-    T: Iterator<Item = (ScopedString, ScopedString)>,
+    Self: IntoIterator<Item = &'a (K, V)>,
+    K: Into<ScopedString> + Clone + 'a,
+    V: Into<ScopedString> + Clone + 'a,
 {
     fn into_labels(self) -> Vec<Label> {
-        self.map(|(k, v)| Label::from_parts(k, v))
-            .collect::<Vec<_>>()
+        self.into_iter()
+            .map(|(k, v)| Label::from_parts(k.clone(), v.clone()))
+            .collect()
     }
 }
 
