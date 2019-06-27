@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 /// visbility controls.
 ///
 /// See also: [Sink::scoped](crate::Sink::scoped).
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Scope {
     /// Root scope.
     Root,

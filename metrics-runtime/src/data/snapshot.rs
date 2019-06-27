@@ -16,6 +16,11 @@ impl Snapshot {
     pub fn len(&self) -> usize {
         self.measurements.len()
     }
+
+    /// whether or not this snapshot is empty.
+    pub fn is_empty(&self) -> bool {
+        self.measurements.len() != 0
+    }
 }
 
 impl MetricsSnapshot for Snapshot {

@@ -4,7 +4,7 @@ use crate::{
     registry::{MetricRegistry, ScopeRegistry},
 };
 use fxhash::FxBuildHasher;
-use metrics_core::{IntoKey, IntoLabels, ScopedString};
+use metrics_core::{IntoKey, IntoLabels, Key, Label, ScopedString};
 use quanta::Clock;
 use std::error::Error;
 use std::fmt;
@@ -40,6 +40,7 @@ pub trait AsScoped<'a> {
 }
 
 /// Handle for sending metric samples.
+#[derive(Debug)]
 pub struct Sink {
     metric_registry: Arc<MetricRegistry>,
     metric_cache: FastHashMap<Identifier, ValueHandle>,
@@ -47,6 +48,7 @@ pub struct Sink {
     scope: Scope,
     scope_handle: ScopeHandle,
     clock: Clock,
+    default_labels: Option<Vec<Label>>,
 }
 
 impl Sink {
@@ -65,7 +67,25 @@ impl Sink {
             scope,
             scope_handle,
             clock,
+            default_labels: None,
         }
+    }
+
+    /// Adds default labels for this sink and any derived sinks.
+    ///
+    /// Default labels are added to all metrics.  If a metric is updated and requested and it has
+    /// its own labels specified, the default labels will be appended to the existing labels.
+    ///
+    /// Labels are passed on, with scope, to any scoped children or cloned sinks.
+    pub fn add_default_labels<L>(&mut self, labels: L)
+    where
+        L: IntoLabels,
+    {
+        let mut labels = labels.into_labels();
+        if let Some(default_labels) = &self.default_labels {
+            labels.extend_from_slice(default_labels);
+        }
+        self.default_labels = Some(labels);
     }
 
     /// Creates a scoped clone of this [`Sink`].
@@ -91,12 +111,17 @@ impl Sink {
     pub fn scoped<'a, S: AsScoped<'a> + ?Sized>(&self, scope: &'a S) -> Sink {
         let new_scope = scope.as_scoped(self.scope.clone());
 
-        Sink::new(
+        let mut sink = Sink::new(
             self.metric_registry.clone(),
             self.scope_registry.clone(),
             new_scope,
             self.clock.clone(),
-        )
+        );
+        if let Some(labels) = &self.default_labels {
+            sink.add_default_labels(labels.clone());
+        }
+
+        sink
     }
 
     /// Gets the current time, in nanoseconds, from the internal high-speed clock.
@@ -109,7 +134,11 @@ impl Sink {
     where
         N: IntoKey,
     {
-        let id = Identifier::new(name.into_key(), self.scope_handle, Kind::Counter);
+        let mut key = name.into_key();
+        if let Some(labels) = &self.default_labels {
+            key.add_labels(labels.clone());
+        }
+        let id = Identifier::new(key, self.scope_handle, Kind::Counter);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_counter(value);
     }
@@ -120,7 +149,12 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let id = Identifier::new((name, labels), self.scope_handle, Kind::Counter);
+        let mut labels = labels.into_labels();
+        if let Some(default_labels) = &self.default_labels {
+            labels.extend_from_slice(default_labels);
+        }
+        let key = Key::from_name_and_labels(name, labels);
+        let id = Identifier::new(key, self.scope_handle, Kind::Counter);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_counter(value);
     }
@@ -130,7 +164,11 @@ impl Sink {
     where
         N: IntoKey,
     {
-        let id = Identifier::new(name.into_key(), self.scope_handle, Kind::Gauge);
+        let mut key = name.into_key();
+        if let Some(labels) = &self.default_labels {
+            key.add_labels(labels.clone());
+        }
+        let id = Identifier::new(key, self.scope_handle, Kind::Gauge);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_gauge(value);
     }
@@ -141,7 +179,12 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let id = Identifier::new((name, labels), self.scope_handle, Kind::Gauge);
+        let mut labels = labels.into_labels();
+        if let Some(default_labels) = &self.default_labels {
+            labels.extend_from_slice(default_labels);
+        }
+        let key = Key::from_name_and_labels(name, labels);
+        let id = Identifier::new(key, self.scope_handle, Kind::Gauge);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_gauge(value);
     }
@@ -180,7 +223,11 @@ impl Sink {
     where
         N: IntoKey,
     {
-        let id = Identifier::new(name.into_key(), self.scope_handle, Kind::Histogram);
+        let mut key = name.into_key();
+        if let Some(labels) = &self.default_labels {
+            key.add_labels(labels.clone());
+        }
+        let id = Identifier::new(key, self.scope_handle, Kind::Histogram);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_histogram(value);
     }
@@ -191,7 +238,12 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let id = Identifier::new((name, labels), self.scope_handle, Kind::Histogram);
+        let mut labels = labels.into_labels();
+        if let Some(default_labels) = &self.default_labels {
+            labels.extend_from_slice(default_labels);
+        }
+        let key = Key::from_name_and_labels(name, labels);
+        let id = Identifier::new(key, self.scope_handle, Kind::Histogram);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_histogram(value);
     }
@@ -205,7 +257,11 @@ impl Sink {
     where
         N: IntoKey,
     {
-        self.get_owned_value_handle(name, Kind::Counter).into()
+        let mut key = name.into_key();
+        if let Some(labels) = &self.default_labels {
+            key.add_labels(labels.clone());
+        }
+        self.get_owned_value_handle(key, Kind::Counter).into()
     }
 
     /// Creates a handle to the given counter, with labels attached.
@@ -218,8 +274,13 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        self.get_owned_value_handle((name, labels), Kind::Counter)
-            .into()
+        let mut labels = labels.into_labels();
+        if let Some(default_labels) = &self.default_labels {
+            labels.extend_from_slice(default_labels);
+        }
+        let key = Key::from_name_and_labels(name, labels);
+
+        self.get_owned_value_handle(key, Kind::Counter).into()
     }
 
     /// Creates a handle to the given gauge.
@@ -231,7 +292,11 @@ impl Sink {
     where
         N: IntoKey,
     {
-        self.get_owned_value_handle(name, Kind::Gauge).into()
+        let mut key = name.into_key();
+        if let Some(labels) = &self.default_labels {
+            key.add_labels(labels.clone());
+        }
+        self.get_owned_value_handle(key, Kind::Gauge).into()
     }
 
     /// Creates a handle to the given gauge.
@@ -244,8 +309,13 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        self.get_owned_value_handle((name, labels), Kind::Gauge)
-            .into()
+        let mut labels = labels.into_labels();
+        if let Some(default_labels) = &self.default_labels {
+            labels.extend_from_slice(default_labels);
+        }
+        let key = Key::from_name_and_labels(name, labels);
+
+        self.get_owned_value_handle(key, Kind::Gauge).into()
     }
 
     /// Creates a handle to the given histogram.
@@ -257,7 +327,11 @@ impl Sink {
     where
         N: IntoKey,
     {
-        self.get_owned_value_handle(name, Kind::Histogram).into()
+        let mut key = name.into_key();
+        if let Some(labels) = &self.default_labels {
+            key.add_labels(labels.clone());
+        }
+        self.get_owned_value_handle(key, Kind::Histogram).into()
     }
 
     /// Creates a handle to the given histogram.
@@ -270,8 +344,13 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        self.get_owned_value_handle((name, labels), Kind::Histogram)
-            .into()
+        let mut labels = labels.into_labels();
+        if let Some(default_labels) = &self.default_labels {
+            labels.extend_from_slice(default_labels);
+        }
+        let key = Key::from_name_and_labels(name, labels);
+
+        self.get_owned_value_handle(key, Kind::Histogram).into()
     }
 
     fn get_owned_value_handle<K>(&mut self, key: K, kind: Kind) -> ValueHandle
@@ -279,7 +358,7 @@ impl Sink {
         K: IntoKey,
     {
         let id = Identifier::new(key.into_key(), self.scope_handle, kind);
-        self.get_cached_value_handle(id).clone().into()
+        self.get_cached_value_handle(id).clone()
     }
 
     fn get_cached_value_handle(&mut self, identifier: Identifier) -> &ValueHandle {
@@ -306,6 +385,7 @@ impl Clone for Sink {
             scope: self.scope.clone(),
             scope_handle: self.scope_handle,
             clock: self.clock.clone(),
+            default_labels: self.default_labels.clone(),
         }
     }
 }

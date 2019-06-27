@@ -2,6 +2,7 @@ use crate::common::{Scope, ScopeHandle};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 
+#[derive(Debug)]
 struct Inner {
     id: u64,
     forward: HashMap<Scope, ScopeHandle>,
@@ -18,6 +19,7 @@ impl Inner {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct ScopeRegistry {
     inner: RwLock<Inner>,
 }

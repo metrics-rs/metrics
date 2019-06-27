@@ -8,6 +8,7 @@ use quanta::Clock;
 use std::ops::Deref;
 use std::sync::Arc;
 
+#[derive(Debug)]
 pub(crate) struct MetricRegistry {
     scope_registry: Arc<ScopeRegistry>,
     metrics: ArcSwap<HashMap<Identifier, ValueHandle>>,
