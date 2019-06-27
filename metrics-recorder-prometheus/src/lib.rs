@@ -91,9 +91,9 @@ impl Into<String> for PrometheusRecorder {
     fn into(self) -> String {
         let mut output = self.output;
 
-        for (key, sh) in &self.histos {
+        for (key, sh) in self.histos {
             let (sum, hist) = sh;
-            let (name, labels) = key_to_parts(&key);
+            let (name, labels) = key_to_parts(key);
             output.push_str("\n# TYPE ");
             output.push_str(name.as_str());
             output.push_str(" summary\n");
@@ -126,13 +126,15 @@ impl Into<String> for PrometheusRecorder {
     }
 }
 
-fn key_to_parts(key: &Key) -> (String, Vec<String>) {
-    let name = key.name().replace('.', "_");
-    let labels = key
-        .labels()
+fn key_to_parts(key: Key) -> (String, Vec<String>) {
+    let (name, labels) = key.into_parts();
+    let name = name.replace('.', "_");
+    let labels = labels
         .map(|labels| {
             labels
-                .map(|l| format!("{}=\"{}\"", l.key(), l.value()))
+                .into_iter()
+                .map(|label| label.into_parts())
+                .map(|(k, v)| format!("{}=\"{}\"", k, v))
                 .collect()
         })
         .unwrap_or_default();

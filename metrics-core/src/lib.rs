@@ -70,6 +70,11 @@ impl Label {
     pub fn value(&self) -> &str {
         self.1.as_ref()
     }
+
+    /// Consumes this `Label`, returning the key and value.
+    pub fn into_parts(self) -> (ScopedString, ScopedString) {
+        (self.0, self.1)
+    }
 }
 
 /// A metric key.
@@ -141,6 +146,11 @@ impl Key {
             name: f(self.name),
             labels: self.labels,
         }
+    }
+
+    /// Consumes this `Key`, returning the name and any labels.
+    pub fn into_parts(self) -> (ScopedString, Option<Vec<Label>>) {
+        (self.name, self.labels)
     }
 }
 
