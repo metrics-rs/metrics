@@ -14,11 +14,16 @@ readme = "README.md"
 keywords = ["metrics", "facade"]
 build = "build.rs"
 
+[[bench]]
+name = "macros"
+harness = false
+
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.4" }
 
 [dev-dependencies]
 log = "^0.4"
+criterion = "^0.2"
 
 [package.metadata.docs.rs]
 features = ["std"]

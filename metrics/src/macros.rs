@@ -13,6 +13,19 @@
 /// }
 /// # fn main() {}
 /// ```
+///
+/// Labels can also be passed along:
+///
+/// ```rust
+/// # #[macro_use]
+/// # extern crate metrics;
+/// fn do_thing() {
+///     let count: u64 = 42;
+///     let user: String = String::from("jane");
+///     counter!("do_thing", count, "service" => "admin", "user" => user);
+/// }
+/// # fn main() {}
+/// ```
 #[macro_export]
 macro_rules! counter {
     ($name:expr, $value:expr, $($k:expr => $v:expr),+) => {
@@ -38,6 +51,19 @@ macro_rules! counter {
 /// fn update_current_value() {
 ///     let value: i64 = -131;
 ///     gauge!("current_value", value);
+/// }
+/// # fn main() {}
+/// ```
+///
+/// Labels can also be passed along:
+///
+/// ```rust
+/// # #[macro_use]
+/// # extern crate metrics;
+/// fn update_current_value() {
+///     let value: i64 = -131;
+///     let creator: String = String::from("jane");
+///     gauge!("current_value", value, "creator" => creator);
 /// }
 /// # fn main() {}
 /// ```
@@ -71,20 +97,51 @@ macro_rules! gauge {
 ///     let end = Instant::now();
 ///
 ///     // We can pass instances of `Instant` directly:
-///     timing!("performance.request_processed", start, end);
+///     timing!("perf.request_processed", start, end);
 ///
 ///     // Or we can pass just the delta:
 ///     let delta = end - start;
-///     timing!("performance.request_processed", delta);
+///     timing!("perf.request_processed", delta);
 ///
 ///     // And we can even pass unsigned values, both for the start/end notation:
 ///     let start: u64 = 100;
 ///     let end: u64 = 200;
-///     timing!("performance.request_processed", start, end);
+///     timing!("perf.request_processed", start, end);
 ///
 ///     // And the delta notation:
 ///     let delta: u64 = end - start;
-///     timing!("performance.request_processed", delta);
+///     timing!("perf.request_processed", delta);
+/// }
+/// # fn main() {}
+/// ```
+///
+/// Labels can also be passed along:
+///
+/// ```rust
+/// # #[macro_use]
+/// # extern crate metrics;
+/// # use std::time::Instant;
+/// # fn process() {}
+/// fn handle_request() {
+///     let start = Instant::now();
+///     process();
+///     let end = Instant::now();
+///
+///     // We can pass instances of `Instant` directly:
+///     timing!("perf.request_processed", start, end, "service" => "http", "type" => "checkout");
+///
+///     // Or we can pass just the delta:
+///     let delta = end - start;
+///     timing!("perf.request_processed", delta, "service" => "http", "type" => "checkout");
+///
+///     // And we can even pass unsigned values, both for the start/end notation:
+///     let start: u64 = 100;
+///     let end: u64 = 200;
+///     timing!("perf.request_processed", start, end, "service" => "http", "type" => "checkout");
+///
+///     // And the delta notation:
+///     let delta: u64 = end - start;
+///     timing!("perf.request_processed", delta, "service" => "http", "type" => "checkout");
 /// }
 /// # fn main() {}
 /// ```
@@ -125,6 +182,20 @@ macro_rules! timing {
 /// fn handle_request() {
 ///     let rows_read = process();
 ///     value!("client.process_num_rows", rows_read);
+/// }
+/// # fn main() {}
+/// ```
+///
+/// Labels can also be passed along:
+///
+/// ```rust
+/// # #[macro_use]
+/// # extern crate metrics;
+/// # use std::time::Instant;
+/// # fn process() -> u64 { 42 }
+/// fn handle_request() {
+///     let rows_read = process();
+///     value!("client.process_num_rows", rows_read, "resource" => "shard1", "table" => "posts");
 /// }
 /// # fn main() {}
 /// ```
