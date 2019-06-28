@@ -40,7 +40,7 @@ impl PrometheusRecorder {
 
 impl Recorder for PrometheusRecorder {
     fn record_counter(&mut self, key: Key, value: u64) {
-        let (name, labels) = key_to_parts(&key);
+        let (name, labels) = key_to_parts(key);
         let full_name = render_labeled_name(&name, &labels);
         self.output.push_str("\n# TYPE ");
         self.output.push_str(name.as_str());
@@ -52,7 +52,7 @@ impl Recorder for PrometheusRecorder {
     }
 
     fn record_gauge(&mut self, key: Key, value: i64) {
-        let (name, labels) = key_to_parts(&key);
+        let (name, labels) = key_to_parts(key);
         let full_name = render_labeled_name(&name, &labels);
         self.output.push_str("\n# TYPE ");
         self.output.push_str(name.as_str());
