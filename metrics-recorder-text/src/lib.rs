@@ -52,6 +52,7 @@ use std::fmt::Display;
 /// Records metrics in a hierarchical, text-based format.
 pub struct TextRecorder {
     structure: MetricsTree,
+    histos: HashMap<Key, Histogram<u64>>,
     quantiles: Vec<Quantile>,
 }
 
@@ -75,6 +76,7 @@ impl TextRecorder {
 
         Self {
             structure: MetricsTree::with_level(0),
+            histos: HashMap::new(),
             quantiles: actual_quantiles,
         }
     }
@@ -82,26 +84,25 @@ impl TextRecorder {
 
 impl Recorder for TextRecorder {
     fn record_counter(&mut self, key: Key, value: u64) {
-        let (name_parts, name) = name_to_parts(key);
+        let (name_parts, name) = key_to_parts(key);
         let mut values = single_value_to_values(name, value);
         self.structure.insert(name_parts, &mut values);
     }
 
     fn record_gauge(&mut self, key: Key, value: i64) {
-        let (name_parts, name) = name_to_parts(key);
+        let (name_parts, name) = key_to_parts(key);
         let mut values = single_value_to_values(name, value);
         self.structure.insert(name_parts, &mut values);
     }
 
     fn record_histogram(&mut self, key: Key, values: &[u64]) {
-        let mut h = Histogram::new(3).expect("failed to create histogram");
-        for value in values {
-            h.record(*value).expect("failed to record histogram value");
-        }
+        let entry = self.histos.entry(key).or_insert_with(|| {
+            Histogram::<u64>::new(3).expect("failed to create histogram")
+        });
 
-        let (name_parts, name) = name_to_parts(key);
-        let mut values = hist_to_values(name, h, &self.quantiles);
-        self.structure.insert(name_parts, &mut values);
+        for value in values {
+            entry.record(*value).expect("failed to record histogram value");
+        }
     }
 }
 
@@ -109,6 +110,7 @@ impl Clone for TextRecorder {
     fn clone(&self) -> Self {
         Self {
             structure: MetricsTree::with_level(0),
+            histos: HashMap::new(),
             quantiles: self.quantiles.clone(),
         }
     }
@@ -133,7 +135,7 @@ impl MetricsTree {
     pub fn insert(&mut self, mut name_parts: VecDeque<String>, values: &mut Vec<String>) {
         match name_parts.len() {
             0 => {
-                let indent = "  ".repeat(self.level + 1);
+                let indent = "  ".repeat(self.level);
                 let mut indented = values
                     .iter()
                     .map(move |x| format!("{}{}", indent, x))
@@ -155,11 +157,8 @@ impl MetricsTree {
     }
 
     pub fn into_output(self) -> String {
-        let indent = "  ".repeat(self.level + 1);
+        let indent = "  ".repeat(self.level);
         let mut output = String::new();
-        if self.level == 0 {
-            output.push_str("\nroot:\n");
-        }
 
         let mut sorted = self
             .current
@@ -192,7 +191,13 @@ impl MetricsTree {
 
 impl Into<String> for TextRecorder {
     fn into(self) -> String {
-        self.structure.into_output()
+        let mut structure = self.structure;
+        for (key, h) in self.histos {
+            let (name_parts, name) = key_to_parts(key);
+            let mut values = hist_to_values(name, h, &self.quantiles);
+            structure.insert(name_parts, &mut values);
+        }
+        structure.into_output()
     }
 }
 
@@ -230,15 +235,27 @@ impl std::cmp::Ord for SortEntry {
     }
 }
 
-fn name_to_parts(key: Key) -> (VecDeque<String>, String) {
-    let mut parts = key
-        .name()
-        .split('.')
+fn key_to_parts(key: Key) -> (VecDeque<String>, String) {
+    let (name, labels) = key.into_parts();
+    let mut parts = name.split('.')
         .map(ToOwned::to_owned)
         .collect::<VecDeque<_>>();
     let name = parts.pop_back().expect("name didn't have a single part");
 
-    (parts, name)
+    let labels = labels
+        .map(|labels| {
+            labels
+                .into_iter()
+                .map(|label| label.into_parts())
+                .map(|(k, v)| format!("{}=\"{}\"", k, v))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+        .join(",");
+
+    let fname = format!("{}{{{}}}", name, labels);
+
+    (parts, fname)
 }
 
 fn single_value_to_values<T>(name: String, value: T) -> Vec<String>
