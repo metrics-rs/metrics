@@ -192,12 +192,12 @@ impl MetricsTree {
     }
 }
 
-impl Into<String> for TextRecorder {
-    fn into(self) -> String {
-        let mut structure = self.structure;
-        for (key, h) in self.histos {
+impl From<TextRecorder> for String {
+    fn from(r: TextRecorder) -> String {
+        let mut structure = r.structure;
+        for (key, h) in r.histos {
             let (name_parts, name) = key_to_parts(key);
-            let mut values = hist_to_values(name, h, &self.quantiles);
+            let mut values = hist_to_values(name, h, &r.quantiles);
             structure.insert(name_parts, &mut values);
         }
         structure.into_output()
@@ -252,8 +252,13 @@ fn key_to_parts(key: Key) -> (VecDeque<String>, String) {
         .map(|(k, v)| format!("{}=\"{}\"", k, v))
         .collect::<Vec<_>>()
         .join(",");
+    let label = if labels.is_empty() {
+        String::new()
+    } else {
+        format!("{{{}}}", labels)
+    };
 
-    let fname = format!("{}{{{}}}", name, labels);
+    let fname = format!("{}{}", name, label);
 
     (parts, fname)
 }

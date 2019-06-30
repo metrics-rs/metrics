@@ -87,18 +87,18 @@ impl Clone for PrometheusRecorder {
     }
 }
 
-impl Into<String> for PrometheusRecorder {
-    fn into(self) -> String {
-        let mut output = self.output;
+impl From<PrometheusRecorder> for String {
+    fn from(r: PrometheusRecorder) -> String {
+        let mut output = r.output;
 
-        for (key, sh) in self.histos {
+        for (key, sh) in r.histos {
             let (sum, hist) = sh;
             let (name, labels) = key_to_parts(key);
             output.push_str("\n# TYPE ");
             output.push_str(name.as_str());
             output.push_str(" summary\n");
 
-            for quantile in &self.quantiles {
+            for quantile in &r.quantiles {
                 let value = hist.value_at_quantile(quantile.value());
                 let mut labels = labels.clone();
                 labels.push(format!("quantile=\"{}\"", quantile.value()));
