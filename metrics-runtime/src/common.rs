@@ -1,5 +1,5 @@
 use crate::data::AtomicWindowedHistogram;
-use metrics_core::{IntoKey, Key, ScopedString};
+use metrics_core::{Key, ScopedString};
 use metrics_util::StreamingIntegers;
 use quanta::Clock;
 use std::ops::Deref;
@@ -51,9 +51,9 @@ pub(crate) struct Identifier(Key, ScopeHandle, Kind);
 impl Identifier {
     pub fn new<K>(key: K, handle: ScopeHandle, kind: Kind) -> Self
     where
-        K: IntoKey,
+        K: Into<Key>,
     {
-        Identifier(key.into_key(), handle, kind)
+        Identifier(key.into(), handle, kind)
     }
 
     pub fn kind(&self) -> Kind {

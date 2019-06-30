@@ -102,11 +102,11 @@ impl Key {
     pub fn from_name_and_labels<N, L>(name: N, labels: L) -> Self
     where
         N: Into<ScopedString>,
-        L: Into<Vec<Label>>,
+        L: IntoLabels,
     {
         Key {
             name: name.into(),
-            labels: labels.into(),
+            labels: labels.into_labels(),
         }
     }
 
@@ -160,44 +160,32 @@ impl fmt::Display for Key {
     }
 }
 
-/// A value that can be converted into a `Key`.
-pub trait IntoKey {
-    /// Consumes this value, turning it into `Key`.
-    fn into_key(self) -> Key;
-}
-
-impl IntoKey for Key {
-    fn into_key(self) -> Key {
-        self
+impl From<String> for Key {
+    fn from(name: String) -> Key {
+        Key::from_name(name)
     }
 }
 
-impl IntoKey for String {
-    fn into_key(self) -> Key {
-        Key::from_name(self)
+impl From<&'static str> for Key {
+    fn from(name: &'static str) -> Key {
+        Key::from_name(name)
     }
 }
 
-impl IntoKey for &'static str {
-    fn into_key(self) -> Key {
-        Key::from_name(self)
+impl From<ScopedString> for Key {
+    fn from(name: ScopedString) -> Key {
+        Key::from_name(name)
     }
 }
 
-impl IntoKey for ScopedString {
-    fn into_key(self) -> Key {
-        Key::from_name(self)
-    }
-}
-
-impl<K, L> IntoKey for (K, L)
+impl<K, L> From<(K, L)> for Key
 where
     K: Into<ScopedString>,
     L: IntoLabels,
 {
-    fn into_key(self) -> Key {
-        let labels = self.1.into_labels();
-        Key::from_name_and_labels(self.0, labels)
+    fn from(parts: (K, L)) -> Key {
+        let labels = parts.1.into_labels();
+        Key::from_name_and_labels(parts.0, labels)
     }
 }
 

@@ -4,7 +4,7 @@ use crate::{
     registry::{MetricRegistry, ScopeRegistry},
 };
 use fxhash::FxBuildHasher;
-use metrics_core::{IntoKey, IntoLabels, Key, Label, ScopedString};
+use metrics_core::{IntoLabels, Key, Label, ScopedString};
 use quanta::Clock;
 use std::error::Error;
 use std::fmt;
@@ -141,7 +141,7 @@ impl Sink {
     /// ```
     pub fn record_counter<N>(&mut self, name: N, value: u64)
     where
-        N: IntoKey,
+        N: Into<Key>,
     {
         let key = self.construct_key(name);
         let id = Identifier::new(key, self.scope_handle, Kind::Counter);
@@ -188,7 +188,7 @@ impl Sink {
     /// ```
     pub fn record_gauge<N>(&mut self, name: N, value: i64)
     where
-        N: IntoKey,
+        N: Into<Key>,
     {
         let key = self.construct_key(name);
         let id = Identifier::new(key, self.scope_handle, Kind::Gauge);
@@ -244,7 +244,7 @@ impl Sink {
     /// ```
     pub fn record_timing<N, V>(&mut self, name: N, start: V, end: V)
     where
-        N: IntoKey,
+        N: Into<Key>,
         V: Delta,
     {
         let delta = end.delta(start);
@@ -300,7 +300,7 @@ impl Sink {
     /// ```
     pub fn record_value<N>(&mut self, name: N, value: u64)
     where
-        N: IntoKey,
+        N: Into<Key>,
     {
         let key = self.construct_key(name);
         let id = Identifier::new(key, self.scope_handle, Kind::Histogram);
@@ -357,7 +357,7 @@ impl Sink {
     /// ```
     pub fn counter<N>(&mut self, name: N) -> Counter
     where
-        N: IntoKey,
+        N: Into<Key>,
     {
         let key = self.construct_key(name);
         self.get_owned_value_handle(key, Kind::Counter).into()
@@ -413,7 +413,7 @@ impl Sink {
     /// ```
     pub fn gauge<N>(&mut self, name: N) -> Gauge
     where
-        N: IntoKey,
+        N: Into<Key>,
     {
         let key = self.construct_key(name);
         self.get_owned_value_handle(key, Kind::Gauge).into()
@@ -476,7 +476,7 @@ impl Sink {
     /// ```
     pub fn histogram<N>(&mut self, name: N) -> Histogram
     where
-        N: IntoKey,
+        N: Into<Key>,
     {
         let key = self.construct_key(name);
         self.get_owned_value_handle(key, Kind::Histogram).into()
@@ -521,9 +521,9 @@ impl Sink {
 
     pub(crate) fn construct_key<K>(&self, key: K) -> Key
     where
-        K: IntoKey,
+        K: Into<Key>,
     {
-        let mut key = key.into_key();
+        let mut key = key.into();
         if !self.default_labels.is_empty() {
             key.add_labels(self.default_labels.clone());
         }
@@ -532,9 +532,9 @@ impl Sink {
 
     fn get_owned_value_handle<K>(&mut self, key: K, kind: Kind) -> ValueHandle
     where
-        K: IntoKey,
+        K: Into<Key>,
     {
-        let id = Identifier::new(key.into_key(), self.scope_handle, kind);
+        let id = Identifier::new(key.into(), self.scope_handle, kind);
         self.get_cached_value_handle(id).clone()
     }
 
