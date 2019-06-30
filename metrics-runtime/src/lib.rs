@@ -40,7 +40,7 @@
 //!
 //! Here's a simple example of creating a receiver and working with a sink:
 //!
-//! ```
+//! ```rust
 //! # extern crate metrics_runtime;
 //! use metrics_runtime::Receiver;
 //! use std::{thread, time::Duration};
@@ -84,7 +84,7 @@
 //! For example, after getting a [`Sink`] from the [`Receiver`], we can easily nest ourselves under
 //! the root scope and then send some metrics:
 //!
-//! ```
+//! ```rust
 //! # extern crate metrics_runtime;
 //! use metrics_runtime::Receiver;
 //! let receiver = Receiver::builder().build().expect("failed to create receiver");
@@ -116,6 +116,57 @@
 //! scoped_sink_two.record_counter("widgets", 42);
 //! ```
 //!
+//! # Labels
+//!
+//! On top of scope support, metrics can also have labels. If scopes are for organizing metrics in
+//! a hierarchy, then labels are for differentiating the same metric being emitted from multiple
+//! sources.
+//!
+//! This is most easily demonstrated with an example:
+//!
+//! ```rust
+//! # extern crate metrics_runtime;
+//! # fn run_query(_: &str) -> u64 { 42 }
+//! use metrics_runtime::Receiver;
+//! let receiver = Receiver::builder().build().expect("failed to create receiver");
+//!
+//! let mut sink = receiver.get_sink();
+//!
+//! // We might have a function that interacts with a database and returns the number of rows it
+//! // touched in doing so.
+//! fn process_query(query: &str) -> u64 {
+//!     run_query(query)
+//! }
+//!
+//! // We might call this function multiple times, but hitting different tables.
+//! let rows_a = process_query("UPDATE posts SET public = 1 WHERE public = 0");
+//! let rows_b = process_query("UPDATE comments SET public = 1 WHERE public = 0");
+//!
+//! // Now, we want to track a metric that shows how many rows are updated overall, so the metric
+//! // name should be the same no matter which table we update, but we'd also like to be able to
+//! // differentiate by table, too!
+//! sink.record_value_with_labels("db.rows_updated", rows_a, &[("table", "posts")]);
+//! sink.record_value_with_labels("db.rows_updated", rows_b, &[("table", "comments")]);
+//!
+//! // If you want to send a specific set of labels with every metric from this sink, you can also
+//! // add default labels.  This action is additive, so you can call it multiple times to build up
+//! // the set of labels sent with metrics, and labels are inherited when creating a scoped sink or
+//! // cloning an existing sink, which allows label usage to either supplement scopes or to
+//! // potentially replace them entirely.
+//! sink.add_default_labels(&[("database", "primary")]);
+//! # fn main() {}
+//! ```
+//!
+//! As shown in the example, labels allow a user to submit values to the underlying metric name,
+//! while also differentiating between unique situations, whatever the facet that the user decides
+//! to utilize.
+//!
+//! Naturally, these methods can be slightly cumbersome and visually detracting, in which case
+//! you can utilize the proxy metric types -- [`Counter`], [`Gauge`], and [`Histogram`] -- and
+//! create them with labels ahead of time.  These types, by their nature, are bound to a specific
+//! metric, which encompasses name, scope, and labels, and so extra labels cannot be passed when
+//! actually updating them.
+//!
 //! # Snapshots
 //!
 //! Naturally, we need a way to get the metrics out of the system, which is where snapshots come
@@ -128,7 +179,7 @@
 //!
 //! Let's take an example of writing out our metrics in a yaml-like format, writing them via
 //! `log!`:
-//! ```
+//! ```rust
 //! # extern crate metrics_runtime;
 //! use metrics_runtime::{Receiver, recorders::TextRecorder, exporters::LogExporter};
 //! use log::Level;

@@ -10,6 +10,11 @@ impl Counter {
     pub fn record(&self, value: u64) {
         self.handle.update_counter(value);
     }
+
+    /// Increments the counter by one.
+    pub fn increment(&self) {
+        self.handle.update_counter(1);
+    }
 }
 
 impl From<ValueHandle> for Counter {

@@ -96,12 +96,15 @@ impl Recorder for TextRecorder {
     }
 
     fn record_histogram(&mut self, key: Key, values: &[u64]) {
-        let entry = self.histos.entry(key).or_insert_with(|| {
-            Histogram::<u64>::new(3).expect("failed to create histogram")
-        });
+        let entry = self
+            .histos
+            .entry(key)
+            .or_insert_with(|| Histogram::<u64>::new(3).expect("failed to create histogram"));
 
         for value in values {
-            entry.record(*value).expect("failed to record histogram value");
+            entry
+                .record(*value)
+                .expect("failed to record histogram value");
         }
     }
 }
@@ -237,7 +240,8 @@ impl std::cmp::Ord for SortEntry {
 
 fn key_to_parts(key: Key) -> (VecDeque<String>, String) {
     let (name, labels) = key.into_parts();
-    let mut parts = name.split('.')
+    let mut parts = name
+        .split('.')
         .map(ToOwned::to_owned)
         .collect::<VecDeque<_>>();
     let name = parts.pop_back().expect("name didn't have a single part");

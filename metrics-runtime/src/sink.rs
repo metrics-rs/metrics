@@ -130,6 +130,18 @@ impl Sink {
     }
 
     /// Records a value for a counter identified by the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// sink.record_counter("messages_processed", 1);
+    /// # }
+    /// ```
     pub fn record_counter<N>(&mut self, name: N, value: u64)
     where
         N: IntoKey,
@@ -144,7 +156,19 @@ impl Sink {
     }
 
     /// Records a value for a counter identified by the given name and labels.
-    pub fn record_counter_with_labels<N, L>(&mut self, name: N, labels: L, value: u64)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// sink.record_counter_with_labels("messages_processed", 1, &[("message_type", "mgmt")]);
+    /// # }
+    /// ```
+    pub fn record_counter_with_labels<N, L>(&mut self, name: N, value: u64, labels: L)
     where
         N: Into<ScopedString>,
         L: IntoLabels,
@@ -160,6 +184,18 @@ impl Sink {
     }
 
     /// Records a value for a gauge identified by the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// sink.record_gauge("current_offset", -131);
+    /// # }
+    /// ```
     pub fn record_gauge<N>(&mut self, name: N, value: i64)
     where
         N: IntoKey,
@@ -174,7 +210,19 @@ impl Sink {
     }
 
     /// Records a value for a gauge identified by the given name and labels.
-    pub fn record_gauge_with_labels<N, L>(&mut self, name: N, labels: L, value: i64)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// sink.record_gauge_with_labels("current_offset", -131, &[("source", "stratum-1")]);
+    /// # }
+    /// ```
+    pub fn record_gauge_with_labels<N, L>(&mut self, name: N, value: i64, labels: L)
     where
         N: Into<ScopedString>,
         L: IntoLabels,
@@ -194,6 +242,23 @@ impl Sink {
     /// Both the start and end times must be supplied, but any values that implement [`Delta`] can
     /// be used which allows for raw values from [`quanta::Clock`] to be used, or measurements from
     /// [`Instant::now`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # use std::thread;
+    /// # use std::time::Duration;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// let start = sink.now();
+    /// thread::sleep(Duration::from_millis(10));
+    /// let end = sink.now();
+    /// sink.record_timing("sleep_time", start, end);
+    /// # }
+    /// ```
     pub fn record_timing<N, V>(&mut self, name: N, start: V, end: V)
     where
         N: IntoKey,
@@ -208,17 +273,48 @@ impl Sink {
     /// Both the start and end times must be supplied, but any values that implement [`Delta`] can
     /// be used which allows for raw values from [`quanta::Clock`] to be used, or measurements from
     /// [`Instant::now`].
-    pub fn record_timing_with_labels<N, L, V>(&mut self, name: N, labels: L, start: V, end: V)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # use std::thread;
+    /// # use std::time::Duration;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// let start = sink.now();
+    /// thread::sleep(Duration::from_millis(10));
+    /// let end = sink.now();
+    /// sink.record_timing_with_labels("sleep_time", start, end, &[("mode", "low_priority")]);
+    /// # }
+    /// ```
+    pub fn record_timing_with_labels<N, L, V>(&mut self, name: N, start: V, end: V, labels: L)
     where
         N: Into<ScopedString>,
         L: IntoLabels,
         V: Delta,
     {
         let delta = end.delta(start);
-        self.record_value_with_labels(name, labels, delta);
+        self.record_value_with_labels(name, delta, labels);
     }
 
     /// Records the value for a value histogram identified by the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # use std::thread;
+    /// # use std::time::Duration;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// sink.record_value("rows_returned", 42);
+    /// # }
+    /// ```
     pub fn record_value<N>(&mut self, name: N, value: u64)
     where
         N: IntoKey,
@@ -233,7 +329,21 @@ impl Sink {
     }
 
     /// Records the value for a value histogram identified by the given name and labels.
-    pub fn record_value_with_labels<N, L>(&mut self, name: N, labels: L, value: u64)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # use std::thread;
+    /// # use std::time::Duration;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// sink.record_value_with_labels("rows_returned", 42, &[("table", "posts")]);
+    /// # }
+    /// ```
+    pub fn record_value_with_labels<N, L>(&mut self, name: N, value: u64, labels: L)
     where
         N: Into<ScopedString>,
         L: IntoLabels,
@@ -253,6 +363,22 @@ impl Sink {
     /// This handle can be embedded into an existing type and used to directly update the
     /// underlying counter.  It is merely a proxy, so multiple handles to the same counter can be
     /// held and used.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// let counter = sink.counter("messages_processed");
+    /// counter.record(1);
+    ///
+    /// // Alternate, simpler usage:
+    /// counter.increment();
+    /// # }
+    /// ```
     pub fn counter<N>(&mut self, name: N) -> Counter
     where
         N: IntoKey,
@@ -269,6 +395,22 @@ impl Sink {
     /// This handle can be embedded into an existing type and used to directly update the
     /// underlying counter.  It is merely a proxy, so multiple handles to the same counter can be
     /// held and used.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// let counter = sink.counter_with_labels("messages_processed", &[("service", "secure")]);
+    /// counter.record(1);
+    ///
+    /// // Alternate, simpler usage:
+    /// counter.increment();
+    /// # }
+    /// ```
     pub fn counter_with_labels<N, L>(&mut self, name: N, labels: L) -> Counter
     where
         N: Into<ScopedString>,
@@ -288,6 +430,19 @@ impl Sink {
     /// This handle can be embedded into an existing type and used to directly update the
     /// underlying gauge.  It is merely a proxy, so multiple handles to the same gauge can be
     /// held and used.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// let gauge = sink.gauge("current_offset");
+    /// gauge.record(-131);
+    /// # }
+    /// ```
     pub fn gauge<N>(&mut self, name: N) -> Gauge
     where
         N: IntoKey,
@@ -304,6 +459,19 @@ impl Sink {
     /// This handle can be embedded into an existing type and used to directly update the
     /// underlying gauge.  It is merely a proxy, so multiple handles to the same gauge can be
     /// held and used.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// let gauge = sink.gauge_with_labels("current_offset", &[("source", "stratum-1")]);
+    /// gauge.record(-131);
+    /// # }
+    /// ```
     pub fn gauge_with_labels<N, L>(&mut self, name: N, labels: L) -> Gauge
     where
         N: Into<ScopedString>,
@@ -323,6 +491,29 @@ impl Sink {
     /// This handle can be embedded into an existing type and used to directly update the
     /// underlying histogram.  It is merely a proxy, so multiple handles to the same histogram
     /// can be held and used.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # use std::thread;
+    /// # use std::time::Duration;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// let histogram = sink.histogram("request_duration");
+    ///
+    /// let start = sink.now();
+    /// thread::sleep(Duration::from_millis(10));
+    /// let end = sink.now();
+    /// histogram.record_timing(start, end);
+    ///
+    /// // Alternatively, you can just push the raw value into a histogram:
+    /// let delta = end - start;
+    /// histogram.record_value(delta);
+    /// # }
+    /// ```
     pub fn histogram<N>(&mut self, name: N) -> Histogram
     where
         N: IntoKey,
@@ -339,6 +530,29 @@ impl Sink {
     /// This handle can be embedded into an existing type and used to directly update the
     /// underlying histogram.  It is merely a proxy, so multiple handles to the same histogram
     /// can be held and used.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # use metrics_runtime::Receiver;
+    /// # use std::thread;
+    /// # use std::time::Duration;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    /// let histogram = sink.histogram_with_labels("request_duration", &[("service", "secure")]);
+    ///
+    /// let start = sink.now();
+    /// thread::sleep(Duration::from_millis(10));
+    /// let end = sink.now();
+    /// histogram.record_timing(start, end);
+    ///
+    /// // Alternatively, you can just push the raw value into a histogram:
+    /// let delta = end - start;
+    /// histogram.record_value(delta);
+    /// # }
+    /// ```
     pub fn histogram_with_labels<N, L>(&mut self, name: N, labels: L) -> Histogram
     where
         N: Into<ScopedString>,
