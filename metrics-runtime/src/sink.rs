@@ -48,7 +48,7 @@ pub struct Sink {
     scope: Scope,
     scope_handle: ScopeHandle,
     clock: Clock,
-    default_labels: Option<Vec<Label>>,
+    default_labels: Vec<Label>,
 }
 
 impl Sink {
@@ -67,7 +67,7 @@ impl Sink {
             scope,
             scope_handle,
             clock,
-            default_labels: None,
+            default_labels: Vec::new(),
         }
     }
 
@@ -81,11 +81,8 @@ impl Sink {
     where
         L: IntoLabels,
     {
-        let mut labels = labels.into_labels();
-        if let Some(default_labels) = &self.default_labels {
-            labels.extend_from_slice(default_labels);
-        }
-        self.default_labels = Some(labels);
+        let labels = labels.into_labels();
+        self.default_labels.extend_from_slice(&labels);
     }
 
     /// Creates a scoped clone of this [`Sink`].
@@ -117,8 +114,8 @@ impl Sink {
             new_scope,
             self.clock.clone(),
         );
-        if let Some(labels) = &self.default_labels {
-            sink.add_default_labels(labels.clone());
+        if !self.default_labels.is_empty() {
+            sink.add_default_labels(self.default_labels.clone());
         }
 
         sink
@@ -146,10 +143,7 @@ impl Sink {
     where
         N: IntoKey,
     {
-        let mut key = name.into_key();
-        if let Some(labels) = &self.default_labels {
-            key.add_labels(labels.clone());
-        }
+        let key = self.construct_key(name);
         let id = Identifier::new(key, self.scope_handle, Kind::Counter);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_counter(value);
@@ -173,11 +167,7 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let mut labels = labels.into_labels();
-        if let Some(default_labels) = &self.default_labels {
-            labels.extend_from_slice(default_labels);
-        }
-        let key = Key::from_name_and_labels(name, labels);
+        let key = self.construct_key((name, labels));
         let id = Identifier::new(key, self.scope_handle, Kind::Counter);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_counter(value);
@@ -200,10 +190,7 @@ impl Sink {
     where
         N: IntoKey,
     {
-        let mut key = name.into_key();
-        if let Some(labels) = &self.default_labels {
-            key.add_labels(labels.clone());
-        }
+        let key = self.construct_key(name);
         let id = Identifier::new(key, self.scope_handle, Kind::Gauge);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_gauge(value);
@@ -227,11 +214,7 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let mut labels = labels.into_labels();
-        if let Some(default_labels) = &self.default_labels {
-            labels.extend_from_slice(default_labels);
-        }
-        let key = Key::from_name_and_labels(name, labels);
+        let key = self.construct_key((name, labels));
         let id = Identifier::new(key, self.scope_handle, Kind::Gauge);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_gauge(value);
@@ -319,10 +302,7 @@ impl Sink {
     where
         N: IntoKey,
     {
-        let mut key = name.into_key();
-        if let Some(labels) = &self.default_labels {
-            key.add_labels(labels.clone());
-        }
+        let key = self.construct_key(name);
         let id = Identifier::new(key, self.scope_handle, Kind::Histogram);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_histogram(value);
@@ -348,11 +328,7 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let mut labels = labels.into_labels();
-        if let Some(default_labels) = &self.default_labels {
-            labels.extend_from_slice(default_labels);
-        }
-        let key = Key::from_name_and_labels(name, labels);
+        let key = self.construct_key((name, labels));
         let id = Identifier::new(key, self.scope_handle, Kind::Histogram);
         let value_handle = self.get_cached_value_handle(id);
         value_handle.update_histogram(value);
@@ -363,7 +339,7 @@ impl Sink {
     /// This handle can be embedded into an existing type and used to directly update the
     /// underlying counter.  It is merely a proxy, so multiple handles to the same counter can be
     /// held and used.
-    ///
+    ///`
     /// # Examples
     ///
     /// ```rust
@@ -383,10 +359,7 @@ impl Sink {
     where
         N: IntoKey,
     {
-        let mut key = name.into_key();
-        if let Some(labels) = &self.default_labels {
-            key.add_labels(labels.clone());
-        }
+        let key = self.construct_key(name);
         self.get_owned_value_handle(key, Kind::Counter).into()
     }
 
@@ -416,12 +389,7 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let mut labels = labels.into_labels();
-        if let Some(default_labels) = &self.default_labels {
-            labels.extend_from_slice(default_labels);
-        }
-        let key = Key::from_name_and_labels(name, labels);
-
+        let key = self.construct_key((name, labels));
         self.get_owned_value_handle(key, Kind::Counter).into()
     }
 
@@ -447,10 +415,7 @@ impl Sink {
     where
         N: IntoKey,
     {
-        let mut key = name.into_key();
-        if let Some(labels) = &self.default_labels {
-            key.add_labels(labels.clone());
-        }
+        let key = self.construct_key(name);
         self.get_owned_value_handle(key, Kind::Gauge).into()
     }
 
@@ -477,12 +442,7 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let mut labels = labels.into_labels();
-        if let Some(default_labels) = &self.default_labels {
-            labels.extend_from_slice(default_labels);
-        }
-        let key = Key::from_name_and_labels(name, labels);
-
+        let key = self.construct_key((name, labels));
         self.get_owned_value_handle(key, Kind::Gauge).into()
     }
 
@@ -518,10 +478,7 @@ impl Sink {
     where
         N: IntoKey,
     {
-        let mut key = name.into_key();
-        if let Some(labels) = &self.default_labels {
-            key.add_labels(labels.clone());
-        }
+        let key = self.construct_key(name);
         self.get_owned_value_handle(key, Kind::Histogram).into()
     }
 
@@ -558,13 +515,19 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let mut labels = labels.into_labels();
-        if let Some(default_labels) = &self.default_labels {
-            labels.extend_from_slice(default_labels);
-        }
-        let key = Key::from_name_and_labels(name, labels);
-
+        let key = self.construct_key((name, labels));
         self.get_owned_value_handle(key, Kind::Histogram).into()
+    }
+
+    pub(crate) fn construct_key<K>(&self, key: K) -> Key
+    where
+        K: IntoKey,
+    {
+        let mut key = key.into_key();
+        if !self.default_labels.is_empty() {
+            key.add_labels(self.default_labels.clone());
+        }
+        key
     }
 
     fn get_owned_value_handle<K>(&mut self, key: K, kind: Kind) -> ValueHandle
@@ -636,5 +599,53 @@ where
                 Scope::Nested(parts)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use crate::config::Configuration;
+    use super::{Sink, ScopeRegistry, MetricRegistry, Scope, Clock};
+
+    #[test]
+    fn test_construct_key() {
+        // TODO(tobz): this is a lot of boilerplate to get a `Sink` for testing, wonder if there's
+        // anything better we could be doing?
+        let sregistry = Arc::new(ScopeRegistry::new());
+        let config = Configuration::mock();
+        let (clock, _) = Clock::mock();
+        let mregistry = Arc::new(MetricRegistry::new(sregistry.clone(), config, clock.clone()));
+        let mut sink = Sink::new(mregistry, sregistry, Scope::Root, clock);
+
+        let no_labels = sink.construct_key("foo");
+        assert_eq!(no_labels.name(), "foo");
+        assert_eq!(no_labels.labels().count(), 0);
+
+        let labels_given = sink.construct_key(("baz", &[("type", "test")]));
+        assert_eq!(labels_given.name(), "baz");
+        let label_str = labels_given.labels()
+            .map(|l| format!("{}={}", l.key(), l.value()))
+            .collect::<Vec<_>>()
+            .join(",");
+        assert_eq!(label_str, "type=test");
+
+        sink.add_default_labels(&[(("service", "foo"))]);
+
+        let no_labels = sink.construct_key("bar");
+        assert_eq!(no_labels.name(), "bar");
+        let label_str = no_labels.labels()
+            .map(|l| format!("{}={}", l.key(), l.value()))
+            .collect::<Vec<_>>()
+            .join(",");
+        assert_eq!(label_str, "service=foo");
+
+        let labels_given = sink.construct_key(("quux", &[("type", "test")]));
+        assert_eq!(labels_given.name(), "quux");
+        let label_str = labels_given.labels()
+            .map(|l| format!("{}={}", l.key(), l.value()))
+            .collect::<Vec<_>>()
+            .join(",");
+        assert_eq!(label_str, "type=test,service=foo");
     }
 }

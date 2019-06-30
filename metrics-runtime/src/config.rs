@@ -17,4 +17,13 @@ impl Configuration {
             upkeep_interval: builder.upkeep_interval,
         }
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn mock() -> Self {
+        Self {
+            histogram_window: Duration::from_secs(5),
+            histogram_granularity: Duration::from_secs(1),
+            upkeep_interval: Duration::from_millis(10),
+        }
+    }
 }
