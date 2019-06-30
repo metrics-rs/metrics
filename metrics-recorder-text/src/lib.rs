@@ -247,14 +247,10 @@ fn key_to_parts(key: Key) -> (VecDeque<String>, String) {
     let name = parts.pop_back().expect("name didn't have a single part");
 
     let labels = labels
-        .map(|labels| {
-            labels
-                .into_iter()
-                .map(|label| label.into_parts())
-                .map(|(k, v)| format!("{}=\"{}\"", k, v))
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default()
+        .into_iter()
+        .map(|label| label.into_parts())
+        .map(|(k, v)| format!("{}=\"{}\"", k, v))
+        .collect::<Vec<_>>()
         .join(",");
 
     let fname = format!("{}{{{}}}", name, labels);

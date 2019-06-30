@@ -36,7 +36,6 @@
 use futures::future::Future;
 use std::borrow::Cow;
 use std::fmt;
-use std::iter::FromIterator;
 use std::slice::Iter;
 use std::time::Duration;
 
@@ -84,8 +83,7 @@ impl Label {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Key {
     name: ScopedString,
-    #[doc(hidden)]
-    labels: Option<Vec<Label>>,
+    labels: Vec<Label>,
 }
 
 impl Key {
@@ -96,7 +94,7 @@ impl Key {
     {
         Key {
             name: name.into(),
-            labels: None,
+            labels: Vec::new(),
         }
     }
 
@@ -108,7 +106,7 @@ impl Key {
     {
         Key {
             name: name.into(),
-            labels: Some(labels.into()),
+            labels: labels.into(),
         }
     }
 
@@ -116,15 +114,7 @@ impl Key {
     ///
     /// New labels will be appended to any existing labels.
     pub fn add_labels(&mut self, new_labels: Vec<Label>) {
-        let labels = match self.labels.take() {
-            Some(mut labels) => {
-                labels.extend(new_labels);
-                labels
-            }
-            None => Vec::from_iter(new_labels),
-        };
-
-        self.labels = Some(labels);
+        self.labels.extend(new_labels);
     }
 
     /// Name of this key.
@@ -133,8 +123,8 @@ impl Key {
     }
 
     /// Labels of this key, if they exist.
-    pub fn labels(&self) -> Option<Iter<Label>> {
-        self.labels.as_ref().map(|i| i.iter())
+    pub fn labels(&self) -> Iter<Label> {
+        self.labels.iter()
     }
 
     /// Maps the name of this `Key` to a new name.
@@ -149,17 +139,18 @@ impl Key {
     }
 
     /// Consumes this `Key`, returning the name and any labels.
-    pub fn into_parts(self) -> (ScopedString, Option<Vec<Label>>) {
+    pub fn into_parts(self) -> (ScopedString, Vec<Label>) {
         (self.name, self.labels)
     }
 }
 
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.labels {
-            None => write!(f, "Key({}", self.name),
-            Some(labels) => {
-                let kv_pairs = labels
+        match self.labels.is_empty() {
+            true => write!(f, "Key({}", self.name),
+            false => {
+                let kv_pairs = self
+                    .labels
                     .iter()
                     .map(|label| format!("{} = {}", label.0, label.1))
                     .collect::<Vec<_>>();

@@ -130,14 +130,10 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
     let (name, labels) = key.into_parts();
     let name = name.replace('.', "_");
     let labels = labels
-        .map(|labels| {
-            labels
-                .into_iter()
-                .map(|label| label.into_parts())
-                .map(|(k, v)| format!("{}=\"{}\"", k, v))
-                .collect()
-        })
-        .unwrap_or_default();
+        .into_iter()
+        .map(|label| label.into_parts())
+        .map(|(k, v)| format!("{}=\"{}\"", k, v))
+        .collect();
 
     (name, labels)
 }
