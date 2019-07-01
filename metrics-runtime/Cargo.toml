@@ -35,10 +35,9 @@ metrics-core = { path = "../metrics-core", version = "^0.4" }
 metrics-util = { path = "../metrics-util", version = "^0.2" }
 metrics = { path = "../metrics", version = "^0.11", features = ["std"] }
 im = "^12"
-fxhash = "^0.2"
 arc-swap = "^0.3"
 parking_lot = "^0.8"
-hashbrown = "^0.4"
+hashbrown = "^0.5"
 quanta = "^0.3"
 futures = "^0.1"
 crossbeam-utils = "^0.6"

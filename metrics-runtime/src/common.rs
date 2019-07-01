@@ -8,11 +8,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// A scope, or context, for a metric.
-///
-/// Not interacted with directly by end users, and only exposed due to a lack of trait method
-/// visbility controls.
-///
-/// See also: [Sink::scoped](crate::Sink::scoped).
+#[doc(hidden)]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Scope {
     /// Root scope.

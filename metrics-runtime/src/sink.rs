@@ -3,14 +3,12 @@ use crate::{
     data::{Counter, Gauge, Histogram},
     registry::{MetricRegistry, ScopeRegistry},
 };
-use fxhash::FxBuildHasher;
+use hashbrown::HashMap;
 use metrics_core::{IntoLabels, Key, Label, ScopedString};
 use quanta::Clock;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
-
-type FastHashMap<K, V> = hashbrown::HashMap<K, V, FxBuildHasher>;
 
 /// Errors during sink creation.
 #[derive(Debug, Clone)]
@@ -43,7 +41,7 @@ pub trait AsScoped<'a> {
 #[derive(Debug)]
 pub struct Sink {
     metric_registry: Arc<MetricRegistry>,
-    metric_cache: FastHashMap<Identifier, ValueHandle>,
+    metric_cache: HashMap<Identifier, ValueHandle>,
     scope_registry: Arc<ScopeRegistry>,
     scope: Scope,
     scope_handle: ScopeHandle,
@@ -62,7 +60,7 @@ impl Sink {
 
         Sink {
             metric_registry,
-            metric_cache: FastHashMap::default(),
+            metric_cache: HashMap::default(),
             scope_registry,
             scope,
             scope_handle,
