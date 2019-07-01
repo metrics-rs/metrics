@@ -113,8 +113,11 @@ impl Key {
     /// Adds a new set of labels to this key.
     ///
     /// New labels will be appended to any existing labels.
-    pub fn add_labels(&mut self, new_labels: Vec<Label>) {
-        self.labels.extend(new_labels);
+    pub fn add_labels<L>(&mut self, new_labels: L)
+    where
+        L: IntoLabels,
+    {
+        self.labels.extend(new_labels.into_labels());
     }
 
     /// Name of this key.
