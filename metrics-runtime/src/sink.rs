@@ -604,9 +604,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use super::{Clock, MetricRegistry, Scope, ScopeRegistry, Sink};
     use crate::config::Configuration;
-    use super::{Sink, ScopeRegistry, MetricRegistry, Scope, Clock};
+    use std::sync::Arc;
 
     #[test]
     fn test_construct_key() {
@@ -615,7 +615,11 @@ mod tests {
         let sregistry = Arc::new(ScopeRegistry::new());
         let config = Configuration::mock();
         let (clock, _) = Clock::mock();
-        let mregistry = Arc::new(MetricRegistry::new(sregistry.clone(), config, clock.clone()));
+        let mregistry = Arc::new(MetricRegistry::new(
+            sregistry.clone(),
+            config,
+            clock.clone(),
+        ));
         let mut sink = Sink::new(mregistry, sregistry, Scope::Root, clock);
 
         let no_labels = sink.construct_key("foo");
@@ -624,7 +628,8 @@ mod tests {
 
         let labels_given = sink.construct_key(("baz", &[("type", "test")]));
         assert_eq!(labels_given.name(), "baz");
-        let label_str = labels_given.labels()
+        let label_str = labels_given
+            .labels()
             .map(|l| format!("{}={}", l.key(), l.value()))
             .collect::<Vec<_>>()
             .join(",");
@@ -634,7 +639,8 @@ mod tests {
 
         let no_labels = sink.construct_key("bar");
         assert_eq!(no_labels.name(), "bar");
-        let label_str = no_labels.labels()
+        let label_str = no_labels
+            .labels()
             .map(|l| format!("{}={}", l.key(), l.value()))
             .collect::<Vec<_>>()
             .join(",");
@@ -642,7 +648,8 @@ mod tests {
 
         let labels_given = sink.construct_key(("quux", &[("type", "test")]));
         assert_eq!(labels_given.name(), "quux");
-        let label_str = labels_given.labels()
+        let label_str = labels_given
+            .labels()
             .map(|l| format!("{}={}", l.key(), l.value()))
             .collect::<Vec<_>>()
             .join(",");
