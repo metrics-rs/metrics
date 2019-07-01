@@ -26,7 +26,7 @@ impl MetricRegistry {
         }
     }
 
-    pub fn get_value_handle(&self, id: Identifier) -> ValueHandle {
+    pub fn get_or_register(&self, id: Identifier) -> ValueHandle {
         loop {
             match self.metrics.lease().deref().get(&id) {
                 Some(handle) => return handle.clone(),
@@ -76,6 +76,6 @@ impl MetricRegistry {
             named_values.push((key, snapshot));
         }
 
-        Snapshot::from(named_values)
+        Snapshot::new(named_values)
     }
 }

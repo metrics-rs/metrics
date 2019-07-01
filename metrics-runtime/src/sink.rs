@@ -545,7 +545,7 @@ impl Sink {
             return unsafe { &*(handle as *const ValueHandle) };
         }
 
-        let handle = self.metric_registry.get_value_handle(identifier.clone());
+        let handle = self.metric_registry.get_or_register(identifier.clone());
         self.metric_cache.insert(identifier.clone(), handle);
         self.metric_cache.get(&identifier).unwrap()
     }

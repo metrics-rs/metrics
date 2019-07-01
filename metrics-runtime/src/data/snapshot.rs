@@ -8,8 +8,8 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    pub(crate) fn from(from: Vec<(Key, ValueSnapshot)>) -> Self {
-        Snapshot { measurements: from }
+    pub(crate) fn new(measurements: Vec<(Key, ValueSnapshot)>) -> Self {
+        Snapshot { measurements }
     }
 
     /// Number of measurements in this snapshot.
@@ -17,7 +17,7 @@ impl Snapshot {
         self.measurements.len()
     }
 
-    /// whether or not this snapshot is empty.
+    /// Whether or not the snapshot is empty.
     pub fn is_empty(&self) -> bool {
         self.measurements.len() != 0
     }
@@ -93,7 +93,7 @@ mod tests {
         stream.compress(&hvalues);
         measurements.push((key.clone(), ValueSnapshot::Histogram(stream)));
 
-        let snapshot: Snapshot = Snapshot::from(measurements);
+        let snapshot = Snapshot::new(measurements);
 
         let mut recorder = MockRecorder::default();
         snapshot.record(&mut recorder);
