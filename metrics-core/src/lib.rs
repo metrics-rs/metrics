@@ -52,7 +52,7 @@ pub struct Label(ScopedString, ScopedString);
 
 impl Label {
     /// Creates a `Label` from a key and value.
-    pub fn from_parts<K, V>(key: K, value: V) -> Self
+    pub fn new<K, V>(key: K, value: V) -> Self
     where
         K: Into<ScopedString>,
         V: Into<ScopedString>,
@@ -192,6 +192,26 @@ where
     }
 }
 
+impl<K, V> From<(K, V)> for Label
+where
+    K: Into<ScopedString>,
+    V: Into<ScopedString>,
+{
+    fn from(pair: (K, V)) -> Label {
+        Label::new(pair.0, pair.1)
+    }
+}
+
+impl<K, V> From<&(K, V)> for Label
+where
+    K: Into<ScopedString> + Clone,
+    V: Into<ScopedString> + Clone,
+{
+    fn from(pair: &(K, V)) -> Label {
+        Label::new(pair.0.clone(), pair.1.clone())
+    }
+}
+
 /// A value that can be converted to `Label`s.
 pub trait IntoLabels {
     /// Consumes this value, turning it into a vector of `Label`s.
@@ -204,15 +224,14 @@ impl IntoLabels for Vec<Label> {
     }
 }
 
-impl<'a, T, K, V> IntoLabels for &'a T
+impl<T, L> IntoLabels for &T
 where
-    Self: IntoIterator<Item = &'a (K, V)>,
-    K: Into<ScopedString> + Clone + 'a,
-    V: Into<ScopedString> + Clone + 'a,
+    Self: IntoIterator<Item = L>,
+    L: Into<Label>,
 {
     fn into_labels(self) -> Vec<Label> {
         self.into_iter()
-            .map(|(k, v)| Label::from_parts(k.clone(), v.clone()))
+            .map(|l| l.into())
             .collect()
     }
 }
