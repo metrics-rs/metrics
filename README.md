@@ -41,4 +41,4 @@ The number of reasons why you'd want to collect metrics is too large to list out
 
 High. `metrics` is fast enough that you'll barely notice the overhead.
 
-There is a `benchmark` example in the crate that can be run to see the type of performance acheivable on your system.  A 2015 MacBook Pro (4c/8t, 2.1GHz) can push over 5 million samples per second from a single thread.
+There is a `benchmark` example in the crate that can be run to see the type of performance achievable on your system.  A 2015 MacBook Pro (4c/8t, 2.1GHz) can push over 5 million samples per second from a single thread.
