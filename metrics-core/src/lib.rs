@@ -187,8 +187,7 @@ where
     L: IntoLabels,
 {
     fn from(parts: (K, L)) -> Key {
-        let labels = parts.1.into_labels();
-        Key::from_name_and_labels(parts.0, labels)
+        Key::from_name_and_labels(parts.0, parts.1)
     }
 }
 
@@ -230,9 +229,7 @@ where
     L: Into<Label>,
 {
     fn into_labels(self) -> Vec<Label> {
-        self.into_iter()
-            .map(|l| l.into())
-            .collect()
+        self.into_iter().map(|l| l.into()).collect()
     }
 }
 
@@ -315,4 +312,39 @@ pub trait AsyncSnapshotProvider {
 
     /// Gets a snapshot asynchronously.
     fn get_snapshot_async(&self) -> Self::SnapshotFuture;
+}
+
+/// Helper macro for generating a set of labels.
+///
+/// While a `Label` can be generated manually, most users will tend towards the key => value format
+/// commonly used for defining hashes/maps in many programming languages.  This macro allows users
+/// to do the exact same thing in calls that depend on [`metrics_core::IntoLabels`].
+///
+/// # Examples
+/// ```rust
+/// # #[macro_use] extern crate metrics_core;
+/// # use metrics_core::IntoLabels;
+/// fn takes_labels<L: IntoLabels>(name: &str, labels: L) {
+///     println!("name: {} labels: {:?}", name, labels.into_labels());
+/// }
+///
+/// takes_labels("requests_processed", labels!("request_type" => "admin"));
+/// ```
+#[macro_export]
+macro_rules! labels {
+    (@ { $($out:expr),* $(,)* } $(,)*) => {
+        std::vec![ $($out),* ]
+    };
+
+    (@ { } $k:expr => $v:expr, $($rest:tt)*) => {
+        labels!(@ { $crate::Label::new($k, $v) } $($rest)*)
+    };
+
+    (@ { $($out:expr),+ } $k:expr => $v:expr, $($rest:tt)*) => {
+        labels!(@ { $($out),+, $crate::Label::new($k, $v) } $($rest)*)
+    };
+
+    ($($args:tt)*) => {
+        labels!(@ { } $($args)*, )
+    };
 }

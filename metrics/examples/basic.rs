@@ -36,15 +36,27 @@ fn init_print_logger() {
 }
 
 fn main() {
+    let server_name = "web03".to_string();
+
     init_print_logger();
     counter!("requests_processed", 1);
     counter!("requests_processed", 1, "request_type" => "admin");
+    counter!("requests_processed", 1, "request_type" => "admin", "server" => server_name.clone());
+    counter!("requests_processed", 1, "request_type" => "admin", "server" => server_name.clone(), "version" => "e7d6f12");
     gauge!("connection_count", 300);
     gauge!("connection_count", 300, "listener" => "frontend");
+    gauge!("connection_count", 300, "listener" => "frontend", "server" => server_name.clone());
+    gauge!("connection_count", 300, "listener" => "frontend", "server" => server_name.clone(), "version" => "e7d6f12");
     timing!("service.execution_time", 120, 190);
     timing!("service.execution_time", 120, 190, "type" => "users");
+    timing!("service.execution_time", 120, 190, "type" => "users", "server" => server_name.clone());
+    timing!("service.execution_time", 120, 190, "type" => "users", "server" => server_name.clone(), "version" => "e7d6f12");
     timing!("service.execution_time", 70);
     timing!("service.execution_time", 70, "type" => "users");
+    timing!("service.execution_time", 70, "type" => "users", "server" => server_name.clone());
+    timing!("service.execution_time", 70, "type" => "users", "server" => server_name.clone(), "version" => "e7d6f12");
     value!("service.results_returned", 666);
     value!("service.results_returned", 666, "type" => "users");
+    value!("service.results_returned", 666, "type" => "users", "server" => server_name.clone());
+    value!("service.results_returned", 666, "type" => "users", "server" => server_name.clone(), "version" => "e7d6f12");
 }

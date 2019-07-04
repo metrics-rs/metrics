@@ -1,6 +1,6 @@
 use crate::common::{Scope, ScopeHandle};
-use parking_lot::RwLock;
 use hashbrown::HashMap;
+use parking_lot::RwLock;
 
 #[derive(Debug)]
 struct Inner {

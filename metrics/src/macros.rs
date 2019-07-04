@@ -28,14 +28,14 @@
 /// ```
 #[macro_export]
 macro_rules! counter {
-    ($name:expr, $value:expr, $($k:expr => $v:expr),+) => {
-        let mut labels = Vec::new();
-        $( labels.push($crate::Label::new($k, $v)); )+
-        let key = $crate::Key::from_name_and_labels($name, labels);
-        $crate::__private_api_record_count(key, $value);
-    };
     ($name:expr, $value:expr) => {
         $crate::__private_api_record_count($crate::Key::from_name($name), $value);
+    };
+
+    ($name:expr, $value:expr, $($labels:tt)*) => {
+        let labels = $crate::labels!( $($labels)* );
+        let key = $crate::Key::from_name_and_labels($name, labels);
+        $crate::__private_api_record_count(key, $value);
     };
 }
 
@@ -69,14 +69,14 @@ macro_rules! counter {
 /// ```
 #[macro_export]
 macro_rules! gauge {
-    ($name:expr, $value:expr, $($k:expr => $v:expr),+) => {
-        let mut labels = Vec::new();
-        $( labels.push($crate::Label::new($k, $v)); )+
+    ($name:expr, $value:expr) => {
+        $crate::__private_api_record_gauge($crate::Key::from_name($name), $value);
+    };
+
+    ($name:expr, $value:expr, $($labels:tt)*) => {
+        let labels = $crate::labels!( $($labels)* );
         let key = $crate::Key::from_name_and_labels($name, labels);
         $crate::__private_api_record_gauge(key, $value);
-    };
-    ($name:tt, $value:expr) => {
-        $crate::__private_api_record_gauge($crate::Key::from_name($name), $value);
     };
 }
 
@@ -147,24 +147,22 @@ macro_rules! gauge {
 /// ```
 #[macro_export]
 macro_rules! timing {
-    ($name:tt, $value:expr) => {
+    ($name:expr, $value:expr) => {
         $crate::__private_api_record_histogram($crate::Key::from_name($name), $value);
     };
-    ($name:tt, $start:expr, $end:expr) => {
+
+    ($name:expr, $start:expr, $end:expr) => {
         timing!($name, $end - $start)
     };
-    ($name:expr, $value:expr, $($k:expr => $v:expr),+) => {
-        let mut labels = Vec::new();
-        $( labels.push($crate::Label::new($k, $v)); )+
+
+    ($name:expr, $start:expr, $end:expr, $($labels:tt)*) => {
+        timing!($name, $end - $start, $($labels)*)
+    };
+
+    ($name:expr, $value:expr, $($labels:tt)*) => {
+        let labels = $crate::labels!( $($labels)* );
         let key = $crate::Key::from_name_and_labels($name, labels);
         $crate::__private_api_record_histogram(key, $value);
-    };
-    ($name:expr, $start:expr, $end:expr, $($k:expr => $v:expr),+) => {
-        let mut labels = Vec::new();
-        $( labels.push($crate::Label::new($k, $v)); )+
-        let key = $crate::Key::from_name_and_labels($name, labels);
-        let value = $end - $start;
-        $crate::__private_api_record_histogram(key, value);
     };
 }
 
@@ -201,13 +199,13 @@ macro_rules! timing {
 /// ```
 #[macro_export]
 macro_rules! value {
-    ($name:expr, $value:expr, $($k:expr => $v:expr),+) => {
-        let mut labels = Vec::new();
-        $( labels.push($crate::Label::new($k, $v)); )+
+    ($name:expr, $value:expr) => {
+        $crate::__private_api_record_histogram($crate::Key::from_name($name), $value);
+    };
+
+    ($name:expr, $value:expr, $($labels:tt)*) => {
+        let labels = $crate::labels!( $($labels)* );
         let key = $crate::Key::from_name_and_labels($name, labels);
         $crate::__private_api_record_histogram(key, $value);
-    };
-    ($name:tt, $value:expr) => {
-        $crate::__private_api_record_histogram($crate::Key::from_name($name), $value);
     };
 }

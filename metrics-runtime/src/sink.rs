@@ -80,7 +80,7 @@ impl Sink {
         L: IntoLabels,
     {
         let labels = labels.into_labels();
-        self.default_labels.extend_from_slice(&labels);
+        self.default_labels.extend(labels);
     }
 
     /// Creates a scoped clone of this [`Sink`].
