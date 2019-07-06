@@ -1,4 +1,4 @@
-use crate::common::{Delta, MetricValue};
+use crate::common::{Delta, ValueHandle};
 use crate::helper::duration_as_nanos;
 use crossbeam_utils::Backoff;
 use metrics_util::{AtomicBucket, StreamingIntegers};
@@ -9,7 +9,7 @@ use std::time::Duration;
 
 /// Proxy object to update a histogram.
 pub struct Histogram {
-    handle: MetricValue,
+    handle: ValueHandle,
 }
 
 impl Histogram {
@@ -25,8 +25,8 @@ impl Histogram {
     }
 }
 
-impl From<MetricValue> for Histogram {
-    fn from(handle: MetricValue) -> Self {
+impl From<ValueHandle> for Histogram {
+    fn from(handle: ValueHandle) -> Self {
         Self { handle }
     }
 }

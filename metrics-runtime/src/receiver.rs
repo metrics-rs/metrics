@@ -1,13 +1,13 @@
 use crate::{
     builder::{Builder, BuilderError},
-    common::MetricScope,
+    common::Scope,
     config::Configuration,
     control::Controller,
     registry::{MetricRegistry, ScopeRegistry},
     sink::Sink,
 };
+use metrics::Recorder;
 use metrics_core::Key;
-use metrics_facade::Recorder;
 use quanta::{Builder as UpkeepBuilder, Clock, Handle as UpkeepHandle};
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -61,7 +61,7 @@ impl Receiver {
 
     /// Installs this receiver as the global metrics facade.
     pub fn install(self) {
-        metrics_facade::set_boxed_recorder(Box::new(self)).unwrap();
+        metrics::set_boxed_recorder(Box::new(self)).unwrap();
     }
 
     /// Creates a [`Sink`] bound to this receiver.
@@ -69,7 +69,7 @@ impl Receiver {
         Sink::new(
             self.metric_registry.clone(),
             self.scope_registry.clone(),
-            MetricScope::Root,
+            Scope::Root,
             self.clock.clone(),
         )
     }
@@ -89,7 +89,7 @@ impl Recorder for Receiver {
                 *sink = Some(new_sink);
             }
 
-            sink.as_mut().unwrap().record_count(key, value);
+            sink.as_mut().unwrap().record_counter(key, value);
         });
     }
 

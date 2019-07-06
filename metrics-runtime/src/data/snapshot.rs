@@ -1,16 +1,25 @@
 use crate::common::ValueSnapshot;
 use metrics_core::{Key, Recorder, Snapshot as MetricsSnapshot};
-use std::borrow::Cow;
 
 /// A point-in-time view of metric data.
 #[derive(Default, Debug)]
 pub struct Snapshot {
-    measurements: Vec<(String, ValueSnapshot)>,
+    measurements: Vec<(Key, ValueSnapshot)>,
 }
 
 impl Snapshot {
-    pub(crate) fn from(from: Vec<(String, ValueSnapshot)>) -> Self {
-        Snapshot { measurements: from }
+    pub(crate) fn new(measurements: Vec<(Key, ValueSnapshot)>) -> Self {
+        Snapshot { measurements }
+    }
+
+    /// Number of measurements in this snapshot.
+    pub fn len(&self) -> usize {
+        self.measurements.len()
+    }
+
+    /// Whether or not the snapshot is empty.
+    pub fn is_empty(&self) -> bool {
+        self.measurements.len() != 0
     }
 }
 
@@ -18,14 +27,12 @@ impl MetricsSnapshot for Snapshot {
     /// Records the snapshot to the given recorder.
     fn record<R: Recorder>(&self, recorder: &mut R) {
         for (key, snapshot) in &self.measurements {
-            // TODO: switch this to Key::Owned once type_alias_enum_variants lands
-            // in 1.37.0 (#61682)
-            let owned_key: Key = Cow::Owned(key.clone());
+            let key = key.clone();
             match snapshot {
-                ValueSnapshot::Counter(value) => recorder.record_counter(owned_key.clone(), *value),
-                ValueSnapshot::Gauge(value) => recorder.record_gauge(owned_key.clone(), *value),
+                ValueSnapshot::Counter(value) => recorder.record_counter(key, *value),
+                ValueSnapshot::Gauge(value) => recorder.record_gauge(key, *value),
                 ValueSnapshot::Histogram(stream) => stream.decompress_with(|values| {
-                    recorder.record_histogram(owned_key.clone(), values);
+                    recorder.record_histogram(key.clone(), values);
                 }),
             }
         }
@@ -41,44 +48,42 @@ mod tests {
 
     #[derive(Default)]
     struct MockRecorder {
-        counter: HashMap<String, u64>,
-        gauge: HashMap<String, i64>,
-        histogram: HashMap<String, Vec<u64>>,
+        counter: HashMap<Key, u64>,
+        gauge: HashMap<Key, i64>,
+        histogram: HashMap<Key, Vec<u64>>,
     }
 
     impl MockRecorder {
-        pub fn get_counter_value(&self, key: &String) -> Option<&u64> {
+        pub fn get_counter_value(&self, key: &Key) -> Option<&u64> {
             self.counter.get(key)
         }
 
-        pub fn get_gauge_value(&self, key: &String) -> Option<&i64> {
+        pub fn get_gauge_value(&self, key: &Key) -> Option<&i64> {
             self.gauge.get(key)
         }
 
-        pub fn get_histogram_values(&self, key: &String) -> Option<&Vec<u64>> {
+        pub fn get_histogram_values(&self, key: &Key) -> Option<&Vec<u64>> {
             self.histogram.get(key)
         }
     }
 
     impl Recorder for MockRecorder {
-        fn record_counter<K: Into<Key>>(&mut self, key: K, value: u64) {
-            let _ = self.counter.insert(key.into().to_string(), value);
+        fn record_counter(&mut self, key: Key, value: u64) {
+            let _ = self.counter.insert(key, value);
         }
 
-        fn record_gauge<K: Into<Key>>(&mut self, key: K, value: i64) {
-            let _ = self.gauge.insert(key.into().to_string(), value);
+        fn record_gauge(&mut self, key: Key, value: i64) {
+            let _ = self.gauge.insert(key, value);
         }
 
-        fn record_histogram<K: Into<Key>>(&mut self, key: K, values: &[u64]) {
-            let _ = self
-                .histogram
-                .insert(key.into().to_string(), values.to_vec());
+        fn record_histogram(&mut self, key: Key, values: &[u64]) {
+            let _ = self.histogram.insert(key, values.to_vec());
         }
     }
 
     #[test]
     fn test_snapshot_recorder() {
-        let key = "ok".to_owned();
+        let key = Key::from_name("ok");
         let mut measurements = Vec::new();
         measurements.push((key.clone(), ValueSnapshot::Counter(7)));
         measurements.push((key.clone(), ValueSnapshot::Gauge(42)));
@@ -88,7 +93,7 @@ mod tests {
         stream.compress(&hvalues);
         measurements.push((key.clone(), ValueSnapshot::Histogram(stream)));
 
-        let snapshot: Snapshot = Snapshot::from(measurements);
+        let snapshot = Snapshot::new(measurements);
 
         let mut recorder = MockRecorder::default();
         snapshot.record(&mut recorder);

@@ -1,211 +1,335 @@
-//! High-speed metrics collection library.
+//! A lightweight metrics facade.
 //!
-//! `metrics` provides a generalized metrics collection library targeted at users who want to log
-//! metrics at high volume and high speed.
+//! The `metrics` crate provides a single metrics API that abstracts over the actual metrics
+//! implementation.  Libraries can use the metrics API provided by this crate, and the consumer of
+//! those libraries can choose the metrics implementation that is most suitable for its use case.
 //!
-//! # Design
+//! If no metrics implementation is selected, the facade falls back to a "noop" implementation that
+//! ignores all metrics.  The overhead in this case is very small - an atomic load and comparison.
 //!
-//! The library follows a pattern of "senders" and a "receiver."
+//! # Use
+//! The basic use of the facade crate is through the four metrics macros: [`counter!`], [`gauge!`],
+//! [`timing!`], and [`value!`].  These macros correspond to updating a counter, updating a gauge,
+//! updating a histogram based on a start/end, and updating a histogram with a single value.
 //!
-//! Callers create a [`Receiver`], which acts as a registry for all metrics that flow through it.
-//! It allows creating new sinks as well as controllers, both necessary to push in and pull out
-//! metrics from the system.  It also manages background resources necessary for the registry to
-//! operate.
+//! Both [`timing!`] and [`value!`] are effectively identical in so far as that they both translate
+//! to recording a single value to an underlying histogram, but [`timing!`] is provided for
+//! contextual consistency: if you're recording a measurement of the time passed during an
+//! operation, the end result is a single value, but it's more of a "timing" value than just a
+//! "value".  The [`timing!`] macro also has a branch to accept the start and end values which
+//! allows for a potentially clearer invocation.
 //!
-//! Once a [`Receiver`] is created, callers can either create a [`Sink`] for sending metrics, or a
-//! [`Controller`] for getting metrics out.
+//! ## In libraries
+//! Libraries should link only to the `metrics` crate, and use the provided macros to record
+//! whatever metrics will be useful to downstream consumers.
 //!
-//! A [`Sink`] can be cheaply cloned, and offers convenience methods for getting the current time
-//! as well as getting direct handles to a given metric.  This allows users to either work with the
-//! fuller API exposed by [`Sink`] or to take a compositional approach and embed fields that
-//! represent each particular metric to be sent.
+//! ### Examples
 //!
-//! A [`Controller`] provides both a synchronous and asynchronous snapshotting interface, which is
-//! [`metrics-core`][metrics_core] compatible for exporting.  This allows flexibility in
-//! integration amongst traditional single-threaded or hand-rolled multi-threaded applications and
-//! the emerging asynchronous Rust ecosystem.
-//!
-//! # Performance
-//!
-//! Users can expect to be able to send tens of millions of samples per second, with ingest
-//! latencies at roughly 65-70ns at p50, and 250ns at p99.  Depending on the workload -- counters
-//! vs histograms -- latencies may be even lower, as counters and gauges are markedly faster to
-//! update than histograms.  Concurrent updates of the same metric will also cause natural
-//! contention and lower the throughput/increase the latency of ingestion.
-//!
-//! # Metrics
-//!
-//! Counters, gauges, and histograms are supported, and follow the definitions outlined in
-//! [`metrics-core`][metrics_core].
-//!
-//! Here's a simple example of creating a receiver and working with a sink:
-//!
-//! ```
-//! # extern crate metrics;
-//! use metrics::Receiver;
-//! use std::{thread, time::Duration};
-//! let receiver = Receiver::builder().build().expect("failed to create receiver");
-//! let mut sink = receiver.get_sink();
-//!
-//! // We can update a counter.  Counters are monotonic, unsigned integers that start at 0 and
-//! // increase over time.
-//! sink.record_count("widgets", 5);
-//!
-//! // We can update a gauge.  Gauges are signed, and hold on to the last value they were updated
-//! // to, so you need to track the overall value on your own.
-//! sink.record_gauge("red_balloons", 99);
-//!
-//! // We can update a timing histogram.  For timing, we're using the built-in `Sink::now` method
-//! // which utilizes a high-speed internal clock.  This method returns the time in nanoseconds, so
-//! // we get great resolution, but giving the time in nanoseconds isn't required!  If you want to
-//! // send it in another unit, that's fine, but just pay attention to that fact when viewing and
-//! // using those metrics once exported.  We also support passing `Instant` values -- both `start`
-//! // and `end` need to be the same type, though! -- and we'll take the nanosecond output of that.
-//! let start = sink.now();
-//! thread::sleep(Duration::from_millis(10));
-//! let end = sink.now();
-//! sink.record_timing("db.queries.select_products_ns", start, end);
-//!
-//! // Finally, we can update a value histogram.  Technically speaking, value histograms aren't
-//! // fundamentally different from timing histograms.  If you use a timing histogram, we do the
-//! // math for you of getting the time difference, but other than that, identical under the hood.
-//! let row_count = 46;
-//! sink.record_value("db.queries.select_products_num_rows", row_count);
-//! ```
-//!
-//! # Scopes
-//!
-//! Metrics can be scoped, not unlike loggers, at the [`Sink`] level.  This allows sinks to easily
-//! nest themselves without callers ever needing to care about where they're located.
-//!
-//! This feature is a simpler approach to tagging: while not as semantically rich, it provides the
-//! level of detail necessary to distinguish a single metric between multiple callsites.
-//!
-//! For example, after getting a [`Sink`] from the [`Receiver`], we can easily nest ourselves under
-//! the root scope and then send some metrics:
-//!
-//! ```
-//! # extern crate metrics;
-//! use metrics::Receiver;
-//! let receiver = Receiver::builder().build().expect("failed to create receiver");
-//!
-//! // This sink has no scope aka the root scope.  The metric will just end up as "widgets".
-//! let mut root_sink = receiver.get_sink();
-//! root_sink.record_count("widgets", 42);
-//!
-//! // This sink is under the "secret" scope.  Since we derived ourselves from the root scope,
-//! // we're not nested under anything, but our metric name will end up being "secret.widgets".
-//! let mut scoped_sink = root_sink.scoped("secret");
-//! scoped_sink.record_count("widgets", 42);
-//!
-//! // This sink is under the "supersecret" scope, but we're also nested!  The metric name for this
-//! // sample will end up being "secret.supersecret.widget".
-//! let mut scoped_sink_two = scoped_sink.scoped("supersecret");
-//! scoped_sink_two.record_count("widgets", 42);
-//!
-//! // Sinks retain their scope even when cloned, so the metric name will be the same as above.
-//! let mut cloned_sink = scoped_sink_two.clone();
-//! cloned_sink.record_count("widgets", 42);
-//!
-//! // This sink will be nested two levels deeper than its parent by using a slightly different
-//! // input scope: scope can be a single string, or multiple strings, which is interpreted as
-//! // nesting N levels deep.
-//! //
-//! // This metric name will end up being "super.secret.ultra.special.widgets".
-//! let mut scoped_sink_three = scoped_sink.scoped(&["super", "secret", "ultra", "special"]);
-//! scoped_sink_two.record_count("widgets", 42);
-//! ```
-//!
-//! # Snapshots
-//!
-//! Naturally, we need a way to get the metrics out of the system, which is where snapshots come
-//! into play.  By utilizing a [`Controller`], we can take a snapshot of the current metrics in the
-//! registry, and then output them to any desired system/interface by utilizing
-//! [`Recorder`](metrics_core::Recorder).  A number of pre-baked recorders (which only concern
-//! themselves with formatting the data) and exporters (which take the formatted data and either
-//! serve it up, such as exposing an HTTP endpoint, or write it somewhere, like stdout) are
-//! available, some of which are exposed by this crate.
-//!
-//! Let's take an example of writing out our metrics in a yaml-like format, writing them via
-//! `log!`:
-//! ```
-//! # extern crate metrics;
-//! use metrics::{Receiver, recorders::TextRecorder, exporters::LogExporter};
-//! use log::Level;
-//! use std::{thread, time::Duration};
-//! let receiver = Receiver::builder().build().expect("failed to create receiver");
-//! let mut sink = receiver.get_sink();
-//!
-//! // We can update a counter.  Counters are monotonic, unsigned integers that start at 0 and
-//! // increase over time.
-//! // Take some measurements, similar to what we had in other examples:
-//! sink.record_count("widgets", 5);
-//! sink.record_gauge("red_balloons", 99);
-//!
-//! let start = sink.now();
-//! thread::sleep(Duration::from_millis(10));
-//! let end = sink.now();
-//! sink.record_timing("db.queries.select_products_ns", start, end);
-//! sink.record_timing("db.gizmo_query", start, end);
-//!
-//! let num_rows = 46;
-//! sink.record_value("db.queries.select_products_num_rows", num_rows);
-//!
-//! // Now create our exporter/recorder configuration, and wire it up.
-//! let exporter = LogExporter::new(receiver.get_controller(), TextRecorder::new(), Level::Info);
-//!
-//! // This exporter will now run every 5 seconds, taking a snapshot, rendering it, and writing it
-//! // via `log!` at the informational level. This particular exporter is running directly on the
-//! // current thread, and not on a background thread.
-//! //
-//! // exporter.run(Duration::from_secs(5));
-//! ```
-//! Most exporters have the ability to run on the current thread or to be converted into a future
-//! which can be spawned on any Tokio-compatible runtime.
-//!
-//! # Facade
-//!
-//! `metrics` is `metrics-facade` compatible, and can be installed as the global metrics facade:
-//! ```
-//! # #[macro_use] extern crate metrics_facade;
+//! ```rust
+//! #[macro_use]
 //! extern crate metrics;
-//! use metrics::Receiver;
 //!
-//! Receiver::builder()
-//!     .build()
-//!     .expect("failed to create receiver")
-//!     .install();
+//! # use std::time::Instant;
+//! # pub fn run_query(_: &str) -> u64 { 42 }
+//! pub fn process(query: &str) -> u64 {
+//!     let start = Instant::now();
+//!     let row_count = run_query(query);
+//!     let end = Instant::now();
 //!
-//! counter!("items_processed", 42);
+//!     timing!("process.query_time", start, end);
+//!     counter!("process.query_row_count", row_count);
+//!
+//!     row_count
+//! }
+//! # fn main() {}
 //! ```
 //!
-//! [metrics_core]: https://docs.rs/metrics-core
-//! [`Recorder`]: https://docs.rs/metrics-core/0.3.1/metrics_core/trait.Recorder.html
+//! ## In executables
+//!
+//! Executables should choose a metrics implementation and initialize it early in the runtime of
+//! the program.  Metrics implementations will typically include a function to do this.  Any
+//! metrics recordered before the implementation is initialized will be ignored.
+//!
+//! The executable itself may use the `metrics` crate to record metrics well.
+//!
+//! ### Warning
+//!
+//! The metrics system may only be initialized once.
+//!
+//! # Available metrics implementations
+//!
+//! Currently, the only available metrics implementation is [metricsi-runtime].
+//!
+//! # Implementing a Recorder
+//!
+//! Recorders implement the [`Recorder`] trait.  Here's a basic example which writes the
+//! metrics in text form via the `log` crate.
+//!
+//! ```rust
+//! #[macro_use]
+//! extern crate log;
+//! extern crate metrics;
+//! extern crate metrics_core;
+//!
+//! use metrics::Recorder;
+//! use metrics_core::Key;
+//!
+//! struct LogRecorder;
+//!
+//! impl Recorder for LogRecorder {
+//!     fn record_counter(&self, key: Key, value: u64) {
+//!         info!("counter '{}' -> {}", key, value);
+//!     }
+//!
+//!     fn record_gauge(&self, key: Key, value: i64) {
+//!         info!("gauge '{}' -> {}", key, value);
+//!     }
+//!
+//!     fn record_histogram(&self, key: Key, value: u64) {
+//!         info!("histogram '{}' -> {}", key, value);
+//!     }
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! Recorders are installed by calling the [`set_recorder`] function.  Recorders should provide a
+//! function that wraps the creation and installation of the recorder:
+//!
+//! ```rust
+//! # extern crate metrics;
+//! # extern crate metrics_core;
+//! # use metrics::Recorder;
+//! # use metrics_core::Key;
+//! # struct SimpleRecorder;
+//! # impl Recorder for SimpleRecorder {
+//! #     fn record_counter(&self, _key: Key, _value: u64) {}
+//! #     fn record_gauge(&self, _key: Key, _value: i64) {}
+//! #     fn record_histogram(&self, _key: Key, _value: u64) {}
+//! # }
+//! use metrics::SetRecorderError;
+//!
+//! static RECORDER: SimpleRecorder = SimpleRecorder;
+//!
+//! pub fn init() -> Result<(), SetRecorderError> {
+//!     metrics::set_recorder(&RECORDER)
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! # Use with `std`
+//!
+//! `set_recorder` requires you to provide a `&'static Recorder`, which can be hard to
+//! obtain if your recorder depends on some runtime configuration.  The `set_boxed_recorder`
+//! function is available with the `std` Cargo feature.  It is identical to `set_recorder` except
+//! that it takes a `Box<Recorder>` rather than a `&'static Recorder`:
+//!
+//! ```rust
+//! # extern crate metrics;
+//! # extern crate metrics_core;
+//! # use metrics::Recorder;
+//! # use metrics_core::Key;
+//! # struct SimpleRecorder;
+//! # impl Recorder for SimpleRecorder {
+//! #     fn record_counter(&self, _key: Key, _value: u64) {}
+//! #     fn record_gauge(&self, _key: Key, _value: i64) {}
+//! #     fn record_histogram(&self, _key: Key, _value: u64) {}
+//! # }
+//! use metrics::SetRecorderError;
+//!
+//! # #[cfg(feature = "std")]
+//! pub fn init() -> Result<(), SetRecorderError> {
+//!     metrics::set_boxed_recorder(Box::new(SimpleRecorder))
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! [metrics-runtime]: https://docs.rs/metrics-runtime
 #![deny(missing_docs)]
-#![warn(unused_extern_crates)]
-mod builder;
-mod common;
-mod config;
-mod control;
-pub mod data;
-mod helper;
-mod receiver;
-mod registry;
-mod sink;
+use metrics_core::AsNanoseconds;
+pub use metrics_core::{labels, Key, Label};
+#[cfg(feature = "std")]
+use std::error;
+use std::fmt;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[cfg(any(feature = "metrics-exporter-log", feature = "metrics-exporter-http"))]
-pub mod exporters;
+#[macro_use]
+mod macros;
 
-#[cfg(any(
-    feature = "metrics-recorder-text",
-    feature = "metrics-recorder-prometheus"
-))]
-pub mod recorders;
+static mut RECORDER: &'static Recorder = &NoopRecorder;
+static STATE: AtomicUsize = AtomicUsize::new(0);
 
-pub use self::{
-    builder::{Builder, BuilderError},
-    common::{Delta, MetricName, MetricScope},
-    control::{Controller, SnapshotError},
-    receiver::Receiver,
-    sink::{AsScoped, Sink, SinkError},
-};
+const UNINITIALIZED: usize = 0;
+const INITIALIZING: usize = 1;
+const INITIALIZED: usize = 2;
+
+static SET_RECORDER_ERROR: &'static str =
+    "attempted to set a recorder after the metrics system was already initialized";
+
+/// A value that records metrics behind the facade.
+pub trait Recorder {
+    /// Records a counter.
+    ///
+    /// From the perspective of an recorder, a counter and gauge are essentially identical, insofar
+    /// as they are both a single value tied to a key.  From the perspective of a collector,
+    /// counters and gauges usually have slightly different modes of operation.
+    ///
+    /// For the sake of flexibility on the exporter side, both are provided.
+    fn record_counter(&self, key: Key, value: u64);
+
+    /// Records a gauge.
+    ///
+    /// From the perspective of a recorder, a counter and gauge are essentially identical, insofar
+    /// as they are both a single value tied to a key.  From the perspective of a collector,
+    /// counters and gauges usually have slightly different modes of operation.
+    ///
+    /// For the sake of flexibility on the exporter side, both are provided.
+    fn record_gauge(&self, key: Key, value: i64);
+
+    /// Records a histogram.
+    ///
+    /// Recorders are expected to tally their own histogram views, so this will be called with all
+    /// of the underlying observed values, and callers will need to process them accordingly.
+    ///
+    /// There is no guarantee that this method will not be called multiple times for the same key.
+    fn record_histogram(&self, key: Key, value: u64);
+}
+
+struct NoopRecorder;
+
+impl Recorder for NoopRecorder {
+    fn record_counter(&self, _key: Key, _value: u64) {}
+    fn record_gauge(&self, _key: Key, _value: i64) {}
+    fn record_histogram(&self, _key: Key, _value: u64) {}
+}
+
+/// Sets the global recorder to a `&'static Recorder`.
+///
+/// This function may only be called once in the lifetime of a program.  Any metrics recorded
+/// before the call to `set_recorder` occurs will be completely ignored.
+///
+/// This function does not typically need to be called manually.  Metrics implementations should
+/// provide an initialization method that installs the recorder internally.
+///
+/// # Errors
+///
+/// An error is returned if a recorder has already been set.
+#[cfg(atomic_cas)]
+pub fn set_recorder(recorder: &'static Recorder) -> Result<(), SetRecorderError> {
+    set_recorder_inner(|| recorder)
+}
+
+/// Sets the global recorder to a `Box<Recorder>`.
+///
+/// This is a simple convenience wrapper over `set_recorder`, which takes a `Box<Recorder>`
+/// rather than a `&'static Recorder`.  See the document for [`set_recorder`] for more
+/// details.
+///
+/// Requires the `std` feature.
+///
+/// # Errors
+///
+/// An error is returned if a recorder has already been set.
+#[cfg(all(feature = "std", atomic_cas))]
+pub fn set_boxed_recorder(recorder: Box<Recorder>) -> Result<(), SetRecorderError> {
+    set_recorder_inner(|| unsafe { &*Box::into_raw(recorder) })
+}
+
+#[cfg(atomic_cas)]
+fn set_recorder_inner<F>(make_recorder: F) -> Result<(), SetRecorderError>
+where
+    F: FnOnce() -> &'static Recorder,
+{
+    unsafe {
+        match STATE.compare_and_swap(UNINITIALIZED, INITIALIZING, Ordering::SeqCst) {
+            UNINITIALIZED => {
+                RECORDER = make_recorder();
+                STATE.store(INITIALIZED, Ordering::SeqCst);
+                Ok(())
+            }
+            INITIALIZING => {
+                while STATE.load(Ordering::SeqCst) == INITIALIZING {}
+                Err(SetRecorderError(()))
+            }
+            _ => Err(SetRecorderError(())),
+        }
+    }
+}
+
+/// A thread-unsafe version of [`set_recorder`].
+///
+/// This function is available on all platforms, even those that do not have support for atomics
+/// that is need by [`set_recorder`].
+///
+/// In almost all cases, [`set_recorder`] should be preferred.
+///
+/// # Safety
+///
+/// This function is only safe to call when no other metrics initialization function is called
+/// while this function still executes.
+///
+/// This can be upheld by (for example) making sure that **there are no other threads**, and (on
+/// embedded) that **interrupts are disabled**.
+///
+/// It is safe to use other metrics functions while this function runs (including all metrics
+/// macros).
+pub unsafe fn set_recorder_racy(recorder: &'static Recorder) -> Result<(), SetRecorderError> {
+    match STATE.load(Ordering::SeqCst) {
+        UNINITIALIZED => {
+            RECORDER = recorder;
+            STATE.store(INITIALIZED, Ordering::SeqCst);
+            Ok(())
+        }
+        INITIALIZING => {
+            // This is just plain UB, since we were racing another initialization function
+            unreachable!("set_recorder_racy must not be used with other initialization functions")
+        }
+        _ => Err(SetRecorderError(())),
+    }
+}
+
+/// The type returned by [`set_recorder`] if [`set_recorder`] has already been called.
+#[derive(Debug)]
+pub struct SetRecorderError(());
+
+impl fmt::Display for SetRecorderError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.write_str(SET_RECORDER_ERROR)
+    }
+}
+
+// The Error trait is not available in libcore
+#[cfg(feature = "std")]
+impl error::Error for SetRecorderError {
+    fn description(&self) -> &str {
+        SET_RECORDER_ERROR
+    }
+}
+
+/// Returns a reference to the recorder.
+///
+/// If a recorder has not been set, a no-op implementation is returned.
+pub fn recorder() -> &'static Recorder {
+    unsafe {
+        if STATE.load(Ordering::SeqCst) != INITIALIZED {
+            static NOOP: NoopRecorder = NoopRecorder;
+            &NOOP
+        } else {
+            RECORDER
+        }
+    }
+}
+
+#[doc(hidden)]
+pub fn __private_api_record_count(key: Key, value: u64) {
+    recorder().record_counter(key, value);
+}
+
+#[doc(hidden)]
+pub fn __private_api_record_gauge<K: Into<Key>>(key: K, value: i64) {
+    recorder().record_gauge(key.into(), value);
+}
+
+#[doc(hidden)]
+pub fn __private_api_record_histogram<K: Into<Key>, V: AsNanoseconds>(key: K, value: V) {
+    recorder().record_histogram(key.into(), value.as_nanos());
+}

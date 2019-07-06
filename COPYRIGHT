@@ -45,8 +45,8 @@ their own copyright notices and license terms:
     CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-* metrics-facade is a fork of rust-lang-nursery/log which carries the
-  following license:
+* metrics is a fork of rust-lang-nursery/log which carries the following
+  license:
 
     Copyright (c) 2014 The Rust Project Developers
 

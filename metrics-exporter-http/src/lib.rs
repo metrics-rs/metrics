@@ -8,6 +8,7 @@
 //! address
 //! - `into_future` will return a [`Future`] that when driven will run the HTTP server on the
 //! configured address
+#![deny(missing_docs)]
 #[macro_use]
 extern crate log;
 

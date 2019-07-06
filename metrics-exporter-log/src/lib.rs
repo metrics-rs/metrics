@@ -9,6 +9,7 @@
 //! interval
 //! - `into_future` will return a [`Future`] that when driven will take a snapshot on the
 //! configured interval and log it
+#![deny(missing_docs)]
 #[macro_use]
 extern crate log;
 
