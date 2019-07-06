@@ -130,7 +130,7 @@ impl AtomicWindowedHistogram {
             // so go ahead and wait until the index is caught up with the upkeep index: the upkeep
             // index will be ahead of index until upkeep is complete.
             let mut upkeep_in_progress = false;
-            let mut index = 0;
+            let mut index;
             loop {
                 index = self.index.load(Ordering::Acquire);
                 let upkeep_index = self.upkeep_index.load(Ordering::Acquire);

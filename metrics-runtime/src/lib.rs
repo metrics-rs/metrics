@@ -181,7 +181,7 @@
 //! `log!`:
 //! ```rust
 //! # extern crate metrics_runtime;
-//! use metrics_runtime::{Receiver, recorders::TextRecorder, exporters::LogExporter};
+//! use metrics_runtime::{Receiver, recorders::TextBuilder, exporters::LogExporter};
 //! use log::Level;
 //! use std::{thread, time::Duration};
 //! let receiver = Receiver::builder().build().expect("failed to create receiver");
@@ -203,7 +203,7 @@
 //! sink.record_value("db.queries.select_products_num_rows", num_rows);
 //!
 //! // Now create our exporter/recorder configuration, and wire it up.
-//! let exporter = LogExporter::new(receiver.get_controller(), TextRecorder::new(), Level::Info);
+//! let exporter = LogExporter::new(receiver.get_controller(), TextBuilder::new(), Level::Info);
 //!
 //! // This exporter will now run every 5 seconds, taking a snapshot, rendering it, and writing it
 //! // via `log!` at the informational level. This particular exporter is running directly on the

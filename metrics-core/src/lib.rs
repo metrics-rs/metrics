@@ -284,6 +284,23 @@ pub trait Recorder {
     fn record_histogram(&mut self, key: Key, values: &[u64]);
 }
 
+/// A value that can build a recorder.
+///
+/// Recorders are intended to be single-use containers for rendering a snapshot in a particular
+/// format. As many systems are multi-threaded, we can't easily share a single recorder amongst
+/// multiple threads, and so we create a recorder per snapshot, tying them together.
+///
+/// A builder allows us to generate a recorder on demand, giving each specific recorder an
+/// interface by which they can do any necessary configuration, initialization, etc of the recorder
+/// before handing it over to the exporter.
+pub trait Builder {
+    /// The recorder created by this builder.
+    type Output: Recorder;
+
+    /// Creates a new recorder.
+    fn build(&self) -> Self::Output;
+}
+
 /// A value that holds a point-in-time view of collected metrics.
 pub trait Snapshot {
     /// Records the snapshot to the given recorder.
