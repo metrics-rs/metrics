@@ -9,7 +9,7 @@ license = "MIT"
 description = "metric recorder for hierarchical, text-based output"
 
 homepage = "https://github.com/metrics-rs/metrics"
-repository = "https://github.com/metrics-rs/metrics-recorder-text"
+repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics-recorder-text"
 
 [dependencies]

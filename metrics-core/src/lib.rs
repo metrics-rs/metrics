@@ -32,24 +32,214 @@
 //!
 //! Histograms are a convenient way to measure behavior not only at the median, but at the edges of
 //! normal operating behavior.
+#![deny(missing_docs)]
 use futures::future::Future;
 use std::borrow::Cow;
+use std::fmt;
+use std::slice::Iter;
 use std::time::Duration;
 
-/// An optimized metric key.
+/// An allocation-optimized string.
 ///
-/// As some metrics might be sent at high frequency, it makes no sense to constantly allocate and
-/// reallocate owned [`String`]s when a static [`str`] would suffice.  As we don't want to limit
-/// callers, though, we opt to use a copy-on-write pointer -- [`Cow`] -- to allow callers
-/// flexiblity in how and what they pass.
-pub type Key = Cow<'static, str>;
+/// We specify `ScopedString` to attempt to get the best of both worlds: flexibility to provide a
+/// static or dynamic (owned) string, while retaining the performance benefits of being able to
+/// take ownership of owned strings and borrows of completely static strings.
+pub type ScopedString = Cow<'static, str>;
 
-/// A value which can be converted into a nanosecond representation.
+/// A key/value pair used to further describe a metric.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct Label(ScopedString, ScopedString);
+
+impl Label {
+    /// Creates a `Label` from a key and value.
+    pub fn new<K, V>(key: K, value: V) -> Self
+    where
+        K: Into<ScopedString>,
+        V: Into<ScopedString>,
+    {
+        Label(key.into(), value.into())
+    }
+
+    /// The key of this label.
+    pub fn key(&self) -> &str {
+        self.0.as_ref()
+    }
+
+    /// The value of this label.
+    pub fn value(&self) -> &str {
+        self.1.as_ref()
+    }
+
+    /// Consumes this `Label`, returning the key and value.
+    pub fn into_parts(self) -> (ScopedString, ScopedString) {
+        (self.0, self.1)
+    }
+}
+
+/// A metric key.
+///
+/// A key always includes a name, but can optional include multiple labels used to further describe
+/// the metric.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct Key {
+    name: ScopedString,
+    labels: Vec<Label>,
+}
+
+impl Key {
+    /// Creates a `Key` from a name.
+    pub fn from_name<N>(name: N) -> Self
+    where
+        N: Into<ScopedString>,
+    {
+        Key {
+            name: name.into(),
+            labels: Vec::new(),
+        }
+    }
+
+    /// Creates a `Key` from a name and vector of `Label`s.
+    pub fn from_name_and_labels<N, L>(name: N, labels: L) -> Self
+    where
+        N: Into<ScopedString>,
+        L: IntoLabels,
+    {
+        Key {
+            name: name.into(),
+            labels: labels.into_labels(),
+        }
+    }
+
+    /// Adds a new set of labels to this key.
+    ///
+    /// New labels will be appended to any existing labels.
+    pub fn add_labels<L>(&mut self, new_labels: L)
+    where
+        L: IntoLabels,
+    {
+        self.labels.extend(new_labels.into_labels());
+    }
+
+    /// Name of this key.
+    pub fn name(&self) -> ScopedString {
+        self.name.clone()
+    }
+
+    /// Labels of this key, if they exist.
+    pub fn labels(&self) -> Iter<Label> {
+        self.labels.iter()
+    }
+
+    /// Maps the name of this `Key` to a new name.
+    pub fn map_name<F>(self, f: F) -> Self
+    where
+        F: FnOnce(ScopedString) -> ScopedString,
+    {
+        Key {
+            name: f(self.name),
+            labels: self.labels,
+        }
+    }
+
+    /// Consumes this `Key`, returning the name and any labels.
+    pub fn into_parts(self) -> (ScopedString, Vec<Label>) {
+        (self.name, self.labels)
+    }
+}
+
+impl fmt::Display for Key {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.labels.is_empty() {
+            true => write!(f, "Key({}", self.name),
+            false => {
+                let kv_pairs = self
+                    .labels
+                    .iter()
+                    .map(|label| format!("{} = {}", label.0, label.1))
+                    .collect::<Vec<_>>();
+                write!(f, "Key({}, [{}])", self.name, kv_pairs.join(", "))
+            }
+        }
+    }
+}
+
+impl From<String> for Key {
+    fn from(name: String) -> Key {
+        Key::from_name(name)
+    }
+}
+
+impl From<&'static str> for Key {
+    fn from(name: &'static str) -> Key {
+        Key::from_name(name)
+    }
+}
+
+impl From<ScopedString> for Key {
+    fn from(name: ScopedString) -> Key {
+        Key::from_name(name)
+    }
+}
+
+impl<K, L> From<(K, L)> for Key
+where
+    K: Into<ScopedString>,
+    L: IntoLabels,
+{
+    fn from(parts: (K, L)) -> Key {
+        Key::from_name_and_labels(parts.0, parts.1)
+    }
+}
+
+impl<K, V> From<(K, V)> for Label
+where
+    K: Into<ScopedString>,
+    V: Into<ScopedString>,
+{
+    fn from(pair: (K, V)) -> Label {
+        Label::new(pair.0, pair.1)
+    }
+}
+
+impl<K, V> From<&(K, V)> for Label
+where
+    K: Into<ScopedString> + Clone,
+    V: Into<ScopedString> + Clone,
+{
+    fn from(pair: &(K, V)) -> Label {
+        Label::new(pair.0.clone(), pair.1.clone())
+    }
+}
+
+/// A value that can be converted to `Label`s.
+pub trait IntoLabels {
+    /// Consumes this value, turning it into a vector of `Label`s.
+    fn into_labels(self) -> Vec<Label>;
+}
+
+impl IntoLabels for Vec<Label> {
+    fn into_labels(self) -> Vec<Label> {
+        self
+    }
+}
+
+impl<T, L> IntoLabels for &T
+where
+    Self: IntoIterator<Item = L>,
+    L: Into<Label>,
+{
+    fn into_labels(self) -> Vec<Label> {
+        self.into_iter().map(|l| l.into()).collect()
+    }
+}
+
+/// Used to do a nanosecond conversion.
 ///
 /// This trait allows us to interchangably accept raw integer time values, ones already in
 /// nanoseconds, as well as the more conventional [`Duration`] which is a result of getting the
 /// difference between two [`Instant`](std::time::Instant)s.
 pub trait AsNanoseconds {
+    /// Performs the conversion.
     fn as_nanos(&self) -> u64;
 }
 
@@ -74,7 +264,7 @@ pub trait Recorder {
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn record_counter<K: Into<Key>>(&mut self, key: K, value: u64);
+    fn record_counter(&mut self, key: Key, value: u64);
 
     /// Records a gauge.
     ///
@@ -83,7 +273,7 @@ pub trait Recorder {
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn record_gauge<K: Into<Key>>(&mut self, key: K, value: i64);
+    fn record_gauge(&mut self, key: Key, value: i64);
 
     /// Records a histogram.
     ///
@@ -91,7 +281,7 @@ pub trait Recorder {
     /// of the underlying observed values, and callers will need to process them accordingly.
     ///
     /// There is no guarantee that this method will not be called multiple times for the same key.
-    fn record_histogram<K: Into<Key>>(&mut self, key: K, values: &[u64]);
+    fn record_histogram(&mut self, key: Key, values: &[u64]);
 }
 
 /// A value that holds a point-in-time view of collected metrics.
@@ -102,7 +292,9 @@ pub trait Snapshot {
 
 /// A value that can provide on-demand snapshots.
 pub trait SnapshotProvider {
+    /// Snapshot given by the provider.
     type Snapshot: Snapshot;
+    /// Errors produced during generation.
     type SnapshotError;
 
     /// Gets a snapshot.
@@ -111,10 +303,48 @@ pub trait SnapshotProvider {
 
 /// A value that can provide on-demand snapshots asynchronously.
 pub trait AsyncSnapshotProvider {
+    /// Snapshot given by the provider.
     type Snapshot: Snapshot;
+    /// Errors produced during generation.
     type SnapshotError;
+    /// The future response value.
     type SnapshotFuture: Future<Item = Self::Snapshot, Error = Self::SnapshotError>;
 
     /// Gets a snapshot asynchronously.
     fn get_snapshot_async(&self) -> Self::SnapshotFuture;
+}
+
+/// Helper macro for generating a set of labels.
+///
+/// While a `Label` can be generated manually, most users will tend towards the key => value format
+/// commonly used for defining hashes/maps in many programming languages.  This macro allows users
+/// to do the exact same thing in calls that depend on [`metrics_core::IntoLabels`].
+///
+/// # Examples
+/// ```rust
+/// # #[macro_use] extern crate metrics_core;
+/// # use metrics_core::IntoLabels;
+/// fn takes_labels<L: IntoLabels>(name: &str, labels: L) {
+///     println!("name: {} labels: {:?}", name, labels.into_labels());
+/// }
+///
+/// takes_labels("requests_processed", labels!("request_type" => "admin"));
+/// ```
+#[macro_export]
+macro_rules! labels {
+    (@ { $($out:expr),* $(,)* } $(,)*) => {
+        std::vec![ $($out),* ]
+    };
+
+    (@ { } $k:expr => $v:expr, $($rest:tt)*) => {
+        labels!(@ { $crate::Label::new($k, $v) } $($rest)*)
+    };
+
+    (@ { $($out:expr),+ } $k:expr => $v:expr, $($rest:tt)*) => {
+        labels!(@ { $($out),+, $crate::Label::new($k, $v) } $($rest)*)
+    };
+
+    ($($args:tt)*) => {
+        labels!(@ { } $($args)*, )
+    };
 }

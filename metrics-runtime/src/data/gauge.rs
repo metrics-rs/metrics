@@ -1,8 +1,8 @@
-use crate::common::MetricValue;
+use crate::common::ValueHandle;
 
 /// Proxy object to update a gauge.
 pub struct Gauge {
-    handle: MetricValue,
+    handle: ValueHandle,
 }
 
 impl Gauge {
@@ -12,8 +12,8 @@ impl Gauge {
     }
 }
 
-impl From<MetricValue> for Gauge {
-    fn from(handle: MetricValue) -> Self {
+impl From<ValueHandle> for Gauge {
+    fn from(handle: ValueHandle) -> Self {
         Self { handle }
     }
 }

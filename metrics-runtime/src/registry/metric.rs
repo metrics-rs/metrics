@@ -1,4 +1,4 @@
-use crate::common::{MetricIdentifier, MetricKind, MetricValue};
+use crate::common::{Identifier, Kind, ValueHandle};
 use crate::config::Configuration;
 use crate::data::Snapshot;
 use crate::registry::ScopeRegistry;
@@ -8,9 +8,10 @@ use quanta::Clock;
 use std::ops::Deref;
 use std::sync::Arc;
 
+#[derive(Debug)]
 pub(crate) struct MetricRegistry {
     scope_registry: Arc<ScopeRegistry>,
-    metrics: ArcSwap<HashMap<MetricIdentifier, MetricValue>>,
+    metrics: ArcSwap<HashMap<Identifier, ValueHandle>>,
     config: Configuration,
     clock: Clock,
 }
@@ -25,19 +26,15 @@ impl MetricRegistry {
         }
     }
 
-    pub fn get_value_handle(&self, identifier: MetricIdentifier) -> MetricValue {
+    pub fn get_or_register(&self, id: Identifier) -> ValueHandle {
         loop {
-            match self.metrics.lease().deref().get(&identifier) {
+            match self.metrics.lease().deref().get(&id) {
                 Some(handle) => return handle.clone(),
                 None => {
-                    let kind = match &identifier {
-                        MetricIdentifier::Unlabeled(_, _, kind) => kind,
-                    };
-
-                    let value_handle = match kind {
-                        MetricKind::Counter => MetricValue::counter(),
-                        MetricKind::Gauge => MetricValue::gauge(),
-                        MetricKind::Histogram => MetricValue::histogram(
+                    let value_handle = match id.kind() {
+                        Kind::Counter => ValueHandle::counter(),
+                        Kind::Gauge => ValueHandle::gauge(),
+                        Kind::Histogram => ValueHandle::histogram(
                             self.config.histogram_window,
                             self.config.histogram_granularity,
                             self.clock.clone(),
@@ -46,7 +43,7 @@ impl MetricRegistry {
 
                     let metrics_ptr = self.metrics.lease();
                     let mut metrics = metrics_ptr.deref().clone();
-                    match metrics.insert(identifier.clone(), value_handle.clone()) {
+                    match metrics.insert(id.clone(), value_handle.clone()) {
                         // Somebody else beat us to it, loop.
                         Some(_) => continue,
                         None => {
@@ -70,17 +67,15 @@ impl MetricRegistry {
         let mut named_values = Vec::new();
 
         let metrics = self.metrics.load().deref().clone();
-        for (identifier, value) in metrics.into_iter() {
-            let (name, scope_handle) = match identifier {
-                MetricIdentifier::Unlabeled(name, scope, _) => (name, scope),
-            };
-
+        for (id, value) in metrics.into_iter() {
+            let (key, scope_handle, _) = id.into_parts();
             let scope = self.scope_registry.get(scope_handle);
-            let scoped_name = scope.into_scoped(name);
+            let key = key.map_name(|name| scope.into_scoped(name));
+
             let snapshot = value.snapshot();
-            named_values.push((scoped_name, snapshot));
+            named_values.push((key, snapshot));
         }
 
-        Snapshot::from(named_values)
+        Snapshot::new(named_values)
     }
 }

@@ -9,7 +9,7 @@ license = "MIT"
 description = "metric exporter for serving metrics over HTTP"
 
 homepage = "https://github.com/metrics-rs/metrics"
-repository = "https://github.com/metrics-rs/metrics-exporter-http"
+repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics-exporter-http"
 
 [dependencies]

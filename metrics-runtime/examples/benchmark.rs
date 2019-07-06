@@ -3,16 +3,13 @@ extern crate log;
 extern crate env_logger;
 extern crate getopts;
 extern crate hdrhistogram;
-extern crate metrics;
 extern crate metrics_core;
-
-#[macro_use]
-extern crate metrics_facade;
+extern crate metrics_runtime;
 
 use getopts::Options;
 use hdrhistogram::Histogram;
-use metrics::{Receiver, Sink};
-use metrics_core::{Key, Recorder, Snapshot, SnapshotProvider};
+use metrics_core::SnapshotProvider;
+use metrics_runtime::{Receiver, Sink};
 use quanta::Clock;
 use std::{
     env,
@@ -27,6 +24,7 @@ use std::{
 const LOOP_SAMPLE: u64 = 1000;
 
 struct Generator {
+    stats: Sink,
     t0: Option<u64>,
     gauge: i64,
     hist: Histogram<u64>,
@@ -36,8 +34,14 @@ struct Generator {
 }
 
 impl Generator {
-    fn new(done: Arc<AtomicBool>, rate_counter: Arc<AtomicU64>, clock: Clock) -> Generator {
+    fn new(
+        stats: Sink,
+        done: Arc<AtomicBool>,
+        rate_counter: Arc<AtomicU64>,
+        clock: Clock,
+    ) -> Generator {
         Generator {
+            stats,
             t0: None,
             gauge: 0,
             hist: Histogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap(),
@@ -58,21 +62,64 @@ impl Generator {
 
             self.gauge += 1;
 
-            let t1 = self.clock.now();
+            let t1 = self.stats.now();
 
             if let Some(t0) = self.t0 {
-                let start = if counter % LOOP_SAMPLE == 0 {
-                    self.clock.now()
+                let start = if counter % 1000 == 0 {
+                    self.stats.now()
                 } else {
                     0
                 };
 
-                counter!("ok", 1);
-                timing!("ok", t1 - t0);
-                gauge!("total", self.gauge);
+                let _ = self.stats.record_counter("ok", 1);
+                let _ = self.stats.record_timing("ok", t0, t1);
+                let _ = self.stats.record_gauge("total", self.gauge);
 
                 if start != 0 {
-                    let delta = self.clock.now() - start;
+                    let delta = self.stats.now() - start;
+                    self.hist.saturating_record(delta);
+
+                    // We also increment our global counter for the sample rate here.
+                    self.rate_counter
+                        .fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
+                }
+            }
+
+            self.t0 = Some(t1);
+        }
+    }
+
+    fn run_cached(&mut self) {
+        let mut counter = 0;
+
+        let counter_handle = self.stats.counter("ok");
+        let timing_handle = self.stats.histogram("ok");
+        let gauge_handle = self.stats.gauge("total");
+
+        loop {
+            counter += 1;
+
+            if self.done.load(Ordering::Relaxed) {
+                break;
+            }
+
+            self.gauge += 1;
+
+            let t1 = self.clock.recent();
+
+            if let Some(t0) = self.t0 {
+                let start = if counter % LOOP_SAMPLE == 0 {
+                    self.stats.now()
+                } else {
+                    0
+                };
+
+                let _ = counter_handle.record(1);
+                let _ = timing_handle.record_timing(t0, t1);
+                let _ = gauge_handle.record(self.gauge);
+
+                if start != 0 {
+                    let delta = self.stats.now() - start;
                     self.hist.saturating_record(delta);
 
                     // We also increment our global counter for the sample rate here.
@@ -115,6 +162,7 @@ pub fn opts() -> Options {
         "INTEGER",
     );
     opts.optopt("p", "producers", "number of producers", "INTEGER");
+    opts.optflag("c", "cached", "whether or not to use cached handles");
     opts.optflag("h", "help", "print this help menu");
 
     opts
@@ -140,6 +188,11 @@ fn main() {
         return;
     }
 
+    let use_cached = matches.opt_present("cached");
+    if use_cached {
+        info!("using cached handles");
+    }
+
     info!("metrics benchmark");
 
     // Build our sink and configure the facets.
@@ -162,9 +215,10 @@ fn main() {
         .build()
         .expect("failed to build receiver");
 
-    let controller = receiver.get_controller();
-    receiver.install();
-    info!("receiver configured");
+    let sink = receiver.get_sink();
+    let sink = sink.scoped(&["alpha", "pools", "primary"]);
+
+    info!("sink configured");
 
     // Spin up our sample producers.
     let done = Arc::new(AtomicBool::new(false));
@@ -173,15 +227,24 @@ fn main() {
     let clock = Clock::new();
 
     for _ in 0..producers {
+        let s = sink.clone();
         let d = done.clone();
         let r = rate_counter.clone();
         let c = clock.clone();
         let handle = thread::spawn(move || {
-            Generator::new(d, r, c).run();
+            let mut gen = Generator::new(s, d, r, c);
+            if use_cached {
+                gen.run_cached();
+            } else {
+                gen.run();
+            }
         });
 
         handles.push(handle);
     }
+
+    // Spin up the sink and let 'er rip.
+    let controller = receiver.get_controller();
 
     // Poll the controller to figure out the sample rate.
     let mut total = 0;
@@ -192,7 +255,7 @@ fn main() {
         let t1 = Instant::now();
 
         let start = Instant::now();
-        let snapshot = controller.get_snapshot().unwrap();
+        let _snapshot = controller.get_snapshot().unwrap();
         let end = Instant::now();
         snapshot_hist.saturating_record(duration_as_nanos(end - start) as u64);
 
@@ -222,34 +285,6 @@ fn main() {
     done.store(true, Ordering::SeqCst);
     for handle in handles {
         let _ = handle.join();
-    }
-}
-
-struct TotalRecorder {
-    total: u64,
-}
-
-impl TotalRecorder {
-    pub fn new() -> Self {
-        Self { total: 0 }
-    }
-
-    pub fn total(&self) -> u64 {
-        self.total
-    }
-}
-
-impl Recorder for TotalRecorder {
-    fn record_counter<K: Into<Key>>(&mut self, _key: K, value: u64) {
-        self.total += value;
-    }
-
-    fn record_gauge<K: Into<Key>>(&mut self, _key: K, value: i64) {
-        self.total += value as u64;
-    }
-
-    fn record_histogram<K: Into<Key>>(&mut self, _key: K, values: &[u64]) {
-        self.total += values.len() as u64;
     }
 }
 
