@@ -16,11 +16,6 @@ readme = "README.md"
 
 keywords = ["metrics", "telemetry", "histogram", "counter", "gauge"]
 
-[profile.release]
-debug = true
-opt-level = 3
-lto = true
-
 [features]
 default = ["exporters", "recorders"]
 exporters = ["metrics-exporter-log", "metrics-exporter-http"]
