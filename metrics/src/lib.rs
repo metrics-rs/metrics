@@ -149,8 +149,10 @@ use metrics_core::AsNanoseconds;
 pub use metrics_core::{labels, Key, Label};
 #[cfg(feature = "std")]
 use std::error;
-use std::fmt;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    fmt,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 #[macro_use]
 mod macros;

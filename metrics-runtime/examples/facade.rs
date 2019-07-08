@@ -11,7 +11,6 @@ extern crate metrics;
 
 use getopts::Options;
 use hdrhistogram::Histogram;
-use metrics_core::SnapshotProvider;
 use metrics_runtime::Receiver;
 use quanta::Clock;
 use std::{
@@ -192,7 +191,7 @@ fn main() {
         let t1 = Instant::now();
 
         let start = Instant::now();
-        let _snapshot = controller.get_snapshot().unwrap();
+        let _snapshot = controller.snapshot();
         let end = Instant::now();
         snapshot_hist.saturating_record(duration_as_nanos(end - start) as u64);
 

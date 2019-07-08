@@ -2,10 +2,14 @@ use crate::data::AtomicWindowedHistogram;
 use metrics_core::{Key, ScopedString};
 use metrics_util::StreamingIntegers;
 use quanta::Clock;
-use std::ops::Deref;
-use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::{
+    ops::Deref,
+    sync::{
+        atomic::{AtomicI64, AtomicU64, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant},
+};
 
 /// A scope, or context, for a metric.
 #[doc(hidden)]

@@ -1,16 +1,16 @@
 [package]
-name = "metrics-recorder-prometheus"
+name = "metrics-observer-text"
 version = "0.2.2"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
 license = "MIT"
 
-description = "metric recorder for Prometheus exposition output"
+description = "metric recorder for hierarchical, text-based output"
 
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
-documentation = "https://docs.rs/metrics-recorder-prometheus"
+documentation = "https://docs.rs/metrics-recorder-text"
 
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.4" }
