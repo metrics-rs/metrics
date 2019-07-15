@@ -1,41 +1,57 @@
 //! Records metrics in the Prometheus exposition format.
 #![deny(missing_docs)]
 use hdrhistogram::Histogram;
-use metrics_core::{Key, Recorder};
+use metrics_core::{Builder, Key, Label, Recorder};
 use metrics_util::{parse_quantiles, Quantile};
 use std::collections::HashMap;
 use std::time::SystemTime;
 
-/// Records metrics in the Prometheus exposition format.
-pub struct PrometheusRecorder {
+/// Builder for [`PrometheusRecorder`].
+pub struct PrometheusBuilder {
     quantiles: Vec<Quantile>,
-    histos: HashMap<Key, (u64, Histogram<u64>)>,
-    output: String,
 }
 
-impl PrometheusRecorder {
-    /// Creates a new [`PrometheusRecorder`] with a default set of quantiles.
+impl PrometheusBuilder {
+    /// Creates a new [`PrometheusBuilder`] with a default set of quantiles.
     ///
     /// Configures the recorder with these default quantiles: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and
     /// 1.0.  If you want to customize the quantiles used, you can call
-    ///   [`PrometheusRecorder::with_quantiles`].
+    ///   [`PrometheusBuilder::with_quantiles`].
     ///
     /// The configured quantiles are used when rendering any histograms.
     pub fn new() -> Self {
         Self::with_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0])
     }
 
-    /// Creates a new [`PrometheusRecorder`] with the given set of quantiles.
+    /// Creates a new [`PrometheusBuilder`] with the given set of quantiles.
     ///
     /// The configured quantiles are used when rendering any histograms.
     pub fn with_quantiles(quantiles: &[f64]) -> Self {
         let actual_quantiles = parse_quantiles(quantiles);
+
         Self {
             quantiles: actual_quantiles,
+        }
+    }
+}
+
+impl Builder for PrometheusBuilder {
+    type Output = PrometheusRecorder;
+
+    fn build(&self) -> Self::Output {
+        PrometheusRecorder {
+            quantiles: self.quantiles.clone(),
             histos: HashMap::new(),
             output: get_prom_expo_header(),
         }
     }
+}
+
+/// Records metrics in the Prometheus exposition format.
+pub struct PrometheusRecorder {
+    pub(crate) quantiles: Vec<Quantile>,
+    pub(crate) histos: HashMap<Key, (u64, Histogram<u64>)>,
+    pub(crate) output: String,
 }
 
 impl Recorder for PrometheusRecorder {
@@ -73,16 +89,6 @@ impl Recorder for PrometheusRecorder {
         for value in values {
             h.record(*value).expect("failed to record histogram value");
             *sum += *value;
-        }
-    }
-}
-
-impl Clone for PrometheusRecorder {
-    fn clone(&self) -> Self {
-        Self {
-            output: get_prom_expo_header(),
-            histos: HashMap::new(),
-            quantiles: self.quantiles.clone(),
         }
     }
 }
@@ -131,7 +137,7 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
     let name = name.replace('.', "_");
     let labels = labels
         .into_iter()
-        .map(|label| label.into_parts())
+        .map(Label::into_parts)
         .map(|(k, v)| format!("{}=\"{}\"", k, v))
         .collect();
 

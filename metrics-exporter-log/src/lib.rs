@@ -15,30 +15,31 @@ extern crate log;
 
 use futures::prelude::*;
 use log::Level;
-use metrics_core::{AsyncSnapshotProvider, Recorder, Snapshot, SnapshotProvider};
+use metrics_core::{AsyncSnapshotProvider, Builder, Snapshot, SnapshotProvider};
 use std::error::Error;
 use std::thread;
 use std::time::Duration;
 use tokio_timer::Interval;
 
 /// Exports metrics by converting them to a textual representation and logging them.
-pub struct LogExporter<C, R> {
+pub struct LogExporter<C, B> {
     controller: C,
-    recorder: R,
+    builder: B,
     level: Level,
 }
 
-impl<C, R> LogExporter<C, R>
+impl<C, B> LogExporter<C, B>
 where
-    R: Recorder + Clone + Into<String>,
+    B: Builder,
+    B::Output: Into<String>,
 {
     /// Creates a new [`LogExporter`] that logs at the configurable level.
     ///
     /// Recorders expose their output by being converted into strings.
-    pub fn new(controller: C, recorder: R, level: Level) -> Self {
+    pub fn new(controller: C, builder: B, level: Level) -> Self {
         LogExporter {
             controller,
-            recorder,
+            builder,
             level,
         }
     }
@@ -64,7 +65,7 @@ where
     {
         match self.controller.get_snapshot() {
             Ok(snapshot) => {
-                let mut recorder = self.recorder.clone();
+                let mut recorder = self.builder.build();
                 snapshot.record(&mut recorder);
                 let output = recorder.into();
                 log!(self.level, "{}", output);
@@ -80,13 +81,13 @@ where
         C::SnapshotError: Error,
     {
         let controller = self.controller;
-        let recorder = self.recorder;
+        let builder = self.builder;
         let level = self.level;
 
         Interval::new_interval(interval)
             .map_err(|_| ())
             .for_each(move |_| {
-                let mut recorder = recorder.clone();
+                let mut recorder = builder.build();
 
                 controller
                     .get_snapshot_async()
