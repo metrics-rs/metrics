@@ -16,31 +16,33 @@ use hyper::rt::run as hyper_run;
 use hyper::rt::Future;
 use hyper::service::service_fn;
 use hyper::{Body, Response, Server};
-use metrics_core::{AsyncSnapshotProvider, Recorder, Snapshot};
+use metrics_core::{AsyncSnapshotProvider, Builder, Snapshot};
 use std::error::Error;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 /// Exports metrics over HTTP.
-pub struct HttpExporter<C, R> {
+pub struct HttpExporter<C, B> {
     controller: C,
-    recorder: R,
+    builder: B,
     address: SocketAddr,
 }
 
-impl<C, R> HttpExporter<C, R>
+impl<C, B> HttpExporter<C, B>
 where
-    C: AsyncSnapshotProvider + Clone + Send + 'static,
-    C::SnapshotFuture: Send + 'static,
+    C: AsyncSnapshotProvider + Send + Sync + 'static,
+    C::SnapshotFuture: Send + Sync + 'static,
     C::SnapshotError: Error + Send + Sync + 'static,
-    R: Recorder + Clone + Into<String> + Send + 'static,
+    B: Builder + Send + Sync + 'static,
+    B::Output: Into<String>,
 {
     /// Creates a new [`HttpExporter`] that listens on the given `address`.
     ///
     /// Recorders expose their output by being converted into strings.
-    pub fn new(controller: C, recorder: R, address: SocketAddr) -> Self {
+    pub fn new(controller: C, builder: B, address: SocketAddr) -> Self {
         HttpExporter {
             controller,
-            recorder,
+            builder,
             address,
         }
     }
@@ -60,38 +62,42 @@ where
     /// responding to any request with the output of the configured recorder.
     pub fn into_future(self) -> impl Future<Item = (), Error = ()> {
         let controller = self.controller;
-        let recorder = self.recorder;
+        let builder = self.builder;
         let address = self.address;
 
-        build_hyper_server(controller, recorder, address)
+        build_hyper_server(controller, builder, address)
     }
 }
 
-fn build_hyper_server<C, R>(
+fn build_hyper_server<C, B>(
     controller: C,
-    recorder: R,
+    builder: B,
     address: SocketAddr,
 ) -> impl Future<Item = (), Error = ()>
 where
-    C: AsyncSnapshotProvider + Clone + Send + 'static,
-    C::SnapshotFuture: Send + 'static,
+    C: AsyncSnapshotProvider + Send + Sync + 'static,
+    C::SnapshotFuture: Send + Sync + 'static,
     C::SnapshotError: Error + Send + Sync + 'static,
-    R: Recorder + Clone + Into<String> + Send + 'static,
+    B: Builder + Send + Sync + 'static,
+    B::Output: Into<String>,
 {
+    let builder = Arc::new(builder);
+    let controller = Arc::new(controller);
+
     let service = move || {
-        let controller2 = controller.clone();
-        let recorder2 = recorder.clone();
+        let controller = controller.clone();
+        let builder = builder.clone();
 
         service_fn(move |_| {
-            let recorder3 = recorder2.clone();
+            let builder = builder.clone();
 
-            controller2
+            controller
                 .get_snapshot_async()
                 .then(move |result| match result {
                     Ok(snapshot) => {
-                        let mut r = recorder3.clone();
-                        snapshot.record(&mut r);
-                        let output = r.into();
+                        let mut recorder = builder.build();
+                        snapshot.record(&mut recorder);
+                        let output = recorder.into();
                         Ok(Response::new(Body::from(output)))
                     }
                     Err(e) => Err(e),

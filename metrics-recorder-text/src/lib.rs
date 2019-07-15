@@ -44,42 +44,57 @@
 //!
 #![deny(missing_docs)]
 use hdrhistogram::Histogram;
-use metrics_core::{Key, Recorder};
+use metrics_core::{Builder, Key, Label, Recorder};
 use metrics_util::{parse_quantiles, Quantile};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
 
-/// Records metrics in a hierarchical, text-based format.
-pub struct TextRecorder {
-    structure: MetricsTree,
-    histos: HashMap<Key, Histogram<u64>>,
+/// Builder for [`TextRecorder`].
+pub struct TextBuilder {
     quantiles: Vec<Quantile>,
 }
 
-impl TextRecorder {
-    /// Creates a new [`TextRecorder`] with a default set of quantiles.
+impl TextBuilder {
+    /// Creates a new [`TextBuilder`] with a default set of quantiles.
     ///
     /// Configures the recorder with these default quantiles: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and
     /// 1.0.  If you want to customize the quantiles used, you can call
-    ///   [`TextRecorder::with_quantiles`].
+    ///   [`TextBuilder::with_quantiles`].
     ///
     /// The configured quantiles are used when rendering any histograms.
     pub fn new() -> Self {
         Self::with_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0])
     }
 
-    /// Creates a new [`TextRecorder`] with the given set of quantiles.
+    /// Creates a new [`TextBuilder`] with the given set of quantiles.
     ///
     /// The configured quantiles are used when rendering any histograms.
     pub fn with_quantiles(quantiles: &[f64]) -> Self {
         let actual_quantiles = parse_quantiles(quantiles);
 
         Self {
-            structure: MetricsTree::with_level(0),
-            histos: HashMap::new(),
             quantiles: actual_quantiles,
         }
     }
+}
+
+impl Builder for TextBuilder {
+    type Output = TextRecorder;
+
+    fn build(&self) -> Self::Output {
+        TextRecorder {
+            quantiles: self.quantiles.clone(),
+            structure: MetricsTree::with_level(0),
+            histos: HashMap::new(),
+        }
+    }
+}
+
+/// Records metrics in a hierarchical, text-based format.
+pub struct TextRecorder {
+    pub(crate) quantiles: Vec<Quantile>,
+    pub(crate) structure: MetricsTree,
+    pub(crate) histos: HashMap<Key, Histogram<u64>>,
 }
 
 impl Recorder for TextRecorder {
@@ -105,16 +120,6 @@ impl Recorder for TextRecorder {
             entry
                 .record(*value)
                 .expect("failed to record histogram value");
-        }
-    }
-}
-
-impl Clone for TextRecorder {
-    fn clone(&self) -> Self {
-        Self {
-            structure: MetricsTree::with_level(0),
-            histos: HashMap::new(),
-            quantiles: self.quantiles.clone(),
         }
     }
 }
@@ -248,7 +253,7 @@ fn key_to_parts(key: Key) -> (VecDeque<String>, String) {
 
     let labels = labels
         .into_iter()
-        .map(|label| label.into_parts())
+        .map(Label::into_parts)
         .map(|(k, v)| format!("{}=\"{}\"", k, v))
         .collect::<Vec<_>>()
         .join(",");
