@@ -1,31 +1,11 @@
-use crate::data::Snapshot;
-use crate::registry::{MetricRegistry, ScopeRegistry};
-use futures::prelude::*;
-use metrics_core::{AsyncSnapshotProvider, SnapshotProvider};
-use std::error::Error;
-use std::fmt;
+use crate::{
+    data::Snapshot,
+    registry::{MetricRegistry, ScopeRegistry},
+};
+
+use metrics_core::{Observe, Observer};
+
 use std::sync::Arc;
-
-/// Error during snapshot retrieval.
-#[derive(Debug, Clone)]
-pub enum SnapshotError {
-    /// The future was polled again after returning the snapshot.
-    AlreadyUsed,
-
-    #[doc(hidden)]
-    _NonExhaustive,
-}
-
-impl Error for SnapshotError {}
-
-impl fmt::Display for SnapshotError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            SnapshotError::AlreadyUsed => write!(f, "snapshot already returned from future"),
-            SnapshotError::_NonExhaustive => write!(f, "non-exhaustive matching"),
-        }
-    }
-}
 
 /// Handle for acquiring snapshots.
 ///
@@ -49,52 +29,15 @@ impl Controller {
             scope_registry,
         }
     }
-}
 
-impl SnapshotProvider for Controller {
-    type Snapshot = Snapshot;
-    type SnapshotError = SnapshotError;
-
-    /// Gets a snapshot.
-    fn get_snapshot(&self) -> Result<Snapshot, SnapshotError> {
-        let snapshot = self.metric_registry.get_snapshot();
-        Ok(snapshot)
+    /// Provide a snapshot of its collected metrics.
+    pub fn snapshot(&self) -> Snapshot {
+        self.metric_registry.snapshot()
     }
 }
 
-impl AsyncSnapshotProvider for Controller {
-    type Snapshot = Snapshot;
-    type SnapshotError = SnapshotError;
-    type SnapshotFuture = SnapshotFuture;
-
-    /// Gets a snapshot asynchronously.
-    fn get_snapshot_async(&self) -> Self::SnapshotFuture {
-        let snapshot = self.metric_registry.get_snapshot();
-        SnapshotFuture::new(snapshot)
-    }
-}
-
-/// A future representing collecting a snapshot.
-pub struct SnapshotFuture {
-    snapshot: Option<Snapshot>,
-}
-
-impl SnapshotFuture {
-    pub fn new(snapshot: Snapshot) -> Self {
-        SnapshotFuture {
-            snapshot: Some(snapshot),
-        }
-    }
-}
-
-impl Future for SnapshotFuture {
-    type Item = Snapshot;
-    type Error = SnapshotError;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.snapshot
-            .take()
-            .ok_or(SnapshotError::AlreadyUsed)
-            .map(Async::Ready)
+impl Observe for Controller {
+    fn observe<O: Observer>(&self, observer: &mut O) {
+        self.metric_registry.observe(observer)
     }
 }

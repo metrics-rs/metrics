@@ -1,7 +1,9 @@
 use crossbeam_epoch::{pin as epoch_pin, Atomic, Guard, Owned, Shared};
-use std::cell::UnsafeCell;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{mem, slice};
+use std::{
+    cell::UnsafeCell,
+    mem, slice,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 const BLOCK_SIZE: usize = 128;
 
@@ -111,9 +113,7 @@ pub struct AtomicBucket<T> {
 impl<T> AtomicBucket<T> {
     /// Creates a new, empty bucket.
     pub fn new() -> Self {
-        AtomicBucket {
-            tail: Atomic::null(),
-        }
+        Self::default()
     }
 
     /// Pushes an element into the bucket.
@@ -235,21 +235,28 @@ impl<T> AtomicBucket<T> {
         // will see it as empty until another write proceeds.
         let guard = &epoch_pin();
         let tail = self.tail.load(Ordering::Acquire, guard);
-        if !tail.is_null() {
-            if self
+        if !tail.is_null()
+            && self
                 .tail
                 .compare_and_set(tail, Shared::null(), Ordering::SeqCst, guard)
                 .is_ok()
-            {
-                // We won the swap to delete the tail node.  Now configure a deferred drop to clean
-                // things up once nobody else is using it.
-                unsafe {
-                    // Drop the block, which will cause a cascading drop on the next block, and
-                    // so on and so forth, until all blocks linked to this one are dropped.
-                    guard.defer_destroy(tail);
-                }
-                guard.flush();
+        {
+            // We won the swap to delete the tail node.  Now configure a deferred drop to clean
+            // things up once nobody else is using it.
+            unsafe {
+                // Drop the block, which will cause a cascading drop on the next block, and
+                // so on and so forth, until all blocks linked to this one are dropped.
+                guard.defer_destroy(tail);
             }
+            guard.flush();
+        }
+    }
+}
+
+impl<T> Default for AtomicBucket<T> {
+    fn default() -> Self {
+        Self {
+            tail: Atomic::null(),
         }
     }
 }

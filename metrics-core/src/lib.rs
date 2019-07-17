@@ -33,11 +33,7 @@
 //! Histograms are a convenient way to measure behavior not only at the median, but at the edges of
 //! normal operating behavior.
 #![deny(missing_docs)]
-use futures::future::Future;
-use std::borrow::Cow;
-use std::fmt;
-use std::slice::Iter;
-use std::time::Duration;
+use std::{borrow::Cow, fmt, slice::Iter, time::Duration};
 
 /// An allocation-optimized string.
 ///
@@ -149,16 +145,15 @@ impl Key {
 
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.labels.is_empty() {
-            true => write!(f, "Key({}", self.name),
-            false => {
-                let kv_pairs = self
-                    .labels
-                    .iter()
-                    .map(|label| format!("{} = {}", label.0, label.1))
-                    .collect::<Vec<_>>();
-                write!(f, "Key({}, [{}])", self.name, kv_pairs.join(", "))
-            }
+        if self.labels.is_empty() {
+            write!(f, "Key({}", self.name)
+        } else {
+            let kv_pairs = self
+                .labels
+                .iter()
+                .map(|label| format!("{} = {}", label.0, label.1))
+                .collect::<Vec<_>>();
+            write!(f, "Key({}, [{}])", self.name, kv_pairs.join(", "))
         }
     }
 }
@@ -255,80 +250,64 @@ impl AsNanoseconds for Duration {
     }
 }
 
-/// A value that records metrics.
-pub trait Recorder {
-    /// Records a counter.
+/// A value that observes metrics.
+pub trait Observer {
+    /// The method called when a counter is observed.
     ///
-    /// From the perspective of an recorder, a counter and gauge are essentially identical, insofar
+    /// From the perspective of an observer, a counter and gauge are essentially identical, insofar
     /// as they are both a single value tied to a key.  From the perspective of a collector,
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn record_counter(&mut self, key: Key, value: u64);
+    fn observe_counter(&mut self, key: Key, value: u64);
 
-    /// Records a gauge.
+    /// The method called when a gauge is observed.
     ///
-    /// From the perspective of a recorder, a counter and gauge are essentially identical, insofar
+    /// From the perspective of a observer, a counter and gauge are essentially identical, insofar
     /// as they are both a single value tied to a key.  From the perspective of a collector,
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn record_gauge(&mut self, key: Key, value: i64);
+    fn observe_gauge(&mut self, key: Key, value: i64);
 
-    /// Records a histogram.
+    /// The method called when an histogram is observed.
     ///
-    /// Recorders are expected to tally their own histogram views, so this will be called with all
+    /// Observers are expected to tally their own histogram views, so this will be called with all
     /// of the underlying observed values, and callers will need to process them accordingly.
     ///
     /// There is no guarantee that this method will not be called multiple times for the same key.
-    fn record_histogram(&mut self, key: Key, values: &[u64]);
+    fn observe_histogram(&mut self, key: Key, values: &[u64]);
 }
 
-/// A value that can build a recorder.
+/// A value that can build an observer.
 ///
-/// Recorders are intended to be single-use containers for rendering a snapshot in a particular
-/// format. As many systems are multi-threaded, we can't easily share a single recorder amongst
-/// multiple threads, and so we create a recorder per snapshot, tying them together.
+/// Observers are containers used for rendering a snapshot in a particular format.
+/// As many systems are multi-threaded, we can't easily share a single recorder amongst
+/// multiple threads, and so we create a recorder per observation, tying them together.
 ///
-/// A builder allows us to generate a recorder on demand, giving each specific recorder an
-/// interface by which they can do any necessary configuration, initialization, etc of the recorder
-/// before handing it over to the exporter.
+/// A builder allows us to generate an observer on demand, giving each specific recorder an
+/// interface by which they can do any necessary configuration, initialization, etc of the
+/// observer before handing it over to the exporter.
 pub trait Builder {
-    /// The recorder created by this builder.
-    type Output: Recorder;
+    /// The observer created by this builder.
+    type Output: Observer;
 
     /// Creates a new recorder.
     fn build(&self) -> Self::Output;
 }
 
-/// A value that holds a point-in-time view of collected metrics.
-pub trait Snapshot {
-    /// Records the snapshot to the given recorder.
-    fn record<R: Recorder>(&self, recorder: &mut R);
+/// A value that can produce a `T` by draining its content.
+///
+/// After being drained, the value should be ready to be reused.
+pub trait Drain<T> {
+    /// Drain the `Observer`, producing a `T`.
+    fn drain(&mut self) -> T;
 }
 
-/// A value that can provide on-demand snapshots.
-pub trait SnapshotProvider {
-    /// Snapshot given by the provider.
-    type Snapshot: Snapshot;
-    /// Errors produced during generation.
-    type SnapshotError;
-
-    /// Gets a snapshot.
-    fn get_snapshot(&self) -> Result<Self::Snapshot, Self::SnapshotError>;
-}
-
-/// A value that can provide on-demand snapshots asynchronously.
-pub trait AsyncSnapshotProvider {
-    /// Snapshot given by the provider.
-    type Snapshot: Snapshot;
-    /// Errors produced during generation.
-    type SnapshotError;
-    /// The future response value.
-    type SnapshotFuture: Future<Item = Self::Snapshot, Error = Self::SnapshotError>;
-
-    /// Gets a snapshot asynchronously.
-    fn get_snapshot_async(&self) -> Self::SnapshotFuture;
+/// A value whose metrics can be observed by an `Observer`.
+pub trait Observe {
+    /// Observe point-in-time view of the collected metrics.
+    fn observe<O: Observer>(&self, observer: &mut O);
 }
 
 /// Helper macro for generating a set of labels.

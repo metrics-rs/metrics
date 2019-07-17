@@ -17,9 +17,9 @@ readme = "README.md"
 keywords = ["metrics", "telemetry", "histogram", "counter", "gauge"]
 
 [features]
-default = ["exporters", "recorders"]
+default = ["exporters", "observers"]
 exporters = ["metrics-exporter-log", "metrics-exporter-http"]
-recorders = ["metrics-recorder-text", "metrics-recorder-prometheus"]
+observers = ["metrics-observer-text", "metrics-observer-prometheus"]
 
 [[bench]]
 name = "histogram"
@@ -38,8 +38,8 @@ futures = "^0.1"
 crossbeam-utils = "^0.6"
 metrics-exporter-log = { path = "../metrics-exporter-log", version = "^0.2", optional = true }
 metrics-exporter-http = { path = "../metrics-exporter-http", version = "^0.1", optional = true }
-metrics-recorder-text = { path = "../metrics-recorder-text", version = "^0.2", optional = true }
-metrics-recorder-prometheus = { path = "../metrics-recorder-prometheus", version = "^0.2", optional = true }
+metrics-observer-text = { path = "../metrics-observer-text", version = "^0.2", optional = true }
+metrics-observer-prometheus = { path = "../metrics-observer-prometheus", version = "^0.2", optional = true }
 
 [dev-dependencies]
 log = "^0.4"

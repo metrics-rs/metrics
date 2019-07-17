@@ -6,9 +6,7 @@ use crate::{
 use hashbrown::HashMap;
 use metrics_core::{IntoLabels, Key, Label, ScopedString};
 use quanta::Clock;
-use std::error::Error;
-use std::fmt;
-use std::sync::Arc;
+use std::{error::Error, fmt, sync::Arc};
 
 /// Errors during sink creation.
 #[derive(Debug, Clone)]

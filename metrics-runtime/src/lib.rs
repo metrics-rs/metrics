@@ -172,7 +172,7 @@
 //! Naturally, we need a way to get the metrics out of the system, which is where snapshots come
 //! into play.  By utilizing a [`Controller`], we can take a snapshot of the current metrics in the
 //! registry, and then output them to any desired system/interface by utilizing
-//! [`Recorder`](metrics_core::Recorder).  A number of pre-baked recorders (which only concern
+//! [`Observer`](metrics_core::Observer).  A number of pre-baked observers (which only concern
 //! themselves with formatting the data) and exporters (which take the formatted data and either
 //! serve it up, such as exposing an HTTP endpoint, or write it somewhere, like stdout) are
 //! available, some of which are exposed by this crate.
@@ -181,7 +181,9 @@
 //! `log!`:
 //! ```rust
 //! # extern crate metrics_runtime;
-//! use metrics_runtime::{Receiver, recorders::TextBuilder, exporters::LogExporter};
+//! use metrics_runtime::{
+//!     Receiver, observers::TextBuilder, exporters::LogExporter,
+//! };
 //! use log::Level;
 //! use std::{thread, time::Duration};
 //! let receiver = Receiver::builder().build().expect("failed to create receiver");
@@ -202,14 +204,19 @@
 //! let num_rows = 46;
 //! sink.record_value("db.queries.select_products_num_rows", num_rows);
 //!
-//! // Now create our exporter/recorder configuration, and wire it up.
-//! let exporter = LogExporter::new(receiver.get_controller(), TextBuilder::new(), Level::Info);
+//! // Now create our exporter/observer configuration, and wire it up.
+//! let exporter = LogExporter::new(
+//!     receiver.get_controller(),
+//!     TextBuilder::new(),
+//!     Level::Info,
+//!     Duration::from_secs(5),
+//! );
 //!
 //! // This exporter will now run every 5 seconds, taking a snapshot, rendering it, and writing it
 //! // via `log!` at the informational level. This particular exporter is running directly on the
 //! // current thread, and not on a background thread.
 //! //
-//! // exporter.run(Duration::from_secs(5));
+//! // exporter.run();
 //! ```
 //! Most exporters have the ability to run on the current thread or to be converted into a future
 //! which can be spawned on any Tokio-compatible runtime.
@@ -231,7 +238,7 @@
 //! ```
 //!
 //! [metrics_core]: https://docs.rs/metrics-core
-//! [`Recorder`]: https://docs.rs/metrics-core/0.3.1/metrics_core/trait.Recorder.html
+//! [`Observer`]: https://docs.rs/metrics-core/0.3.1/metrics_core/trait.Observer.html
 #![deny(missing_docs)]
 #![warn(unused_extern_crates)]
 mod builder;
@@ -248,15 +255,15 @@ mod sink;
 pub mod exporters;
 
 #[cfg(any(
-    feature = "metrics-recorder-text",
-    feature = "metrics-recorder-prometheus"
+    feature = "metrics-observer-text",
+    feature = "metrics-observer-prometheus"
 ))]
-pub mod recorders;
+pub mod observers;
 
 pub use self::{
     builder::{Builder, BuilderError},
     common::{Delta, Scope},
-    control::{Controller, SnapshotError},
+    control::Controller,
     receiver::Receiver,
     sink::{AsScoped, Sink, SinkError},
 };

@@ -6,6 +6,6 @@ members = [
   "metrics-util",
   "metrics-exporter-log",
   "metrics-exporter-http",
-  "metrics-recorder-text",
-  "metrics-recorder-prometheus",
+  "metrics-observer-text",
+  "metrics-observer-prometheus",
 ]

@@ -1,7 +1,5 @@
 use crate::{config::Configuration, Receiver};
-use std::error::Error;
-use std::fmt;
-use std::time::Duration;
+use std::{error::Error, fmt, time::Duration};
 
 /// Errors during receiver creation.
 #[derive(Debug, Clone)]
