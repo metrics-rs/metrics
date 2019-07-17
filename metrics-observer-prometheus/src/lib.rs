@@ -1,10 +1,9 @@
 //! Records metrics in the Prometheus exposition format.
 #![deny(missing_docs)]
 use hdrhistogram::Histogram;
-use metrics_core::{Builder, Key, Label, Recorder};
+use metrics_core::{Builder, Drain, Key, Label, Observer};
 use metrics_util::{parse_quantiles, Quantile};
-use std::collections::HashMap;
-use std::time::SystemTime;
+use std::{collections::HashMap, time::SystemTime};
 
 /// Builder for [`PrometheusRecorder`].
 pub struct PrometheusBuilder {
@@ -20,7 +19,7 @@ impl PrometheusBuilder {
     ///
     /// The configured quantiles are used when rendering any histograms.
     pub fn new() -> Self {
-        Self::with_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0])
+        Self::default()
     }
 
     /// Creates a new [`PrometheusBuilder`] with the given set of quantiles.
@@ -36,10 +35,10 @@ impl PrometheusBuilder {
 }
 
 impl Builder for PrometheusBuilder {
-    type Output = PrometheusRecorder;
+    type Output = PrometheusObserver;
 
     fn build(&self) -> Self::Output {
-        PrometheusRecorder {
+        PrometheusObserver {
             quantiles: self.quantiles.clone(),
             histos: HashMap::new(),
             output: get_prom_expo_header(),
@@ -47,15 +46,21 @@ impl Builder for PrometheusBuilder {
     }
 }
 
+impl Default for PrometheusBuilder {
+    fn default() -> Self {
+        Self::with_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0])
+    }
+}
+
 /// Records metrics in the Prometheus exposition format.
-pub struct PrometheusRecorder {
+pub struct PrometheusObserver {
     pub(crate) quantiles: Vec<Quantile>,
     pub(crate) histos: HashMap<Key, (u64, Histogram<u64>)>,
     pub(crate) output: String,
 }
 
-impl Recorder for PrometheusRecorder {
-    fn record_counter(&mut self, key: Key, value: u64) {
+impl Observer for PrometheusObserver {
+    fn observe_counter(&mut self, key: Key, value: u64) {
         let (name, labels) = key_to_parts(key);
         let full_name = render_labeled_name(&name, &labels);
         self.output.push_str("\n# TYPE ");
@@ -67,7 +72,7 @@ impl Recorder for PrometheusRecorder {
         self.output.push_str("\n");
     }
 
-    fn record_gauge(&mut self, key: Key, value: i64) {
+    fn observe_gauge(&mut self, key: Key, value: i64) {
         let (name, labels) = key_to_parts(key);
         let full_name = render_labeled_name(&name, &labels);
         self.output.push_str("\n# TYPE ");
@@ -79,7 +84,7 @@ impl Recorder for PrometheusRecorder {
         self.output.push_str("\n");
     }
 
-    fn record_histogram(&mut self, key: Key, values: &[u64]) {
+    fn observe_histogram(&mut self, key: Key, values: &[u64]) {
         let entry = self.histos.entry(key).or_insert_with(|| {
             let h = Histogram::<u64>::new(3).expect("failed to create histogram");
             (0, h)
@@ -87,24 +92,24 @@ impl Recorder for PrometheusRecorder {
 
         let (sum, h) = entry;
         for value in values {
-            h.record(*value).expect("failed to record histogram value");
+            h.record(*value).expect("failed to observe histogram value");
             *sum += *value;
         }
     }
 }
 
-impl From<PrometheusRecorder> for String {
-    fn from(r: PrometheusRecorder) -> String {
-        let mut output = r.output;
+impl Drain<String> for PrometheusObserver {
+    fn drain(&mut self) -> String {
+        let mut output: String = self.output.drain(..).collect();
 
-        for (key, sh) in r.histos {
+        for (key, sh) in self.histos.drain() {
             let (sum, hist) = sh;
             let (name, labels) = key_to_parts(key);
             output.push_str("\n# TYPE ");
             output.push_str(name.as_str());
             output.push_str(" summary\n");
 
-            for quantile in &r.quantiles {
+            for quantile in &self.quantiles {
                 let value = hist.value_at_quantile(quantile.value());
                 let mut labels = labels.clone();
                 labels.push(format!("quantile=\"{}\"", quantile.value()));

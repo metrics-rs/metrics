@@ -1,9 +1,10 @@
-use crate::common::{Identifier, Kind, ValueHandle};
+use crate::common::{Identifier, Kind, ValueHandle, ValueSnapshot};
 use crate::config::Configuration;
 use crate::data::Snapshot;
 use crate::registry::ScopeRegistry;
 use arc_swap::{ptr_eq, ArcSwap};
 use im::hashmap::HashMap;
+use metrics_core::Observer;
 use quanta::Clock;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -63,7 +64,7 @@ impl MetricRegistry {
         }
     }
 
-    pub fn get_snapshot(&self) -> Snapshot {
+    pub fn snapshot(&self) -> Snapshot {
         let mut named_values = Vec::new();
 
         let metrics = self.metrics.load().deref().clone();
@@ -77,5 +78,22 @@ impl MetricRegistry {
         }
 
         Snapshot::new(named_values)
+    }
+
+    pub fn observe<O: Observer>(&self, observer: &mut O) {
+        let metrics = self.metrics.load().deref().clone();
+        for (id, value) in metrics.into_iter() {
+            let (key, scope_handle, _) = id.into_parts();
+            let scope = self.scope_registry.get(scope_handle);
+            let key = key.map_name(|name| scope.into_scoped(name));
+
+            match value.snapshot() {
+                ValueSnapshot::Counter(value) => observer.observe_counter(key, value),
+                ValueSnapshot::Gauge(value) => observer.observe_gauge(key, value),
+                ValueSnapshot::Histogram(stream) => stream.decompress_with(|values| {
+                    observer.observe_histogram(key.clone(), values);
+                }),
+            }
+        }
     }
 }

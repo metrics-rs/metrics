@@ -9,8 +9,7 @@ use crate::{
 use metrics::Recorder;
 use metrics_core::Key;
 use quanta::{Builder as UpkeepBuilder, Clock, Handle as UpkeepHandle};
-use std::cell::RefCell;
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 
 thread_local! {
     static SINK: RefCell<Option<Sink>> = RefCell::new(None);

@@ -1,4 +1,4 @@
-//! Records metrics in a hierarchical, text-based format.
+//! Observes metrics in a hierarchical, text-based format.
 //!
 //! Metric scopes are used to provide the hierarchy and indentation of metrics.  As an example, for
 //! a snapshot with two metrics — `server.msgs_received` and `server.msgs_sent` — we would
@@ -26,7 +26,7 @@
 //! ## Histograms
 //!
 //! Histograms are rendered with a configurable set of quantiles that are provided when creating an
-//! instance of `TextRecorder`.  They are formatted using human-readable labels when displayed to
+//! instance of `TextObserver`.  They are formatted using human-readable labels when displayed to
 //! the user.  For example, 0.0 is rendered as "min", 1.0 as "max", and anything in between using
 //! the common "pXXX" format i.e. a quantile of 0.5 or percentile of 50 would be p50, a quantile of
 //! 0.999 or percentile of 99.9 would be p999, and so on.
@@ -44,10 +44,12 @@
 //!
 #![deny(missing_docs)]
 use hdrhistogram::Histogram;
-use metrics_core::{Builder, Key, Label, Recorder};
+use metrics_core::{Builder, Drain, Key, Label, Observer};
 use metrics_util::{parse_quantiles, Quantile};
-use std::collections::{HashMap, VecDeque};
-use std::fmt::Display;
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt::Display,
+};
 
 /// Builder for [`TextRecorder`].
 pub struct TextBuilder {
@@ -57,13 +59,13 @@ pub struct TextBuilder {
 impl TextBuilder {
     /// Creates a new [`TextBuilder`] with a default set of quantiles.
     ///
-    /// Configures the recorder with these default quantiles: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and
+    /// Configures the observer with these default quantiles: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and
     /// 1.0.  If you want to customize the quantiles used, you can call
-    ///   [`TextBuilder::with_quantiles`].
+    /// [`TextBuilder::with_quantiles`].
     ///
     /// The configured quantiles are used when rendering any histograms.
     pub fn new() -> Self {
-        Self::with_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0])
+        Self::default()
     }
 
     /// Creates a new [`TextBuilder`] with the given set of quantiles.
@@ -79,10 +81,10 @@ impl TextBuilder {
 }
 
 impl Builder for TextBuilder {
-    type Output = TextRecorder;
+    type Output = TextObserver;
 
     fn build(&self) -> Self::Output {
-        TextRecorder {
+        TextObserver {
             quantiles: self.quantiles.clone(),
             structure: MetricsTree::with_level(0),
             histos: HashMap::new(),
@@ -90,27 +92,33 @@ impl Builder for TextBuilder {
     }
 }
 
+impl Default for TextBuilder {
+    fn default() -> Self {
+        Self::with_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0])
+    }
+}
+
 /// Records metrics in a hierarchical, text-based format.
-pub struct TextRecorder {
+pub struct TextObserver {
     pub(crate) quantiles: Vec<Quantile>,
     pub(crate) structure: MetricsTree,
     pub(crate) histos: HashMap<Key, Histogram<u64>>,
 }
 
-impl Recorder for TextRecorder {
-    fn record_counter(&mut self, key: Key, value: u64) {
+impl Observer for TextObserver {
+    fn observe_counter(&mut self, key: Key, value: u64) {
         let (name_parts, name) = key_to_parts(key);
         let mut values = single_value_to_values(name, value);
         self.structure.insert(name_parts, &mut values);
     }
 
-    fn record_gauge(&mut self, key: Key, value: i64) {
+    fn observe_gauge(&mut self, key: Key, value: i64) {
         let (name_parts, name) = key_to_parts(key);
         let mut values = single_value_to_values(name, value);
         self.structure.insert(name_parts, &mut values);
     }
 
-    fn record_histogram(&mut self, key: Key, values: &[u64]) {
+    fn observe_histogram(&mut self, key: Key, values: &[u64]) {
         let entry = self
             .histos
             .entry(key)
@@ -119,12 +127,11 @@ impl Recorder for TextRecorder {
         for value in values {
             entry
                 .record(*value)
-                .expect("failed to record histogram value");
+                .expect("failed to observe histogram value");
         }
     }
 }
 
-#[derive(Default)]
 struct MetricsTree {
     level: usize,
     current: Vec<String>,
@@ -164,15 +171,15 @@ impl MetricsTree {
         }
     }
 
-    pub fn into_output(self) -> String {
+    pub fn render(&mut self) -> String {
         let indent = "  ".repeat(self.level);
         let mut output = String::new();
 
         let mut sorted = self
             .current
-            .into_iter()
+            .drain(..)
             .map(SortEntry::Inline)
-            .chain(self.next.into_iter().map(|(k, v)| SortEntry::Nested(k, v)))
+            .chain(self.next.drain().map(|(k, v)| SortEntry::Nested(k, v)))
             .collect::<Vec<_>>();
         sorted.sort();
 
@@ -182,12 +189,12 @@ impl MetricsTree {
                     output.push_str(s.as_str());
                     output.push_str("\n");
                 }
-                SortEntry::Nested(s, inner) => {
+                SortEntry::Nested(s, mut inner) => {
                     output.push_str(indent.as_str());
                     output.push_str(s.as_str());
                     output.push_str(":\n");
 
-                    let layer_output = inner.into_output();
+                    let layer_output = inner.render();
                     output.push_str(layer_output.as_str());
                 }
             }
@@ -197,15 +204,14 @@ impl MetricsTree {
     }
 }
 
-impl From<TextRecorder> for String {
-    fn from(r: TextRecorder) -> String {
-        let mut structure = r.structure;
-        for (key, h) in r.histos {
+impl Drain<String> for TextObserver {
+    fn drain(&mut self) -> String {
+        for (key, h) in self.histos.drain() {
             let (name_parts, name) = key_to_parts(key);
-            let mut values = hist_to_values(name, h, &r.quantiles);
-            structure.insert(name_parts, &mut values);
+            let mut values = hist_to_values(name, h.clone(), &self.quantiles);
+            self.structure.insert(name_parts, &mut values);
         }
-        structure.into_output()
+        self.structure.render()
     }
 }
 
@@ -215,7 +221,7 @@ enum SortEntry {
 }
 
 impl SortEntry {
-    fn name(&self) -> &String {
+    fn name(&self) -> &str {
         match self {
             SortEntry::Inline(s) => s,
             SortEntry::Nested(s, _) => s,
