@@ -385,8 +385,7 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let key = self.construct_key((name, labels));
-        self.get_owned_value_handle(key, Kind::Counter).into()
+        self.counter((name, labels))
     }
 
     /// Creates a handle to the given gauge.
@@ -438,8 +437,7 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let key = self.construct_key((name, labels));
-        self.get_owned_value_handle(key, Kind::Gauge).into()
+        self.gauge((name, labels))
     }
 
     /// Creates a handle to the given histogram.
@@ -511,8 +509,7 @@ impl Sink {
         N: Into<ScopedString>,
         L: IntoLabels,
     {
-        let key = self.construct_key((name, labels));
-        self.get_owned_value_handle(key, Kind::Histogram).into()
+        self.histogram((name, labels))
     }
 
     pub(crate) fn construct_key<K>(&self, key: K) -> Key
