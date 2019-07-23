@@ -8,4 +8,5 @@ members = [
   "metrics-exporter-http",
   "metrics-observer-text",
   "metrics-observer-prometheus",
+  "metrics-observer-json",
 ]
