@@ -1,6 +1,6 @@
 [package]
 name = "metrics-util"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -26,6 +26,7 @@ harness = false
 
 [dependencies]
 crossbeam-epoch = "^0.7"
+serde = "^1.0"
 
 [dev-dependencies]
 crossbeam = "^0.7"

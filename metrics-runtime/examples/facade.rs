@@ -11,7 +11,7 @@ extern crate metrics;
 
 use getopts::Options;
 use hdrhistogram::Histogram;
-use metrics_runtime::Receiver;
+use metrics_runtime::{exporters::HttpExporter, observers::JsonBuilder, Receiver};
 use quanta::Clock;
 use std::{
     env,
@@ -66,8 +66,8 @@ impl Generator {
                     0
                 };
 
-                counter!("ok", 1);
-                timing!("ok", t0, t1);
+                counter!("ok.gotem", 1);
+                timing!("ok.gotem", t0, t1);
                 gauge!("total", self.gauge);
 
                 if start != 0 {
@@ -162,6 +162,14 @@ fn main() {
         .expect("failed to build receiver");
 
     let controller = receiver.get_controller();
+
+    let addr = "0.0.0.0:23432"
+        .parse()
+        .expect("failed to parse http listen address");
+    let builder = JsonBuilder::new().set_pretty_json(true);
+    let exporter = HttpExporter::new(controller.clone(), builder, addr);
+    thread::spawn(move || exporter.run());
+
     receiver.install();
     info!("receiver configured");
 

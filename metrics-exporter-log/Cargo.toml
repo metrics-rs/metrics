@@ -11,6 +11,7 @@ description = "metric exporter for outputting to logs"
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics-exporter-log"
+readme = "README.md"
 
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.4" }

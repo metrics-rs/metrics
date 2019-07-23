@@ -8,3 +8,6 @@ pub use streaming::StreamingIntegers;
 
 mod quantile;
 pub use quantile::{parse_quantiles, Quantile};
+
+mod tree;
+pub use tree::{Integer, MetricsTree};
