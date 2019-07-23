@@ -5,32 +5,28 @@ use metrics_core::{Builder, Drain, Key, Label, Observer};
 use metrics_util::{parse_quantiles, Quantile};
 use std::{collections::HashMap, time::SystemTime};
 
-/// Builder for [`PrometheusRecorder`].
+/// Builder for [`PrometheusObserver`].
 pub struct PrometheusBuilder {
     quantiles: Vec<Quantile>,
 }
 
 impl PrometheusBuilder {
-    /// Creates a new [`PrometheusBuilder`] with a default set of quantiles.
-    ///
-    /// Configures the recorder with these default quantiles: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and
-    /// 1.0.  If you want to customize the quantiles used, you can call
-    ///   [`PrometheusBuilder::with_quantiles`].
-    ///
-    /// The configured quantiles are used when rendering any histograms.
+    /// Creates a new [`PrometheusBuilder`] with default values.
     pub fn new() -> Self {
-        Self::default()
+        let quantiles = parse_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0]);
+
+        Self { quantiles }
     }
 
-    /// Creates a new [`PrometheusBuilder`] with the given set of quantiles.
+    /// Sets the quantiles to use when rendering histograms.
     ///
-    /// The configured quantiles are used when rendering any histograms.
-    pub fn with_quantiles(quantiles: &[f64]) -> Self {
-        let actual_quantiles = parse_quantiles(quantiles);
-
-        Self {
-            quantiles: actual_quantiles,
-        }
+    /// Quantiles represent a scale of 0 to 1, where percentiles represent a scale of 1 to 100, so
+    /// a quantile of 0.99 is the 99th percentile, and a quantile of 0.99 is the 99.9th percentile.
+    ///
+    /// By default, the quantiles will be set to: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and 1.0.
+    pub fn set_quantiles(mut self, quantiles: &[f64]) -> Self {
+        self.quantiles = parse_quantiles(quantiles);
+        self
     }
 }
 
@@ -48,7 +44,7 @@ impl Builder for PrometheusBuilder {
 
 impl Default for PrometheusBuilder {
     fn default() -> Self {
-        Self::with_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0])
+        Self::new()
     }
 }
 
@@ -139,7 +135,8 @@ impl Drain<String> for PrometheusObserver {
 
 fn key_to_parts(key: Key) -> (String, Vec<String>) {
     let (name, labels) = key.into_parts();
-    let name = name.replace('.', "_");
+    let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';
+    let name = name.replace(sanitize, "_");
     let labels = labels
         .into_iter()
         .map(Label::into_parts)

@@ -1,18 +1,22 @@
 [package]
 name = "metrics-observer-text"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
 license = "MIT"
 
-description = "metric recorder for hierarchical, text-based output"
+description = "metric observer for hierarchical, text-based output"
 
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
-documentation = "https://docs.rs/metrics-recorder-text"
+documentation = "https://docs.rs/metrics-observer-text"
+readme = "README.md"
+
+keywords = ["metrics", "telemetry", "yaml"]
 
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.4" }
-metrics-util = { path = "../metrics-util", version = "^0.2" }
+metrics-util = { path = "../metrics-util", version = "^0.3" }
 hdrhistogram = "^6.1"
+serde_yaml = "^0.8"

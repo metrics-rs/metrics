@@ -4,5 +4,8 @@
 #[cfg(feature = "metrics-observer-text")]
 pub use metrics_observer_text::TextBuilder;
 
+#[cfg(feature = "metrics-observer-json")]
+pub use metrics_observer_json::JsonBuilder;
+
 #[cfg(feature = "metrics-observer-prometheus")]
 pub use metrics_observer_prometheus::PrometheusBuilder;
