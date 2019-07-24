@@ -86,9 +86,8 @@
 //!
 //! ```rust
 //! # extern crate metrics_runtime;
-//! use metrics_runtime::Receiver;
-//! let receiver = Receiver::builder().build().expect("failed to create receiver");
-//!
+//! # use metrics_runtime::Receiver;
+//! # let receiver = Receiver::builder().build().expect("failed to create receiver");
 //! // This sink has no scope aka the root scope.  The metric will just end up as "widgets".
 //! let mut root_sink = receiver.get_sink();
 //! root_sink.record_counter("widgets", 42);
@@ -127,11 +126,9 @@
 //! ```rust
 //! # extern crate metrics_runtime;
 //! # fn run_query(_: &str) -> u64 { 42 }
-//! use metrics_runtime::Receiver;
-//! let receiver = Receiver::builder().build().expect("failed to create receiver");
-//!
-//! let mut sink = receiver.get_sink();
-//!
+//! # use metrics_runtime::Receiver;
+//! # let receiver = Receiver::builder().build().expect("failed to create receiver");
+//! # let mut sink = receiver.get_sink();
 //! // We might have a function that interacts with a database and returns the number of rows it
 //! // touched in doing so.
 //! fn process_query(query: &str) -> u64 {
@@ -162,10 +159,50 @@
 //! to utilize.
 //!
 //! Naturally, these methods can be slightly cumbersome and visually detracting, in which case
-//! you can utilize the proxy metric types -- [`Counter`], [`Gauge`], and [`Histogram`] -- and
-//! create them with labels ahead of time.  These types, by their nature, are bound to a specific
-//! metric, which encompasses name, scope, and labels, and so extra labels cannot be passed when
-//! actually updating them.
+//! you can utilize the metric handles -- [`Counter`](crate::data::Counter),
+//! [`Gauge`](crate::data::Gauge), and [`Histogram`](crate::data::Histogram) -- and create them
+//! with labels ahead of time.
+//!
+//! These handles are bound to the given metric type, as well as the name, labels, and scope of the
+//! sink.  Thus, there is no overhead of looking up the metric as with the `record_*` methods, and
+//! the values can be updated directly, and with less overhead, resulting in faster method calls.
+//!
+//! ```rust
+//! # extern crate metrics_runtime;
+//! # use metrics_runtime::Receiver;
+//! # use std::time::Instant;
+//! # let receiver = Receiver::builder().build().expect("failed to create receiver");
+//! # let mut sink = receiver.get_sink();
+//! // Let's create a counter.
+//! let egg_count = sink.counter("eggs");
+//!
+//! // I want a baker's dozen of eggs!
+//! egg_count.increment();
+//! egg_count.record(12);
+//!
+//! // This updates the same metric as above!  We have so many eggs now!
+//! sink.record_counter("eggs", 12);
+//!
+//! // Gauges and histograms don't have any extra helper methods, just `record`:
+//! let gauge = sink.gauge("population");
+//! gauge.record(8_000_000_000);
+//!
+//! let histogram = sink.histogram("distribution");
+//!
+//! // You can record a histogram value directly:
+//! histogram.record_value(42);
+//!
+//! // Or handily pass it two [`Delta`]-compatible values, and have it calculate the delta for you:
+//! let start = Instant::now();
+//! let end = Instant::now();
+//! histogram.record_timing(start, end);
+//!
+//! // Each of these methods also has a labels-aware companion:
+//! let labeled_counter = sink.counter_with_labels("egg_count", &[("type", "large_brown")]);
+//! let labeled_gauge = sink.gauge_with_labels("population", &[("country", "austria")]);
+//! let labeled_histogram = sink.histogram_with_labels("distribution", &[("type", "performance")]);
+//! # fn main() {}
+//! ```
 //!
 //! # Snapshots
 //!
@@ -262,7 +299,7 @@ pub mod observers;
 
 pub use self::{
     builder::{Builder, BuilderError},
-    common::{Delta, Scope},
+    common::{Delta, Measurement, Scope},
     control::Controller,
     receiver::Receiver,
     sink::{AsScoped, Sink, SinkError},

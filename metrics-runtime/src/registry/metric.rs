@@ -1,4 +1,4 @@
-use crate::common::{Identifier, Kind, ValueHandle, ValueSnapshot};
+use crate::common::{Identifier, Kind, Measurement, ValueHandle, ValueSnapshot};
 use crate::config::Configuration;
 use crate::data::Snapshot;
 use crate::registry::ScopeRegistry;
@@ -40,6 +40,7 @@ impl MetricRegistry {
                             self.config.histogram_granularity,
                             self.clock.clone(),
                         ),
+                        Kind::Proxy => ValueHandle::proxy(),
                     };
 
                     let metrics_ptr = self.metrics.lease();
@@ -65,19 +66,29 @@ impl MetricRegistry {
     }
 
     pub fn snapshot(&self) -> Snapshot {
-        let mut named_values = Vec::new();
+        let mut values = Vec::new();
 
         let metrics = self.metrics.load().deref().clone();
         for (id, value) in metrics.into_iter() {
             let (key, scope_handle, _) = id.into_parts();
             let scope = self.scope_registry.get(scope_handle);
-            let key = key.map_name(|name| scope.into_scoped(name));
 
-            let snapshot = value.snapshot();
-            named_values.push((key, snapshot));
+            match value.snapshot() {
+                ValueSnapshot::Single(measurement) => {
+                    let key = key.map_name(|name| scope.into_string(name));
+                    values.push((key, measurement));
+                }
+                ValueSnapshot::Multiple(mut measurements) => {
+                    for (subkey, measurement) in measurements.drain(..) {
+                        let scope = scope.clone();
+                        let subkey = subkey.map_name(|name| scope.into_string(name));
+                        values.push((subkey, measurement));
+                    }
+                }
+            }
         }
 
-        Snapshot::new(named_values)
+        Snapshot::new(values)
     }
 
     pub fn observe<O: Observer>(&self, observer: &mut O) {
@@ -85,14 +96,33 @@ impl MetricRegistry {
         for (id, value) in metrics.into_iter() {
             let (key, scope_handle, _) = id.into_parts();
             let scope = self.scope_registry.get(scope_handle);
-            let key = key.map_name(|name| scope.into_scoped(name));
 
-            match value.snapshot() {
-                ValueSnapshot::Counter(value) => observer.observe_counter(key, value),
-                ValueSnapshot::Gauge(value) => observer.observe_gauge(key, value),
-                ValueSnapshot::Histogram(stream) => stream.decompress_with(|values| {
+            let observe = |observer: &mut O, key, measurement| match measurement {
+                Measurement::Counter(value) => observer.observe_counter(key, value),
+                Measurement::Gauge(value) => observer.observe_gauge(key, value),
+                Measurement::Histogram(stream) => stream.decompress_with(|values| {
                     observer.observe_histogram(key.clone(), values);
                 }),
+            };
+
+            match value.snapshot() {
+                ValueSnapshot::Single(measurement) => {
+                    let key = key.map_name(|name| scope.into_string(name));
+                    observe(observer, key, measurement);
+                }
+                ValueSnapshot::Multiple(mut measurements) => {
+                    // Tack on the key name that this proxy was registered with to the scope so
+                    // that we can clone _that_, and then scope our individual measurements.
+                    let (base_key, labels) = key.into_parts();
+                    let scope = scope.clone().add_part(base_key);
+
+                    for (subkey, measurement) in measurements.drain(..) {
+                        let scope = scope.clone();
+                        let mut subkey = subkey.map_name(|name| scope.into_string(name));
+                        subkey.add_labels(labels.clone());
+                        observe(observer, subkey, measurement);
+                    }
+                }
             }
         }
     }

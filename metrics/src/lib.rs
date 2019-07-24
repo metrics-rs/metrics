@@ -157,14 +157,14 @@ use std::{
 #[macro_use]
 mod macros;
 
-static mut RECORDER: &'static Recorder = &NoopRecorder;
+static mut RECORDER: &'static dyn Recorder = &NoopRecorder;
 static STATE: AtomicUsize = AtomicUsize::new(0);
 
 const UNINITIALIZED: usize = 0;
 const INITIALIZING: usize = 1;
 const INITIALIZED: usize = 2;
 
-static SET_RECORDER_ERROR: &'static str =
+static SET_RECORDER_ERROR: &str =
     "attempted to set a recorder after the metrics system was already initialized";
 
 /// A value that records metrics behind the facade.
@@ -216,7 +216,7 @@ impl Recorder for NoopRecorder {
 ///
 /// An error is returned if a recorder has already been set.
 #[cfg(atomic_cas)]
-pub fn set_recorder(recorder: &'static Recorder) -> Result<(), SetRecorderError> {
+pub fn set_recorder(recorder: &'static dyn Recorder) -> Result<(), SetRecorderError> {
     set_recorder_inner(|| recorder)
 }
 
@@ -232,14 +232,14 @@ pub fn set_recorder(recorder: &'static Recorder) -> Result<(), SetRecorderError>
 ///
 /// An error is returned if a recorder has already been set.
 #[cfg(all(feature = "std", atomic_cas))]
-pub fn set_boxed_recorder(recorder: Box<Recorder>) -> Result<(), SetRecorderError> {
+pub fn set_boxed_recorder(recorder: Box<dyn Recorder>) -> Result<(), SetRecorderError> {
     set_recorder_inner(|| unsafe { &*Box::into_raw(recorder) })
 }
 
 #[cfg(atomic_cas)]
 fn set_recorder_inner<F>(make_recorder: F) -> Result<(), SetRecorderError>
 where
-    F: FnOnce() -> &'static Recorder,
+    F: FnOnce() -> &'static dyn Recorder,
 {
     unsafe {
         match STATE.compare_and_swap(UNINITIALIZED, INITIALIZING, Ordering::SeqCst) {
@@ -274,7 +274,7 @@ where
 ///
 /// It is safe to use other metrics functions while this function runs (including all metrics
 /// macros).
-pub unsafe fn set_recorder_racy(recorder: &'static Recorder) -> Result<(), SetRecorderError> {
+pub unsafe fn set_recorder_racy(recorder: &'static dyn Recorder) -> Result<(), SetRecorderError> {
     match STATE.load(Ordering::SeqCst) {
         UNINITIALIZED => {
             RECORDER = recorder;
@@ -310,7 +310,7 @@ impl error::Error for SetRecorderError {
 /// Returns a reference to the recorder.
 ///
 /// If a recorder has not been set, a no-op implementation is returned.
-pub fn recorder() -> &'static Recorder {
+pub fn recorder() -> &'static dyn Recorder {
     unsafe {
         if STATE.load(Ordering::SeqCst) != INITIALIZED {
             static NOOP: NoopRecorder = NoopRecorder;

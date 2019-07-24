@@ -1,5 +1,5 @@
 use crate::{
-    common::{Delta, Identifier, Kind, Scope, ScopeHandle, ValueHandle},
+    common::{Delta, Identifier, Kind, Measurement, Scope, ScopeHandle, ValueHandle},
     data::{Counter, Gauge, Histogram},
     registry::{MetricRegistry, ScopeRegistry},
 };
@@ -220,7 +220,7 @@ impl Sink {
     ///
     /// Both the start and end times must be supplied, but any values that implement [`Delta`] can
     /// be used which allows for raw values from [`quanta::Clock`] to be used, or measurements from
-    /// [`Instant::now`].
+    /// [`Instant::now`](std::time::Instant::now).
     ///
     /// # Examples
     ///
@@ -251,7 +251,7 @@ impl Sink {
     ///
     /// Both the start and end times must be supplied, but any values that implement [`Delta`] can
     /// be used which allows for raw values from [`quanta::Clock`] to be used, or measurements from
-    /// [`Instant::now`].
+    /// [`Instant::now`](std::time::Instant::now).
     ///
     /// # Examples
     ///
@@ -512,6 +512,98 @@ impl Sink {
         self.histogram((name, labels))
     }
 
+    /// Creates a proxy metric.
+    ///
+    /// Proxy metrics allow you to register a closure that, when a snapshot of the metric state is
+    /// requested, will be called and have a chance to return multiple metrics that are added to
+    /// the overall metric of actual metrics.
+    ///
+    /// This can be useful for metrics which are expensive to constantly recalculate/poll, allowing
+    /// you to avoid needing to calculate/push them them yourself, with all the boilerplate that
+    /// comes with doing so periodically.
+    ///
+    /// Individual metrics must provide their own key (name), which will be appended to the name
+    /// given when registering the proxy.  A proxy can be reregistered at any time by calling this
+    /// function again with the same name.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # extern crate metrics_core;
+    /// # use metrics_runtime::{Receiver, Measurement};
+    /// # use metrics_core::Key;
+    /// # use std::thread;
+    /// # use std::time::Duration;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    ///
+    /// sink.proxy("load_stats", || {
+    ///     let mut values = Vec::new();
+    ///     values.push((Key::from_name("load_avg_1min"), Measurement::Gauge(19)));
+    ///     values.push((Key::from_name("load_avg_5min"), Measurement::Gauge(12)));
+    ///     values.push((Key::from_name("load_avg_10min"), Measurement::Gauge(10)));
+    ///     values
+    /// });
+    /// # }
+    /// ```
+    pub fn proxy<N, F>(&mut self, name: N, f: F)
+    where
+        N: Into<Key>,
+        F: Fn() -> Vec<(Key, Measurement)> + Send + Sync + 'static,
+    {
+        let id = Identifier::new(name.into(), self.scope_handle, Kind::Proxy);
+        let handle = self.get_cached_value_handle(id);
+        handle.update_proxy(f);
+    }
+
+    /// Creates a proxy metric, with labels attached.
+    ///
+    /// Proxy metrics allow you to register a closure that, when a snapshot of the metric state is
+    /// requested, will be called and have a chance to return multiple metrics that are added to
+    /// the overall metric of actual metrics.
+    ///
+    /// This can be useful for metrics which are expensive to constantly recalculate/poll, allowing
+    /// you to avoid needing to calculate/push them them yourself, with all the boilerplate that
+    /// comes with doing so periodically.
+    ///
+    /// Individual metrics must provide their own key (name), which will be appended to the name
+    /// given when registering the proxy.  A proxy can be reregistered at any time by calling this
+    /// function again with the same name.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate metrics_runtime;
+    /// # extern crate metrics_core;
+    /// # use metrics_runtime::{Receiver, Measurement};
+    /// # use metrics_core::Key;
+    /// # use std::thread;
+    /// # use std::time::Duration;
+    /// # fn main() {
+    /// let receiver = Receiver::builder().build().expect("failed to create receiver");
+    /// let mut sink = receiver.get_sink();
+    ///
+    /// let system_name = "web03".to_string();
+    /// sink.proxy_with_labels("load_stats", &[("system", system_name)], || {
+    ///     let mut values = Vec::new();
+    ///     values.push((Key::from_name("load_avg_1min"), Measurement::Gauge(19)));
+    ///     values.push((Key::from_name("load_avg_5min"), Measurement::Gauge(12)));
+    ///     values.push((Key::from_name("load_avg_10min"), Measurement::Gauge(10)));
+    ///     values
+    /// });
+    /// # }
+    /// ```
+    pub fn proxy_with_labels<N, L, F>(&mut self, name: N, labels: L, f: F)
+    where
+        N: Into<ScopedString>,
+        L: IntoLabels,
+        F: Fn() -> Vec<(Key, Measurement)> + Send + Sync + 'static,
+    {
+        self.proxy((name, labels), f)
+    }
+
     pub(crate) fn construct_key<K>(&self, key: K) -> Key
     where
         K: Into<Key>,
@@ -562,16 +654,7 @@ impl Clone for Sink {
 
 impl<'a> AsScoped<'a> for str {
     fn as_scoped(&'a self, base: Scope) -> Scope {
-        match base {
-            Scope::Root => {
-                let parts = vec![self.to_owned()];
-                Scope::Nested(parts)
-            }
-            Scope::Nested(mut parts) => {
-                parts.push(self.to_owned());
-                Scope::Nested(parts)
-            }
-        }
+        base.add_part(self.to_string())
     }
 }
 
@@ -581,17 +664,9 @@ where
     T: 'a,
 {
     fn as_scoped(&'a self, base: Scope) -> Scope {
-        match base {
-            Scope::Root => {
-                let parts = self.as_ref().iter().map(|s| s.to_string()).collect();
-                Scope::Nested(parts)
-            }
-            Scope::Nested(mut parts) => {
-                let mut new_parts = self.as_ref().iter().map(|s| s.to_string()).collect();
-                parts.append(&mut new_parts);
-                Scope::Nested(parts)
-            }
-        }
+        self.as_ref()
+            .iter()
+            .fold(base, |s, ss| s.add_part(ss.to_string()))
     }
 }
 

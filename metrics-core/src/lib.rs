@@ -127,12 +127,13 @@ impl Key {
     }
 
     /// Maps the name of this `Key` to a new name.
-    pub fn map_name<F>(self, f: F) -> Self
+    pub fn map_name<F, S>(self, f: F) -> Self
     where
-        F: FnOnce(ScopedString) -> ScopedString,
+        F: FnOnce(ScopedString) -> S,
+        S: Into<ScopedString>,
     {
         Key {
-            name: f(self.name),
+            name: f(self.name).into(),
             labels: self.labels,
         }
     }
