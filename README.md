@@ -37,6 +37,30 @@ The number of reasons why you'd want to collect metrics is too large to list out
 - Scoped metrics for effortless nesting.
 - Bundled with Prometheus pull endpoint capabilities by default.
 
+## project layout
+
+Metrics provide a way to gather metrics from your application. Exporters provide a way to get data outside of the application and observers tell the exporters what format to use.
+
+Application developers can use the `metrics-runtime` crate to get running quickly.
+
+* [`metrics`]: Provides macros similar to the `log` crate.
+
+* [`metrics-core`]: Defines foundational traits for interoperable metrics libraries.
+
+* [`metrics-exporter-http`]: Exports metrics over an HTTP server.
+
+* [`metrics-exporter-log`]: Exports metrics by outputting to console using the `log` crate.
+
+* [`metrics-observer-json`]: Encodes metrics in the JSON format.
+
+* [`metrics-observer-prometheus`]: Encodes metrics in the Prometheus exposition format.
+
+* [`metrics-observer-text`]: Encodes metrics as text suitable for console logging.
+
+* [`metrics-runtime`]: A batteries included metrics library.
+
+* [`metrics-util`]: Helper library used in the metrics ecosystem.
+
 ## performance
 
 High. `metrics` is fast enough that you'll barely notice the overhead.
