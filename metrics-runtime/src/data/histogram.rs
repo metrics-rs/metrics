@@ -7,7 +7,10 @@ use std::cmp;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
 
-/// Proxy object to update a histogram.
+/// A reference to a [`Histogram`].
+///
+/// A [`Histogram`] is used for directly updating a gauge, without any lookup overhead.
+#[derive(Clone)]
 pub struct Histogram {
     handle: ValueHandle,
 }

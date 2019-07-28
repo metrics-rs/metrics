@@ -54,3 +54,36 @@ impl ScopeRegistry {
         rg.backward.get(&scope_id).cloned().unwrap_or(Scope::Root)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Scope, ScopeRegistry};
+
+    #[test]
+    fn test_simple_write_then_read() {
+        let nested1 = Scope::Root.add_part("nested1");
+        let nested2 = nested1.clone().add_part("nested2");
+
+        let sr = ScopeRegistry::new();
+
+        let doesnt_exist0 = sr.get(0);
+        let doesnt_exist1 = sr.get(1);
+        let doesnt_exist2 = sr.get(2);
+
+        assert_eq!(doesnt_exist0, Scope::Root);
+        assert_eq!(doesnt_exist1, Scope::Root);
+        assert_eq!(doesnt_exist2, Scope::Root);
+
+        let nested1_original = nested1.clone();
+        let nested1_id = sr.register(nested1);
+
+        let nested2_original = nested2.clone();
+        let nested2_id = sr.register(nested2);
+
+        let exists1 = sr.get(nested1_id);
+        let exists2 = sr.get(nested2_id);
+
+        assert_eq!(exists1, nested1_original);
+        assert_eq!(exists2, nested2_original);
+    }
+}

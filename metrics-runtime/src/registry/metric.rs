@@ -79,9 +79,15 @@ impl MetricRegistry {
                     values.push((key, measurement));
                 }
                 ValueSnapshot::Multiple(mut measurements) => {
+                    // Tack on the key name that this proxy was registered with to the scope so
+                    // that we can clone _that_, and then scope our individual measurements.
+                    let (base_key, labels) = key.into_parts();
+                    let scope = scope.clone().add_part(base_key);
+
                     for (subkey, measurement) in measurements.drain(..) {
                         let scope = scope.clone();
-                        let subkey = subkey.map_name(|name| scope.into_string(name));
+                        let mut subkey = subkey.map_name(|name| scope.into_string(name));
+                        subkey.add_labels(labels.clone());
                         values.push((subkey, measurement));
                     }
                 }
@@ -124,6 +130,123 @@ impl MetricRegistry {
                     }
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        Clock, Configuration, Identifier, Kind, Measurement, MetricRegistry, ScopeRegistry,
+    };
+    use crate::data::{Counter, Gauge, Histogram};
+    use metrics_core::{Key, Label};
+    use metrics_util::StreamingIntegers;
+    use std::mem;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_snapshot() {
+        // Get our registry.
+        let sr = Arc::new(ScopeRegistry::new());
+        let config = Configuration::mock();
+        let (clock, _) = Clock::mock();
+        let mr = Arc::new(MetricRegistry::new(sr, config, clock));
+
+        // Set some metrics.
+        let cid = Identifier::new("counter", 0, Kind::Counter);
+        let counter: Counter = mr.get_or_register(cid).into();
+        counter.record(15);
+
+        let gid = Identifier::new("gauge", 0, Kind::Gauge);
+        let gauge: Gauge = mr.get_or_register(gid).into();
+        gauge.record(89);
+
+        let hid = Identifier::new("histogram", 0, Kind::Histogram);
+        let histogram: Histogram = mr.get_or_register(hid).into();
+        histogram.record_value(89);
+
+        let pid = Identifier::new("proxy", 0, Kind::Proxy);
+        let proxy = mr.get_or_register(pid);
+        proxy.update_proxy(|| vec![(Key::from_name("counter"), Measurement::Counter(13))]);
+
+        let mut snapshot = mr.snapshot().into_measurements();
+        snapshot.sort_by_key(|(k, _)| k.name());
+
+        let mut expected = vec![
+            (Key::from_name("counter"), Measurement::Counter(15)),
+            (Key::from_name("gauge"), Measurement::Gauge(89)),
+            (
+                Key::from_name("histogram"),
+                Measurement::Histogram(StreamingIntegers::new()),
+            ),
+            (Key::from_name("proxy.counter"), Measurement::Counter(13)),
+        ];
+        expected.sort_by_key(|(k, _)| k.name());
+
+        assert_eq!(snapshot.len(), expected.len());
+        for rhs in expected {
+            let lhs = snapshot.remove(0);
+            assert_eq!(lhs.0, rhs.0);
+            assert_eq!(mem::discriminant(&lhs.1), mem::discriminant(&rhs.1));
+        }
+    }
+
+    #[test]
+    fn test_snapshot_with_labels() {
+        // Get our registry.
+        let sr = Arc::new(ScopeRegistry::new());
+        let config = Configuration::mock();
+        let (clock, _) = Clock::mock();
+        let mr = Arc::new(MetricRegistry::new(sr, config, clock));
+
+        let labels = vec![Label::new("type", "test")];
+
+        // Set some metrics.
+        let cid = Identifier::new(("counter", labels.clone()), 0, Kind::Counter);
+        let counter: Counter = mr.get_or_register(cid).into();
+        counter.record(15);
+
+        let gid = Identifier::new(("gauge", labels.clone()), 0, Kind::Gauge);
+        let gauge: Gauge = mr.get_or_register(gid).into();
+        gauge.record(89);
+
+        let hid = Identifier::new(("histogram", labels.clone()), 0, Kind::Histogram);
+        let histogram: Histogram = mr.get_or_register(hid).into();
+        histogram.record_value(89);
+
+        let pid = Identifier::new(("proxy", labels.clone()), 0, Kind::Proxy);
+        let proxy = mr.get_or_register(pid);
+        proxy.update_proxy(|| vec![(Key::from_name("counter"), Measurement::Counter(13))]);
+
+        let mut snapshot = mr.snapshot().into_measurements();
+        snapshot.sort_by_key(|(k, _)| k.name());
+
+        let mut expected = vec![
+            (
+                Key::from_name_and_labels("counter", labels.clone()),
+                Measurement::Counter(15),
+            ),
+            (
+                Key::from_name_and_labels("gauge", labels.clone()),
+                Measurement::Gauge(89),
+            ),
+            (
+                Key::from_name_and_labels("histogram", labels.clone()),
+                Measurement::Histogram(StreamingIntegers::new()),
+            ),
+            (
+                Key::from_name_and_labels("proxy.counter", labels.clone()),
+                Measurement::Counter(13),
+            ),
+        ];
+        expected.sort_by_key(|(k, _)| k.name());
+
+        assert_eq!(snapshot.len(), expected.len());
+        for rhs in expected {
+            let lhs = snapshot.remove(0);
+            assert_eq!(lhs.0, rhs.0);
+            assert_eq!(mem::discriminant(&lhs.1), mem::discriminant(&rhs.1));
         }
     }
 }

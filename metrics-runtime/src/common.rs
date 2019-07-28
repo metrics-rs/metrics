@@ -348,5 +348,21 @@ mod tests {
             }
             _ => panic!("incorrect value snapshot type for proxy"),
         }
+
+        // This second one just makes sure that replacing the proxy function functions as intended.
+        proxy.update_proxy(|| vec![(Key::from_name("bar"), Measurement::Counter(24))]);
+        match proxy.snapshot() {
+            ValueSnapshot::Multiple(mut measurements) => {
+                assert_eq!(measurements.len(), 1);
+
+                let measurement = measurements.pop().expect("should have measurement");
+                assert_eq!(measurement.0.name().as_ref(), "bar");
+                match measurement.1 {
+                    Measurement::Counter(i) => assert_eq!(i, 24),
+                    _ => panic!("wrong measurement type"),
+                }
+            }
+            _ => panic!("incorrect value snapshot type for proxy"),
+        }
     }
 }
