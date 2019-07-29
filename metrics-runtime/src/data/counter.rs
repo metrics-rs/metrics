@@ -1,6 +1,9 @@
 use crate::common::ValueHandle;
 
-/// Proxy object to update a counter.
+/// A reference to a [`Counter`].
+///
+/// A [`Counter`] is used for directly updating a counter, without any lookup overhead.
+#[derive(Clone)]
 pub struct Counter {
     handle: ValueHandle,
 }
