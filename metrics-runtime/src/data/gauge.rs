@@ -1,6 +1,9 @@
 use crate::common::ValueHandle;
 
-/// Proxy object to update a gauge.
+/// A reference to a [`Gauge`].
+///
+/// A [`Gauge`] is used for directly updating a gauge, without any lookup overhead.
+#[derive(Clone)]
 pub struct Gauge {
     handle: ValueHandle,
 }
