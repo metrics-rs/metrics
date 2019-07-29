@@ -1,6 +1,6 @@
 [package]
 name = "metrics-core"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -15,6 +15,3 @@ documentation = "https://docs.rs/metrics-core"
 readme = "README.md"
 
 keywords = ["metrics", "interface", "common"]
-
-[dependencies]
-futures = "^0.1"

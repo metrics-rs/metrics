@@ -19,7 +19,7 @@ name = "macros"
 harness = false
 
 [dependencies]
-metrics-core = { path = "../metrics-core", version = "^0.4" }
+metrics-core = { path = "../metrics-core", version = "^0.5" }
 
 [dev-dependencies]
 log = "^0.4"

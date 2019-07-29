@@ -1,6 +1,6 @@
 [package]
 name = "metrics-observer-prometheus"
-version = "0.3.0"
+version = "0.1.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -16,6 +16,6 @@ readme = "README.md"
 keywords = ["metrics", "telemetry", "prometheus"]
 
 [dependencies]
-metrics-core = { path = "../metrics-core", version = "^0.4" }
+metrics-core = { path = "../metrics-core", version = "^0.5" }
 metrics-util = { path = "../metrics-util", version = "^0.3" }
 hdrhistogram = "^6.1"

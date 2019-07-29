@@ -16,7 +16,7 @@ readme = "README.md"
 keywords = ["metrics", "telemetry", "json"]
 
 [dependencies]
-metrics-core = { path = "../metrics-core", version = "^0.4" }
+metrics-core = { path = "../metrics-core", version = "^0.5" }
 metrics-util = { path = "../metrics-util", version = "^0.3" }
 hdrhistogram = "^6.1"
 serde_json = "^1.0"
