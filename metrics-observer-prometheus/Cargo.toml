@@ -18,4 +18,4 @@ keywords = ["metrics", "telemetry", "prometheus"]
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.5" }
 metrics-util = { path = "../metrics-util", version = "^0.3" }
-hdrhistogram = "^6.1"
+hdrhistogram = { version = "^6.3", default-features = false }
