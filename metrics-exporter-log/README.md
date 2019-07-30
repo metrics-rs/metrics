@@ -7,11 +7,11 @@
 [release-badge]: https://img.shields.io/crates/v/metrics-exporter-log.svg
 [license-badge]: https://img.shields.io/crates/l/metrics-exporter-log.svg
 [docs-badge]: https://docs.rs/metrics-exporter-log/badge.svg
-[conduct]: https://github.com/metrics-rs/metrics-exporter-log/blob/master/CODE_OF_CONDUCT.md
+[conduct]: https://github.com/metrics-rs/metrics/blob/master/CODE_OF_CONDUCT.md
 [crate]: https://crates.io/crates/metrics-exporter-log
 [docs]: https://docs.rs/metrics-exporter-log
 
-__metrics-exporter-log__ is a metric exporter that outputs metrics in a textual format via the `log` crate.
+__metrics-exporter-log__ is a metrics-core compatible exporter for forwarding metrics to logs.
 
 ## code of conduct
 

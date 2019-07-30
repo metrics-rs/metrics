@@ -6,14 +6,13 @@ edition = "2018"
 
 license = "MIT"
 
-description = "helper types/functions used by the metrics ecosystem"
-
+description = "Helper types/functions used by the metrics ecosystem."
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics-util"
-
 readme = "README.md"
 
+categories = ["development-tools::debugging"]
 keywords = ["metrics", "quantile", "percentile"]
 
 [[bench]]

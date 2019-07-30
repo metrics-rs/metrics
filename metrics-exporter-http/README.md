@@ -7,11 +7,11 @@
 [release-badge]: https://img.shields.io/crates/v/metrics-exporter-http.svg
 [license-badge]: https://img.shields.io/crates/l/metrics-exporter-http.svg
 [docs-badge]: https://docs.rs/metrics-exporter-http/badge.svg
-[conduct]: https://github.com/metrics-rs/metrics-exporter-http/blob/master/CODE_OF_CONDUCT.md
+[conduct]: https://github.com/metrics-rs/metrics/blob/master/CODE_OF_CONDUCT.md
 [crate]: https://crates.io/crates/metrics-exporter-http
 [docs]: https://docs.rs/metrics-exporter-http
 
-__metrics-exporter-http__ is a metric exporter that outputs metrics over HTTP.
+__metrics-exporter-http__ is a metrics-core compatible exporter for serving metrics over HTTP.
 
 ## code of conduct
 

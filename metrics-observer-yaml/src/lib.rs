@@ -1,4 +1,4 @@
-//! Observes metrics in a hierarchical, text-based format.
+//! Observes metrics in YAML format.
 //!
 //! Metric scopes are used to provide the hierarchy and indentation of metrics.  As an example, for
 //! a snapshot with two metrics — `server.msgs_received` and `server.msgs_sent` — we would
@@ -24,7 +24,7 @@
 //! ## Histograms
 //!
 //! Histograms are rendered with a configurable set of quantiles that are provided when creating an
-//! instance of `TextBuilder`.  They are formatted using human-readable labels when displayed to
+//! instance of `YamlBuilder`.  They are formatted using human-readable labels when displayed to
 //! the user.  For example, 0.0 is rendered as "min", 1.0 as "max", and anything in between using
 //! the common "pXXX" format i.e. a quantile of 0.5 or percentile of 50 would be p50, a quantile of
 //! 0.999 or percentile of 99.9 would be p999, and so on.
@@ -45,13 +45,13 @@ use metrics_core::{Builder, Drain, Key, Label, Observer};
 use metrics_util::{parse_quantiles, MetricsTree, Quantile};
 use std::collections::HashMap;
 
-/// Builder for [`TextObserver`].
-pub struct TextBuilder {
+/// Builder for [`YamlObserver`].
+pub struct YamlBuilder {
     quantiles: Vec<Quantile>,
 }
 
-impl TextBuilder {
-    /// Creates a new [`TextBuilder`] with default values.
+impl YamlBuilder {
+    /// Creates a new [`YamlBuilder`] with default values.
     pub fn new() -> Self {
         let quantiles = parse_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0]);
 
@@ -70,11 +70,11 @@ impl TextBuilder {
     }
 }
 
-impl Builder for TextBuilder {
-    type Output = TextObserver;
+impl Builder for YamlBuilder {
+    type Output = YamlObserver;
 
     fn build(&self) -> Self::Output {
-        TextObserver {
+        YamlObserver {
             quantiles: self.quantiles.clone(),
             tree: MetricsTree::default(),
             histos: HashMap::new(),
@@ -82,20 +82,20 @@ impl Builder for TextBuilder {
     }
 }
 
-impl Default for TextBuilder {
+impl Default for YamlBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Records metrics in a hierarchical, text-based format.
-pub struct TextObserver {
+/// Observess metrics in YAML format.
+pub struct YamlObserver {
     pub(crate) quantiles: Vec<Quantile>,
     pub(crate) tree: MetricsTree,
     pub(crate) histos: HashMap<Key, Histogram<u64>>,
 }
 
-impl Observer for TextObserver {
+impl Observer for YamlObserver {
     fn observe_counter(&mut self, key: Key, value: u64) {
         let (levels, name) = key_to_parts(key);
         self.tree.insert_value(levels, name, value);
@@ -120,7 +120,7 @@ impl Observer for TextObserver {
     }
 }
 
-impl Drain<String> for TextObserver {
+impl Drain<String> for YamlObserver {
     fn drain(&mut self) -> String {
         for (key, h) in self.histos.drain() {
             let (levels, name) = key_to_parts(key);
@@ -128,7 +128,7 @@ impl Drain<String> for TextObserver {
             self.tree.insert_values(levels, values);
         }
 
-        let rendered = serde_yaml::to_string(&self.tree).expect("failed to render json output");
+        let rendered = serde_yaml::to_string(&self.tree).expect("failed to render yaml output");
         self.tree.clear();
         rendered
     }

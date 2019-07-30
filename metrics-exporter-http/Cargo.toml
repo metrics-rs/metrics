@@ -1,19 +1,21 @@
 [package]
 name = "metrics-exporter-http"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
 license = "MIT"
 
-description = "metric exporter for serving metrics over HTTP"
-
+description = "A metrics-core compatible exporter for serving metrics over HTTP."
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics-exporter-http"
 readme = "README.md"
 
+categories = ["development-tools::debugging"]
+keywords = ["metrics", "metrics-core", "exporter", "http"]
+
 [dependencies]
-metrics-core = { path = "../metrics-core", version = "^0.4" }
+metrics-core = { path = "../metrics-core", version = "^0.5" }
 hyper = "^0.12"
 log = "^0.4"

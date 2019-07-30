@@ -7,7 +7,7 @@
 [release-badge]: https://img.shields.io/crates/v/metrics-core.svg
 [license-badge]: https://img.shields.io/crates/l/metrics-core.svg
 [docs-badge]: https://docs.rs/metrics-core/badge.svg
-[conduct]: https://github.com/metrics-rs/metrics-core/blob/master/CODE_OF_CONDUCT.md
+[conduct]: https://github.com/metrics-rs/metrics/blob/master/CODE_OF_CONDUCT.md
 [crate]: https://crates.io/crates/metrics-core
 [docs]: https://docs.rs/metrics-core
 
