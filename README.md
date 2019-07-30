@@ -1,17 +1,17 @@
 # metrics
 
-[![conduct-badge][]][conduct] [![downloads-badge][] ![release-badge][]][crate] [![docs-badge][]][docs] [![license-badge][]](#license)
+[![conduct-badge][]][conduct] [![license-badge][]](#license) [![gitter-badge][]][gitter] ![last-commit-badge][] ![contributors-badge][]
 
 [conduct-badge]: https://img.shields.io/badge/%E2%9D%A4-code%20of%20conduct-blue.svg
-[downloads-badge]: https://img.shields.io/crates/d/metrics.svg
-[release-badge]: https://img.shields.io/crates/v/metrics.svg
-[license-badge]: https://img.shields.io/crates/l/metrics.svg
-[docs-badge]: https://docs.rs/metrics/badge.svg
+[license-badge]: https://img.shields.io/badge/license-MIT-blue
 [conduct]: https://github.com/metrics-rs/metrics/blob/master/CODE_OF_CONDUCT.md
-[crate]: https://crates.io/crates/metrics
-[docs]: https://docs.rs/metrics
+[gitter-badge]: https://img.shields.io/gitter/room/metrics-rs/community
+[gitter]: https://gitter.im/metrics-rs/community
+[last-commit-badge]: https://img.shields.io/github/last-commit/metrics-rs/metrics
+[contributors-badge]: https://img.shields.io/github/contributors/metrics-rs/metrics
 
-__metrics__ is a high-quality, batteries-included metrics library for Rust.
+
+The Metrics project: a metrics ecosystem for Rust.
 
 ## code of conduct
 
@@ -19,50 +19,63 @@ __metrics__ is a high-quality, batteries-included metrics library for Rust.
 
 # what's it all about?
 
-Running applications in production can be hard when you don't have insight into what the application is doing.  We're lucky to have so many good system monitoring programs and services to show us how are servers are performing, but we still have to do the work of instrumenting our applications to gain deep insight into their behavior and performance.
+Running applications in production can be hard when you don't have insight into what the application is doing.  We're lucky to have so many good system monitoring programs and services to show us how our servers are performing, but we still have to do the work of instrumenting our applications to gain deep insight into their behavior and performance.
 
-`metrics` makes it easy to instrument your application to provide real-time insight into what's happening.  It provides a straight-forward interface for you to collect metrics at different points, and a flexible approach to exporting those metrics in a way that meets your needs.
+_Metrics_ makes it easy to instrument your application to provide real-time insight into what's happening.  It provides a number of practical features that make it easy for library and application authors to start collecting and exporting metrics from their codebase.
+
+# why would I collect metrics?
 
 Some of the most common scenarios for collecting metrics from an application:
 - see how many times a codepath was hit
 - track the time it takes for a piece of code to execute
 - expose internal counters and values in a standardized way
 
-The number of reasons why you'd want to collect metrics is too large to list out here, and some applications emit metrics that have nothing to do with the application performance itself!  Ultimately, `metrics` strives to simply provide support for the most basic types of metrics so that you can spend more time focusing on the data you'd like to collect and less time on how you're going to accomplish that.
+Importantly, this works for both library authors and application authors.  If the libraries you use are instrumented, you unlock the power of being able to collect those metrics in your application for free, without any extra configuration.  Everyone wins, and learns more about their application performance at the end of the day.
 
-## high-level technical features
-- Supports the three most common metric types: counters, gauges, and histograms.
-- Based on `metrics-core` for composability at the exporter level.
-- Access to ultra-high-speed timing facilities out-of-the-box with [quanta](https://github.com/nuclearfurnace/quanta).
-- Scoped metrics for effortless nesting.
-- Bundled with Prometheus pull endpoint capabilities by default.
+# project goals
 
-## project layout
+Firstly, we want to establish standardized interfaces by which everyone can interoperate: this is the goal of the `metrics` and `metrics-core` crates.
 
-Metrics provide a way to gather metrics from your application. Exporters provide a way to get data outside of the application and observers tell the exporters what format to use.
+`metrics` provides macros similar to `log`, which are essentially zero cost and invisible when not in use, but automatically funnel their data when a user opts in and installs a metrics recorder.  This allows library authors to instrument their libraries without needing to care which metrics system end users will be utilizing.
 
-Application developers can use the `metrics-runtime` crate to get running quickly.
+`metrics-core` provides foundational traits for core components of the metrics ecosystem, primarily the output side.  There are a large number of output formats and transports that application authors may consider or want to use.  By focusing on the API boundary between the systems that collect metrics and the systems they're exported to, these pieces can be easily swapped around depending on the needs of the end user.
 
-* [`metrics`]: Provides macros similar to the `log` crate.
+Secondly, we want to provide a best-in-class reference runtime: this is the goal of the `metrics-runtime` crate.
 
-* [`metrics-core`]: Defines foundational traits for interoperable metrics libraries.
+Unfortunately, a great interface is no good without a suitable implementation, and we want to make sure that for users looking to instrument their applications for the first time, that they have a batteries-included option that gets them off to the races quickly.  The `metrics-runtime` crate provides a best-in-class implementation of a metrics collection system, including support for the core metric types -- counters, gauges, and histograms -- as well as support for important features such as scoping, labels, flexible approaches to recording, and more.
 
-* [`metrics-exporter-http`]: Exports metrics over an HTTP server.
+On top of that, collecting metrics isn't terribly useful unless you can export those values, and so `metrics-runtime` pulls in a small set of default observers and exporters to allow users to quickly set up their application to be observable by their existing downstream metrics aggregation/storage.
 
-* [`metrics-exporter-log`]: Exports metrics by outputting to console using the `log` crate.
+# project layout
 
-* [`metrics-observer-json`]: Encodes metrics in the JSON format.
+The Metrics project provides a number of crates for both library and application authors.
 
-* [`metrics-observer-prometheus`]: Encodes metrics in the Prometheus exposition format.
+If you're a library author, you'll only care about using [`metrics`] to instrument your library.  If you're an application author, you'll primarily care about [`metrics-runtime`], but you may also want to use [`metrics`] to make instrumenting your own code even easier.
 
-* [`metrics-observer-text`]: Encodes metrics as text suitable for console logging.
+Overall, this repository is home to the following crates:
 
-* [`metrics-runtime`]: A batteries included metrics library.
+* [`metrics`][metrics]: A lightweight metrics facade, similar to [`log`](https://docs.rs/log).
+* [`metrics-core`][metrics-core]: Foundational traits for interoperable metrics libraries.
+* [`metrics-runtime`][metrics-runtime]: A batteries-included metrics library.
+* [`metrics-exporter-http`][metrics-exporter-http]: A metrics-core compatible exporter for serving metrics over HTTP.
+* [`metrics-exporter-log`][metrics-exporter-log]: A metrics-core compatible exporter for forwarding metrics to logs.
+* [`metrics-observer-json`][metrics-observer-json]: A metrics-core compatible observer that outputs JSON.
+* [`metrics-observer-yaml`][metrics-observer-yaml]: A metrics-core compatible observer that outputs YAML.
+* [`metrics-observer-prometheus`][metrics-observer-prometheus]: A metrics-core compatible observer that outputs the Prometheus exposition format.
+* [`metrics-util`][metrics-util]: Helper types/functions used by the metrics ecosystem.
 
-* [`metrics-util`]: Helper library used in the metrics ecosystem.
+# contributing
 
-## performance
+We're always looking for users who have thoughts on how to make metrics better, or users with interesting use cases.  Of course, we're also happy to accept code contrbutions for outstanding feature requests! 😀
 
-High. `metrics` is fast enough that you'll barely notice the overhead.
+We'd love to chat about any of the above, or anything else, really!  You can find us over on [Gitter](https://gitter.im/metrics-rs-community).
 
-There is a `benchmark` example in the crate that can be run to see the type of performance achievable on your system.  A 2015 MacBook Pro (4c/8t, 2.1GHz) can push over 5 million samples per second from a single thread.
+[metrics]: https://github.com/metrics-rs/metrics/tree/master/metrics
+[metrics-core]: https://github.com/metrics-rs/metrics/tree/master/metrics-core
+[metrics-runtime]: https://github.com/metrics-rs/metrics/tree/master/metrics-runtime
+[metrics-exporter-http]: https://github.com/metrics-rs/metrics/tree/master/metrics-exporter-http
+[metrics-exporter-log]: https://github.com/metrics-rs/metrics/tree/master/metrics-exporter-log
+[metrics-observer-json]: https://github.com/metrics-rs/metrics/tree/master/metrics-observer-json
+[metrics-observer-yaml]: https://github.com/metrics-rs/metrics/tree/master/metrics-observer-yaml
+[metrics-observer-prometheus]: https://github.com/metrics-rs/metrics/tree/master/metrics-observer-prometheus
+[metrics-util]: https://github.com/metrics-rs/metrics/tree/master/metrics-util

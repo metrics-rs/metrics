@@ -1,21 +1,21 @@
 [package]
 name = "metrics-observer-prometheus"
-version = "0.3.0"
+version = "0.1.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
 license = "MIT"
 
-description = "metric observer for Prometheus exposition output"
-
+description = "A metrics-core compatible observer that outputs the Prometheus exposition output."
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics-observer-prometheus"
 readme = "README.md"
 
+categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "prometheus"]
 
 [dependencies]
-metrics-core = { path = "../metrics-core", version = "^0.4" }
+metrics-core = { path = "../metrics-core", version = "^0.5" }
 metrics-util = { path = "../metrics-util", version = "^0.3" }
 hdrhistogram = "^6.1"

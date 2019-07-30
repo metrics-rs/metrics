@@ -6,6 +6,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2019-07-29
+### Added
+- Metrics now support labels. (#27)
+- Add support for proxy metrics. (#39)
+
+### Changed
+- `metrics` becomes `metrics-runtime` after switching the runtime and the facade crate. (#27)
+- Switch from "recorders" to "observers." (#35)
+
+## [0.10.0] - 2019-06-11
+### Changed
+- Entirely remove the event loop and switch to pure atomics. (#13)
+
+## [0.9.1] - 2019-05-01
+### Added
+- Expose exporters/recorders via a facade module in `metrics`. (#8)
+
+## [0.9.0] - 2019-04-03
+### Changed
+- `hotmic` is renamed to `metrics. (#2)
+
 ## [0.8.2] - 2019-03-19
 ### Added
 - Histograms now track the sum of all values they record, to support target systems like Prometheus.

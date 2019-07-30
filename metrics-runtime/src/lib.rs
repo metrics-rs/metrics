@@ -254,7 +254,7 @@
 //! ```rust
 //! # extern crate metrics_runtime;
 //! use metrics_runtime::{
-//!     Receiver, observers::TextBuilder, exporters::LogExporter,
+//!     Receiver, observers::YamlBuilder, exporters::LogExporter,
 //! };
 //! use log::Level;
 //! use std::{thread, time::Duration};
@@ -279,7 +279,7 @@
 //! // Now create our exporter/observer configuration, and wire it up.
 //! let exporter = LogExporter::new(
 //!     receiver.get_controller(),
-//!     TextBuilder::new(),
+//!     YamlBuilder::new(),
 //!     Level::Info,
 //!     Duration::from_secs(5),
 //! );
@@ -327,7 +327,8 @@ mod sink;
 pub mod exporters;
 
 #[cfg(any(
-    feature = "metrics-observer-text",
+    feature = "metrics-observer-yaml",
+    feature = "metrics-observer-json",
     feature = "metrics-observer-prometheus"
 ))]
 pub mod observers;

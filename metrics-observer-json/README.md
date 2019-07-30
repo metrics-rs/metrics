@@ -7,11 +7,11 @@
 [release-badge]: https://img.shields.io/crates/v/metrics-observer-json.svg
 [license-badge]: https://img.shields.io/crates/l/metrics-observer-json.svg
 [docs-badge]: https://docs.rs/metrics-observer-json/badge.svg
-[conduct]: https://github.com/metrics-rs/metrics-observer-json/blob/master/CODE_OF_CONDUCT.md
+[conduct]: https://github.com/metrics-rs/metrics/blob/master/CODE_OF_CONDUCT.md
 [crate]: https://crates.io/crates/metrics-observer-json
 [docs]: https://docs.rs/metrics-observer-json
 
-__metrics-observer-json__ is a metric observer that outputs JSON.
+__metrics-observer-json__ is a metrics-core compatible observer that outputs JSON.
 
 ## code of conduct
 
