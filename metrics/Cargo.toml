@@ -2,16 +2,19 @@
 name = "metrics"
 version = "0.11.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
-license = "MIT"
 edition = "2018"
+
+license = "MIT"
+
+description = "A lightweight metrics facade."
+homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics"
-description = """
-A lightweight metrics facade for Rust
-"""
-categories = ["development-tools::debugging"]
 readme = "README.md"
+
+categories = ["development-tools::debugging"]
 keywords = ["metrics", "facade"]
+
 build = "build.rs"
 
 [[bench]]

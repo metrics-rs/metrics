@@ -1,8 +1,8 @@
 //! Commonly used observers.
 //!
-//! Observers define the format of the metric output: text, JSON, etc.
-#[cfg(feature = "metrics-observer-text")]
-pub use metrics_observer_text::TextBuilder;
+//! Observers define the format of the metric output: YAML, JSON, etc.
+#[cfg(feature = "metrics-observer-yaml")]
+pub use metrics_observer_yaml::YamlBuilder;
 
 #[cfg(feature = "metrics-observer-json")]
 pub use metrics_observer_json::JsonBuilder;

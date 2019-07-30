@@ -6,12 +6,11 @@ edition = "2018"
 
 license = "MIT"
 
-description = "Foundational traits for interoperable metrics libraries in Rust."
-
+description = "Foundational traits for interoperable metrics libraries."
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics-core"
-
 readme = "README.md"
 
+categories = ["development-tools::debugging"]
 keywords = ["metrics", "interface", "common"]

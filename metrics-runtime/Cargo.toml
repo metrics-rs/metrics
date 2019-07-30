@@ -6,20 +6,19 @@ edition = "2018"
 
 license = "MIT"
 
-description = "high-speed metrics collection library"
-
+description = "A batteries-included metrics library."
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics"
-
 readme = "README.md"
 
+categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "histogram", "counter", "gauge"]
 
 [features]
 default = ["exporters", "observers"]
 exporters = ["metrics-exporter-log", "metrics-exporter-http"]
-observers = ["metrics-observer-text", "metrics-observer-json", "metrics-observer-prometheus"]
+observers = ["metrics-observer-yaml", "metrics-observer-json", "metrics-observer-prometheus"]
 
 [[bench]]
 name = "histogram"
@@ -38,7 +37,7 @@ futures = "^0.1"
 crossbeam-utils = "^0.6"
 metrics-exporter-log = { path = "../metrics-exporter-log", version = "^0.3", optional = true }
 metrics-exporter-http = { path = "../metrics-exporter-http", version = "^0.2", optional = true }
-metrics-observer-text = { path = "../metrics-observer-text", version = "^0.1", optional = true }
+metrics-observer-yaml = { path = "../metrics-observer-yaml", version = "^0.1", optional = true }
 metrics-observer-prometheus = { path = "../metrics-observer-prometheus", version = "^0.1", optional = true }
 metrics-observer-json = { path = "../metrics-observer-json", version = "^0.1", optional = true }
 

@@ -6,13 +6,13 @@ edition = "2018"
 
 license = "MIT"
 
-description = "metric observer for JSON output"
-
+description = "A metrics-core compatible observer that outputs JSON."
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
-documentation = "https://docs.rs/metrics-observer-text"
+documentation = "https://docs.rs/metrics-observer-json"
 readme = "README.md"
 
+categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "json"]
 
 [dependencies]

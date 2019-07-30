@@ -1,4 +1,4 @@
-//! Observes metrics in a JSON format.
+//! Observes metrics in JSON format.
 //!
 //! Metric scopes are used to provide the hierarchy of metrics.  As an example, for a
 //! snapshot with two metrics — `server.msgs_received` and `server.msgs_sent` — we would
@@ -27,8 +27,8 @@
 //! All histograms have the sample count of the histogram provided in the output.
 //!
 //! ```c
-//! {"connect_time count":15,"connect_time min":1334,"connect_time p50":1934,"connect_time
-//! p99":5330,"connect_time max":139389}
+//! {"connect_time_count":15,"connect_time_min":1334,"connect_time_p50":1934,
+//! "connect_time_p99":5330,"connect_time_max":139389}
 //! ```
 //!
 #![deny(missing_docs)]
@@ -96,7 +96,7 @@ impl Default for JsonBuilder {
     }
 }
 
-/// Records metrics in a hierarchical, text-based format.
+/// Observes metrics in JSON format.
 pub struct JsonObserver {
     pub(crate) quantiles: Vec<Quantile>,
     pub(crate) pretty: bool,

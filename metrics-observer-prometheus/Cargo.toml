@@ -6,13 +6,13 @@ edition = "2018"
 
 license = "MIT"
 
-description = "metric observer for Prometheus exposition output"
-
+description = "A metrics-core compatible observer that outputs the Prometheus exposition output."
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics-observer-prometheus"
 readme = "README.md"
 
+categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "prometheus"]
 
 [dependencies]
