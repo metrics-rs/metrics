@@ -334,14 +334,14 @@ macro_rules! labels {
     };
 
     (@ { } $k:expr => $v:expr, $($rest:tt)*) => {
-        labels!(@ { $crate::Label::new($k, $v) } $($rest)*)
+        $crate::labels!(@ { $crate::Label::new($k, $v) } $($rest)*)
     };
 
     (@ { $($out:expr),+ } $k:expr => $v:expr, $($rest:tt)*) => {
-        labels!(@ { $($out),+, $crate::Label::new($k, $v) } $($rest)*)
+        $crate::labels!(@ { $($out),+, $crate::Label::new($k, $v) } $($rest)*)
     };
 
     ($($args:tt)*) => {
-        labels!(@ { } $($args)*, )
+        $crate::labels!(@ { } $($args)*, )
     };
 }
