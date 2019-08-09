@@ -152,11 +152,11 @@ macro_rules! timing {
     };
 
     ($name:expr, $start:expr, $end:expr) => {
-        timing!($name, $end - $start)
+        $crate::timing!($name, $end - $start)
     };
 
     ($name:expr, $start:expr, $end:expr, $($labels:tt)*) => {
-        timing!($name, $end - $start, $($labels)*)
+        $crate::timing!($name, $end - $start, $($labels)*)
     };
 
     ($name:expr, $value:expr, $($labels:tt)*) => {
