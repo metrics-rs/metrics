@@ -1,6 +1,6 @@
 [package]
 name = "metrics"
-version = "0.11.0"
+version = "0.11.1"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -17,6 +17,9 @@ keywords = ["metrics", "facade"]
 
 build = "build.rs"
 
+[package.metadata.docs.rs]
+features = ["std"]
+
 [[bench]]
 name = "macros"
 harness = false
@@ -27,9 +30,6 @@ metrics-core = { path = "../metrics-core", version = "^0.5" }
 [dev-dependencies]
 log = "^0.4"
 criterion = "^0.2"
-
-[package.metadata.docs.rs]
-features = ["std"]
 
 [features]
 std = []
