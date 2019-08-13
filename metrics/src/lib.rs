@@ -58,7 +58,8 @@
 //!
 //! # Available metrics implementations
 //!
-//! Currently, the only available metrics implementation is [metricsi-runtime].
+//! * # Native recorder:
+//!     * [metrics-runtime]
 //!
 //! # Implementing a Recorder
 //!
