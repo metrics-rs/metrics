@@ -26,8 +26,7 @@
 //! ### Examples
 //!
 //! ```rust
-//! #[macro_use]
-//! extern crate metrics;
+//! use metrics::{timing, counter};
 //!
 //! # use std::time::Instant;
 //! # pub fn run_query(_: &str) -> u64 { 42 }
@@ -67,11 +66,7 @@
 //! metrics in text form via the `log` crate.
 //!
 //! ```rust
-//! #[macro_use]
-//! extern crate log;
-//! extern crate metrics;
-//! extern crate metrics_core;
-//!
+//! use log::info;
 //! use metrics::Recorder;
 //! use metrics_core::Key;
 //!
@@ -97,19 +92,17 @@
 //! function that wraps the creation and installation of the recorder:
 //!
 //! ```rust
-//! # extern crate metrics;
-//! # extern crate metrics_core;
 //! # use metrics::Recorder;
 //! # use metrics_core::Key;
-//! # struct SimpleRecorder;
-//! # impl Recorder for SimpleRecorder {
+//! # struct LogRecorder;
+//! # impl Recorder for LogRecorder {
 //! #     fn record_counter(&self, _key: Key, _value: u64) {}
 //! #     fn record_gauge(&self, _key: Key, _value: i64) {}
 //! #     fn record_histogram(&self, _key: Key, _value: u64) {}
 //! # }
 //! use metrics::SetRecorderError;
 //!
-//! static RECORDER: SimpleRecorder = SimpleRecorder;
+//! static RECORDER: LogRecorder = LogRecorder;
 //!
 //! pub fn init() -> Result<(), SetRecorderError> {
 //!     metrics::set_recorder(&RECORDER)
@@ -125,12 +118,10 @@
 //! that it takes a `Box<Recorder>` rather than a `&'static Recorder`:
 //!
 //! ```rust
-//! # extern crate metrics;
-//! # extern crate metrics_core;
 //! # use metrics::Recorder;
 //! # use metrics_core::Key;
-//! # struct SimpleRecorder;
-//! # impl Recorder for SimpleRecorder {
+//! # struct LogRecorder;
+//! # impl Recorder for LogRecorder {
 //! #     fn record_counter(&self, _key: Key, _value: u64) {}
 //! #     fn record_gauge(&self, _key: Key, _value: i64) {}
 //! #     fn record_histogram(&self, _key: Key, _value: u64) {}
@@ -139,7 +130,7 @@
 //!
 //! # #[cfg(feature = "std")]
 //! pub fn init() -> Result<(), SetRecorderError> {
-//!     metrics::set_boxed_recorder(Box::new(SimpleRecorder))
+//!     metrics::set_boxed_recorder(Box::new(LogRecorder))
 //! }
 //! # fn main() {}
 //! ```
