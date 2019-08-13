@@ -80,7 +80,7 @@ impl Receiver {
 }
 
 impl Recorder for Receiver {
-    fn record_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: Key, value: u64) {
         SINK.with(move |sink| {
             let mut sink = sink.borrow_mut();
             if sink.is_none() {
@@ -88,11 +88,11 @@ impl Recorder for Receiver {
                 *sink = Some(new_sink);
             }
 
-            sink.as_mut().unwrap().record_counter(key, value);
+            sink.as_mut().unwrap().increment_counter(key, value);
         });
     }
 
-    fn record_gauge(&self, key: Key, value: i64) {
+    fn update_gauge(&self, key: Key, value: i64) {
         SINK.with(move |sink| {
             let mut sink = sink.borrow_mut();
             if sink.is_none() {
@@ -100,7 +100,7 @@ impl Recorder for Receiver {
                 *sink = Some(new_sink);
             }
 
-            sink.as_mut().unwrap().record_gauge(key, value);
+            sink.as_mut().unwrap().update_gauge(key, value);
         });
     }
 

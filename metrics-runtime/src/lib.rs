@@ -49,11 +49,11 @@
 //!
 //! // We can update a counter.  Counters are monotonic, unsigned integers that start at 0 and
 //! // increase over time.
-//! sink.record_counter("widgets", 5);
+//! sink.increment_counter("widgets", 5);
 //!
 //! // We can update a gauge.  Gauges are signed, and hold on to the last value they were updated
 //! // to, so you need to track the overall value on your own.
-//! sink.record_gauge("red_balloons", 99);
+//! sink.update_gauge("red_balloons", 99);
 //!
 //! // We can update a timing histogram.  For timing, we're using the built-in `Sink::now` method
 //! // which utilizes a high-speed internal clock.  This method returns the time in nanoseconds, so
@@ -90,21 +90,21 @@
 //! # let receiver = Receiver::builder().build().expect("failed to create receiver");
 //! // This sink has no scope aka the root scope.  The metric will just end up as "widgets".
 //! let mut root_sink = receiver.get_sink();
-//! root_sink.record_counter("widgets", 42);
+//! root_sink.increment_counter("widgets", 42);
 //!
 //! // This sink is under the "secret" scope.  Since we derived ourselves from the root scope,
 //! // we're not nested under anything, but our metric name will end up being "secret.widgets".
 //! let mut scoped_sink = root_sink.scoped("secret");
-//! scoped_sink.record_counter("widgets", 42);
+//! scoped_sink.increment_counter("widgets", 42);
 //!
 //! // This sink is under the "supersecret" scope, but we're also nested!  The metric name for this
 //! // sample will end up being "secret.supersecret.widget".
 //! let mut scoped_sink_two = scoped_sink.scoped("supersecret");
-//! scoped_sink_two.record_counter("widgets", 42);
+//! scoped_sink_two.increment_counter("widgets", 42);
 //!
 //! // Sinks retain their scope even when cloned, so the metric name will be the same as above.
 //! let mut cloned_sink = scoped_sink_two.clone();
-//! cloned_sink.record_counter("widgets", 42);
+//! cloned_sink.increment_counter("widgets", 42);
 //!
 //! // This sink will be nested two levels deeper than its parent by using a slightly different
 //! // input scope: scope can be a single string, or multiple strings, which is interpreted as
@@ -112,7 +112,7 @@
 //! //
 //! // This metric name will end up being "super.secret.ultra.special.widgets".
 //! let mut scoped_sink_three = scoped_sink.scoped(&["super", "secret", "ultra", "special"]);
-//! scoped_sink_two.record_counter("widgets", 42);
+//! scoped_sink_two.increment_counter("widgets", 42);
 //! ```
 //!
 //! # Labels
@@ -181,7 +181,7 @@
 //! egg_count.record(12);
 //!
 //! // This updates the same metric as above!  We have so many eggs now!
-//! sink.record_counter("eggs", 12);
+//! sink.increment_counter("eggs", 12);
 //!
 //! // Gauges and histograms don't have any extra helper methods, just `record`:
 //! let gauge = sink.gauge("population");
@@ -264,8 +264,8 @@
 //! // We can update a counter.  Counters are monotonic, unsigned integers that start at 0 and
 //! // increase over time.
 //! // Take some measurements, similar to what we had in other examples:
-//! sink.record_counter("widgets", 5);
-//! sink.record_gauge("red_balloons", 99);
+//! sink.increment_counter("widgets", 5);
+//! sink.update_gauge("red_balloons", 99);
 //!
 //! let start = sink.now();
 //! thread::sleep(Duration::from_millis(10));

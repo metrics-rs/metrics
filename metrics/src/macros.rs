@@ -4,7 +4,7 @@
 /// exist, then increment it by the given value. Optionally, a set of labels,
 /// of the form `key => value`, can be passed to further describe the counter.
 ///
-/// Functionally equivalent to calling [`Recorder::record_counter`].
+/// Functionally equivalent to calling [`Recorder::increment_counter`].
 ///
 /// ### Examples
 ///
@@ -33,19 +33,19 @@
 #[macro_export]
 macro_rules! counter {
     ($name:expr, $value:expr) => {
-        $crate::__private_api_record_count($crate::Key::from_name($name), $value);
+        $crate::__private_api_increment_counter($crate::Key::from_name($name), $value);
     };
 
     ($name:expr, $value:expr, $($labels:tt)*) => {
         let labels = $crate::labels!( $($labels)* );
         let key = $crate::Key::from_name_and_labels($name, labels);
-        $crate::__private_api_record_count(key, $value);
+        $crate::__private_api_increment_counter(key, $value);
     };
 }
 
 /// Records a gauge.
 ///
-/// Functionally equivalent to calling [`Recorder::record_gauge`].
+/// Functionally equivalent to calling [`Recorder::update_gauge`].
 ///
 /// ### Examples
 ///
@@ -74,13 +74,13 @@ macro_rules! counter {
 #[macro_export]
 macro_rules! gauge {
     ($name:expr, $value:expr) => {
-        $crate::__private_api_record_gauge($crate::Key::from_name($name), $value);
+        $crate::__private_api_update_gauge($crate::Key::from_name($name), $value);
     };
 
     ($name:expr, $value:expr, $($labels:tt)*) => {
         let labels = $crate::labels!( $($labels)* );
         let key = $crate::Key::from_name_and_labels($name, labels);
-        $crate::__private_api_record_gauge(key, $value);
+        $crate::__private_api_update_gauge(key, $value);
     };
 }
 
