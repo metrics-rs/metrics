@@ -1,24 +1,28 @@
-/// Records a counter.
+/// Increments a counter by a value.
+///
+/// This will register a counter with the given name, if it does not already
+/// exist, then increment it by the given value. Optionally, a set of labels,
+/// of the form `key => value`, can be passed to further describe the counter.
 ///
 /// Functionally equivalent to calling [`Recorder::record_counter`].
 ///
 /// ### Examples
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate metrics;
-/// fn do_thing() {
-///     let count: u64 = 42;
-///     counter!("do_thing", count);
+/// use metrics::counter;
+///
+/// fn send_msg() {
+///     counter!("msg_sent_total", 1);
+///     // ...
 /// }
 /// # fn main() {}
 /// ```
 ///
-/// Labels can also be passed along:
+/// Labels can also be optionally provided.
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate metrics;
+/// use metrics::counter;
+///
 /// fn do_thing() {
 ///     let count: u64 = 42;
 ///     let user: String = String::from("jane");
