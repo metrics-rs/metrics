@@ -70,9 +70,9 @@ impl Generator {
                     0
                 };
 
-                let _ = self.stats.record_counter("ok", 1);
+                let _ = self.stats.increment_counter("ok", 1);
                 let _ = self.stats.record_timing("ok", t0, t1);
-                let _ = self.stats.record_gauge("total", self.gauge);
+                let _ = self.stats.update_gauge("total", self.gauge);
 
                 if start != 0 {
                     let delta = self.stats.now() - start;
