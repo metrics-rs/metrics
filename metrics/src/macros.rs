@@ -43,18 +43,22 @@ macro_rules! counter {
     };
 }
 
-/// Records a gauge.
+/// Update a gauge with a value.
+///
+/// This will register a gauge with the given name, if it does not already
+/// exist, then update it, replacing the previous value with given value. Optionally,
+/// a set of labels, of the form `key => value`, can be passed to further
+/// describe the gauge.
 ///
 /// Functionally equivalent to calling [`Recorder::record_gauge`].
 ///
 /// ### Examples
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate metrics;
+/// use metrics::gauge;
+///
 /// fn update_current_value() {
-///     let value: i64 = -131;
-///     gauge!("current_value", value);
+///     gauge!("current_value", -131);
 /// }
 /// # fn main() {}
 /// ```
@@ -62,8 +66,8 @@ macro_rules! counter {
 /// Labels can also be passed along:
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate metrics;
+/// use metrics::gauge;
+///
 /// fn update_current_value() {
 ///     let value: i64 = -131;
 ///     let creator: String = String::from("jane");
@@ -86,14 +90,19 @@ macro_rules! gauge {
 
 /// Records a timing.
 ///
+/// This will register an histogram with the given name, if it does not already
+/// exist, then add data point with the given timing. This timing must implement
+/// [`AsNanoseconds`]. Optionally, a set of labels, of the form `key => value`,
+/// can be passed to further describe the histogram.
+///
 /// Functionally equivalent to calling [`Recorder::record_histogram`].
 ///
 /// ### Examples
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate metrics;
-/// # use std::time::Instant;
+/// use metrics::timing;
+/// use std::time::Instant;
+///
 /// # fn process() {}
 /// fn handle_request() {
 ///     let start = Instant::now();
@@ -122,9 +131,9 @@ macro_rules! gauge {
 /// Labels can also be passed along:
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate metrics;
-/// # use std::time::Instant;
+/// use metrics::timing;
+/// use std::time::Instant;
+///
 /// # fn process() {}
 /// fn handle_request() {
 ///     let start = Instant::now();
@@ -149,6 +158,8 @@ macro_rules! gauge {
 /// }
 /// # fn main() {}
 /// ```
+///
+/// [`AsNanoseconds`]: https://docs.rs/metrics-core/0.5/metrics_core/trait.AsNanoseconds.html
 #[macro_export]
 macro_rules! timing {
     ($name:expr, $value:expr) => {
@@ -172,14 +183,17 @@ macro_rules! timing {
 
 /// Records a value.
 ///
+/// This will register an histogram with the given name, if it does not already
+/// exist, then add data point with the given value. Optionally, a set of labels,
+/// of the form `key => value`, can be passed to further describe the histogram.
+///
 /// Functionally equivalent to calling [`Recorder::record_histogram`].
 ///
 /// ### Examples
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate metrics;
-/// # use std::time::Instant;
+/// use metrics::value;
+///
 /// # fn process() -> u64 { 42 }
 /// fn handle_request() {
 ///     let rows_read = process();
@@ -191,9 +205,8 @@ macro_rules! timing {
 /// Labels can also be passed along:
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate metrics;
-/// # use std::time::Instant;
+/// use metrics::value;
+///
 /// # fn process() -> u64 { 42 }
 /// fn handle_request() {
 ///     let rows_read = process();
