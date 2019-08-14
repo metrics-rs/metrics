@@ -11,11 +11,11 @@ static RECORDER: PrintRecorder = PrintRecorder;
 struct PrintRecorder;
 
 impl Recorder for PrintRecorder {
-    fn record_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: Key, value: u64) {
         println!("metrics -> counter(name={}, value={})", key, value);
     }
 
-    fn record_gauge(&self, key: Key, value: i64) {
+    fn update_gauge(&self, key: Key, value: i64) {
         println!("metrics -> gauge(name={}, value={})", key, value);
     }
 

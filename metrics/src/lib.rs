@@ -73,11 +73,11 @@
 //! struct LogRecorder;
 //!
 //! impl Recorder for LogRecorder {
-//!     fn record_counter(&self, key: Key, value: u64) {
+//!     fn increment_counter(&self, key: Key, value: u64) {
 //!         info!("counter '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn record_gauge(&self, key: Key, value: i64) {
+//!     fn update_gauge(&self, key: Key, value: i64) {
 //!         info!("gauge '{}' -> {}", key, value);
 //!     }
 //!
@@ -96,8 +96,8 @@
 //! # use metrics_core::Key;
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
-//! #     fn record_counter(&self, _key: Key, _value: u64) {}
-//! #     fn record_gauge(&self, _key: Key, _value: i64) {}
+//! #     fn increment_counter(&self, _key: Key, _value: u64) {}
+//! #     fn update_gauge(&self, _key: Key, _value: i64) {}
 //! #     fn record_histogram(&self, _key: Key, _value: u64) {}
 //! # }
 //! use metrics::SetRecorderError;
@@ -122,8 +122,8 @@
 //! # use metrics_core::Key;
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
-//! #     fn record_counter(&self, _key: Key, _value: u64) {}
-//! #     fn record_gauge(&self, _key: Key, _value: i64) {}
+//! #     fn increment_counter(&self, _key: Key, _value: u64) {}
+//! #     fn update_gauge(&self, _key: Key, _value: i64) {}
 //! #     fn record_histogram(&self, _key: Key, _value: u64) {}
 //! # }
 //! use metrics::SetRecorderError;
@@ -168,7 +168,7 @@ pub trait Recorder {
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn record_counter(&self, key: Key, value: u64);
+    fn increment_counter(&self, key: Key, value: u64);
 
     /// Records a gauge.
     ///
@@ -177,7 +177,7 @@ pub trait Recorder {
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn record_gauge(&self, key: Key, value: i64);
+    fn update_gauge(&self, key: Key, value: i64);
 
     /// Records a histogram.
     ///
@@ -191,8 +191,8 @@ pub trait Recorder {
 struct NoopRecorder;
 
 impl Recorder for NoopRecorder {
-    fn record_counter(&self, _key: Key, _value: u64) {}
-    fn record_gauge(&self, _key: Key, _value: i64) {}
+    fn increment_counter(&self, _key: Key, _value: u64) {}
+    fn update_gauge(&self, _key: Key, _value: i64) {}
     fn record_histogram(&self, _key: Key, _value: u64) {}
 }
 
@@ -314,13 +314,13 @@ pub fn recorder() -> &'static dyn Recorder {
 }
 
 #[doc(hidden)]
-pub fn __private_api_record_count(key: Key, value: u64) {
-    recorder().record_counter(key, value);
+pub fn __private_api_increment_counter(key: Key, value: u64) {
+    recorder().increment_counter(key, value);
 }
 
 #[doc(hidden)]
-pub fn __private_api_record_gauge<K: Into<Key>>(key: K, value: i64) {
-    recorder().record_gauge(key.into(), value);
+pub fn __private_api_update_gauge<K: Into<Key>>(key: K, value: i64) {
+    recorder().update_gauge(key.into(), value);
 }
 
 #[doc(hidden)]

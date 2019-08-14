@@ -122,7 +122,7 @@ impl Sink {
         self.clock.now()
     }
 
-    /// Records a value for a counter identified by the given name.
+    /// Increment a value for a counter identified by the given name.
     ///
     /// # Examples
     ///
@@ -132,10 +132,10 @@ impl Sink {
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
     /// let mut sink = receiver.get_sink();
-    /// sink.record_counter("messages_processed", 1);
+    /// sink.increment_counter("messages_processed", 1);
     /// # }
     /// ```
-    pub fn record_counter<N>(&mut self, name: N, value: u64)
+    pub fn increment_counter<N>(&mut self, name: N, value: u64)
     where
         N: Into<Key>,
     {
@@ -145,7 +145,7 @@ impl Sink {
         value_handle.update_counter(value);
     }
 
-    /// Records a value for a counter identified by the given name and labels.
+    /// Increment a value for a counter identified by the given name and labels.
     ///
     /// # Examples
     ///
@@ -155,10 +155,10 @@ impl Sink {
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
     /// let mut sink = receiver.get_sink();
-    /// sink.record_counter_with_labels("messages_processed", 1, &[("message_type", "mgmt")]);
+    /// sink.increment_counter_with_labels("messages_processed", 1, &[("message_type", "mgmt")]);
     /// # }
     /// ```
-    pub fn record_counter_with_labels<N, L>(&mut self, name: N, value: u64, labels: L)
+    pub fn increment_counter_with_labels<N, L>(&mut self, name: N, value: u64, labels: L)
     where
         N: Into<ScopedString>,
         L: IntoLabels,
@@ -169,7 +169,7 @@ impl Sink {
         value_handle.update_counter(value);
     }
 
-    /// Records a value for a gauge identified by the given name.
+    /// Update a value for a gauge identified by the given name.
     ///
     /// # Examples
     ///
@@ -179,10 +179,10 @@ impl Sink {
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
     /// let mut sink = receiver.get_sink();
-    /// sink.record_gauge("current_offset", -131);
+    /// sink.update_gauge("current_offset", -131);
     /// # }
     /// ```
-    pub fn record_gauge<N>(&mut self, name: N, value: i64)
+    pub fn update_gauge<N>(&mut self, name: N, value: i64)
     where
         N: Into<Key>,
     {
@@ -192,7 +192,7 @@ impl Sink {
         value_handle.update_gauge(value);
     }
 
-    /// Records a value for a gauge identified by the given name and labels.
+    /// Update a value for a gauge identified by the given name and labels.
     ///
     /// # Examples
     ///
@@ -202,10 +202,10 @@ impl Sink {
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
     /// let mut sink = receiver.get_sink();
-    /// sink.record_gauge_with_labels("current_offset", -131, &[("source", "stratum-1")]);
+    /// sink.update_gauge_with_labels("current_offset", -131, &[("source", "stratum-1")]);
     /// # }
     /// ```
-    pub fn record_gauge_with_labels<N, L>(&mut self, name: N, value: i64, labels: L)
+    pub fn update_gauge_with_labels<N, L>(&mut self, name: N, value: i64, labels: L)
     where
         N: Into<ScopedString>,
         L: IntoLabels,
