@@ -64,7 +64,7 @@ impl Receiver {
     }
 
     /// Creates a [`Sink`] bound to this receiver.
-    pub fn get_sink(&self) -> Sink {
+    pub fn sink(&self) -> Sink {
         Sink::new(
             self.metric_registry.clone(),
             self.scope_registry.clone(),
@@ -74,7 +74,7 @@ impl Receiver {
     }
 
     /// Creates a [`Controller`] bound to this receiver.
-    pub fn get_controller(&self) -> Controller {
+    pub fn controller(&self) -> Controller {
         Controller::new(self.metric_registry.clone(), self.scope_registry.clone())
     }
 }
@@ -84,7 +84,7 @@ impl Recorder for Receiver {
         SINK.with(move |sink| {
             let mut sink = sink.borrow_mut();
             if sink.is_none() {
-                let new_sink = self.get_sink();
+                let new_sink = self.sink();
                 *sink = Some(new_sink);
             }
 
@@ -96,7 +96,7 @@ impl Recorder for Receiver {
         SINK.with(move |sink| {
             let mut sink = sink.borrow_mut();
             if sink.is_none() {
-                let new_sink = self.get_sink();
+                let new_sink = self.sink();
                 *sink = Some(new_sink);
             }
 
@@ -108,7 +108,7 @@ impl Recorder for Receiver {
         SINK.with(move |sink| {
             let mut sink = sink.borrow_mut();
             if sink.is_none() {
-                let new_sink = self.get_sink();
+                let new_sink = self.sink();
                 *sink = Some(new_sink);
             }
 
