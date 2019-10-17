@@ -214,7 +214,7 @@ fn main() {
         .build()
         .expect("failed to build receiver");
 
-    let sink = receiver.get_sink();
+    let sink = receiver.sink();
     let sink = sink.scoped(&["alpha", "pools", "primary"]);
 
     info!("sink configured");
@@ -243,7 +243,7 @@ fn main() {
     }
 
     // Spin up the sink and let 'er rip.
-    let controller = receiver.get_controller();
+    let controller = receiver.controller();
 
     // Poll the controller to figure out the sample rate.
     let mut total = 0;
