@@ -1,5 +1,5 @@
 use parking_lot::RwLock;
-use hashbrown::HashMap;
+use std::collections::HashMap;
 
 pub struct Inner {
     id: u64,

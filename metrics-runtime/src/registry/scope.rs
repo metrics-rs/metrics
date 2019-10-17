@@ -1,5 +1,5 @@
 use crate::common::{Scope, ScopeHandle};
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use parking_lot::RwLock;
 
 #[derive(Debug)]

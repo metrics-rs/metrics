@@ -3,10 +3,9 @@ use crate::{
     data::{Counter, Gauge, Histogram},
     registry::{MetricRegistry, ScopeRegistry},
 };
-use hashbrown::HashMap;
 use metrics_core::{IntoLabels, Key, Label, ScopedString};
 use quanta::Clock;
-use std::{error::Error, fmt, sync::Arc};
+use std::{collections::HashMap, error::Error, fmt, sync::Arc};
 
 /// Errors during sink creation.
 #[derive(Debug, Clone)]
