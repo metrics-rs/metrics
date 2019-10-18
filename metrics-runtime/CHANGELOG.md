@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2019-10-18
+### Changed
+- Rename `Sink::record_counter` to `increment_counter`, `Sink::record_gauge` to `update_gauge`. (#47)
+- Rename `Receiver::get_controller` and `Receiver::get_sink` to `controller` and `sink`, respectively. (#48)
+- Switch to the new updated `Recorder` trait from `metrics`. (#47)
+
+### Fixed
+- Fixed some broken tests and incorrect documentation. (#53)
+
 ## [0.11.0] - 2019-07-29
 ### Added
 - Metrics now support labels. (#27)

@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2019-10-18
+### Changed
+- Improved documentation. (#44, #45, #46)
+- Renamed `Recorder::record_counter` to `increment_counter` and `Recorder::record_gauge` to `update_gauge`. (#47)
+
 ## [0.11.1] - 2019-08-09
 ### Changed
 - Fixed a bug with macros calling inner macros without a fully qualified name.
