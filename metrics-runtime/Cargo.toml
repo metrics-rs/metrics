@@ -27,7 +27,7 @@ harness = false
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.5" }
 metrics-util = { path = "../metrics-util", version = "^0.3" }
-metrics = { path = "../metrics", version = "^0.11", features = ["std"] }
+metrics = { path = "../metrics", version = "^0.12", features = ["std"] }
 im = "^12"
 arc-swap = "^0.3"
 parking_lot = "^0.9"
