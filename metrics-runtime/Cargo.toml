@@ -30,8 +30,7 @@ metrics-util = { path = "../metrics-util", version = "^0.3" }
 metrics = { path = "../metrics", version = "^0.11", features = ["std"] }
 im = "^12"
 arc-swap = "^0.3"
-parking_lot = "^0.8"
-hashbrown = "^0.5"
+parking_lot = "^0.9"
 quanta = "^0.3"
 futures = "^0.1"
 crossbeam-utils = "^0.6"
