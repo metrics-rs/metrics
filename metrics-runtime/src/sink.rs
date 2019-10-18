@@ -3,10 +3,9 @@ use crate::{
     data::{Counter, Gauge, Histogram},
     registry::{MetricRegistry, ScopeRegistry},
 };
-use hashbrown::HashMap;
 use metrics_core::{IntoLabels, Key, Label, ScopedString};
 use quanta::Clock;
-use std::{error::Error, fmt, sync::Arc};
+use std::{collections::HashMap, error::Error, fmt, sync::Arc};
 
 /// Errors during sink creation.
 #[derive(Debug, Clone)]
@@ -131,7 +130,7 @@ impl Sink {
     /// # use metrics_runtime::Receiver;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// sink.increment_counter("messages_processed", 1);
     /// # }
     /// ```
@@ -154,7 +153,7 @@ impl Sink {
     /// # use metrics_runtime::Receiver;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// sink.increment_counter_with_labels("messages_processed", 1, &[("message_type", "mgmt")]);
     /// # }
     /// ```
@@ -178,7 +177,7 @@ impl Sink {
     /// # use metrics_runtime::Receiver;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// sink.update_gauge("current_offset", -131);
     /// # }
     /// ```
@@ -201,7 +200,7 @@ impl Sink {
     /// # use metrics_runtime::Receiver;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// sink.update_gauge_with_labels("current_offset", -131, &[("source", "stratum-1")]);
     /// # }
     /// ```
@@ -231,7 +230,7 @@ impl Sink {
     /// # use std::time::Duration;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// let start = sink.now();
     /// thread::sleep(Duration::from_millis(10));
     /// let end = sink.now();
@@ -262,7 +261,7 @@ impl Sink {
     /// # use std::time::Duration;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// let start = sink.now();
     /// thread::sleep(Duration::from_millis(10));
     /// let end = sink.now();
@@ -290,7 +289,7 @@ impl Sink {
     /// # use std::time::Duration;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// sink.record_value("rows_returned", 42);
     /// # }
     /// ```
@@ -315,7 +314,7 @@ impl Sink {
     /// # use std::time::Duration;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// sink.record_value_with_labels("rows_returned", 42, &[("table", "posts")]);
     /// # }
     /// ```
@@ -345,7 +344,7 @@ impl Sink {
     /// # use metrics_runtime::Receiver;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// let counter = sink.counter("messages_processed");
     /// counter.record(1);
     ///
@@ -376,7 +375,7 @@ impl Sink {
     /// # use metrics_runtime::Receiver;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// let counter = sink.counter_with_labels("messages_processed", &[("service", "secure")]);
     /// counter.record(1);
     ///
@@ -407,7 +406,7 @@ impl Sink {
     /// # use metrics_runtime::Receiver;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// let gauge = sink.gauge("current_offset");
     /// gauge.record(-131);
     /// # }
@@ -435,7 +434,7 @@ impl Sink {
     /// # use metrics_runtime::Receiver;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// let gauge = sink.gauge_with_labels("current_offset", &[("source", "stratum-1")]);
     /// gauge.record(-131);
     /// # }
@@ -465,7 +464,7 @@ impl Sink {
     /// # use std::time::Duration;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// let histogram = sink.histogram("request_duration");
     ///
     /// let start = sink.now();
@@ -503,7 +502,7 @@ impl Sink {
     /// # use std::time::Duration;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     /// let histogram = sink.histogram_with_labels("request_duration", &[("service", "secure")]);
     ///
     /// let start = sink.now();
@@ -549,7 +548,7 @@ impl Sink {
     /// # use std::time::Duration;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     ///
     /// // A proxy is now registered under the name "load_stats", which is prepended to all the
     /// // metrics generated by the closure i.e. "load_stats.avg_1min".  These metrics are also
@@ -598,7 +597,7 @@ impl Sink {
     /// # use std::time::Duration;
     /// # fn main() {
     /// let receiver = Receiver::builder().build().expect("failed to create receiver");
-    /// let mut sink = receiver.get_sink();
+    /// let mut sink = receiver.sink();
     ///
     /// let system_name = "web03".to_string();
     ///

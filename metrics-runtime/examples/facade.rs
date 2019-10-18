@@ -161,7 +161,7 @@ fn main() {
         .build()
         .expect("failed to build receiver");
 
-    let controller = receiver.get_controller();
+    let controller = receiver.controller();
 
     let addr = "0.0.0.0:23432"
         .parse()
