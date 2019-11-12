@@ -303,27 +303,42 @@ impl error::Error for SetRecorderError {
 ///
 /// If a recorder has not been set, a no-op implementation is returned.
 pub fn recorder() -> &'static dyn Recorder {
+    static NOOP: NoopRecorder = NoopRecorder;
+    try_recorder().unwrap_or(&NOOP)
+}
+
+/// Returns a reference to the recorder.
+///
+/// If a recorder has not been set, returns `None`.
+pub fn try_recorder() -> Option<&'static dyn Recorder> {
     unsafe {
         if STATE.load(Ordering::SeqCst) != INITIALIZED {
-            static NOOP: NoopRecorder = NoopRecorder;
-            &NOOP
+            None
         } else {
-            RECORDER
+            Some(RECORDER)
         }
     }
 }
 
 #[doc(hidden)]
-pub fn __private_api_increment_counter(key: Key, value: u64) {
-    recorder().increment_counter(key, value);
+pub fn __private_api_increment_counter(recorder: &'static dyn Recorder, key: Key, value: u64) {
+    recorder.increment_counter(key, value);
 }
 
 #[doc(hidden)]
-pub fn __private_api_update_gauge<K: Into<Key>>(key: K, value: i64) {
-    recorder().update_gauge(key.into(), value);
+pub fn __private_api_update_gauge<K: Into<Key>>(
+    recorder: &'static dyn Recorder,
+    key: K,
+    value: i64,
+) {
+    recorder.update_gauge(key.into(), value);
 }
 
 #[doc(hidden)]
-pub fn __private_api_record_histogram<K: Into<Key>, V: AsNanoseconds>(key: K, value: V) {
-    recorder().record_histogram(key.into(), value.as_nanos());
+pub fn __private_api_record_histogram<K: Into<Key>, V: AsNanoseconds>(
+    recorder: &'static dyn Recorder,
+    key: K,
+    value: V,
+) {
+    recorder.record_histogram(key.into(), value.as_nanos());
 }

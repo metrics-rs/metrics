@@ -33,13 +33,17 @@
 #[macro_export]
 macro_rules! counter {
     ($name:expr, $value:expr) => {
-        $crate::__private_api_increment_counter($crate::Key::from_name($name), $value);
+        if let Some(recorder) = $crate::try_recorder() {
+            recorder.increment_counter($crate::Key::from_name($name), $value);
+        }
     };
 
     ($name:expr, $value:expr, $($labels:tt)*) => {
-        let labels = $crate::labels!( $($labels)* );
-        let key = $crate::Key::from_name_and_labels($name, labels);
-        $crate::__private_api_increment_counter(key, $value);
+        if let Some(recorder) = $crate::try_recorder() {
+            let labels = $crate::labels!( $($labels)* );
+            let key = $crate::Key::from_name_and_labels($name, labels);
+            recorder.increment_counter(key, $value);
+        }
     };
 }
 
@@ -78,13 +82,17 @@ macro_rules! counter {
 #[macro_export]
 macro_rules! gauge {
     ($name:expr, $value:expr) => {
-        $crate::__private_api_update_gauge($crate::Key::from_name($name), $value);
+        if let Some(recorder) = $crate::try_recorder() {
+            $crate::__private_api_update_gauge(recorder, $crate::Key::from_name($name), $value);
+        }
     };
 
     ($name:expr, $value:expr, $($labels:tt)*) => {
-        let labels = $crate::labels!( $($labels)* );
-        let key = $crate::Key::from_name_and_labels($name, labels);
-        $crate::__private_api_update_gauge(key, $value);
+        if let Some(recorder) = $crate::try_recorder() {
+            let labels = $crate::labels!( $($labels)* );
+            let key = $crate::Key::from_name_and_labels($name, labels);
+            $crate::__private_api_update_gauge(recorder, key, $value);
+        }
     };
 }
 
@@ -163,7 +171,9 @@ macro_rules! gauge {
 #[macro_export]
 macro_rules! timing {
     ($name:expr, $value:expr) => {
-        $crate::__private_api_record_histogram($crate::Key::from_name($name), $value);
+        if let Some(recorder) = $crate::try_recorder() {
+            $crate::__private_api_record_histogram(recorder, $crate::Key::from_name($name), $value);
+        }
     };
 
     ($name:expr, $start:expr, $end:expr) => {
@@ -175,9 +185,11 @@ macro_rules! timing {
     };
 
     ($name:expr, $value:expr, $($labels:tt)*) => {
-        let labels = $crate::labels!( $($labels)* );
-        let key = $crate::Key::from_name_and_labels($name, labels);
-        $crate::__private_api_record_histogram(key, $value);
+        if let Some(recorder) = $crate::try_recorder() {
+            let labels = $crate::labels!( $($labels)* );
+            let key = $crate::Key::from_name_and_labels($name, labels);
+            $crate::__private_api_record_histogram(recorder, key, $value);
+        }
     };
 }
 
@@ -217,12 +229,16 @@ macro_rules! timing {
 #[macro_export]
 macro_rules! value {
     ($name:expr, $value:expr) => {
-        $crate::__private_api_record_histogram($crate::Key::from_name($name), $value);
+        if let Some(recorder) = $crate::try_recorder() {
+            $crate::__private_api_record_histogram(recorder, $crate::Key::from_name($name), $value);
+        }
     };
 
     ($name:expr, $value:expr, $($labels:tt)*) => {
-        let labels = $crate::labels!( $($labels)* );
-        let key = $crate::Key::from_name_and_labels($name, labels);
-        $crate::__private_api_record_histogram(key, $value);
+        if let Some(recorder) = $crate::try_recorder() {
+            let labels = $crate::labels!( $($labels)* );
+            let key = $crate::Key::from_name_and_labels($name, labels);
+            $crate::__private_api_record_histogram(recorder, key, $value);
+        }
     };
 }
