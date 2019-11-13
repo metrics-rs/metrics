@@ -68,7 +68,7 @@ Overall, this repository is home to the following crates:
 
 We're always looking for users who have thoughts on how to make metrics better, or users with interesting use cases.  Of course, we're also happy to accept code contrbutions for outstanding feature requests! 😀
 
-We'd love to chat about any of the above, or anything else, really!  You can find us over on [Gitter](https://gitter.im/metrics-rs-community).
+We'd love to chat about any of the above, or anything else, really!  You can find us over on [Gitter](https://gitter.im/metrics-rs/community).
 
 [metrics]: https://github.com/metrics-rs/metrics/tree/master/metrics
 [metrics-core]: https://github.com/metrics-rs/metrics/tree/master/metrics-core
