@@ -147,7 +147,7 @@ impl Key {
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.labels.is_empty() {
-            write!(f, "Key({}", self.name)
+            write!(f, "Key({})", self.name)
         } else {
             let kv_pairs = self
                 .labels
