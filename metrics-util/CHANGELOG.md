@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2019-11-21
+### Changed
+- Updated to crossbeam-epoch 0.8 and switched directly to crossbeam-utils for tests.
+
 ## [0.3.0] - 2019-04-30
 ### Added
 - `MetricTree` allows storing hierarchical metric values while being serializable by serde. (#38)
