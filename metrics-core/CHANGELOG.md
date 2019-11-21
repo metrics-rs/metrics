@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2019-11-21
+### Changed
+- Fixed a bug with the display output for `Key`. (#59)
+
 ## [0.5.1] - 2019-08-08
 ### Changed
 - Fixed a bug with macros calling inner macros without a fully qualified name.
