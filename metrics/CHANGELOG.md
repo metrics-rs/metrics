@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2019-11-21
+### Changed
+- Cost for macros dropped to almost zero when no recorder is installed. (#55)
+
 ## [0.12.0] - 2019-10-18
 ### Changed
 - Improved documentation. (#44, #45, #46)
