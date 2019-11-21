@@ -264,6 +264,7 @@ impl<T> Default for AtomicBucket<T> {
 #[cfg(test)]
 mod tests {
     use super::{AtomicBucket, Block, BLOCK_SIZE};
+    use crossbeam_utils::thread::scope;
 
     #[test]
     fn test_create_new_block() {
@@ -325,7 +326,7 @@ mod tests {
         let data = block.data();
         assert_eq!(data.len(), 0);
 
-        let res = crossbeam::scope(|s| {
+        let res = scope(|s| {
             let t1 = s.spawn(|_| {
                 let mut i = 0;
                 let mut total = 0;
@@ -409,7 +410,7 @@ mod tests {
         let snapshot = bucket.data();
         assert_eq!(snapshot.len(), 0);
 
-        let res = crossbeam::scope(|s| {
+        let res = scope(|s| {
             let t1 = s.spawn(|_| {
                 let mut i = 0;
                 let mut total = 0;
