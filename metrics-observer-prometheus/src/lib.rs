@@ -70,7 +70,7 @@ impl Observer for PrometheusObserver {
             .entry(labels)
             .or_insert_with(|| 0);
 
-        *entry = value;
+        *entry += value;
     }
 
     fn observe_gauge(&mut self, key: Key, value: i64) {
