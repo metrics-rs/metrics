@@ -181,7 +181,7 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
     let labels = labels
         .into_iter()
         .map(Label::into_parts)
-        .map(|(k, v)| format!("{}=\"{}\"", k, v))
+        .map(|(k, v)| format!("{}=\"{}\"", k, v.escape_default().collect::<String>()))
         .collect();
 
     (name, labels)
