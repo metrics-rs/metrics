@@ -38,6 +38,8 @@ impl Builder for PrometheusBuilder {
             quantiles: self.quantiles.clone(),
             histos: HashMap::new(),
             output: get_prom_expo_header(),
+            counters: HashMap::new(),
+            gauges: HashMap::new(),
         }
     }
 }
@@ -51,40 +53,51 @@ impl Default for PrometheusBuilder {
 /// Records metrics in the Prometheus exposition format.
 pub struct PrometheusObserver {
     pub(crate) quantiles: Vec<Quantile>,
-    pub(crate) histos: HashMap<Key, (u64, Histogram<u64>)>,
+    pub(crate) histos: HashMap<String, HashMap<Vec<String>, (u64, Histogram<u64>)>>,
     pub(crate) output: String,
+    pub(crate) counters: HashMap<String, HashMap<Vec<String>, u64>>,
+    pub(crate) gauges: HashMap<String, HashMap<Vec<String>, i64>>,
 }
 
 impl Observer for PrometheusObserver {
     fn observe_counter(&mut self, key: Key, value: u64) {
         let (name, labels) = key_to_parts(key);
-        let full_name = render_labeled_name(&name, &labels);
-        self.output.push_str("\n# TYPE ");
-        self.output.push_str(name.as_str());
-        self.output.push_str(" counter\n");
-        self.output.push_str(full_name.as_str());
-        self.output.push_str(" ");
-        self.output.push_str(value.to_string().as_str());
-        self.output.push_str("\n");
+
+        let entry = self
+            .counters
+            .entry(name)
+            .or_insert_with(|| HashMap::new())
+            .entry(labels)
+            .or_insert_with(|| 0);
+
+        *entry = value;
     }
 
     fn observe_gauge(&mut self, key: Key, value: i64) {
         let (name, labels) = key_to_parts(key);
-        let full_name = render_labeled_name(&name, &labels);
-        self.output.push_str("\n# TYPE ");
-        self.output.push_str(name.as_str());
-        self.output.push_str(" gauge\n");
-        self.output.push_str(full_name.as_str());
-        self.output.push_str(" ");
-        self.output.push_str(value.to_string().as_str());
-        self.output.push_str("\n");
+
+        let entry = self
+            .gauges
+            .entry(name)
+            .or_insert_with(|| HashMap::new())
+            .entry(labels)
+            .or_insert_with(|| 0);
+
+        *entry = value;
     }
 
     fn observe_histogram(&mut self, key: Key, values: &[u64]) {
-        let entry = self.histos.entry(key).or_insert_with(|| {
-            let h = Histogram::<u64>::new(3).expect("failed to create histogram");
-            (0, h)
-        });
+        let (name, labels) = key_to_parts(key);
+
+        let entry = self
+            .histos
+            .entry(name)
+            .or_insert_with(|| HashMap::new())
+            .entry(labels)
+            .or_insert_with(|| {
+                let h = Histogram::<u64>::new(3).expect("failed to create histogram");
+                (0, h)
+            });
 
         let (sum, h) = entry;
         for value in values {
@@ -98,35 +111,63 @@ impl Drain<String> for PrometheusObserver {
     fn drain(&mut self) -> String {
         let mut output: String = self.output.drain(..).collect();
 
-        for (key, sh) in self.histos.drain() {
-            let (sum, hist) = sh;
-            let (name, labels) = key_to_parts(key);
+        for (name, mut by_labels) in self.counters.drain() {
             output.push_str("\n# TYPE ");
             output.push_str(name.as_str());
-            output.push_str(" summary\n");
-
-            for quantile in &self.quantiles {
-                let value = hist.value_at_quantile(quantile.value());
-                let mut labels = labels.clone();
-                labels.push(format!("quantile=\"{}\"", quantile.value()));
+            output.push_str(" counter\n");
+            for (labels, value) in by_labels.drain() {
                 let full_name = render_labeled_name(&name, &labels);
                 output.push_str(full_name.as_str());
                 output.push_str(" ");
                 output.push_str(value.to_string().as_str());
                 output.push_str("\n");
             }
-            let sum_name = format!("{}_sum", name);
-            let full_sum_name = render_labeled_name(&sum_name, &labels);
-            output.push_str(full_sum_name.as_str());
-            output.push_str(" ");
-            output.push_str(sum.to_string().as_str());
-            output.push_str("\n");
-            let count_name = format!("{}_count", name);
-            let full_count_name = render_labeled_name(&count_name, &labels);
-            output.push_str(full_count_name.as_str());
-            output.push_str(" ");
-            output.push_str(hist.len().to_string().as_str());
-            output.push_str("\n");
+        }
+
+        for (name, mut by_labels) in self.gauges.drain() {
+            output.push_str("\n# TYPE ");
+            output.push_str(name.as_str());
+            output.push_str(" gauge\n");
+            for (labels, value) in by_labels.drain() {
+                let full_name = render_labeled_name(&name, &labels);
+                output.push_str(full_name.as_str());
+                output.push_str(" ");
+                output.push_str(value.to_string().as_str());
+                output.push_str("\n");
+            }
+        }
+
+        for (name, mut by_labels) in self.histos.drain() {
+            output.push_str("\n# TYPE ");
+            output.push_str(name.as_str());
+            output.push_str(" summary\n");
+
+            for (labels, sh) in by_labels.drain() {
+                let (sum, hist) = sh;
+
+                for quantile in &self.quantiles {
+                    let value = hist.value_at_quantile(quantile.value());
+                    let mut labels = labels.clone();
+                    labels.push(format!("quantile=\"{}\"", quantile.value()));
+                    let full_name = render_labeled_name(&name, &labels);
+                    output.push_str(full_name.as_str());
+                    output.push_str(" ");
+                    output.push_str(value.to_string().as_str());
+                    output.push_str("\n");
+                }
+                let sum_name = format!("{}_sum", name);
+                let full_sum_name = render_labeled_name(&sum_name, &labels);
+                output.push_str(full_sum_name.as_str());
+                output.push_str(" ");
+                output.push_str(sum.to_string().as_str());
+                output.push_str("\n");
+                let count_name = format!("{}_count", name);
+                let full_count_name = render_labeled_name(&count_name, &labels);
+                output.push_str(full_count_name.as_str());
+                output.push_str(" ");
+                output.push_str(hist.len().to_string().as_str());
+                output.push_str("\n");
+            }
         }
 
         output
