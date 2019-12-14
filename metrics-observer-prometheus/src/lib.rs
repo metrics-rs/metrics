@@ -181,7 +181,15 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
     let labels = labels
         .into_iter()
         .map(Label::into_parts)
-        .map(|(k, v)| format!("{}=\"{}\"", k, v.escape_default().collect::<String>()))
+        .map(|(k, v)| {
+            format!(
+                "{}=\"{}\"",
+                k,
+                v.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+            )
+        })
         .collect();
 
     (name, labels)
