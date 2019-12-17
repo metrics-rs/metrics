@@ -164,6 +164,20 @@ impl ValueHandle {
         }
     }
 
+    pub fn increment_gauge(&self, value: i64) {
+        match self.state.deref() {
+            ValueState::Gauge(inner) => inner.fetch_add(value, Ordering::Release),
+            _ => unreachable!("tried to access as gauge, not a gauge"),
+        };
+    }
+
+    pub fn decrement_gauge(&self, value: i64) {
+        match self.state.deref() {
+            ValueState::Gauge(inner) => inner.fetch_sub(value, Ordering::Release),
+            _ => unreachable!("tried to access as gauge, not a gauge"),
+        };
+    }
+
     pub fn update_histogram(&self, value: u64) {
         match self.state.deref() {
             ValueState::Histogram(inner) => inner.record(value),
@@ -313,8 +327,10 @@ mod tests {
 
         let gauge = ValueHandle::gauge();
         gauge.update_gauge(23);
+        gauge.increment_gauge(20);
+        gauge.decrement_gauge(1);
         match gauge.snapshot() {
-            ValueSnapshot::Single(Measurement::Gauge(value)) => assert_eq!(value, 23),
+            ValueSnapshot::Single(Measurement::Gauge(value)) => assert_eq!(value, 42),
             _ => panic!("incorrect value snapshot type for gauge"),
         }
 
