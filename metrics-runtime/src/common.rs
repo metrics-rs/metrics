@@ -164,6 +164,20 @@ impl ValueHandle {
         }
     }
 
+    pub fn increment_gauge(&self, value: i64) {
+        match self.state.deref() {
+            ValueState::Gauge(inner) => inner.fetch_add(value, Ordering::Release),
+            _ => unreachable!("tried to access as gauge, not a gauge"),
+        };
+    }
+
+    pub fn decrement_gauge(&self, value: i64) {
+        match self.state.deref() {
+            ValueState::Gauge(inner) => inner.fetch_sub(value, Ordering::Release),
+            _ => unreachable!("tried to access as gauge, not a gauge"),
+        };
+    }
+
     pub fn update_histogram(&self, value: u64) {
         match self.state.deref() {
             ValueState::Histogram(inner) => inner.record(value),
