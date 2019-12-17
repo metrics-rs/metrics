@@ -327,8 +327,10 @@ mod tests {
 
         let gauge = ValueHandle::gauge();
         gauge.update_gauge(23);
+        gauge.increment_gauge(20);
+        gauge.decrement_gauge(1);
         match gauge.snapshot() {
-            ValueSnapshot::Single(Measurement::Gauge(value)) => assert_eq!(value, 23),
+            ValueSnapshot::Single(Measurement::Gauge(value)) => assert_eq!(value, 42),
             _ => panic!("incorrect value snapshot type for gauge"),
         }
 
