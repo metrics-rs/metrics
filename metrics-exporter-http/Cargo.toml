@@ -17,5 +17,5 @@ keywords = ["metrics", "metrics-core", "exporter", "http"]
 
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.5" }
-hyper = "^0.12"
+hyper = "^0.13"
 log = "^0.4"

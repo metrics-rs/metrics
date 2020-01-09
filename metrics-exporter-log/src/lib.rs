@@ -13,11 +13,10 @@
 #[macro_use]
 extern crate log;
 
-use futures::prelude::*;
 use log::Level;
 use metrics_core::{Builder, Drain, Observe, Observer};
 use std::{thread, time::Duration};
-use tokio_timer::Interval;
+use tokio::time;
 
 /// Exports metrics by converting them to a textual representation and logging them.
 pub struct LogExporter<C, B>
@@ -65,14 +64,13 @@ where
         log!(self.level, "{}", output);
     }
 
-    /// Converts this exporter into a future which logs output at the intervel
+    /// Converts this exporter into a future which logs output at the interval
     /// given on construction.
-    pub fn into_future(mut self) -> impl Future<Item = (), Error = ()> {
-        Interval::new_interval(self.interval)
-            .map_err(|_| ())
-            .for_each(move |_| {
-                self.turn();
-                Ok(())
-            })
+    pub async fn into_future(mut self) {
+        let mut interval = time::interval(self.interval);
+        loop {
+            interval.tick().await;
+            self.turn();
+        }
     }
 }
