@@ -18,5 +18,4 @@ keywords = ["metrics", "metrics-core", "exporter", "log"]
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.5" }
 log = "^0.4"
-futures = "^0.1"
-tokio-timer = "^0.2"
+tokio = { version = "0.2", features = ["time"] }
