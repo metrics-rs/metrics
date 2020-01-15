@@ -5,6 +5,7 @@ extern crate getopts;
 extern crate hdrhistogram;
 extern crate metrics_core;
 extern crate metrics_runtime;
+extern crate tokio;
 
 #[macro_use]
 extern crate metrics;
@@ -119,7 +120,8 @@ pub fn opts() -> Options {
     opts
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
     let args: Vec<String> = env::args().collect();
@@ -168,7 +170,7 @@ fn main() {
         .expect("failed to parse http listen address");
     let builder = JsonBuilder::new().set_pretty_json(true);
     let exporter = HttpExporter::new(controller.clone(), builder, addr);
-    thread::spawn(move || exporter.run());
+    tokio::spawn(exporter.async_run());
 
     receiver.install();
     info!("receiver configured");

@@ -15,6 +15,6 @@ jobs:
   steps:
   - template: azure-install-rust.yml
     parameters:
-      rust_version: 1.34.0
+      rust_version: 1.39.0
   - script: cargo test
     displayName: cargo test
