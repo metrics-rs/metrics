@@ -170,7 +170,7 @@ async fn main() {
         .expect("failed to parse http listen address");
     let builder = JsonBuilder::new().set_pretty_json(true);
     let exporter = HttpExporter::new(controller.clone(), builder, addr);
-    tokio::spawn(exporter.into_future());
+    tokio::spawn(exporter.async_run());
 
     receiver.install();
     info!("receiver configured");

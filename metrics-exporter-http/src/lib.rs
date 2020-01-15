@@ -3,9 +3,7 @@
 //! This exporter can utilize observers that are able to be converted to a textual representation
 //! via [`Drain<String>`].  It will respond to any requests, regardless of the method or path.
 //!
-//! # Run Modes
-//! - `into_future` will return a [`Future`] that when driven will run the HTTP server on the
-//! configured address
+//! Awaiting on `async_run` will drive an HTTP server listening on the configured address.
 #![deny(missing_docs)]
 
 use hyper::{
@@ -39,11 +37,9 @@ where
         }
     }
 
-    /// Converts this exporter into a future which can be driven externally.
-    ///
-    /// This starts an HTTP server on the `address` the exporter was originally configured with,
+    /// Starts an HTTP server on the `address` the exporter was originally configured with,
     /// responding to any request with the output of the configured observer.
-    pub async fn into_future(self) -> hyper::error::Result<()> {
+    pub async fn async_run(self) -> hyper::error::Result<()> {
         let builder = Arc::new(self.builder);
         let controller = Arc::new(self.controller);
 

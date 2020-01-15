@@ -5,10 +5,10 @@
 //! level.
 //!
 //! # Run Modes
-//! - `run` can be used to block the current thread, taking snapshots and exporting them on an
-//! interval
-//! - `into_future` will return a [`Future`] that when driven will take a snapshot on the
-//! configured interval and log it
+//! - Using `run` will block the current thread, capturing a snapshot and logging it based on the
+//! configured interval.
+//! - Using `async_run` will return a future that can be awaited on, mimicing the behavior of
+//! `run`.
 #![deny(missing_docs)]
 #[macro_use]
 extern crate log;
@@ -66,7 +66,7 @@ where
 
     /// Converts this exporter into a future which logs output at the interval
     /// given on construction.
-    pub async fn into_future(mut self) {
+    pub async fn async_run(mut self) {
         let mut interval = time::interval(self.interval);
         loop {
             interval.tick().await;
