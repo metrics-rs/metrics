@@ -5,7 +5,7 @@
 [conduct-badge]: https://img.shields.io/badge/%E2%9D%A4-code%20of%20conduct-blue.svg
 [license-badge]: https://img.shields.io/badge/license-MIT-blue
 [conduct]: https://github.com/metrics-rs/metrics/blob/master/CODE_OF_CONDUCT.md
-[gitter-badge]: https://img.shields.io/discord/500028886025895936
+[discord-badge]: https://img.shields.io/discord/500028886025895936
 [discord]: https://discord.gg/XmDVes
 [last-commit-badge]: https://img.shields.io/github/last-commit/metrics-rs/metrics
 [contributors-badge]: https://img.shields.io/github/contributors/metrics-rs/metrics
