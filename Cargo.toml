@@ -1,12 +1,6 @@
 [workspace]
 members = [
-  "metrics-core",
   "metrics",
-  "metrics-runtime",
+  "metrics-macros",
   "metrics-util",
-  "metrics-exporter-log",
-  "metrics-exporter-http",
-  "metrics-observer-yaml",
-  "metrics-observer-prometheus",
-  "metrics-observer-json",
 ]

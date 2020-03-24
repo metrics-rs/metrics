@@ -323,16 +323,6 @@ mod receiver;
 mod registry;
 mod sink;
 
-#[cfg(any(feature = "metrics-exporter-log", feature = "metrics-exporter-http"))]
-pub mod exporters;
-
-#[cfg(any(
-    feature = "metrics-observer-yaml",
-    feature = "metrics-observer-json",
-    feature = "metrics-observer-prometheus"
-))]
-pub mod observers;
-
 pub use self::{
     builder::{Builder, BuilderError},
     common::{Delta, Measurement, Scope},

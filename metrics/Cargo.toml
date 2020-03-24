@@ -26,6 +26,8 @@ harness = false
 
 [dependencies]
 metrics-core = { path = "../metrics-core", version = "^0.5" }
+metrics-macros = { path = "../metrics-macros", version = "^0.1" }
+proc-macro-hack = "^0.5"
 
 [dev-dependencies]
 log = "^0.4"
