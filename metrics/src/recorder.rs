@@ -1,4 +1,4 @@
-use crate::{Key, Identifier};
+use crate::{Identifier, Key};
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -39,7 +39,7 @@ pub trait Recorder {
     /// counters and gauges usually have slightly different modes of operation.
     ///
     /// For the sake of flexibility on the exporter side, both are provided.
-    fn update_gauge(&self, id: &Identifier, value: i64);
+    fn update_gauge(&self, id: &Identifier, value: f64);
 
     /// Records a histogram.
     ///
@@ -47,7 +47,7 @@ pub trait Recorder {
     /// of the underlying observed values, and callers will need to process them accordingly.
     ///
     /// There is no guarantee that this method will not be called multiple times for the same key.
-    fn record_histogram(&self, id: &Identifier, value: u64);
+    fn record_histogram(&self, id: &Identifier, value: f64);
 }
 
 struct NoopRecorder;
@@ -63,8 +63,8 @@ impl Recorder for NoopRecorder {
         Identifier::default()
     }
     fn increment_counter(&self, _id: &Identifier, _value: u64) {}
-    fn update_gauge(&self, _id: &Identifier, _value: i64) {}
-    fn record_histogram(&self, _id: &Identifier, _value: u64) {}
+    fn update_gauge(&self, _id: &Identifier, _value: f64) {}
+    fn record_histogram(&self, _id: &Identifier, _value: f64) {}
 }
 
 /// Sets the global recorder to a `&'static Recorder`.
@@ -123,7 +123,7 @@ where
 /// A thread-unsafe version of [`set_recorder`].
 ///
 /// This function is available on all platforms, even those that do not have support for atomics
-/// that is need by [`set_recorder`].
+/// that are needed by [`set_recorder`].
 ///
 /// In almost all cases, [`set_recorder`] should be preferred.
 ///
@@ -150,6 +150,17 @@ pub unsafe fn set_recorder_racy(recorder: &'static dyn Recorder) -> Result<(), S
         }
         _ => Err(SetRecorderError(())),
     }
+}
+
+/// Clears the currently configured recorder.
+///
+/// As we give out a reference to the recorder with a static lifetime, we cannot safely reclaim
+/// and drop the installed recorder when clearing.  Thus, any existing recorder will stay leaked.
+///
+/// This method is typically only useful for testing or benchmarking.
+#[doc(hidden)]
+pub fn clear_recorder() {
+    STATE.store(UNINITIALIZED, Ordering::SeqCst);
 }
 
 /// The type returned by [`set_recorder`] if [`set_recorder`] has already been called.

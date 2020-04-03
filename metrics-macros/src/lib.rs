@@ -2,23 +2,33 @@ extern crate proc_macro;
 
 use self::proc_macro::TokenStream;
 
-use proc_macro_hack::proc_macro_hack;
-use quote::{quote, format_ident, ToTokens};
-use syn::parse::{Parse, ParseStream, Result};
-use syn::{parse_macro_input, Expr, Token, LitStr};
+use std::iter::FromIterator;
 
-struct Increment {
+use proc_macro_hack::proc_macro_hack;
+use quote::{format_ident, quote, ToTokens};
+use syn::parse::{Parse, ParseStream, Result};
+use syn::{parse_macro_input, Expr, LitStr, Token};
+
+struct WithoutExpression {
     key: LitStr,
     labels: Vec<(LitStr, Expr)>,
 }
 
-impl Parse for Increment {
+struct WithExpression {
+    key: LitStr,
+    op_value: Expr,
+    labels: Vec<(LitStr, Expr)>,
+}
+
+impl Parse for WithoutExpression {
     fn parse(input: ParseStream) -> Result<Self> {
         let key: LitStr = input.parse()?;
 
         let mut labels = Vec::new();
         loop {
-            if input.is_empty() { break }
+            if input.is_empty() {
+                break;
+            }
             input.parse::<Token![,]>()?;
             let lkey: LitStr = input.parse()?;
             input.parse::<Token![=>]>()?;
@@ -26,55 +36,115 @@ impl Parse for Increment {
 
             labels.push((lkey, lvalue));
         }
-        Ok(Increment { key, labels })
+        Ok(WithoutExpression { key, labels })
+    }
+}
+
+impl Parse for WithExpression {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let key: LitStr = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let op_value: Expr = input.parse()?;
+
+        let mut labels = Vec::new();
+        loop {
+            if input.is_empty() {
+                break;
+            }
+            input.parse::<Token![,]>()?;
+            let lkey: LitStr = input.parse()?;
+            input.parse::<Token![=>]>()?;
+            let lvalue: Expr = input.parse()?;
+
+            labels.push((lkey, lvalue));
+        }
+        Ok(WithExpression {
+            key,
+            op_value,
+            labels,
+        })
     }
 }
 
 #[proc_macro_hack]
 pub fn increment(input: TokenStream) -> TokenStream {
-    let Increment {
-        key,
-        labels,
-    } = parse_macro_input!(input as Increment);
+    let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
 
     let op_value = quote! { 1 };
 
     get_expanded_callsite(key, labels, "counter", "increment", op_value)
 }
 
-fn get_expanded_callsite<V>(key: LitStr, labels: Vec<(LitStr, Expr)>, metric_type: &str, op_type: &str, op_values: V) -> TokenStream
+#[proc_macro_hack]
+pub fn counter(input: TokenStream) -> TokenStream {
+    let WithExpression {
+        key,
+        op_value,
+        labels,
+    } = parse_macro_input!(input as WithExpression);
+
+    get_expanded_callsite(key, labels, "counter", "increment", op_value)
+}
+
+#[proc_macro_hack]
+pub fn gauge(input: TokenStream) -> TokenStream {
+    let WithExpression {
+        key,
+        op_value,
+        labels,
+    } = parse_macro_input!(input as WithExpression);
+
+    get_expanded_callsite(key, labels, "gauge", "update", op_value)
+}
+
+#[proc_macro_hack]
+pub fn histogram(input: TokenStream) -> TokenStream {
+    let WithExpression {
+        key,
+        op_value,
+        labels,
+    } = parse_macro_input!(input as WithExpression);
+
+    get_expanded_callsite(key, labels, "histogram", "record", op_value)
+}
+
+fn get_expanded_callsite<V>(
+    key: LitStr,
+    labels: Vec<(LitStr, Expr)>,
+    metric_type: &str,
+    op_type: &str,
+    op_values: V,
+) -> TokenStream
 where
     V: ToTokens,
 {
+    let safe_key = make_key_safe(&key);
     let register_ident = format_ident!("register_{}", metric_type, span = key.span());
     let op_ident = format_ident!("{}_{}", op_type, metric_type, span = key.span());
 
     let use_fast_path = can_use_fast_path(&labels);
-    let insertable_labels = labels.into_iter()
+    let insertable_labels = labels
+        .into_iter()
         .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
 
     let expanded = if use_fast_path {
         // We're on the fast path here, so we'll end up registering with the recorder
         // and statically caching the identifier for our metric to speed up any future
         // increment operations.
-        let init = format_ident!("METRICS_{}_INIT", key.value().to_uppercase(), span = key.span());
-        let id = format_ident!("METRICS_{}_ID", key.value().to_uppercase(), span = key.span());
+        let init = format_ident!("METRICS_{}_INIT", safe_key, span = key.span());
         quote! {
             {
-                static #init: std::sync::Once = std::sync::Once::new();
-                static mut #id: std::cell::UnsafeCell<metrics::Identifier> = std::cell::UnsafeCell::new(metrics::Identifier::zeroed());
+                static #init: metrics::OnceIdentifier = metrics::OnceIdentifier::new();
 
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
                     // Initialize our fast path cached identifier.
-                    #init.call_once(|| {
+                    let id = #init.get_or_init(|| {
                         let mlabels = vec![#(#insertable_labels),*];
-                        let id = recorder.#register_ident((#key, mlabels).into());
-                        unsafe { (*#id.get()) = id; }
+                        recorder.#register_ident((#key, mlabels).into())
                     });
 
-                    let lid = unsafe { &*#id.get() };
-                    recorder.#op_ident(lid, #op_values);
+                    recorder.#op_ident(id, #op_values);
                 }
             }
         }
@@ -89,26 +159,56 @@ where
                     let mlabels = vec![#(#insertable_labels),*];
                     let id = recorder.#register_ident((#key, mlabels).into());
 
-                    recorder.#op_ident(id, #op_values);
+                    recorder.#op_ident(&id, #op_values);
                 }
             }
         }
     };
 
-    eprintln!("tokens: {}", expanded);
+    debug_tokens(&expanded);
 
     TokenStream::from(expanded)
+}
+
+fn make_key_safe(key: &LitStr) -> String {
+    let key_str = key.value();
+    let safe_chars = key_str.chars().map(|c| {
+        if c.is_ascii_alphanumeric() {
+            c.to_ascii_uppercase()
+        } else {
+            '_'
+        }
+    });
+    String::from_iter(safe_chars)
 }
 
 fn can_use_fast_path(labels: &Vec<(LitStr, Expr)>) -> bool {
     let mut use_fast_path = true;
     for (_, lvalue) in labels {
         match lvalue {
-            Expr::Lit(_) => {},
+            Expr::Lit(_) => {}
             _ => {
                 use_fast_path = false;
-            },
+            }
         }
     }
     use_fast_path
+}
+
+#[rustversion::nightly]
+fn debug_tokens<T: ToTokens>(tokens: &T) {
+    if std::env::var_os("METRICS_DEBUG").is_some() {
+        let ts = tokens.into_token_stream();
+        proc_macro::Span::call_site()
+            .note("emitting metrics macro debug output")
+            .note(ts.to_string())
+            .emit()
+    }
+}
+
+#[rustversion::not(nightly)]
+fn debug_tokens<T: ToTokens>(_tokens: &T) {
+    if std::env::var_os("METRICS_DEBUG").is_some() {
+        eprintln!("nightly required to output proc macro diagnostics!");
+    }
 }

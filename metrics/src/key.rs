@@ -1,5 +1,5 @@
+use crate::{IntoLabels, Label, ScopedString};
 use std::{fmt, slice::Iter};
-use crate::{ScopedString, Label, IntoLabels};
 
 /// A metric key.
 ///

@@ -26,16 +26,16 @@
 //! ### Examples
 //!
 //! ```rust
-//! use metrics::{timing, counter};
+//! use metrics::{histogram, counter};
 //!
 //! # use std::time::Instant;
 //! # pub fn run_query(_: &str) -> u64 { 42 }
 //! pub fn process(query: &str) -> u64 {
 //!     let start = Instant::now();
 //!     let row_count = run_query(query);
-//!     let end = Instant::now();
+//!     let delta = Instant::now() - start;
 //!
-//!     timing!("process.query_time", start, end);
+//!     histogram!("process.query_time", delta.as_secs_f64());
 //!     counter!("process.query_row_count", row_count);
 //!
 //!     row_count
@@ -66,41 +66,56 @@
 //! metrics in text form via the `log` crate.
 //!
 //! ```rust
+//! # use std::sync::{Mutex, atomic::{AtomicUsize, Ordering}};
 //! # use std::collections::HashMap;
 //! use log::info;
 //! use metrics::{Identifier, Key, Recorder};
 //!
 //! struct LogRecorder {
-//!     keys: HashMap<Identifier, Key>,
+//!     id: AtomicUsize,
+//!     keys: Mutex<HashMap<Identifier, Key>>,
 //! }
 //!
-//!  FIX THIS EXAMPLE
+//! impl LogRecorder {
+//!     fn register(&self, key: Key) -> Identifier {
+//!         let uid = self.id.fetch_add(1, Ordering::AcqRel);
+//!         let id = uid.into();
+//!         let mut keys = self.keys.lock().expect("failed to lock keys");
+//!         keys.insert(id, key);
+//!         id
+//!     }
+//!
+//!     fn get_key(&self, id: &Identifier) -> Key {
+//!         let keys = self.keys.lock().expect("failed to lock keys");
+//!         keys.get(id).expect("invalid identifier").clone()
+//!     }
+//! }
 //!
 //! impl Recorder for LogRecorder {
 //!     fn register_counter(&self, key: Key) -> Identifier {
-//!         Identifier::default()
+//!         self.register(key)
 //!     }
 //!
 //!     fn register_gauge(&self, key: Key) -> Identifier {
-//!         Identifier::default()
+//!         self.register(key)
 //!     }
 //!
 //!     fn register_histogram(&self, key: Key) -> Identifier {
-//!         Identifier::default()
+//!         self.register(key)
 //!     }
 //!
 //!     fn increment_counter(&self, id: &Identifier, value: u64) {
-//!         let key = self.keys.get(id).expect("invalid identifier");
+//!         let key = self.get_key(id);
 //!         info!("counter '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn update_gauge(&self, id: &Identifier value: i64) {
-//!         let key = self.keys.get(id).expect("invalid identifier");
+//!     fn update_gauge(&self, id: &Identifier, value: f64) {
+//!         let key = self.get_key(id);
 //!         info!("gauge '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn record_histogram(&self, id: &Identifier, value: u64) {
-//!         let key = self.keys.get(id).expect("invalid identifier");
+//!     fn record_histogram(&self, id: &Identifier, value: f64) {
+//!         let key = self.get_key(id);
 //!         info!("histogram '{}' -> {}", key, value);
 //!     }
 //! }
@@ -112,15 +127,14 @@
 //!
 //! ```rust
 //! # use metrics::{Recorder, Key, Identifier};
-//! # use metrics::Key;
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
 //! #     fn register_counter(&self, _key: Key) -> Identifier { Identifier::default() }
 //! #     fn register_gauge(&self, _key: Key) -> Identifier { Identifier::default() }
 //! #     fn register_histogram(&self, _key: Key) -> Identifier { Identifier::default() }
 //! #     fn increment_counter(&self, _id: &Identifier, _value: u64) {}
-//! #     fn update_gauge(&self, _id: &Identifier, _value: i64) {}
-//! #     fn record_histogram(&self, _id: &Identifier, _value: u64) {}
+//! #     fn update_gauge(&self, _id: &Identifier, _value: f64) {}
+//! #     fn record_histogram(&self, _id: &Identifier, _value: f64) {}
 //! # }
 //! use metrics::SetRecorderError;
 //!
@@ -140,16 +154,15 @@
 //! that it takes a `Box<Recorder>` rather than a `&'static Recorder`:
 //!
 //! ```rust
-//! # use metrics::Recorder;
-//! # use metrics_core::Key;
+//! # use metrics::{Recorder, Key, Identifier};
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
 //! #     fn register_counter(&self, _key: Key) -> Identifier { Identifier::default() }
 //! #     fn register_gauge(&self, _key: Key) -> Identifier { Identifier::default() }
 //! #     fn register_histogram(&self, _key: Key) -> Identifier { Identifier::default() }
 //! #     fn increment_counter(&self, _id: &Identifier, _value: u64) {}
-//! #     fn update_gauge(&self, _id: &Identifier, _value: i64) {}
-//! #     fn record_histogram(&self, _id: &Identifier, _value: u64) {}
+//! #     fn update_gauge(&self, _id: &Identifier, _value: f64) {}
+//! #     fn record_histogram(&self, _id: &Identifier, _value: f64) {}
 //! # }
 //! use metrics::SetRecorderError;
 //!
@@ -182,3 +195,15 @@ pub use self::macros::*;
 /// Increments a counter.
 #[proc_macro_hack]
 pub use metrics_macros::increment;
+
+/// Increments a counter.
+#[proc_macro_hack]
+pub use metrics_macros::counter;
+
+/// Updates a gauge.
+#[proc_macro_hack]
+pub use metrics_macros::gauge;
+
+/// Records a histogram.
+#[proc_macro_hack]
+pub use metrics_macros::histogram;
