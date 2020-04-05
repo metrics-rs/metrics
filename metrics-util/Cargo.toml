@@ -20,12 +20,21 @@ name = "bucket"
 harness = false
 
 [[bench]]
+name = "registry"
+harness = false
+
+[[bench]]
 name = "streaming_integers"
 harness = false
 
 [dependencies]
+metrics = { path = "../metrics", version = "^0.12" }
 crossbeam-epoch = "^0.8"
 serde = "^1.0"
+arc-swap = "^0.4"
+im = "^14"
+sharded-slab = "0.0.9"
+parking_lot = "^0.10"
 
 [dev-dependencies]
 crossbeam-utils = "^0.7"

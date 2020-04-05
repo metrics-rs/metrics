@@ -11,3 +11,6 @@ pub use quantile::{parse_quantiles, Quantile};
 
 mod tree;
 pub use tree::{Integer, MetricsTree};
+
+mod registry;
+pub use registry::Registry;
