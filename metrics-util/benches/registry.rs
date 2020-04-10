@@ -47,7 +47,7 @@ fn registry_benchmark(c: &mut Criterion) {
             })
         })
         .with_function("registry overhead", |b| {
-            b.iter_batched(|| (), |_| Registry::<()>::new(), BatchSize::SmallInput)
+            b.iter_batched(|| (), |_| Registry::<()>::new(), BatchSize::NumIterations(1))
         })
         .with_function("key overhead (basic)", |b| {
             b.iter(|| {
