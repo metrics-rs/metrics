@@ -20,6 +20,12 @@ struct WithExpression {
     labels: Vec<(LitStr, Expr)>,
 }
 
+struct Registration {
+    key: LitStr,
+    desc: LitStr,
+    labels: Vec<(LitStr, Expr)>,
+}
+
 impl Parse for WithoutExpression {
     fn parse(input: ParseStream) -> Result<Self> {
         let key: LitStr = input.parse()?;
@@ -66,13 +72,56 @@ impl Parse for WithExpression {
     }
 }
 
+impl Parse for Registration {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let key: LitStr = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let desc: LitStr = input.parse()?;
+
+        let mut labels = Vec::new();
+        loop {
+            if input.is_empty() {
+                break;
+            }
+            input.parse::<Token![,]>()?;
+            let lkey: LitStr = input.parse()?;
+            input.parse::<Token![=>]>()?;
+            let lvalue: Expr = input.parse()?;
+
+            labels.push((lkey, lvalue));
+        }
+        Ok(Registration { key, desc, labels })
+    }
+}
+
+#[proc_macro_hack]
+pub fn register_counter(input: TokenStream) -> TokenStream {
+    let Registration { key, desc, labels } = parse_macro_input!(input as Registration);
+
+    get_expanded_registration("counter", key, desc, labels)
+}
+
+#[proc_macro_hack]
+pub fn register_gauge(input: TokenStream) -> TokenStream {
+    let Registration { key, desc, labels } = parse_macro_input!(input as Registration);
+
+    get_expanded_registration("gauge", key, desc, labels)
+}
+
+#[proc_macro_hack]
+pub fn register_histogram(input: TokenStream) -> TokenStream {
+    let Registration { key, desc, labels } = parse_macro_input!(input as Registration);
+
+    get_expanded_registration("histogram", key, desc, labels)
+}
+
 #[proc_macro_hack]
 pub fn increment(input: TokenStream) -> TokenStream {
     let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
 
     let op_value = quote! { 1 };
 
-    get_expanded_callsite(key, labels, "counter", "increment", op_value)
+    get_expanded_callsite("counter", "increment", key, labels, op_value)
 }
 
 #[proc_macro_hack]
@@ -83,7 +132,7 @@ pub fn counter(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite(key, labels, "counter", "increment", op_value)
+    get_expanded_callsite("counter", "increment", key, labels, op_value)
 }
 
 #[proc_macro_hack]
@@ -94,7 +143,7 @@ pub fn gauge(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite(key, labels, "gauge", "update", op_value)
+    get_expanded_callsite("gauge", "update", key, labels, op_value)
 }
 
 #[proc_macro_hack]
@@ -105,14 +154,40 @@ pub fn histogram(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite(key, labels, "histogram", "record", op_value)
+    get_expanded_callsite("histogram", "record", key, labels, op_value)
+}
+
+fn get_expanded_registration(
+    metric_type: &str,
+    key: LitStr,
+    desc: LitStr,
+    labels: Vec<(LitStr, Expr)>,
+) -> TokenStream {
+    let register_ident = format_ident!("register_{}", metric_type, span = key.span());
+    let insertable_labels = labels
+        .into_iter()
+        .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
+
+    let expanded = quote! {
+        {
+            // Only do this work if there's a recorder installed.
+            if let Some(recorder) = metrics::try_recorder() {
+                let mlabels = vec![#(#insertable_labels),*];
+                recorder.#register_ident((#key, mlabels).into(), Some(#desc));
+            }
+        }
+    };
+
+    debug_tokens(&expanded);
+
+    TokenStream::from(expanded)
 }
 
 fn get_expanded_callsite<V>(
-    key: LitStr,
-    labels: Vec<(LitStr, Expr)>,
     metric_type: &str,
     op_type: &str,
+    key: LitStr,
+    labels: Vec<(LitStr, Expr)>,
     op_values: V,
 ) -> TokenStream
 where
@@ -141,7 +216,7 @@ where
                     // Initialize our fast path cached identifier.
                     let id = #init.get_or_init(|| {
                         let mlabels = vec![#(#insertable_labels),*];
-                        recorder.#register_ident((#key, mlabels).into())
+                        recorder.#register_ident((#key, mlabels).into(), None)
                     });
 
                     recorder.#op_ident(id, #op_values);
@@ -157,7 +232,7 @@ where
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
                     let mlabels = vec![#(#insertable_labels),*];
-                    let id = recorder.#register_ident((#key, mlabels).into());
+                    let id = recorder.#register_ident((#key, mlabels).into(), None);
 
                     recorder.#op_ident(&id, #op_values);
                 }

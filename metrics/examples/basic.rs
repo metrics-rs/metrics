@@ -15,19 +15,19 @@ impl PrintRecorder {
 }
 
 impl Recorder for PrintRecorder {
-    fn register_counter(&self, key: Key) -> Identifier {
+    fn register_counter(&self, key: Key, _description: Option<&'static str>) -> Identifier {
         let id = self.0.fetch_add(1, Ordering::SeqCst);
         println!("(counter) mapping key {} to id {}", key, id);
         id.into()
     }
 
-    fn register_gauge(&self, key: Key) -> Identifier {
+    fn register_gauge(&self, key: Key, _description: Option<&'static str>) -> Identifier {
         let id = self.0.fetch_add(1, Ordering::SeqCst);
         println!("(gauge) mapping key {} to id {}", key, id);
         id.into()
     }
 
-    fn register_histogram(&self, key: Key) -> Identifier {
+    fn register_histogram(&self, key: Key, _description: Option<&'static str>) -> Identifier {
         let id = self.0.fetch_add(1, Ordering::SeqCst);
         println!("(histogram) mapping key {} to id {}", key, id);
         id.into()

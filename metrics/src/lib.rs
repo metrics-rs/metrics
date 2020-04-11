@@ -92,15 +92,15 @@
 //! }
 //!
 //! impl Recorder for LogRecorder {
-//!     fn register_counter(&self, key: Key) -> Identifier {
+//!     fn register_counter(&self, key: Key, _description: Option<&'static str>) -> Identifier {
 //!         self.register(key)
 //!     }
 //!
-//!     fn register_gauge(&self, key: Key) -> Identifier {
+//!     fn register_gauge(&self, key: Key, _description: Option<&'static str>) -> Identifier {
 //!         self.register(key)
 //!     }
 //!
-//!     fn register_histogram(&self, key: Key) -> Identifier {
+//!     fn register_histogram(&self, key: Key, _description: Option<&'static str>) -> Identifier {
 //!         self.register(key)
 //!     }
 //!
@@ -129,9 +129,9 @@
 //! # use metrics::{Recorder, Key, Identifier};
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
-//! #     fn register_counter(&self, _key: Key) -> Identifier { Identifier::default() }
-//! #     fn register_gauge(&self, _key: Key) -> Identifier { Identifier::default() }
-//! #     fn register_histogram(&self, _key: Key) -> Identifier { Identifier::default() }
+//! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
+//! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
+//! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
 //! #     fn increment_counter(&self, _id: &Identifier, _value: u64) {}
 //! #     fn update_gauge(&self, _id: &Identifier, _value: f64) {}
 //! #     fn record_histogram(&self, _id: &Identifier, _value: f64) {}
@@ -157,9 +157,9 @@
 //! # use metrics::{Recorder, Key, Identifier};
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
-//! #     fn register_counter(&self, _key: Key) -> Identifier { Identifier::default() }
-//! #     fn register_gauge(&self, _key: Key) -> Identifier { Identifier::default() }
-//! #     fn register_histogram(&self, _key: Key) -> Identifier { Identifier::default() }
+//! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
+//! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
+//! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
 //! #     fn increment_counter(&self, _id: &Identifier, _value: u64) {}
 //! #     fn update_gauge(&self, _id: &Identifier, _value: f64) {}
 //! #     fn record_histogram(&self, _id: &Identifier, _value: f64) {}
@@ -191,6 +191,18 @@ pub use self::recorder::*;
 
 mod macros;
 pub use self::macros::*;
+
+/// Registers a counter.
+#[proc_macro_hack]
+pub use metrics_macros::register_counter;
+
+/// Registers a gauge.
+#[proc_macro_hack]
+pub use metrics_macros::register_gauge;
+
+/// Registers a histogram.
+#[proc_macro_hack]
+pub use metrics_macros::register_histogram;
 
 /// Increments a counter.
 #[proc_macro_hack]

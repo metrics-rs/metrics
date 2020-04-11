@@ -230,6 +230,29 @@ impl<T> AtomicBucket<T> {
     /// # Note
     /// This method will not affect reads that are already in progress.
     pub fn clear(&self) {
+        self.clear_with(|_| {})
+    }
+
+    /// Clears the bucket, invoking `f` for every block that will be cleared.
+    ///
+    /// Deallocation of the internal blocks happens only when all readers have finished, and so
+    /// will not necessarily occur during or immediately preceding this method.
+    ///
+    /// This method is useful for accumulating values and then observing them, in a way that allows
+    /// the caller to avoid visiting the same values again the next time
+    ///
+    /// This method allows a pattern of observing values before they're cleared, with a clear
+    /// demarcation. A similar pattern used in the wild would be to have some data structure, like
+    /// a vector, which is continuously filled, and then eventually swapped out with a new, empty
+    /// vector, allowing the caller to read all of the old values while new values are being
+    /// written, over and over again.
+    ///
+    /// # Note
+    /// This method will not affect reads that are already in progress.
+    pub fn clear_with<F>(&self, mut f: F)
+    where
+        F: FnMut(&[T]),
+    {
         // We simply swap the tail pointer which effectively clears the bucket.  Callers might
         // still be in process of writing to the tail node, or reading the data, but new callers
         // will see it as empty until another write proceeds.
@@ -241,11 +264,25 @@ impl<T> AtomicBucket<T> {
                 .compare_and_set(tail, Shared::null(), Ordering::SeqCst, guard)
                 .is_ok()
         {
-            // We won the swap to delete the tail node.  Now configure a deferred drop to clean
-            // things up once nobody else is using it.
+            // While we have a valid block -- either `tail` or the next block as we keep reading -- we
+            // load the data from each block and process it by calling `f`.
+            let mut block_ptr = tail;
+            while !block_ptr.is_null() {
+                let block = unsafe { block_ptr.deref() };
+
+                // Read the data out of the block.
+                let data = block.data();
+                f(data);
+
+                // Load the next block.
+                block_ptr = block.prev.load(Ordering::Acquire, guard);
+            }
+
+            // Now that we're done read the blocks, trigger a destroy on the tail.
+            //
+            // This will cascade backwards through the internal `prev` pointed, destroying all
+            // blocks associated with this tail.
             unsafe {
-                // Drop the block, which will cause a cascading drop on the next block, and
-                // so on and so forth, until all blocks linked to this one are dropped.
                 guard.defer_destroy(tail);
             }
             guard.flush();
@@ -414,7 +451,7 @@ mod tests {
             let t1 = s.spawn(|_| {
                 let mut i = 0;
                 let mut total = 0;
-                while i < BLOCK_SIZE as u64 * 10_000 {
+                while i < BLOCK_SIZE as u64 * 100_000 {
                     bucket.push(i);
 
                     total += i;
@@ -426,7 +463,7 @@ mod tests {
             let t2 = s.spawn(|_| {
                 let mut i = 0;
                 let mut total = 0;
-                while i < BLOCK_SIZE as u64 * 10_000 {
+                while i < BLOCK_SIZE as u64 * 100_000 {
                     bucket.push(i);
 
                     total += i;
@@ -444,9 +481,36 @@ mod tests {
         let total = res.unwrap();
 
         let snapshot = bucket.data();
-        assert_eq!(snapshot.len(), BLOCK_SIZE * 20_000);
+        assert_eq!(snapshot.len(), BLOCK_SIZE * 200_000);
 
-        let sum: u64 = snapshot.iter().sum();
+        let sum = snapshot.iter().sum::<u64>();
         assert_eq!(sum, total);
+    }
+
+    #[test]
+    fn test_clear_and_clear_with() {
+        let bucket = AtomicBucket::new();
+
+        let snapshot = bucket.data();
+        assert_eq!(snapshot.len(), 0);
+
+        let mut i = 0;
+        let mut total_pushed = 0;
+        while i < BLOCK_SIZE * 4 {
+            bucket.push(i);
+
+            total_pushed += i;
+            i += 1;
+        }
+
+        let snapshot = bucket.data();
+        assert_eq!(snapshot.len(), i);
+
+        let mut total_accumulated = 0;
+        bucket.clear_with(|xs| total_accumulated += xs.iter().sum::<usize>());
+        assert_eq!(total_pushed, total_accumulated);
+
+        let snapshot = bucket.data();
+        assert_eq!(snapshot.len(), 0);
     }
 }

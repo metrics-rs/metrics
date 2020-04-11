@@ -15,51 +15,46 @@ static SET_RECORDER_ERROR: &str =
 /// A value that records metrics behind the facade.
 pub trait Recorder {
     /// Registers a counter.
-    fn register_counter(&self, key: Key) -> Identifier;
+    ///
+    /// Callers may provide a description of the counter being registered. Whether or not a metric
+    /// can be reregistered to provide a description, if one was already passed or not, as well as
+    /// how descriptions are used by the underlying recorder, is an implementation detail.
+    fn register_counter(&self, key: Key, description: Option<&'static str>) -> Identifier;
 
     /// Registers a gauge.
-    fn register_gauge(&self, key: Key) -> Identifier;
+    ///
+    /// Callers may provide a description of the counter being registered. Whether or not a metric
+    /// can be reregistered to provide a description, if one was already passed or not, as well as
+    /// how descriptions are used by the underlying recorder, is an implementation detail.
+    fn register_gauge(&self, key: Key, description: Option<&'static str>) -> Identifier;
 
     /// Registers a histogram.
-    fn register_histogram(&self, key: Key) -> Identifier;
+    ///
+    /// Callers may provide a description of the counter being registered. Whether or not a metric
+    /// can be reregistered to provide a description, if one was already passed or not, as well as
+    /// how descriptions are used by the underlying recorder, is an implementation detail.
+    fn register_histogram(&self, key: Key, description: Option<&'static str>) -> Identifier;
 
-    /// Records a counter.
-    ///
-    /// From the perspective of an recorder, a counter and gauge are essentially identical, insofar
-    /// as they are both a single value tied to a key.  From the perspective of a collector,
-    /// counters and gauges usually have slightly different modes of operation.
-    ///
-    /// For the sake of flexibility on the exporter side, both are provided.
+    /// Increments a counter.
     fn increment_counter(&self, id: &Identifier, value: u64);
 
-    /// Records a gauge.
-    ///
-    /// From the perspective of a recorder, a counter and gauge are essentially identical, insofar
-    /// as they are both a single value tied to a key.  From the perspective of a collector,
-    /// counters and gauges usually have slightly different modes of operation.
-    ///
-    /// For the sake of flexibility on the exporter side, both are provided.
+    /// Updates a gauge.
     fn update_gauge(&self, id: &Identifier, value: f64);
 
     /// Records a histogram.
-    ///
-    /// Recorders are expected to tally their own histogram views, so this will be called with all
-    /// of the underlying observed values, and callers will need to process them accordingly.
-    ///
-    /// There is no guarantee that this method will not be called multiple times for the same key.
     fn record_histogram(&self, id: &Identifier, value: f64);
 }
 
 struct NoopRecorder;
 
 impl Recorder for NoopRecorder {
-    fn register_counter(&self, _key: Key) -> Identifier {
+    fn register_counter(&self, _key: Key, _description: Option<&'static str>) -> Identifier {
         Identifier::default()
     }
-    fn register_gauge(&self, _key: Key) -> Identifier {
+    fn register_gauge(&self, _key: Key, _description: Option<&'static str>) -> Identifier {
         Identifier::default()
     }
-    fn register_histogram(&self, _key: Key) -> Identifier {
+    fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier {
         Identifier::default()
     }
     fn increment_counter(&self, _id: &Identifier, _value: u64) {}
