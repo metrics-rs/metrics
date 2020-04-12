@@ -3,6 +3,9 @@
 mod bucket;
 pub use bucket::AtomicBucket;
 
+mod handle;
+pub use handle::Handle;
+
 mod streaming;
 pub use streaming::StreamingIntegers;
 

@@ -112,8 +112,10 @@ pub struct AtomicBucket<T> {
 
 impl<T> AtomicBucket<T> {
     /// Creates a new, empty bucket.
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new() -> Self {
+        AtomicBucket {
+            tail: Atomic::null(),
+        }
     }
 
     /// Pushes an element into the bucket.
