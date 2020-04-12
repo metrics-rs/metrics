@@ -1,0 +1,16 @@
+[package]
+name = "metrics-benchmark"
+version = "0.1.0"
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "^0.4"
+env_logger = "^0.7"
+getopts = "^0.2"
+hdrhistogram = "^7.0"
+quanta = "^0.5"
+metrics = { version = "^0.12", path = "../metrics" }
+metrics-util = { version = "^0.3", path = "../metrics-util" }
