@@ -1,36 +1,44 @@
+use std::collections::HashMap;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use im::HashMap;
-use metrics::{Identifier, Key};
+use crossbeam_utils::sync::ShardedLock;
+use im::HashMap as ImmutableHashMap;
+use metrics::Identifier;
 use parking_lot::Mutex;
-use sharded_slab::Slab;
-
-pub use sharded_slab::Guard;
 
 /// A high-performance metric registry.
 ///
-/// All metrics are defined by a `Key`, which represents the name of a metric, along with potential
-/// labels.  Registering a new metric, in turn, provides the caller with an opaque `Identifier`
-/// that can be used to look up the associated handle with a metric.
+/// `Registry` provides the ability to maintain a central listing of metrics mapped by a given key.
 ///
-/// Handles would usually be a thread-safe type that can be used to manipulate a metric -- i.e.
-/// increment a counter or add a value to a histogram -- but `Registry` does not care what data is
-/// stored, it focuses purely on providing fast insertion and lookup.
+/// In many cases, `K` will be a composite key, where the fundamental `Key` type from `metrics` is
+/// present, and differentiation is provided by storing the metric type alongside.
+///
+/// Metrics themselves are represented opaquely behind `H`.  In most cases, this would be a
+/// thread-safe handle to the underlying metrics storage that the owner of the registry can use to
+/// update the actual metric value(s) as needed.  `Handle`, from this crate, is a solid default
+/// choice.
+///
+/// `Registry` handles deduplicating metrics, and will return the `Identifier` for an existing
+/// metric if a caller attempts to reregister it.
 ///
 /// `Registry` is optimized for reads.
-pub struct Registry<H> {
-    mappings: ArcSwap<HashMap<Key, Identifier>>,
-    handles: Slab<H>,
+pub struct Registry<K, H> {
+    mappings: ArcSwap<ImmutableHashMap<K, Identifier>>,
+    handles: ShardedLock<Vec<H>>,
     lock: Mutex<()>,
 }
 
-impl<H> Registry<H> {
+impl<K, H> Registry<K, H>
+where
+    K: Eq + Hash + Clone,
+{
     /// Creates a new `Registry`.
     pub fn new() -> Self {
         Registry {
-            mappings: ArcSwap::from(Arc::new(HashMap::new())),
-            handles: Slab::new(),
+            mappings: ArcSwap::from(Arc::new(ImmutableHashMap::new())),
+            handles: ShardedLock::new(Vec::new()),
             lock: Mutex::new(()),
         }
     }
@@ -39,7 +47,7 @@ impl<H> Registry<H> {
     ///
     /// If the key is not already mapped, a new identifier will be generated, and the given handle
     /// stored along side of it.  If the key is already mapped, its identifier will be returned.
-    pub fn get_or_create_identifier(&self, key: Key, handle: H) -> Identifier {
+    pub fn get_or_create_identifier(&self, key: K, handle: H) -> Identifier {
         // Check our mapping table first.
         if let Some(id) = self.mappings.load().get(&key) {
             return id.clone();
@@ -55,11 +63,13 @@ impl<H> Registry<H> {
         }
 
         // Our identifier will be the index we insert the handle into.
-        let id = self
+        let mut wg = self
             .handles
-            .insert(handle)
-            .expect("current thread ran out of slots to register new metrics!")
-            .into();
+            .write()
+            .expect("handles write lock was poisoned!");
+        let id = wg.len().into();
+        wg.push(handle);
+        drop(wg);
 
         // Update our mapping table and drop the lock.
         let new_mappings = mappings.update(key, id);
@@ -71,7 +81,43 @@ impl<H> Registry<H> {
     }
 
     /// Gets the handle for a given identifier.
-    pub fn get_handle(&self, identifier: &Identifier) -> Option<Guard<'_, H>> {
-        self.handles.get(identifier.into())
+    pub fn with_handle<F>(&self, identifier: Identifier, mut f: F)
+    where
+        F: FnMut(&H),
+    {
+        let id: usize = identifier.into();
+        let rg = self
+            .handles
+            .read()
+            .expect("handles read lock was poisoned!");
+        if let Some(h) = rg.get(id) {
+            f(h);
+        }
+    }
+}
+
+impl<K, H> Registry<K, H>
+where
+    K: Eq + Hash + Clone,
+    H: Clone,
+{
+    /// Gets a map of all present handles, mapped by key.
+    ///
+    /// Handles must implement `Clone`.  This map is a point-in-time snapshot of the registry.
+    pub fn get_handles(&self) -> HashMap<K, H> {
+        let guard = self.mappings.load();
+        let mappings = ImmutableHashMap::clone(&guard);
+        let rg = self
+            .handles
+            .read()
+            .expect("handles read lock was poisoned!");
+        mappings
+            .into_iter()
+            .map(|(key, id)| {
+                let id: usize = id.into();
+                let handle = rg.get(id).expect("handle not present!").clone();
+                (key, handle)
+            })
+            .collect::<HashMap<_, _>>()
     }
 }

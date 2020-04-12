@@ -5,7 +5,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-const BLOCK_SIZE: usize = 128;
+const BLOCK_SIZE: usize = 512;
 
 /// Discrete chunk of values with atomic read/write access.
 struct Block<T> {

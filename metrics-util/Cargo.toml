@@ -28,16 +28,16 @@ name = "streaming_integers"
 harness = false
 
 [dependencies]
-metrics = { path = "../metrics", version = "^0.12" }
+metrics = { path = "../metrics", version = "^0.12", features = ["std"] }
 crossbeam-epoch = "^0.8"
+crossbeam-utils = "^0.7"
 serde = "^1.0"
 arc-swap = "^0.4"
 im = "^14"
-sharded-slab = "0.0.9"
 parking_lot = "^0.10"
 
 [dev-dependencies]
-crossbeam-utils = "^0.7"
-criterion = "^0.2.9"
+criterion = "^0.3"
 lazy_static = "^1.3"
-rand = "^0.6"
+rand = { version = "^0.7", features = ["small_rng"] }
+rand_distr = "^0.2"

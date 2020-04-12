@@ -3,6 +3,9 @@
 mod bucket;
 pub use bucket::AtomicBucket;
 
+mod debugging;
+pub use debugging::{DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
+
 mod handle;
 pub use handle::Handle;
 

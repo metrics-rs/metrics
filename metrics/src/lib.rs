@@ -85,9 +85,9 @@
 //!         id
 //!     }
 //!
-//!     fn get_key(&self, id: &Identifier) -> Key {
+//!     fn get_key(&self, id: Identifier) -> Key {
 //!         let keys = self.keys.lock().expect("failed to lock keys");
-//!         keys.get(id).expect("invalid identifier").clone()
+//!         keys.get(&id).expect("invalid identifier").clone()
 //!     }
 //! }
 //!
@@ -104,17 +104,17 @@
 //!         self.register(key)
 //!     }
 //!
-//!     fn increment_counter(&self, id: &Identifier, value: u64) {
+//!     fn increment_counter(&self, id: Identifier, value: u64) {
 //!         let key = self.get_key(id);
 //!         info!("counter '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn update_gauge(&self, id: &Identifier, value: f64) {
+//!     fn update_gauge(&self, id: Identifier, value: f64) {
 //!         let key = self.get_key(id);
 //!         info!("gauge '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn record_histogram(&self, id: &Identifier, value: f64) {
+//!     fn record_histogram(&self, id: Identifier, value: f64) {
 //!         let key = self.get_key(id);
 //!         info!("histogram '{}' -> {}", key, value);
 //!     }
@@ -132,9 +132,9 @@
 //! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
 //! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
 //! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
-//! #     fn increment_counter(&self, _id: &Identifier, _value: u64) {}
-//! #     fn update_gauge(&self, _id: &Identifier, _value: f64) {}
-//! #     fn record_histogram(&self, _id: &Identifier, _value: f64) {}
+//! #     fn increment_counter(&self, _id: Identifier, _value: u64) {}
+//! #     fn update_gauge(&self, _id: Identifier, _value: f64) {}
+//! #     fn record_histogram(&self, _id: Identifier, _value: f64) {}
 //! # }
 //! use metrics::SetRecorderError;
 //!
@@ -160,9 +160,9 @@
 //! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
 //! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
 //! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
-//! #     fn increment_counter(&self, _id: &Identifier, _value: u64) {}
-//! #     fn update_gauge(&self, _id: &Identifier, _value: f64) {}
-//! #     fn record_histogram(&self, _id: &Identifier, _value: f64) {}
+//! #     fn increment_counter(&self, _id: Identifier, _value: u64) {}
+//! #     fn update_gauge(&self, _id: Identifier, _value: f64) {}
+//! #     fn record_histogram(&self, _id: Identifier, _value: f64) {}
 //! # }
 //! use metrics::SetRecorderError;
 //!

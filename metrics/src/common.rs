@@ -32,12 +32,6 @@ impl Into<usize> for Identifier {
     }
 }
 
-impl Into<usize> for &Identifier {
-    fn into(self) -> usize {
-        self.0
-    }
-}
-
 /// Atomically-guarded identifier initialization.
 ///
 /// Stores an identifier in an atomically-backed fashion, allowing for multiple callers to
@@ -64,7 +58,7 @@ impl OnceIdentifier {
     ///
     /// All callers rondezvous on an internal atomic guard, so it impossible to see
     /// invalid state.
-    pub fn get_or_init<F>(&self, f: F) -> &Identifier
+    pub fn get_or_init<F>(&self, f: F) -> Identifier
     where
         F: Fn() -> Identifier,
     {
@@ -75,7 +69,7 @@ impl OnceIdentifier {
             }
         });
 
-        unsafe { &*self.inner.get() }
+        unsafe { *self.inner.get() }
     }
 }
 

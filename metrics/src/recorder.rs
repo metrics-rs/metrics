@@ -36,13 +36,13 @@ pub trait Recorder {
     fn register_histogram(&self, key: Key, description: Option<&'static str>) -> Identifier;
 
     /// Increments a counter.
-    fn increment_counter(&self, id: &Identifier, value: u64);
+    fn increment_counter(&self, id: Identifier, value: u64);
 
     /// Updates a gauge.
-    fn update_gauge(&self, id: &Identifier, value: f64);
+    fn update_gauge(&self, id: Identifier, value: f64);
 
     /// Records a histogram.
-    fn record_histogram(&self, id: &Identifier, value: f64);
+    fn record_histogram(&self, id: Identifier, value: f64);
 }
 
 struct NoopRecorder;
@@ -57,9 +57,9 @@ impl Recorder for NoopRecorder {
     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier {
         Identifier::default()
     }
-    fn increment_counter(&self, _id: &Identifier, _value: u64) {}
-    fn update_gauge(&self, _id: &Identifier, _value: f64) {}
-    fn record_histogram(&self, _id: &Identifier, _value: f64) {}
+    fn increment_counter(&self, _id: Identifier, _value: u64) {}
+    fn update_gauge(&self, _id: Identifier, _value: f64) {}
+    fn record_histogram(&self, _id: Identifier, _value: f64) {}
 }
 
 /// Sets the global recorder to a `&'static Recorder`.

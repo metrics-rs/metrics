@@ -9,7 +9,7 @@ fn registry_benchmark(c: &mut Criterion) {
     c.bench(
         "registry",
         Benchmark::new("cached get/create (basic)", |b| {
-            let registry = Registry::new();
+            let registry: Registry<Key, ()> = Registry::new();
 
             b.iter(|| {
                 let key = "simple_key".into();
@@ -17,7 +17,7 @@ fn registry_benchmark(c: &mut Criterion) {
             })
         })
         .with_function("cached get/create (labels)", |b| {
-            let registry = Registry::new();
+            let registry: Registry<Key, ()> = Registry::new();
 
             b.iter(|| {
                 let labels = vec![Label::new("type", "http")];
@@ -27,7 +27,7 @@ fn registry_benchmark(c: &mut Criterion) {
         })
         .with_function("uncached get/create (basic)", |b| {
             b.iter_batched_ref(
-                || Registry::new(),
+                || Registry::<Key, ()>::new(),
                 |registry| {
                     let key = "simple_key".into();
                     let _ = registry.get_or_create_identifier(key, ());
@@ -37,7 +37,7 @@ fn registry_benchmark(c: &mut Criterion) {
         })
         .with_function("uncached get/create (labels)", |b| {
             b.iter_batched_ref(
-                || Registry::new(),
+                || Registry::<Key, ()>::new(),
                 |registry| {
                     let labels = vec![Label::new("type", "http")];
                     let key = ("simple_key", labels).into();
@@ -46,18 +46,16 @@ fn registry_benchmark(c: &mut Criterion) {
                 BatchSize::SmallInput,
             )
         })
-        .with_function("get handle", |b| {
-            let registry = Registry::new();
+        .with_function("with handle", |b| {
+            let registry = Registry::<Key, ()>::new();
             let id = registry.get_or_create_identifier("foo".into(), ());
 
-            b.iter(|| {
-                let _handle = registry.get_handle(&id);
-            })
+            b.iter(|| registry.with_handle(id, |_| {}))
         })
         .with_function("registry overhead", |b| {
             b.iter_batched(
                 || (),
-                |_| Registry::<()>::new(),
+                |_| Registry::<(), ()>::new(),
                 BatchSize::NumIterations(1),
             )
         })

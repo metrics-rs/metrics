@@ -234,7 +234,7 @@ where
                     let mlabels = vec![#(#insertable_labels),*];
                     let id = recorder.#register_ident((#key, mlabels).into(), None);
 
-                    recorder.#op_ident(&id, #op_values);
+                    recorder.#op_ident(id, #op_values);
                 }
             }
         }
@@ -257,7 +257,7 @@ fn make_key_safe(key: &LitStr) -> String {
     String::from_iter(safe_chars)
 }
 
-fn can_use_fast_path(labels: &Vec<(LitStr, Expr)>) -> bool {
+fn can_use_fast_path(labels: &[(LitStr, Expr)]) -> bool {
     let mut use_fast_path = true;
     for (_, lvalue) in labels {
         match lvalue {
