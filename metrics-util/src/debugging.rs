@@ -90,35 +90,35 @@ impl DebuggingRecorder {
 
 impl Recorder for DebuggingRecorder {
     fn register_counter(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-        let handle = Handle::counter();
         let rkey = DifferentiatedKey(MetricKind::Counter, key);
-        self.registry.get_or_create_identifier(rkey, handle)
+        self.registry
+            .get_or_create_identifier(rkey, |_| Handle::counter())
     }
 
     fn register_gauge(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-        let handle = Handle::gauge();
         let rkey = DifferentiatedKey(MetricKind::Gauge, key);
-        self.registry.get_or_create_identifier(rkey, handle)
+        self.registry
+            .get_or_create_identifier(rkey, |_| Handle::gauge())
     }
 
     fn register_histogram(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-        let handle = Handle::histogram();
         let rkey = DifferentiatedKey(MetricKind::Histogram, key);
-        self.registry.get_or_create_identifier(rkey, handle)
+        self.registry
+            .get_or_create_identifier(rkey, |_| Handle::histogram())
     }
 
     fn increment_counter(&self, id: Identifier, value: u64) {
         self.registry
-            .with_handle(id, |handle| handle.increment_counter(value))
+            .with_handle(id, |handle| handle.increment_counter(value));
     }
 
     fn update_gauge(&self, id: Identifier, value: f64) {
         self.registry
-            .with_handle(id, |handle| handle.update_gauge(value))
+            .with_handle(id, |handle| handle.update_gauge(value));
     }
 
     fn record_histogram(&self, id: Identifier, value: f64) {
         self.registry
-            .with_handle(id, |handle| handle.record_histogram(value))
+            .with_handle(id, |handle| handle.record_histogram(value));
     }
 }

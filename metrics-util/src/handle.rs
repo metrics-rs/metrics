@@ -58,7 +58,7 @@ impl Handle {
     ///
     /// Panics if this handle is not a gauge.
     pub fn update_gauge(&self, value: f64) {
-        let unsigned = unsafe { std::mem::transmute(value) };
+        let unsigned = value.to_bits();
         match self {
             Handle::Gauge(gauge) => gauge.store(unsigned, Ordering::SeqCst),
             _ => panic!("tried to update as gauge"),
@@ -92,7 +92,7 @@ impl Handle {
         match self {
             Handle::Gauge(gauge) => {
                 let unsigned = gauge.load(Ordering::Relaxed);
-                unsafe { std::mem::transmute(unsigned) }
+                f64::from_bits(unsigned)
             }
             _ => panic!("tried to read as gauge"),
         }

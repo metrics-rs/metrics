@@ -1,0 +1,25 @@
+[package]
+name = "metrics-tcp"
+version = "0.1.0"
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+edition = "2018"
+
+license = "MIT"
+description = "Emits metrics data to clients over TCP."
+
+[dependencies]
+metrics = { version = "^0.12", path = "../metrics", features = ["std"] }
+metrics-util = { version = "^0.3", path = "../metrics-util" }
+bytes = "^0.5"
+crossbeam-channel = "^0.4"
+prost = "^0.6"
+prost-types = "^0.6"
+mio = { version = "^0.7", features = ["os-poll", "tcp"] }
+tracing = "^0.1"
+
+[build-dependencies]
+prost-build = "^0.5"
+built = "^0.3"
+
+[dev-dependencies]
+quanta = "^0.5"

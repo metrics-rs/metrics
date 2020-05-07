@@ -18,6 +18,11 @@ impl Identifier {
     pub const fn zeroed() -> Identifier {
         Identifier(0)
     }
+
+    /// Gets the internal value of this `Identifier`.
+    pub fn to_usize(&self) -> usize {
+        self.0
+    }
 }
 
 impl From<usize> for Identifier {

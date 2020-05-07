@@ -47,7 +47,10 @@ where
     ///
     /// If the key is not already mapped, a new identifier will be generated, and the given handle
     /// stored along side of it.  If the key is already mapped, its identifier will be returned.
-    pub fn get_or_create_identifier(&self, key: K, handle: H) -> Identifier {
+    pub fn get_or_create_identifier<F>(&self, key: K, f: F) -> Identifier
+    where
+        F: FnOnce(&K) -> H,
+    {
         // Check our mapping table first.
         if let Some(id) = self.mappings.load().get(&key) {
             return id.clone();
@@ -68,6 +71,7 @@ where
             .write()
             .expect("handles write lock was poisoned!");
         let id = wg.len().into();
+        let handle = f(&key);
         wg.push(handle);
         drop(wg);
 
@@ -81,18 +85,16 @@ where
     }
 
     /// Gets the handle for a given identifier.
-    pub fn with_handle<F>(&self, identifier: Identifier, mut f: F)
+    pub fn with_handle<F, V>(&self, identifier: Identifier, f: F) -> Option<V>
     where
-        F: FnMut(&H),
+        F: FnOnce(&H) -> V,
     {
         let id: usize = identifier.into();
         let rg = self
             .handles
             .read()
             .expect("handles read lock was poisoned!");
-        if let Some(h) = rg.get(id) {
-            f(h);
-        }
+        rg.get(id).map(f)
     }
 }
 

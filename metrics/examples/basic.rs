@@ -78,4 +78,7 @@ fn main() {
     histogram!("service.execution_time", 70.0);
     histogram!("service.execution_time", 70.0, "type" => "users");
     histogram!("service.execution_time", 70.0, "type" => "users", "server" => server_name.clone());
+    histogram!(<"service.execution_time">, 70.0);
+    histogram!(<"service.execution_time">, 70.0, "type" => "users");
+    histogram!(<"service.execution_time">, 70.0, "type" => "users", "server" => server_name.clone());
 }

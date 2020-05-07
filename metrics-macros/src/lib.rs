@@ -2,33 +2,36 @@ extern crate proc_macro;
 
 use self::proc_macro::TokenStream;
 
-use std::iter::FromIterator;
-
 use proc_macro_hack::proc_macro_hack;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Parse, ParseStream, Result};
 use syn::{parse_macro_input, Expr, LitStr, Token};
 
+enum Key {
+    NotScoped(LitStr),
+    Scoped(LitStr),
+}
+
 struct WithoutExpression {
-    key: LitStr,
+    key: Key,
     labels: Vec<(LitStr, Expr)>,
 }
 
 struct WithExpression {
-    key: LitStr,
+    key: Key,
     op_value: Expr,
     labels: Vec<(LitStr, Expr)>,
 }
 
 struct Registration {
-    key: LitStr,
+    key: Key,
     desc: LitStr,
     labels: Vec<(LitStr, Expr)>,
 }
 
 impl Parse for WithoutExpression {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let key: LitStr = input.parse()?;
+    fn parse(mut input: ParseStream) -> Result<Self> {
+        let key = read_key(&mut input)?;
 
         let mut labels = Vec::new();
         loop {
@@ -47,8 +50,9 @@ impl Parse for WithoutExpression {
 }
 
 impl Parse for WithExpression {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let key: LitStr = input.parse()?;
+    fn parse(mut input: ParseStream) -> Result<Self> {
+        let key = read_key(&mut input)?;
+
         input.parse::<Token![,]>()?;
         let op_value: Expr = input.parse()?;
 
@@ -73,8 +77,9 @@ impl Parse for WithExpression {
 }
 
 impl Parse for Registration {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let key: LitStr = input.parse()?;
+    fn parse(mut input: ParseStream) -> Result<Self> {
+        let key = read_key(&mut input)?;
+
         input.parse::<Token![,]>()?;
         let desc: LitStr = input.parse()?;
 
@@ -159,11 +164,21 @@ pub fn histogram(input: TokenStream) -> TokenStream {
 
 fn get_expanded_registration(
     metric_type: &str,
-    key: LitStr,
+    key: Key,
     desc: LitStr,
     labels: Vec<(LitStr, Expr)>,
 ) -> TokenStream {
-    let register_ident = format_ident!("register_{}", metric_type, span = key.span());
+    let register_ident = format_ident!("register_{}", metric_type);
+    let key = match key {
+        Key::NotScoped(s) => {
+            quote! { #s }
+        }
+        Key::Scoped(s) => {
+            quote! {
+                format!("{}.{}", std::module_path!().replace("::", "."), #s)
+            }
+        }
+    };
     let insertable_labels = labels
         .into_iter()
         .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
@@ -186,37 +201,49 @@ fn get_expanded_registration(
 fn get_expanded_callsite<V>(
     metric_type: &str,
     op_type: &str,
-    key: LitStr,
+    key: Key,
     labels: Vec<(LitStr, Expr)>,
     op_values: V,
 ) -> TokenStream
 where
     V: ToTokens,
 {
-    let safe_key = make_key_safe(&key);
-    let register_ident = format_ident!("register_{}", metric_type, span = key.span());
-    let op_ident = format_ident!("{}_{}", op_type, metric_type, span = key.span());
+    let register_ident = format_ident!("register_{}", metric_type);
+    let op_ident = format_ident!("{}_{}", op_type, metric_type);
+    let key = match key {
+        Key::NotScoped(s) => {
+            quote! { #s }
+        }
+        Key::Scoped(s) => {
+            quote! {
+                format!("{}.{}", std::module_path!().replace("::", "."), #s)
+            }
+        }
+    };
 
     let use_fast_path = can_use_fast_path(&labels);
-    let insertable_labels = labels
-        .into_iter()
-        .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
+    let composite_key = if labels.is_empty() {
+        quote! { #key.into() }
+    } else {
+        let insertable_labels = labels
+            .into_iter()
+            .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
+        quote! { (#key, vec![#(#insertable_labels),*]).into() }
+    };
 
     let expanded = if use_fast_path {
         // We're on the fast path here, so we'll end up registering with the recorder
         // and statically caching the identifier for our metric to speed up any future
         // increment operations.
-        let init = format_ident!("METRICS_{}_INIT", safe_key, span = key.span());
         quote! {
             {
-                static #init: metrics::OnceIdentifier = metrics::OnceIdentifier::new();
+                static METRICS_INIT: metrics::OnceIdentifier = metrics::OnceIdentifier::new();
 
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
                     // Initialize our fast path cached identifier.
-                    let id = #init.get_or_init(|| {
-                        let mlabels = vec![#(#insertable_labels),*];
-                        recorder.#register_ident((#key, mlabels).into(), None)
+                    let id = METRICS_INIT.get_or_init(|| {
+                        recorder.#register_ident(#composite_key, None)
                     });
 
                     recorder.#op_ident(id, #op_values);
@@ -231,8 +258,7 @@ where
             {
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
-                    let mlabels = vec![#(#insertable_labels),*];
-                    let id = recorder.#register_ident((#key, mlabels).into(), None);
+                    let id = recorder.#register_ident(#composite_key, None);
 
                     recorder.#op_ident(id, #op_values);
                 }
@@ -245,16 +271,15 @@ where
     TokenStream::from(expanded)
 }
 
-fn make_key_safe(key: &LitStr) -> String {
-    let key_str = key.value();
-    let safe_chars = key_str.chars().map(|c| {
-        if c.is_ascii_alphanumeric() {
-            c.to_ascii_uppercase()
-        } else {
-            '_'
-        }
-    });
-    String::from_iter(safe_chars)
+fn read_key(input: &mut ParseStream) -> Result<Key> {
+    if let Ok(_) = input.parse::<Token![<]>() {
+        let s = input.parse::<LitStr>()?;
+        input.parse::<Token![>]>()?;
+        Ok(Key::Scoped(s))
+    } else {
+        let s = input.parse::<LitStr>()?;
+        Ok(Key::NotScoped(s))
+    }
 }
 
 fn can_use_fast_path(labels: &[(LitStr, Expr)]) -> bool {
