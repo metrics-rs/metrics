@@ -13,7 +13,7 @@ fn registry_benchmark(c: &mut Criterion) {
 
             b.iter(|| {
                 let key = "simple_key".into();
-                let _ = registry.get_or_create_identifier(key, ());
+                let _ = registry.get_or_create_identifier(key, |_| ());
             })
         })
         .with_function("cached get/create (labels)", |b| {
@@ -22,7 +22,7 @@ fn registry_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let labels = vec![Label::new("type", "http")];
                 let key = ("simple_key", labels).into();
-                let _ = registry.get_or_create_identifier(key, ());
+                let _ = registry.get_or_create_identifier(key, |_| ());
             })
         })
         .with_function("uncached get/create (basic)", |b| {
@@ -30,7 +30,7 @@ fn registry_benchmark(c: &mut Criterion) {
                 || Registry::<Key, ()>::new(),
                 |registry| {
                     let key = "simple_key".into();
-                    let _ = registry.get_or_create_identifier(key, ());
+                    let _ = registry.get_or_create_identifier(key, |_| ());
                 },
                 BatchSize::SmallInput,
             )
@@ -41,14 +41,14 @@ fn registry_benchmark(c: &mut Criterion) {
                 |registry| {
                     let labels = vec![Label::new("type", "http")];
                     let key = ("simple_key", labels).into();
-                    let _ = registry.get_or_create_identifier(key, ());
+                    let _ = registry.get_or_create_identifier(key, |_| ());
                 },
                 BatchSize::SmallInput,
             )
         })
         .with_function("with handle", |b| {
             let registry = Registry::<Key, ()>::new();
-            let id = registry.get_or_create_identifier("foo".into(), ());
+            let id = registry.get_or_create_identifier("foo".into(), |_| ());
 
             b.iter(|| registry.with_handle(id, |_| {}))
         })
