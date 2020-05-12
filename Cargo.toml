@@ -4,5 +4,5 @@ members = [
   "metrics-macros",
   "metrics-util",
   "metrics-benchmark",
-  "metrics-tcp",
+  "metrics-exporter-tcp",
 ]
