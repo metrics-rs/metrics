@@ -38,13 +38,15 @@ impl PrometheusBuilder {
 
     /// Sets the buckets to use when rendering summaries.
     ///
-    /// Buckets values represent the higher bound of each buckets
+    /// Buckets values represent the higher bound of each buckets.
     pub fn set_buckets(mut self, values: &[u64]) -> Self {
         self.buckets = values.to_vec();
         self
     }
 
     /// Sets the buckets for a specific metric, overidding the default.
+    ///
+    /// Matches the metric name using `ends_with`.
     pub fn set_buckets_for_metric(mut self, name: &str, values: &[u64]) -> Self {
         let buckets = self.buckets_by_name.get_or_insert_with(|| HashMap::new());
         buckets.insert(name.to_owned(), values.to_vec());
