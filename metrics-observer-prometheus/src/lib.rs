@@ -162,18 +162,22 @@ impl Drain<String> for PrometheusObserver {
             }
         }
 
-        let use_quantiles = self.buckets.is_empty();
-        let histo_type = if use_quantiles {
-            "summary"
-        } else {
-            "histogram"
-        };
-
         for (name, mut by_labels) in self.histos.drain() {
+            let buckets = self
+                .buckets_by_name
+                .as_ref()
+                .and_then(|h| h.get(&name))
+                .unwrap_or(&self.buckets);
+            let use_quantiles = buckets.is_empty();
+
             output.push_str("\n# TYPE ");
             output.push_str(name.as_str());
             output.push_str(" ");
-            output.push_str(histo_type);
+            output.push_str(if use_quantiles {
+                "summary"
+            } else {
+                "histogram"
+            });
             output.push_str("\n");
 
             for (labels, sh) in by_labels.drain() {
@@ -191,11 +195,6 @@ impl Drain<String> for PrometheusObserver {
                         output.push_str("\n");
                     }
                 } else {
-                    let buckets = self
-                        .buckets_by_name
-                        .as_ref()
-                        .and_then(|h| h.get(&name))
-                        .unwrap_or(&self.buckets);
                     for bucket in buckets {
                         let value = hist.count_between(0, *bucket);
                         let mut labels = labels.clone();
