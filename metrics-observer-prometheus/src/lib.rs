@@ -3,6 +3,7 @@
 use hdrhistogram::Histogram;
 use metrics_core::{Builder, Drain, Key, Label, Observer};
 use metrics_util::{parse_quantiles, Quantile};
+use std::iter::FromIterator;
 use std::{collections::HashMap, time::SystemTime};
 
 /// Builder for [`PrometheusObserver`].
@@ -161,12 +162,23 @@ impl Drain<String> for PrometheusObserver {
                 output.push_str("\n");
             }
         }
+        let mut sorted_overrides = self
+            .buckets_by_name
+            .as_ref()
+            .map(|h| Vec::from_iter(h.iter()))
+            .unwrap_or_else(|| vec![]);
+        sorted_overrides.sort_by(|(a, _), (b, _)| b.len().cmp(&a.len()));
 
         for (name, mut by_labels) in self.histos.drain() {
-            let buckets = self
-                .buckets_by_name
-                .as_ref()
-                .and_then(|h| h.get(&name))
+            let buckets = sorted_overrides
+                .iter()
+                .find_map(|(k, buckets)| {
+                    if name.ends_with(*k) {
+                        Some(*buckets)
+                    } else {
+                        None
+                    }
+                })
                 .unwrap_or(&self.buckets);
             let use_quantiles = buckets.is_empty();
 
