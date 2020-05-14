@@ -221,7 +221,7 @@ impl Drain<String> for PrometheusObserver {
                         output.push_str("\n");
                     }
                     let mut labels = labels.clone();
-                    labels.push("le=\"Inf+\"".to_owned());
+                    labels.push("le=\"+Inf\"".to_owned());
                     let bucket_name = format!("{}_bucket", name);
                     let full_name = render_labeled_name(&bucket_name, &labels);
                     output.push_str(full_name.as_str());
