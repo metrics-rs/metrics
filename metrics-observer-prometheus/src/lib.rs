@@ -3,11 +3,14 @@
 use hdrhistogram::Histogram;
 use metrics_core::{Builder, Drain, Key, Label, Observer};
 use metrics_util::{parse_quantiles, Quantile};
+use std::iter::FromIterator;
 use std::{collections::HashMap, time::SystemTime};
 
 /// Builder for [`PrometheusObserver`].
 pub struct PrometheusBuilder {
     quantiles: Vec<Quantile>,
+    buckets: Vec<u64>,
+    buckets_by_name: Option<HashMap<String, Vec<u64>>>,
 }
 
 impl PrometheusBuilder {
@@ -15,7 +18,11 @@ impl PrometheusBuilder {
     pub fn new() -> Self {
         let quantiles = parse_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0]);
 
-        Self { quantiles }
+        Self {
+            quantiles,
+            buckets: vec![],
+            buckets_by_name: None,
+        }
     }
 
     /// Sets the quantiles to use when rendering histograms.
@@ -28,6 +35,28 @@ impl PrometheusBuilder {
         self.quantiles = parse_quantiles(quantiles);
         self
     }
+
+    /// Sets the buckets to use when rendering summaries.
+    ///
+    /// Buckets values represent the higher bound of each buckets.
+    ///
+    /// This option changes the observer's output of histogram-type metric into summaries.
+    pub fn set_buckets(mut self, values: &[u64]) -> Self {
+        self.buckets = values.to_vec();
+        self
+    }
+
+    /// Sets the buckets for a specific metric, overidding the default.
+    ///
+    /// Matches the metric name's suffix, the longest match will be used.
+    ///
+    /// This option changes the observer's output of histogram-type metric into summaries.
+    /// It only affects matching metrics if set_buckets was not used.
+    pub fn set_buckets_for_metric(mut self, name: &str, values: &[u64]) -> Self {
+        let buckets = self.buckets_by_name.get_or_insert_with(|| HashMap::new());
+        buckets.insert(name.to_owned(), values.to_vec());
+        self
+    }
 }
 
 impl Builder for PrometheusBuilder {
@@ -36,10 +65,12 @@ impl Builder for PrometheusBuilder {
     fn build(&self) -> Self::Output {
         PrometheusObserver {
             quantiles: self.quantiles.clone(),
+            buckets: self.buckets.clone(),
             histos: HashMap::new(),
             output: get_prom_expo_header(),
             counters: HashMap::new(),
             gauges: HashMap::new(),
+            buckets_by_name: self.buckets_by_name.clone(),
         }
     }
 }
@@ -53,10 +84,12 @@ impl Default for PrometheusBuilder {
 /// Records metrics in the Prometheus exposition format.
 pub struct PrometheusObserver {
     pub(crate) quantiles: Vec<Quantile>,
+    pub(crate) buckets: Vec<u64>,
     pub(crate) histos: HashMap<String, HashMap<Vec<String>, (u64, Histogram<u64>)>>,
     pub(crate) output: String,
     pub(crate) counters: HashMap<String, HashMap<Vec<String>, u64>>,
     pub(crate) gauges: HashMap<String, HashMap<Vec<String>, i64>>,
+    pub(crate) buckets_by_name: Option<HashMap<String, Vec<u64>>>,
 }
 
 impl Observer for PrometheusObserver {
@@ -136,23 +169,69 @@ impl Drain<String> for PrometheusObserver {
                 output.push_str("\n");
             }
         }
+        let mut sorted_overrides = self
+            .buckets_by_name
+            .as_ref()
+            .map(|h| Vec::from_iter(h.iter()))
+            .unwrap_or_else(|| vec![]);
+        sorted_overrides.sort_by(|(a, _), (b, _)| b.len().cmp(&a.len()));
 
         for (name, mut by_labels) in self.histos.drain() {
+            let buckets = sorted_overrides
+                .iter()
+                .find_map(|(k, buckets)| {
+                    if name.ends_with(*k) {
+                        Some(*buckets)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(&self.buckets);
+            let use_quantiles = buckets.is_empty();
+
             output.push_str("\n# TYPE ");
             output.push_str(name.as_str());
-            output.push_str(" summary\n");
+            output.push_str(" ");
+            output.push_str(if use_quantiles {
+                "summary"
+            } else {
+                "histogram"
+            });
+            output.push_str("\n");
 
             for (labels, sh) in by_labels.drain() {
                 let (sum, hist) = sh;
 
-                for quantile in &self.quantiles {
-                    let value = hist.value_at_quantile(quantile.value());
+                if use_quantiles {
+                    for quantile in &self.quantiles {
+                        let value = hist.value_at_quantile(quantile.value());
+                        let mut labels = labels.clone();
+                        labels.push(format!("quantile=\"{}\"", quantile.value()));
+                        let full_name = render_labeled_name(&name, &labels);
+                        output.push_str(full_name.as_str());
+                        output.push_str(" ");
+                        output.push_str(value.to_string().as_str());
+                        output.push_str("\n");
+                    }
+                } else {
+                    for bucket in buckets {
+                        let value = hist.count_between(0, *bucket);
+                        let mut labels = labels.clone();
+                        labels.push(format!("le=\"{}\"", bucket));
+                        let bucket_name = format!("{}_bucket", name);
+                        let full_name = render_labeled_name(&bucket_name, &labels);
+                        output.push_str(full_name.as_str());
+                        output.push_str(" ");
+                        output.push_str(value.to_string().as_str());
+                        output.push_str("\n");
+                    }
                     let mut labels = labels.clone();
-                    labels.push(format!("quantile=\"{}\"", quantile.value()));
-                    let full_name = render_labeled_name(&name, &labels);
+                    labels.push("le=\"+Inf\"".to_owned());
+                    let bucket_name = format!("{}_bucket", name);
+                    let full_name = render_labeled_name(&bucket_name, &labels);
                     output.push_str(full_name.as_str());
                     output.push_str(" ");
-                    output.push_str(value.to_string().as_str());
+                    output.push_str(hist.len().to_string().as_str());
                     output.push_str("\n");
                 }
                 let sum_name = format!("{}_sum", name);
