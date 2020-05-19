@@ -1,6 +1,6 @@
 [package]
 name = "metrics-observer-prometheus"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
