@@ -39,6 +39,8 @@ impl PrometheusBuilder {
     /// Sets the buckets to use when rendering summaries.
     ///
     /// Buckets values represent the higher bound of each buckets.
+    ///
+    /// This option changes the observer's output of histogram-type metric into summaries.
     pub fn set_buckets(mut self, values: &[u64]) -> Self {
         self.buckets = values.to_vec();
         self
@@ -46,7 +48,10 @@ impl PrometheusBuilder {
 
     /// Sets the buckets for a specific metric, overidding the default.
     ///
-    /// Matches the metric name using `ends_with`.
+    /// Matches the metric name's suffix, the longest match will be used.
+    ///
+    /// This option changes the observer's output of histogram-type metric into summaries.
+    /// It only affects matching metrics if set_buckets was not used.
     pub fn set_buckets_for_metric(mut self, name: &str, values: &[u64]) -> Self {
         let buckets = self.buckets_by_name.get_or_insert_with(|| HashMap::new());
         buckets.insert(name.to_owned(), values.to_vec());
