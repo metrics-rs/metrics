@@ -1,12 +1,14 @@
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use metrics::{histogram, increment};
-use metrics_tcp::TcpBuilder;
+use metrics_exporter_tcp::TcpBuilder;
 
 use quanta::Clock;
 
 fn main() {
+    tracing_subscriber::fmt::init();
+
     let builder = TcpBuilder::new();
     builder.install().expect("failed to install TCP recorder");
 

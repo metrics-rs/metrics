@@ -17,9 +17,13 @@ fn main() {
 
     loop {
         match stream.read(&mut rbuf[..]) {
+            Ok(0) => {
+                println!("server disconnected, closing");
+                break
+            }
             Ok(n) => buf.put_slice(&rbuf[..n]),
             Err(e) => eprintln!("read error: {:?}", e),
-        }
+        };
 
         match proto::Metric::decode_length_delimited(&mut buf) {
             Err(e) => eprintln!("decode error: {:?}", e),
