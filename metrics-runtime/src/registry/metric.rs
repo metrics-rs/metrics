@@ -2,11 +2,10 @@ use crate::common::{Identifier, Kind, Measurement, ValueHandle, ValueSnapshot};
 use crate::config::Configuration;
 use crate::data::Snapshot;
 use crate::registry::ScopeRegistry;
-use arc_swap::{ptr_eq, ArcSwap};
+use arc_swap::ArcSwap;
 use im::hashmap::HashMap;
 use metrics_core::Observer;
 use quanta::Clock;
-use std::ops::Deref;
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -29,7 +28,8 @@ impl MetricRegistry {
 
     pub fn get_or_register(&self, id: Identifier) -> ValueHandle {
         loop {
-            match self.metrics.lease().deref().get(&id) {
+            let old_metrics = self.metrics.load();
+            match old_metrics.get(&id) {
                 Some(handle) => return handle.clone(),
                 None => {
                     let value_handle = match id.kind() {
@@ -43,23 +43,22 @@ impl MetricRegistry {
                         Kind::Proxy => ValueHandle::proxy(),
                     };
 
-                    let metrics_ptr = self.metrics.lease();
-                    let mut metrics = metrics_ptr.deref().clone();
-                    match metrics.insert(id.clone(), value_handle.clone()) {
-                        // Somebody else beat us to it, loop.
-                        Some(_) => continue,
+                    let mut new_metrics = (**self.metrics.load()).clone();
+                    match new_metrics.insert(id.clone(), value_handle.clone()) {
+                        Some(other_value_handle) => {
+                            // Somebody else beat us to it.
+                            return other_value_handle;
+                        }
                         None => {
-                            // If we weren't able to cleanly update the map, then try again.
-                            let old = self
+                            let prev_metrics = self
                                 .metrics
-                                .compare_and_swap(&metrics_ptr, Arc::new(metrics));
-                            if !ptr_eq(old, metrics_ptr) {
-                                continue;
+                                .compare_and_swap(&old_metrics, Arc::new(new_metrics));
+                            if Arc::ptr_eq(&old_metrics, &prev_metrics) {
+                                return value_handle;
                             }
+                            // If we weren't able to cleanly update the map, then try again.
                         }
                     }
-
-                    return value_handle;
                 }
             }
         }
@@ -68,7 +67,7 @@ impl MetricRegistry {
     pub fn snapshot(&self) -> Snapshot {
         let mut values = Vec::new();
 
-        let metrics = self.metrics.load().deref().clone();
+        let metrics = (**self.metrics.load()).clone();
         for (id, value) in metrics.into_iter() {
             let (key, scope_handle, _) = id.into_parts();
             let scope = self.scope_registry.get(scope_handle);
@@ -98,7 +97,7 @@ impl MetricRegistry {
     }
 
     pub fn observe<O: Observer>(&self, observer: &mut O) {
-        let metrics = self.metrics.load().deref().clone();
+        let metrics = (**self.metrics.load()).clone();
         for (id, value) in metrics.into_iter() {
             let (key, scope_handle, _) = id.into_parts();
             let scope = self.scope_registry.get(scope_handle);
@@ -236,7 +235,7 @@ mod tests {
                 Measurement::Histogram(StreamingIntegers::new()),
             ),
             (
-                Key::from_name_and_labels("proxy.counter", labels.clone()),
+                Key::from_name_and_labels("proxy.counter", labels),
                 Measurement::Counter(13),
             ),
         ];
