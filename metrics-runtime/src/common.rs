@@ -212,9 +212,9 @@ impl ValueHandle {
                 ValueSnapshot::Single(Measurement::Histogram(stream))
             }
             ValueState::Proxy(maybe) => {
-                let measurements = match maybe.load() {
+                let measurements = match *maybe.load() {
                     None => Vec::new(),
-                    Some(f) => f(),
+                    Some(ref f) => f(),
                 };
 
                 ValueSnapshot::Multiple(measurements)

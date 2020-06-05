@@ -721,7 +721,7 @@ mod tests {
             .join(",");
         assert_eq!(label_str, "type=test");
 
-        sink.add_default_labels(&[(("service", "foo"))]);
+        sink.add_default_labels(&[("service", "foo")]);
 
         let no_labels = sink.construct_key("bar");
         assert_eq!(no_labels.name(), "bar");

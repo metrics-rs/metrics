@@ -12,10 +12,9 @@ use std::time::Duration;
 lazy_static! {
     static ref QUANTA_UPKEEP: UpkeepHandle = {
         let builder = UpkeepBuilder::new(Duration::from_millis(10));
-        let handle = builder
+        builder
             .start()
-            .expect("failed to start quanta upkeep thread");
-        handle
+            .expect("failed to start quanta upkeep thread")
     };
     static ref RANDOM_INTS: Vec<u64> = vec![
         21061184, 21301862, 21331592, 21457012, 21500016, 21537837, 21581557, 21620030, 21664102,
@@ -69,7 +68,7 @@ fn bucket_benchmark(c: &mut Criterion) {
                 }
             })
         })
-        .throughput(Throughput::Elements(RANDOM_INTS.len() as u32)),
+        .throughput(Throughput::Elements(RANDOM_INTS.len() as u64)),
     );
 }
 
