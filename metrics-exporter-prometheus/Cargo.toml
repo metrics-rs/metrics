@@ -1,0 +1,29 @@
+[package]
+name = "metrics-exporter-prometheus"
+version = "0.2.0"
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+edition = "2018"
+
+license = "MIT"
+
+description = "A metrics-compatible exporter that serves a Prometheus scrape endpoint."
+homepage = "https://github.com/metrics-rs/metrics"
+repository = "https://github.com/metrics-rs/metrics"
+documentation = "https://docs.rs/metrics-exporter-prometheus"
+readme = "README.md"
+
+categories = ["development-tools::debugging"]
+keywords = ["metrics", "telemetry", "prometheus"]
+
+[dependencies]
+metrics = { version = "^0.13", path = "../metrics" }
+metrics-util = { version = "^0.4", path = "../metrics-util"}
+hdrhistogram = "^7.1"
+hyper = { version = "^0.13", default-features = false, features = ["tcp"] }
+tokio = { version = "^0.2", features = ["rt-core", "tcp", "time", "macros"] }
+parking_lot = "^0.10"
+
+[dev-dependencies]
+quanta = "^0.5"
+tracing = "^0.1"
+tracing-subscriber = "^0.2"

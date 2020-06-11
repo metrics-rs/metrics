@@ -25,7 +25,7 @@ struct WithExpression {
 
 struct Registration {
     key: Key,
-    desc: LitStr,
+    desc: Option<LitStr>,
     labels: Vec<(LitStr, Expr)>,
 }
 
@@ -80,10 +80,26 @@ impl Parse for Registration {
     fn parse(mut input: ParseStream) -> Result<Self> {
         let key = read_key(&mut input)?;
 
-        input.parse::<Token![,]>()?;
-        let desc: LitStr = input.parse()?;
+        // This may or may not be the start of labels, if the description has been omitted, so
+        // we hold on to it until we can make sure nothing else is behind it, or if it's a full
+        // fledged set of labels.
+        let mut possible_desc = if input.parse::<Token![,]>().is_ok() {
+            input.parse().ok()
+        } else {
+            None
+        };
 
         let mut labels = Vec::new();
+
+        // Try and parse a single label by hand in case the caller omitted the description.
+        if possible_desc.is_some() && input.parse::<Token![=>]>().is_ok() {
+            if let Ok(lvalue) = input.parse::<Expr>() {
+                // We've matched "key => value" at this point, so clearly it wasn't a description,
+                // so let's add this label and then continue on with the loop to parse any more labels.
+                labels.push((possible_desc.take().unwrap(), lvalue));
+            }
+        }
+
         loop {
             if input.is_empty() {
                 break;
@@ -95,7 +111,7 @@ impl Parse for Registration {
 
             labels.push((lkey, lvalue));
         }
-        Ok(Registration { key, desc, labels })
+        Ok(Registration { key, desc: possible_desc, labels })
     }
 }
 
@@ -165,35 +181,28 @@ pub fn histogram(input: TokenStream) -> TokenStream {
 fn get_expanded_registration(
     metric_type: &str,
     key: Key,
-    desc: LitStr,
+    desc: Option<LitStr>,
     labels: Vec<(LitStr, Expr)>,
 ) -> TokenStream {
     let register_ident = format_ident!("register_{}", metric_type);
-    let key = match key {
-        Key::NotScoped(s) => {
-            quote! { #s }
-        }
-        Key::Scoped(s) => {
-            quote! {
-                format!("{}.{}", std::module_path!().replace("::", "."), #s)
-            }
-        }
-    };
+    let key = key_to_quoted(key);
     let insertable_labels = labels
         .into_iter()
         .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
+    let desc = match desc {
+        Some(desc) => quote! { Some(#desc) },
+        None => quote! { None },
+    };
 
     let expanded = quote! {
         {
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
                 let mlabels = vec![#(#insertable_labels),*];
-                recorder.#register_ident((#key, mlabels).into(), Some(#desc));
+                recorder.#register_ident((#key, mlabels).into(), #desc);
             }
         }
     };
-
-    debug_tokens(&expanded);
 
     TokenStream::from(expanded)
 }
@@ -210,16 +219,7 @@ where
 {
     let register_ident = format_ident!("register_{}", metric_type);
     let op_ident = format_ident!("{}_{}", op_type, metric_type);
-    let key = match key {
-        Key::NotScoped(s) => {
-            quote! { #s }
-        }
-        Key::Scoped(s) => {
-            quote! {
-                format!("{}.{}", std::module_path!().replace("::", "."), #s)
-            }
-        }
-    };
+    let key = key_to_quoted(key);
 
     let use_fast_path = can_use_fast_path(&labels);
     let composite_key = if labels.is_empty() {
@@ -229,6 +229,14 @@ where
             .into_iter()
             .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
         quote! { (#key, vec![#(#insertable_labels),*]).into() }
+    };
+
+    let op_values = if metric_type == "histogram" {
+        quote! {
+            metrics::__into_u64(#op_values)
+        }
+    } else {
+        quote! { #op_values }
     };
 
     let expanded = if use_fast_path {
@@ -266,8 +274,6 @@ where
         }
     };
 
-    debug_tokens(&expanded);
-
     TokenStream::from(expanded)
 }
 
@@ -282,6 +288,19 @@ fn read_key(input: &mut ParseStream) -> Result<Key> {
     }
 }
 
+fn key_to_quoted(key: Key) -> proc_macro2::TokenStream {
+    match key {
+        Key::NotScoped(s) => {
+            quote! { #s }
+        },
+        Key::Scoped(s) => {
+            quote! {
+                format!("{}.{}", std::module_path!().replace("::", "."), #s)
+            }
+        },
+    }
+}
+
 fn can_use_fast_path(labels: &[(LitStr, Expr)]) -> bool {
     let mut use_fast_path = true;
     for (_, lvalue) in labels {
@@ -293,22 +312,4 @@ fn can_use_fast_path(labels: &[(LitStr, Expr)]) -> bool {
         }
     }
     use_fast_path
-}
-
-#[rustversion::nightly]
-fn debug_tokens<T: ToTokens>(tokens: &T) {
-    if std::env::var_os("METRICS_DEBUG").is_some() {
-        let ts = tokens.into_token_stream();
-        proc_macro::Span::call_site()
-            .note("emitting metrics macro debug output")
-            .note(ts.to_string())
-            .emit()
-    }
-}
-
-#[rustversion::not(nightly)]
-fn debug_tokens<T: ToTokens>(_tokens: &T) {
-    if std::env::var_os("METRICS_DEBUG").is_some() {
-        eprintln!("nightly required to output proc macro diagnostics!");
-    }
 }

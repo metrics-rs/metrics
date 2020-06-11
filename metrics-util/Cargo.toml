@@ -1,6 +1,6 @@
 [package]
 name = "metrics-util"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -28,7 +28,7 @@ name = "streaming_integers"
 harness = false
 
 [dependencies]
-metrics = { path = "../metrics", version = "^0.12", features = ["std"] }
+metrics = { version = "^0.13", path = "../metrics", features = ["std"] }
 crossbeam-epoch = "^0.8"
 crossbeam-utils = "^0.7"
 serde = "^1.0"

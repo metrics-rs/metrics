@@ -42,7 +42,10 @@ pub trait Recorder {
     fn update_gauge(&self, id: Identifier, value: f64);
 
     /// Records a histogram.
-    fn record_histogram(&self, id: Identifier, value: f64);
+    ///
+    /// The value can be value that implements [`IntoU64`].  By default, `metrics` provides an
+    /// implementation for both `u64` itself as well as [`Duration`](std::time::Duration).
+    fn record_histogram(&self, id: Identifier, value: u64);
 }
 
 struct NoopRecorder;
@@ -59,7 +62,7 @@ impl Recorder for NoopRecorder {
     }
     fn increment_counter(&self, _id: Identifier, _value: u64) {}
     fn update_gauge(&self, _id: Identifier, _value: f64) {}
-    fn record_histogram(&self, _id: Identifier, _value: f64) {}
+    fn record_histogram(&self, _id: Identifier, _value: u64) {}
 }
 
 /// Sets the global recorder to a `&'static Recorder`.

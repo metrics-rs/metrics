@@ -57,7 +57,7 @@ impl Generator {
 
                 increment!("ok");
                 gauge!("total", self.gauge as f64);
-                histogram!("ok", t1.sub(t0).as_secs_f64());
+                histogram!("ok", t1.sub(t0));
 
                 if let Some(val) = start {
                     let delta = Instant::now() - val;

@@ -20,3 +20,9 @@ pub use tree::{Integer, MetricsTree};
 
 mod registry;
 pub use registry::Registry;
+
+mod key;
+pub use key::CompositeKey;
+
+mod histogram;
+pub use histogram::Histogram;

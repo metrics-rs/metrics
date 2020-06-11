@@ -37,7 +37,7 @@ enum MetricKind {
 enum MetricValue {
     Counter(u64),
     Gauge(f64),
-    Histogram(f64),
+    Histogram(u64),
 }
 
 #[derive(Eq, PartialEq, Hash, Clone)]
@@ -49,10 +49,13 @@ impl CompositeKey {
     }
 }
 
-// Errors that could occur while install a TCP recorder/exporter.
+// Errors that could occur while installing a TCP recorder/exporter.
 #[derive(Debug)]
 pub enum Error {
+    // Creating the networking event loop did not succeed.
     Io(io::Error),
+
+    // Installing the recorder did not succeed.
     Recorder(SetRecorderError),
 }
 
@@ -93,7 +96,7 @@ impl TcpBuilder {
     ///
     /// The exporter will accept connections on this address and immediately begin forwarding
     /// metrics to the client.
-    /// 
+    ///
     /// Defaults to `127.0.0.1:5000`.
     pub fn listen_address<A>(mut self, addr: A) -> TcpBuilder
     where
@@ -104,15 +107,15 @@ impl TcpBuilder {
     }
 
     /// Sets the buffer size for internal operations.
-    /// 
+    ///
     /// The buffer size controls two operational aspects: the number of metrics processed
     /// per iteration of the event loop, and the number of buffered metrics each client
-    /// can hold. 
-    /// 
+    /// can hold.
+    ///
     /// This setting allows trading off responsiveness for throughput, where a smaller buffer
     /// size will ensure that metrics are pushed to clients sooner, versus a larger buffer
     /// size that allows us to push more at a time.alloc
-    /// 
+    ///
     /// As well, the larger the buffer, the more messages a client can temporarily hold.
     /// Clients have a circular buffer implementation so if their buffers are full, metrics
     /// will be dropped as necessary to avoid backpressure in the recorder.
@@ -122,7 +125,7 @@ impl TcpBuilder {
     }
 
     /// Installs the recorder and exporter.
-    /// 
+    ///
     /// An error will be returned if there's an issue with creating the TCP server or with
     /// installing the recorder as the global recorder.
     pub fn install(self) -> Result<(), Error> {
@@ -186,7 +189,7 @@ impl Recorder for TcpRecorder {
         self.push_metric(id, MetricValue::Gauge(value));
     }
 
-    fn record_histogram(&self, id: Identifier, value: f64) {
+    fn record_histogram(&self, id: Identifier, value: u64) {
         self.push_metric(id, MetricValue::Histogram(value));
     }
 }

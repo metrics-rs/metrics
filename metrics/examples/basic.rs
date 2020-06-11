@@ -43,7 +43,7 @@ impl Recorder for PrintRecorder {
         println!("(gauge) got value {} for id {}", value, uid);
     }
 
-    fn record_histogram(&self, id: Identifier, value: f64) {
+    fn record_histogram(&self, id: Identifier, value: u64) {
         let uid: usize = id.into();
         println!("(histogram) got value {} for id {}", value, uid);
     }
@@ -75,10 +75,10 @@ fn main() {
     gauge!("connection_count", 300.0);
     gauge!("connection_count", 300.0, "listener" => "frontend");
     gauge!("connection_count", 300.0, "listener" => "frontend", "server" => server_name.clone());
-    histogram!("service.execution_time", 70.0);
-    histogram!("service.execution_time", 70.0, "type" => "users");
-    histogram!("service.execution_time", 70.0, "type" => "users", "server" => server_name.clone());
-    histogram!(<"service.execution_time">, 70.0);
-    histogram!(<"service.execution_time">, 70.0, "type" => "users");
-    histogram!(<"service.execution_time">, 70.0, "type" => "users", "server" => server_name.clone());
+    histogram!("service.execution_time", 70);
+    histogram!("service.execution_time", 70, "type" => "users");
+    histogram!("service.execution_time", 70, "type" => "users", "server" => server_name.clone());
+    histogram!(<"service.execution_time">, 70);
+    histogram!(<"service.execution_time">, 70, "type" => "users");
+    histogram!(<"service.execution_time">, 70, "type" => "users", "server" => server_name.clone());
 }

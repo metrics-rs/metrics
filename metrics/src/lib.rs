@@ -8,16 +8,9 @@
 //! ignores all metrics.  The overhead in this case is very small - an atomic load and comparison.
 //!
 //! # Use
-//! The basic use of the facade crate is through the four metrics macros: [`counter!`], [`gauge!`],
-//! [`timing!`], and [`value!`].  These macros correspond to updating a counter, updating a gauge,
-//! updating a histogram based on a start/end, and updating a histogram with a single value.
-//!
-//! Both [`timing!`] and [`value!`] are effectively identical in so far as that they both translate
-//! to recording a single value to an underlying histogram, but [`timing!`] is provided for
-//! contextual consistency: if you're recording a measurement of the time passed during an
-//! operation, the end result is a single value, but it's more of a "timing" value than just a
-//! "value".  The [`timing!`] macro also has a branch to accept the start and end values which
-//! allows for a potentially clearer invocation.
+//! The basic use of the facade crate is through the three metrics macros: [`counter!`], [`gauge!`],
+//! and [`histogram!`].  These macros correspond to updating a counter, updating a gauge,
+//! and updating a histogram.
 //!
 //! ## In libraries
 //! Libraries should link only to the `metrics` crate, and use the provided macros to record
@@ -35,7 +28,7 @@
 //!     let row_count = run_query(query);
 //!     let delta = Instant::now() - start;
 //!
-//!     histogram!("process.query_time", delta.as_secs_f64());
+//!     histogram!("process.query_time", delta);
 //!     counter!("process.query_row_count", row_count);
 //!
 //!     row_count
@@ -58,7 +51,8 @@
 //! # Available metrics implementations
 //!
 //! * # Native recorder:
-//!     * [metrics-runtime]
+//!     * [metrics-exporter-tcp] - outputs metrics to clients over TCP
+//!     * [metrics-exporter-prometheus] - serves a Prometheus scrape endpoint
 //!
 //! # Implementing a Recorder
 //!
@@ -114,7 +108,7 @@
 //!         info!("gauge '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn record_histogram(&self, id: Identifier, value: f64) {
+//!     fn record_histogram(&self, id: Identifier, value: u64) {
 //!         let key = self.get_key(id);
 //!         info!("histogram '{}' -> {}", key, value);
 //!     }
@@ -134,7 +128,7 @@
 //! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
 //! #     fn increment_counter(&self, _id: Identifier, _value: u64) {}
 //! #     fn update_gauge(&self, _id: Identifier, _value: f64) {}
-//! #     fn record_histogram(&self, _id: Identifier, _value: f64) {}
+//! #     fn record_histogram(&self, _id: Identifier, _value: u64) {}
 //! # }
 //! use metrics::SetRecorderError;
 //!
@@ -162,7 +156,7 @@
 //! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
 //! #     fn increment_counter(&self, _id: Identifier, _value: u64) {}
 //! #     fn update_gauge(&self, _id: Identifier, _value: f64) {}
-//! #     fn record_histogram(&self, _id: Identifier, _value: f64) {}
+//! #     fn record_histogram(&self, _id: Identifier, _value: u64) {}
 //! # }
 //! use metrics::SetRecorderError;
 //!
@@ -173,7 +167,8 @@
 //! # fn main() {}
 //! ```
 //!
-//! [metrics-runtime]: https://docs.rs/metrics-runtime
+//! [metrics-exporter-tcp]: https://docs.rs/metrics-exporter-tcp
+//! [metrics-exporter-prometheus]: https://docs.rs/metrics-exporter-prometheus
 #![deny(missing_docs)]
 use proc_macro_hack::proc_macro_hack;
 
@@ -193,29 +188,245 @@ mod macros;
 pub use self::macros::*;
 
 /// Registers a counter.
+///
+/// Counters represent a single value that can only be incremented over time, or reset to zero.
+/// 
+/// Metrics can be registered with an optional description.  Whether or not the installed recorder
+/// does anything with the description is implementation defined.  Labels can also be specified
+/// when registering a metric.
+/// 
+/// Counters, when registered, start at zero.
+/// 
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+/// 
+/// # Example
+/// ```
+/// # use metrics::register_counter;
+/// # fn main() {
+/// // A regular, unscoped counter:
+/// register_counter!("some_metric_name");
+/// 
+/// // A scoped counter.  This inherits a scope derived by the current module:
+/// register_counter!(<"some_metric_name">);
+/// 
+/// // Providing a description for a counter:
+/// register_counter!("some_metric_name", "number of woopsy daisies");
+/// 
+/// // Specifying labels:
+/// register_counter!("some_metric_name", "service" => "http");
+/// 
+/// // And all combined:
+/// register_counter!("some_metric_name", "number of woopsy daisies", "service" => "http");
+/// register_counter!(<"some_metric_name">, "number of woopsy daisies", "service" => "http");
+/// # }
+/// ```
 #[proc_macro_hack]
 pub use metrics_macros::register_counter;
 
 /// Registers a gauge.
+///
+/// Gauges represent a single value that can go up or down over time.
+/// 
+/// Metrics can be registered with an optional description.  Whether or not the installed recorder
+/// does anything with the description is implementation defined.  Labels can also be specified
+/// when registering a metric.
+/// 
+/// Gauges, when registered, start at zero.
+/// 
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+/// 
+/// # Example
+/// ```
+/// # use metrics::register_gauge;
+/// # fn main() {
+/// // A regular, unscoped gauge:
+/// register_gauge!("some_metric_name");
+/// 
+/// // A scoped gauge.  This inherits a scope derived by the current module:
+/// register_gauge!(<"some_metric_name">);
+/// 
+/// // Providing a description for a gauge:
+/// register_gauge!("some_metric_name", "number of woopsy daisies");
+/// 
+/// // Specifying labels:
+/// register_gauge!("some_metric_name", "service" => "http");
+/// 
+/// // And all combined:
+/// register_gauge!("some_metric_name", "number of woopsy daisies", "service" => "http");
+/// register_gauge!(<"some_metric_name">, "number of woopsy daisies", "service" => "http");
+/// # }
+/// ```
 #[proc_macro_hack]
 pub use metrics_macros::register_gauge;
 
-/// Registers a histogram.
+/// Records a histogram.
+/// 
+/// Histograms measure the distribution of values for a given set of measurements.
+/// 
+/// Metrics can be registered with an optional description.  Whether or not the installed recorder
+/// does anything with the description is implementation defined.  Labels can also be specified
+/// when registering a metric.
+/// 
+/// Histograms, when registered, start at zero.
+/// 
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+/// 
+/// # Example
+/// ```
+/// # use metrics::register_histogram;
+/// # fn main() {
+/// // A regular, unscoped histogram:
+/// register_histogram!("some_metric_name");
+/// 
+/// // A scoped histogram.  This inherits a scope derived by the current module:
+/// register_histogram!(<"some_metric_name">);
+/// 
+/// // Providing a description for a histogram:
+/// register_histogram!("some_metric_name", "number of woopsy daisies");
+/// 
+/// // Specifying labels:
+/// register_histogram!("some_metric_name", "service" => "http");
+/// 
+/// // And all combined:
+/// register_histogram!("some_metric_name", "number of woopsy daisies", "service" => "http");
+/// register_histogram!(<"some_metric_name">, "number of woopsy daisies", "service" => "http");
+/// # }
+/// ```
 #[proc_macro_hack]
 pub use metrics_macros::register_histogram;
 
 /// Increments a counter.
+///
+/// Counters represent a single value that can only be incremented over time, or reset to zero.
+/// 
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+/// 
+/// # Example
+/// ```
+/// # use metrics::increment;
+/// # fn main() {
+/// // A regular, unscoped increment:
+/// increment!("some_metric_name");
+/// 
+/// // A scoped increment.  This inherits a scope derived by the current module:
+/// increment!(<"some_metric_name">);
+/// 
+/// // Specifying labels:
+/// increment!("some_metric_name", "service" => "http");
+/// 
+/// // And all combined:
+/// increment!("some_metric_name", "service" => "http");
+/// increment!(<"some_metric_name">, "service" => "http");
+/// # }
+/// ```
 #[proc_macro_hack]
 pub use metrics_macros::increment;
 
 /// Increments a counter.
+///
+/// Counters represent a single value that can only be incremented over time, or reset to zero.
+/// 
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+/// 
+/// # Example
+/// ```
+/// # use metrics::counter;
+/// # fn main() {
+/// // A regular, unscoped counter:
+/// counter!("some_metric_name", 12);
+/// 
+/// // A scoped counter.  This inherits a scope derived by the current module:
+/// counter!(<"some_metric_name">, 12);
+/// 
+/// // Specifying labels:
+/// counter!("some_metric_name", 12, "service" => "http");
+/// 
+/// // And all combined:
+/// counter!("some_metric_name", 12, "service" => "http");
+/// counter!(<"some_metric_name">, 12, "service" => "http");
+/// # }
+/// ```
 #[proc_macro_hack]
 pub use metrics_macros::counter;
 
 /// Updates a gauge.
+/// 
+/// Gauges represent a single value that can go up or down over time.
+/// 
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+/// 
+/// # Example
+/// ```
+/// # use metrics::gauge;
+/// # fn main() {
+/// // A regular, unscoped gauge:
+/// gauge!("some_metric_name", 42.2222);
+/// 
+/// // A scoped gauge.  This inherits a scope derived by the current module:
+/// gauge!(<"some_metric_name">, 33.3333);
+/// 
+/// // Specifying labels:
+/// gauge!("some_metric_name", 66.6666, "service" => "http");
+/// 
+/// // And all combined:
+/// gauge!("some_metric_name", 55.5555, "service" => "http");
+/// gauge!(<"some_metric_name">, 11.1111, "service" => "http");
+/// # }
+/// ```
 #[proc_macro_hack]
 pub use metrics_macros::gauge;
 
 /// Records a histogram.
+/// 
+/// Histograms measure the distribution of values for a given set of measurements.
+/// 
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+/// 
+/// # Implicit conversions
+/// Histograms are represented as `u64` values, but often come from another source, such as a time
+/// measurement.  By default, `histogram!` will accept a `u64` directly or a
+/// [`Duration`](std::time::Duration), which uses the nanoseconds total as the converted value.
+/// 
+/// External libraries and applications can create their own conversions by implementing the
+/// [`IntoU64`] trait for their types, which is required for the value being passed to `histogram!`.
+/// 
+/// # Example
+/// ```
+/// # use metrics::histogram;
+/// # use std::time::Duration;
+/// # fn main() {
+/// // A regular, unscoped histogram:
+/// histogram!("some_metric_name", 34);
+/// 
+/// // An implicit conversion from `Duration`:
+/// let d = Duration::from_millis(17);
+/// histogram!("some_metric_name", d);
+/// 
+/// // A scoped histogram.  This inherits a scope derived by the current module:
+/// histogram!(<"some_metric_name">, 38);
+/// histogram!(<"some_metric_name">, d);
+/// 
+/// // Specifying labels:
+/// histogram!("some_metric_name", 38, "service" => "http");
+/// 
+/// // And all combined:
+/// histogram!("some_metric_name", d, "service" => "http");
+/// histogram!(<"some_metric_name">, 57, "service" => "http");
+/// # }
+/// ```
 #[proc_macro_hack]
 pub use metrics_macros::histogram;

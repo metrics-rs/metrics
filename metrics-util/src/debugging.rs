@@ -5,7 +5,7 @@ use crate::{handle::Handle, registry::Registry};
 use metrics::{Identifier, Key, Recorder};
 
 /// Metric kinds.
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(Eq, PartialEq, Hash, Clone, Copy)]
 pub enum MetricKind {
     /// Counter.
     Counter,
@@ -33,7 +33,7 @@ pub enum DebugValue {
     /// Gauge.
     Gauge(f64),
     /// Histogram.
-    Histogram(Vec<f64>),
+    Histogram(Vec<u64>),
 }
 
 /// Captures point-in-time snapshots of `DebuggingRecorder`.
@@ -117,7 +117,7 @@ impl Recorder for DebuggingRecorder {
             .with_handle(id, |handle| handle.update_gauge(value));
     }
 
-    fn record_histogram(&self, id: Identifier, value: f64) {
+    fn record_histogram(&self, id: Identifier, value: u64) {
         self.registry
             .with_handle(id, |handle| handle.record_histogram(value));
     }

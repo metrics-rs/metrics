@@ -19,7 +19,7 @@ fn main() {
         match stream.read(&mut rbuf[..]) {
             Ok(0) => {
                 println!("server disconnected, closing");
-                break
+                break;
             }
             Ok(n) => buf.put_slice(&rbuf[..n]),
             Err(e) => eprintln!("read error: {:?}", e),

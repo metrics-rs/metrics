@@ -2,15 +2,17 @@ use std::thread;
 use std::time::Duration;
 
 use metrics::{histogram, increment};
-use metrics_exporter_tcp::TcpBuilder;
+use metrics_exporter_prometheus::PrometheusBuilder;
 
 use quanta::Clock;
 
 fn main() {
     tracing_subscriber::fmt::init();
 
-    let builder = TcpBuilder::new();
-    builder.install().expect("failed to install TCP recorder");
+    let builder = PrometheusBuilder::new();
+    builder
+        .install()
+        .expect("failed to install Prometheus recorder");
 
     let clock = Clock::new();
     let mut last = None;
