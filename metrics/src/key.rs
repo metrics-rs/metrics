@@ -1,4 +1,4 @@
-use crate::{IntoLabels, Label, ScopedString};
+use crate::{Label, ScopedString};
 use std::{fmt, slice::Iter};
 
 /// A metric key.
@@ -8,7 +8,7 @@ use std::{fmt, slice::Iter};
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Key {
     name: ScopedString,
-    labels: Vec<Label>,
+    labels: Option<Vec<Label>>,
 }
 
 impl Key {
@@ -19,71 +19,59 @@ impl Key {
     {
         Key {
             name: name.into(),
-            labels: Vec::new(),
+            labels: None,
         }
     }
 
     /// Creates a `Key` from a name and vector of `Label`s.
-    pub fn from_name_and_labels<N, L>(name: N, labels: L) -> Self
+    pub fn from_name_and_labels<N>(name: N, labels: Vec<Label>) -> Self
     where
         N: Into<ScopedString>,
-        L: IntoLabels,
     {
         Key {
             name: name.into(),
-            labels: labels.into_labels(),
+            labels: Some(labels),
         }
-    }
-
-    /// Adds a new set of labels to this key.
-    ///
-    /// New labels will be appended to any existing labels.
-    pub fn add_labels<L>(&mut self, new_labels: L)
-    where
-        L: IntoLabels,
-    {
-        self.labels.extend(new_labels.into_labels());
     }
 
     /// Name of this key.
-    pub fn name(&self) -> ScopedString {
-        self.name.clone()
+    pub fn name(&self) -> &ScopedString {
+        &self.name
     }
 
     /// Labels of this key, if they exist.
-    pub fn labels(&self) -> Iter<Label> {
-        self.labels.iter()
-    }
-
-    /// Maps the name of this `Key` to a new name.
-    pub fn map_name<F, S>(self, f: F) -> Self
-    where
-        F: FnOnce(ScopedString) -> S,
-        S: Into<ScopedString>,
-    {
-        Key {
-            name: f(self.name).into(),
-            labels: self.labels,
-        }
+    pub fn labels(&self) -> Option<Iter<Label>> {
+        self.labels.as_ref().map(|xs| xs.iter())
     }
 
     /// Consumes this `Key`, returning the name and any labels.
-    pub fn into_parts(self) -> (ScopedString, Vec<Label>) {
+    pub fn into_parts(self) -> (ScopedString, Option<Vec<Label>>) {
         (self.name, self.labels)
     }
 }
 
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.labels.is_empty() {
-            write!(f, "Key({})", self.name)
-        } else {
-            let kv_pairs = self
-                .labels
-                .iter()
-                .map(|label| format!("{} = {}", label.0, label.1))
-                .collect::<Vec<_>>();
-            write!(f, "Key({}, [{}])", self.name, kv_pairs.join(", "))
+        match &self.labels {
+            None => write!(f, "Key({})", self.name),
+            Some(labels) => {
+                write!(f, "Key({}", self.name)?;
+
+                if !labels.is_empty() {
+                    let mut first = true;
+                    write!(f, ", [")?;
+                    for label in labels {
+                        if first {
+                            write!(f, "{} = {}", label.0, label.1)?;
+                            first = false;
+                        } else {
+                            write!(f, ", {} = {}", label.0, label.1)?;
+                        }
+                    }
+                     write!(f, "]")?;
+                }
+                write!(f, ")")
+            },
         }
     }
 }
@@ -100,18 +88,34 @@ impl From<&'static str> for Key {
     }
 }
 
-impl From<ScopedString> for Key {
-    fn from(name: ScopedString) -> Key {
-        Key::from_name(name)
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::Key;
+    use crate::Label;
 
-impl<K, L> From<(K, L)> for Key
-where
-    K: Into<ScopedString>,
-    L: IntoLabels,
-{
-    fn from(parts: (K, L)) -> Key {
-        Key::from_name_and_labels(parts.0, parts.1)
+    #[test]
+    fn test_key_proper_display() {
+        let key1 = Key::from_name("foobar");
+        let result1 = key1.to_string();
+        assert_eq!(result1, "Key(foobar)");
+
+        let key2 = Key::from_name_and_labels("foobar", vec![Label::new("system", "http")]);
+        let result2 = key2.to_string();
+        assert_eq!(result2, "Key(foobar, [system = http])");
+
+        let key3 = Key::from_name_and_labels("foobar", vec![
+            Label::new("system", "http"),
+            Label::new("user", "joe"),
+        ]);
+        let result3 = key3.to_string();
+        assert_eq!(result3, "Key(foobar, [system = http, user = joe])");
+
+        let key4 = Key::from_name_and_labels("foobar", vec![
+            Label::new("black", "black"),
+            Label::new("lives", "lives"),
+            Label::new("matter", "matter"),
+        ]);
+        let result4 = key4.to_string();
+        assert_eq!(result4, "Key(foobar, [black = black, lives = lives, matter = matter])");
     }
 }

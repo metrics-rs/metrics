@@ -1,7 +1,7 @@
 use std::thread;
 use std::time::Duration;
 
-use metrics::{histogram, increment};
+use metrics::{register_counter, register_histogram, histogram, increment};
 use metrics_exporter_prometheus::PrometheusBuilder;
 
 use quanta::Clock;
@@ -13,6 +13,9 @@ fn main() {
     builder
         .install()
         .expect("failed to install Prometheus recorder");
+
+    register_counter!("tcp_server_loops", "The iterations of the TCP server event loop so far.");
+    register_histogram!("tcp_server_loop_delta_ns", "The time taken for iterations of the TCP server event loop.");
 
     let clock = Clock::new();
     let mut last = None;

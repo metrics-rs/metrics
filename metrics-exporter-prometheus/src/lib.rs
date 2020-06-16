@@ -72,6 +72,7 @@ struct Inner {
     quantiles: Vec<Quantile>,
     buckets: Vec<u64>,
     buckets_by_name: Option<HashMap<String, Vec<u64>>>,
+    descriptions: RwLock<HashMap<String, &'static str>>,
 }
 
 impl Inner {
@@ -185,12 +186,22 @@ impl Inner {
             .unwrap_or(0);
 
         let mut output = format!(
-            "# metrics snapshot (ts={}) (prometheus exposition format)",
+            "# metrics snapshot (ts={}) (prometheus exposition format)\n",
             ts
         );
 
+        let descriptions = self.descriptions.read();
+
         for (name, mut by_labels) in counters.drain() {
-            output.push_str("\n# TYPE ");
+            if let Some(desc) = descriptions.get(name.as_str()) {
+                output.push_str("# HELP ");
+                output.push_str(name.as_str());
+                output.push_str(" ");
+                output.push_str(desc);
+                output.push_str("\n");
+            }
+
+            output.push_str("# TYPE ");
             output.push_str(name.as_str());
             output.push_str(" counter\n");
             for (labels, value) in by_labels.drain() {
@@ -200,10 +211,19 @@ impl Inner {
                 output.push_str(value.to_string().as_str());
                 output.push_str("\n");
             }
+            output.push_str("\n");
         }
 
         for (name, mut by_labels) in gauges.drain() {
-            output.push_str("\n# TYPE ");
+            if let Some(desc) = descriptions.get(name.as_str()) {
+                output.push_str("# HELP ");
+                output.push_str(name.as_str());
+                output.push_str(" ");
+                output.push_str(desc);
+                output.push_str("\n");
+            }
+
+            output.push_str("# TYPE ");
             output.push_str(name.as_str());
             output.push_str(" gauge\n");
             for (labels, value) in by_labels.drain() {
@@ -213,6 +233,7 @@ impl Inner {
                 output.push_str(value.to_string().as_str());
                 output.push_str("\n");
             }
+            output.push_str("\n");
         }
 
         let mut sorted_overrides = self
@@ -223,11 +244,19 @@ impl Inner {
         sorted_overrides.sort_by(|(a, _), (b, _)| b.len().cmp(&a.len()));
 
         for (name, mut by_labels) in distributions.drain() {
+            if let Some(desc) = descriptions.get(name.as_str()) {
+                output.push_str("# HELP ");
+                output.push_str(name.as_str());
+                output.push_str(" ");
+                output.push_str(desc);
+                output.push_str("\n");
+            }
+
             let has_buckets = sorted_overrides
                 .iter()
                 .any(|(k, _)| !self.buckets.is_empty() || name.ends_with(*k));
 
-            output.push_str("\n# TYPE ");
+            output.push_str("# TYPE ");
             output.push_str(name.as_str());
             output.push_str(" ");
             output.push_str(if has_buckets { "histogram" } else { "summary" });
@@ -287,6 +316,8 @@ impl Inner {
                 output.push_str(count.to_string().as_str());
                 output.push_str("\n");
             }
+
+            output.push_str("\n");
         }
 
         output
@@ -294,8 +325,24 @@ impl Inner {
 }
 
 /// A Prometheus recorder.
+/// 
+/// This recorder should be composed with other recorders or installed globally via
+/// [`metrics::set_boxed_recorder`][set_boxed_recorder].
+/// 
+/// 
 pub struct PrometheusRecorder {
     inner: Arc<Inner>,
+}
+
+impl PrometheusRecorder {
+    fn add_description_if_missing(&self, key: &Key, description: Option<&'static str>) {
+        if let Some(description) = description {
+            let mut descriptions = self.inner.descriptions.write();
+            if !descriptions.contains_key(key.name().as_ref()) {
+                descriptions.insert(key.name().to_string(), description);
+            }
+        }
+    }
 }
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
@@ -415,6 +462,7 @@ impl PrometheusBuilder {
             quantiles: self.quantiles.clone(),
             buckets: self.buckets.clone(),
             buckets_by_name: self.buckets_by_name.clone(),
+            descriptions: RwLock::new(HashMap::new()),
         });
 
         let recorder = PrometheusRecorder {
@@ -446,7 +494,8 @@ impl PrometheusBuilder {
 }
 
 impl Recorder for PrometheusRecorder {
-    fn register_counter(&self, key: Key, _description: Option<&'static str>) -> Identifier {
+    fn register_counter(&self, key: Key, description: Option<&'static str>) -> Identifier {
+        self.add_description_if_missing(&key, description);
         self.inner
             .registry()
             .get_or_create_identifier(CompositeKey::new(MetricKind::Counter, key), |_| {
@@ -454,7 +503,8 @@ impl Recorder for PrometheusRecorder {
             })
     }
 
-    fn register_gauge(&self, key: Key, _description: Option<&'static str>) -> Identifier {
+    fn register_gauge(&self, key: Key, description: Option<&'static str>) -> Identifier {
+        self.add_description_if_missing(&key, description);
         self.inner
             .registry()
             .get_or_create_identifier(CompositeKey::new(MetricKind::Gauge, key), |_| {
@@ -462,7 +512,8 @@ impl Recorder for PrometheusRecorder {
             })
     }
 
-    fn register_histogram(&self, key: Key, _description: Option<&'static str>) -> Identifier {
+    fn register_histogram(&self, key: Key, description: Option<&'static str>) -> Identifier {
+        self.add_description_if_missing(&key, description);
         self.inner
             .registry()
             .get_or_create_identifier(CompositeKey::new(MetricKind::Histogram, key), |_| {
@@ -494,18 +545,21 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
     let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';
     let name = name.replace(sanitize, "_");
     let labels = labels
-        .into_iter()
-        .map(Label::into_parts)
-        .map(|(k, v)| {
-            format!(
-                "{}=\"{}\"",
-                k,
-                v.replace("\\", "\\\\")
-                    .replace("\"", "\\\"")
-                    .replace("\n", "\\n")
-            )
+        .map(|labels| {
+            labels.into_iter()
+                .map(Label::into_parts)
+                .map(|(k, v)| {
+                    format!(
+                        "{}=\"{}\"",
+                        k,
+                        v.replace("\\", "\\\\")
+                            .replace("\"", "\\\"")
+                            .replace("\n", "\\n")
+                    )
+                })
+                .collect()
         })
-        .collect();
+        .unwrap_or_else(|| Vec::new());
 
     (name, labels)
 }

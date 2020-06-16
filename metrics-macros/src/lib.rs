@@ -185,10 +185,8 @@ fn get_expanded_registration(
     labels: Vec<(LitStr, Expr)>,
 ) -> TokenStream {
     let register_ident = format_ident!("register_{}", metric_type);
-    let key = key_to_quoted(key);
-    let insertable_labels = labels
-        .into_iter()
-        .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
+    let key = key_to_quoted(key, labels);
+
     let desc = match desc {
         Some(desc) => quote! { Some(#desc) },
         None => quote! { None },
@@ -198,8 +196,7 @@ fn get_expanded_registration(
         {
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
-                let mlabels = vec![#(#insertable_labels),*];
-                recorder.#register_ident((#key, mlabels).into(), #desc);
+                recorder.#register_ident(#key, #desc);
             }
         }
     };
@@ -219,17 +216,8 @@ where
 {
     let register_ident = format_ident!("register_{}", metric_type);
     let op_ident = format_ident!("{}_{}", op_type, metric_type);
-    let key = key_to_quoted(key);
-
     let use_fast_path = can_use_fast_path(&labels);
-    let composite_key = if labels.is_empty() {
-        quote! { #key.into() }
-    } else {
-        let insertable_labels = labels
-            .into_iter()
-            .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
-        quote! { (#key, vec![#(#insertable_labels),*]).into() }
-    };
+    let key = key_to_quoted(key, labels);
 
     let op_values = if metric_type == "histogram" {
         quote! {
@@ -251,9 +239,8 @@ where
                 if let Some(recorder) = metrics::try_recorder() {
                     // Initialize our fast path cached identifier.
                     let id = METRICS_INIT.get_or_init(|| {
-                        recorder.#register_ident(#composite_key, None)
+                        recorder.#register_ident(#key, None)
                     });
-
                     recorder.#op_ident(id, #op_values);
                 }
             }
@@ -266,8 +253,7 @@ where
             {
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
-                    let id = recorder.#register_ident(#composite_key, None);
-
+                    let id = recorder.#register_ident(#key, None);
                     recorder.#op_ident(id, #op_values);
                 }
             }
@@ -288,8 +274,8 @@ fn read_key(input: &mut ParseStream) -> Result<Key> {
     }
 }
 
-fn key_to_quoted(key: Key) -> proc_macro2::TokenStream {
-    match key {
+fn key_to_quoted(key: Key, labels: Vec<(LitStr, Expr)>) -> proc_macro2::TokenStream {
+    let name = match key {
         Key::NotScoped(s) => {
             quote! { #s }
         },
@@ -298,6 +284,17 @@ fn key_to_quoted(key: Key) -> proc_macro2::TokenStream {
                 format!("{}.{}", std::module_path!().replace("::", "."), #s)
             }
         },
+    };
+
+    if labels.is_empty() {
+        quote! { metrics::Key::from_name(#name) }
+    } else {
+        let insertable_labels = labels
+            .into_iter()
+            .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
+        quote! {
+            metrics::Key::from_name_and_labels(#name, vec![#(#insertable_labels),*])
+        }
     }
 }
 
