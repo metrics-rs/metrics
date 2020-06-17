@@ -1,6 +1,6 @@
 [package]
 name = "metrics-exporter-prometheus"
-version = "0.2.0"
+version = "0.1.0-alpha.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -16,8 +16,8 @@ categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "prometheus"]
 
 [dependencies]
-metrics = { version = "0.13.0-alpha.0", path = "../metrics" }
-metrics-util = { version = "0.4.0-alpha.0", path = "../metrics-util"}
+metrics = { version = "0.13.0-alpha.1", path = "../metrics" }
+metrics-util = { version = "0.4.0-alpha.1", path = "../metrics-util"}
 hdrhistogram = "^7.1"
 hyper = { version = "^0.13", default-features = false, features = ["tcp"] }
 tokio = { version = "^0.2", features = ["rt-core", "tcp", "time", "macros"] }
