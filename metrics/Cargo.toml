@@ -1,6 +1,6 @@
 [package]
 name = "metrics"
-version = "0.13.0-alpha.1"
+version = "0.13.0-alpha.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -25,7 +25,7 @@ name = "macros"
 harness = false
 
 [dependencies]
-metrics-macros = { version = "0.1.0-alpha.0", path = "../metrics-macros" }
+metrics-macros = { version = "0.1.0-alpha.1", path = "../metrics-macros" }
 proc-macro-hack = "^0.5"
 
 [dev-dependencies]
