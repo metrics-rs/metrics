@@ -16,8 +16,8 @@ categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "tcp"]
 
 [dependencies]
-metrics = { version = "^0.13", path = "../metrics", features = ["std"] }
-metrics-util = { version = "^0.4", path = "../metrics-util" }
+metrics = { version = "0.13.0-alpha.0", path = "../metrics", features = ["std"] }
+metrics-util = { version = "0.4.0-alpha.0", path = "../metrics-util" }
 bytes = "^0.5"
 crossbeam-channel = "^0.4"
 prost = "^0.6"

@@ -28,7 +28,7 @@ name = "streaming_integers"
 harness = false
 
 [dependencies]
-metrics = { version = "^0.13", path = "../metrics", features = ["std"] }
+metrics = { version = "0.13.0-alpha.0", path = "../metrics", features = ["std"] }
 crossbeam-epoch = "^0.8"
 crossbeam-utils = "^0.7"
 serde = "^1.0"
