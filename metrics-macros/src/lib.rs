@@ -4,7 +4,7 @@ use self::proc_macro::TokenStream;
 
 use proc_macro_hack::proc_macro_hack;
 use quote::{format_ident, quote, ToTokens};
-use syn::parse::{Parse, ParseStream, Result};
+use syn::parse::{Error, Parse, ParseStream, Result};
 use syn::{parse_macro_input, Expr, LitStr, Token};
 
 enum Key {
@@ -12,39 +12,33 @@ enum Key {
     Scoped(LitStr),
 }
 
+enum Labels {
+    Existing(Expr),
+    Inline(Vec<(LitStr, Expr)>),
+}
+
 struct WithoutExpression {
     key: Key,
-    labels: Vec<(LitStr, Expr)>,
+    labels: Option<Labels>,
 }
 
 struct WithExpression {
     key: Key,
     op_value: Expr,
-    labels: Vec<(LitStr, Expr)>,
+    labels: Option<Labels>,
 }
 
 struct Registration {
     key: Key,
-    desc: Option<LitStr>,
-    labels: Vec<(LitStr, Expr)>,
+    description: Option<LitStr>,
+    labels: Option<Labels>,
 }
 
 impl Parse for WithoutExpression {
     fn parse(mut input: ParseStream) -> Result<Self> {
         let key = read_key(&mut input)?;
+        let labels = parse_labels(&mut input)?;
 
-        let mut labels = Vec::new();
-        loop {
-            if input.is_empty() {
-                break;
-            }
-            input.parse::<Token![,]>()?;
-            let lkey: LitStr = input.parse()?;
-            input.parse::<Token![=>]>()?;
-            let lvalue: Expr = input.parse()?;
-
-            labels.push((lkey, lvalue));
-        }
         Ok(WithoutExpression { key, labels })
     }
 }
@@ -56,18 +50,8 @@ impl Parse for WithExpression {
         input.parse::<Token![,]>()?;
         let op_value: Expr = input.parse()?;
 
-        let mut labels = Vec::new();
-        loop {
-            if input.is_empty() {
-                break;
-            }
-            input.parse::<Token![,]>()?;
-            let lkey: LitStr = input.parse()?;
-            input.parse::<Token![=>]>()?;
-            let lvalue: Expr = input.parse()?;
+        let labels = parse_labels(&mut input)?;
 
-            labels.push((lkey, lvalue));
-        }
         Ok(WithExpression {
             key,
             op_value,
@@ -83,57 +67,64 @@ impl Parse for Registration {
         // This may or may not be the start of labels, if the description has been omitted, so
         // we hold on to it until we can make sure nothing else is behind it, or if it's a full
         // fledged set of labels.
-        let mut possible_desc = if input.parse::<Token![,]>().is_ok() {
-            input.parse().ok()
+        let (description, labels) = if input.peek(Token![,]) && input.peek3(Token![=>]) {
+            // We have a ", <something> =>" pattern, which can only be labels, so we have no
+            // description.
+            let labels = parse_labels(&mut input)?;
+
+            (None, labels)
+        } else if input.peek(Token![,]) && input.peek2(LitStr) {
+            // We already know we're not working with labels only, and if we have ", <literal
+            // string>" then we have to at least have a description, possibly with labels.
+            input.parse::<Token![,]>()?;
+            let description = input.parse::<LitStr>().ok();
+            let labels = parse_labels(&mut input)?;
+            (description, labels)
         } else {
-            None
+            // We might have labels passed as an expression.
+            let labels = parse_labels(&mut input)?;
+            (None, labels)
         };
 
-        let mut labels = Vec::new();
-
-        // Try and parse a single label by hand in case the caller omitted the description.
-        if possible_desc.is_some() && input.parse::<Token![=>]>().is_ok() {
-            if let Ok(lvalue) = input.parse::<Expr>() {
-                // We've matched "key => value" at this point, so clearly it wasn't a description,
-                // so let's add this label and then continue on with the loop to parse any more labels.
-                labels.push((possible_desc.take().unwrap(), lvalue));
-            }
-        }
-
-        loop {
-            if input.is_empty() {
-                break;
-            }
-            input.parse::<Token![,]>()?;
-            let lkey: LitStr = input.parse()?;
-            input.parse::<Token![=>]>()?;
-            let lvalue: Expr = input.parse()?;
-
-            labels.push((lkey, lvalue));
-        }
-        Ok(Registration { key, desc: possible_desc, labels })
+        Ok(Registration {
+            key,
+            description,
+            labels,
+        })
     }
 }
 
 #[proc_macro_hack]
 pub fn register_counter(input: TokenStream) -> TokenStream {
-    let Registration { key, desc, labels } = parse_macro_input!(input as Registration);
+    let Registration {
+        key,
+        description,
+        labels,
+    } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("counter", key, desc, labels)
+    get_expanded_registration("counter", key, description, labels)
 }
 
 #[proc_macro_hack]
 pub fn register_gauge(input: TokenStream) -> TokenStream {
-    let Registration { key, desc, labels } = parse_macro_input!(input as Registration);
+    let Registration {
+        key,
+        description,
+        labels,
+    } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("gauge", key, desc, labels)
+    get_expanded_registration("gauge", key, description, labels)
 }
 
 #[proc_macro_hack]
 pub fn register_histogram(input: TokenStream) -> TokenStream {
-    let Registration { key, desc, labels } = parse_macro_input!(input as Registration);
+    let Registration {
+        key,
+        description,
+        labels,
+    } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("histogram", key, desc, labels)
+    get_expanded_registration("histogram", key, description, labels)
 }
 
 #[proc_macro_hack]
@@ -181,14 +172,14 @@ pub fn histogram(input: TokenStream) -> TokenStream {
 fn get_expanded_registration(
     metric_type: &str,
     key: Key,
-    desc: Option<LitStr>,
-    labels: Vec<(LitStr, Expr)>,
+    description: Option<LitStr>,
+    labels: Option<Labels>,
 ) -> TokenStream {
     let register_ident = format_ident!("register_{}", metric_type);
     let key = key_to_quoted(key, labels);
 
-    let desc = match desc {
-        Some(desc) => quote! { Some(#desc) },
+    let description = match description {
+        Some(s) => quote! { Some(#s) },
         None => quote! { None },
     };
 
@@ -196,7 +187,7 @@ fn get_expanded_registration(
         {
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
-                recorder.#register_ident(#key, #desc);
+                recorder.#register_ident(#key, #description);
             }
         }
     };
@@ -208,7 +199,7 @@ fn get_expanded_callsite<V>(
     metric_type: &str,
     op_type: &str,
     key: Key,
-    labels: Vec<(LitStr, Expr)>,
+    labels: Option<Labels>,
     op_values: V,
 ) -> TokenStream
 where
@@ -274,39 +265,103 @@ fn read_key(input: &mut ParseStream) -> Result<Key> {
     }
 }
 
-fn key_to_quoted(key: Key, labels: Vec<(LitStr, Expr)>) -> proc_macro2::TokenStream {
+fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
     let name = match key {
         Key::NotScoped(s) => {
             quote! { #s }
-        },
+        }
         Key::Scoped(s) => {
             quote! {
                 format!("{}.{}", std::module_path!().replace("::", "."), #s)
             }
-        },
+        }
     };
 
-    if labels.is_empty() {
-        quote! { metrics::Key::from_name(#name) }
-    } else {
-        let insertable_labels = labels
-            .into_iter()
-            .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
-        quote! {
-            metrics::Key::from_name_and_labels(#name, vec![#(#insertable_labels),*])
-        }
+    match labels {
+        None => quote! { metrics::Key::from_name(#name) },
+        Some(labels) => match labels {
+            Labels::Inline(pairs) => {
+                let labels = pairs
+                    .into_iter()
+                    .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
+                quote! {
+                    metrics::Key::from_name_and_labels(#name, vec![#(#labels),*])
+                }
+            }
+            Labels::Existing(e) => {
+                quote! {
+                    metrics::Key::from_name_and_labels(#name, #e)
+                }
+            }
+        },
     }
 }
 
-fn can_use_fast_path(labels: &[(LitStr, Expr)]) -> bool {
-    let mut use_fast_path = true;
-    for (_, lvalue) in labels {
-        match lvalue {
-            Expr::Lit(_) => {}
-            _ => {
-                use_fast_path = false;
+fn can_use_fast_path(labels: &Option<Labels>) -> bool {
+    match labels {
+        None => true,
+        Some(labels) => match labels {
+            Labels::Existing(_) => false,
+            Labels::Inline(pairs) => {
+                let mut use_fast_path = true;
+                for (_, lvalue) in pairs {
+                    match lvalue {
+                        Expr::Lit(_) => {}
+                        _ => {
+                            use_fast_path = false;
+                        }
+                    }
+                }
+                use_fast_path
             }
-        }
+        },
     }
-    use_fast_path
+}
+
+fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
+    if input.is_empty() {
+        return Ok(None);
+    }
+
+    if !input.peek(Token![,]) {
+        // This is a hack to generate the proper error message for parsing the comma next without
+        // actually parsing it and thus removing it from the parse stream.  Just makes the following
+        // code a bit cleaner.
+        input
+            .parse::<Token![,]>()
+            .map_err(|e| Error::new(e.span(), "expected labels, but comma not found"))?;
+    }
+
+    // Two possible states for labels: references to a label iterator, or key/value pairs.
+    //
+    // We check to see if we have the ", key =>" part, which tells us that we're taking in key/value
+    // pairs.  If we don't have that, we check to see if we have a "`, <expr" part, which could us
+    // getting handed a labels iterator.  The type checking for `IntoLabels` in `metrics::Recorder`
+    // will do the heavy lifting from that point forward.
+    if input.peek(Token![,]) && input.peek2(LitStr) && input.peek3(Token![=>]) {
+        let mut labels = Vec::new();
+        loop {
+            if input.is_empty() {
+                break;
+            }
+            input.parse::<Token![,]>()?;
+            let lkey: LitStr = input.parse()?;
+            input.parse::<Token![=>]>()?;
+            let lvalue: Expr = input.parse()?;
+
+            labels.push((lkey, lvalue));
+        }
+
+        return Ok(Some(Labels::Inline(labels)));
+    }
+
+    // Has to be an expression otherwise.
+    input.parse::<Token![,]>()?;
+    let lvalue: Expr = input.parse().map_err(|e| {
+        Error::new(
+            e.span(),
+            "expected label expression, but expression not found",
+        )
+    })?;
+    Ok(Some(Labels::Existing(lvalue)))
 }

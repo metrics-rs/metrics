@@ -187,36 +187,41 @@ pub use self::recorder::*;
 /// Registers a counter.
 ///
 /// Counters represent a single value that can only be incremented over time, or reset to zero.
-/// 
+///
 /// Metrics can be registered with an optional description.  Whether or not the installed recorder
 /// does anything with the description is implementation defined.  Labels can also be specified
 /// when registering a metric.
-/// 
+///
 /// Counters, when registered, start at zero.
-/// 
+///
 /// # Scoped versus unscoped
 /// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
 /// is taking place in.  This scope is used as a prefix to the provided metric name.
-/// 
+///
 /// # Example
 /// ```
 /// # use metrics::register_counter;
 /// # fn main() {
 /// // A regular, unscoped counter:
 /// register_counter!("some_metric_name");
-/// 
+///
 /// // A scoped counter.  This inherits a scope derived by the current module:
 /// register_counter!(<"some_metric_name">);
-/// 
+///
 /// // Providing a description for a counter:
 /// register_counter!("some_metric_name", "number of woopsy daisies");
-/// 
+///
 /// // Specifying labels:
 /// register_counter!("some_metric_name", "service" => "http");
-/// 
+///
 /// // And all combined:
 /// register_counter!("some_metric_name", "number of woopsy daisies", "service" => "http");
 /// register_counter!(<"some_metric_name">, "number of woopsy daisies", "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// register_counter!("some_metric_name", &labels);
 /// # }
 /// ```
 #[proc_macro_hack]
@@ -225,74 +230,84 @@ pub use metrics_macros::register_counter;
 /// Registers a gauge.
 ///
 /// Gauges represent a single value that can go up or down over time.
-/// 
+///
 /// Metrics can be registered with an optional description.  Whether or not the installed recorder
 /// does anything with the description is implementation defined.  Labels can also be specified
 /// when registering a metric.
-/// 
+///
 /// Gauges, when registered, start at zero.
-/// 
+///
 /// # Scoped versus unscoped
 /// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
 /// is taking place in.  This scope is used as a prefix to the provided metric name.
-/// 
+///
 /// # Example
 /// ```
 /// # use metrics::register_gauge;
 /// # fn main() {
 /// // A regular, unscoped gauge:
 /// register_gauge!("some_metric_name");
-/// 
+///
 /// // A scoped gauge.  This inherits a scope derived by the current module:
 /// register_gauge!(<"some_metric_name">);
-/// 
+///
 /// // Providing a description for a gauge:
 /// register_gauge!("some_metric_name", "number of woopsy daisies");
-/// 
+///
 /// // Specifying labels:
 /// register_gauge!("some_metric_name", "service" => "http");
-/// 
+///
 /// // And all combined:
 /// register_gauge!("some_metric_name", "number of woopsy daisies", "service" => "http");
 /// register_gauge!(<"some_metric_name">, "number of woopsy daisies", "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// register_gauge!("some_metric_name", &labels);
 /// # }
 /// ```
 #[proc_macro_hack]
 pub use metrics_macros::register_gauge;
 
 /// Records a histogram.
-/// 
+///
 /// Histograms measure the distribution of values for a given set of measurements.
-/// 
+///
 /// Metrics can be registered with an optional description.  Whether or not the installed recorder
 /// does anything with the description is implementation defined.  Labels can also be specified
 /// when registering a metric.
-/// 
+///
 /// Histograms, when registered, start at zero.
-/// 
+///
 /// # Scoped versus unscoped
 /// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
 /// is taking place in.  This scope is used as a prefix to the provided metric name.
-/// 
+///
 /// # Example
 /// ```
 /// # use metrics::register_histogram;
 /// # fn main() {
 /// // A regular, unscoped histogram:
 /// register_histogram!("some_metric_name");
-/// 
+///
 /// // A scoped histogram.  This inherits a scope derived by the current module:
 /// register_histogram!(<"some_metric_name">);
-/// 
+///
 /// // Providing a description for a histogram:
 /// register_histogram!("some_metric_name", "number of woopsy daisies");
-/// 
+///
 /// // Specifying labels:
 /// register_histogram!("some_metric_name", "service" => "http");
-/// 
+///
 /// // And all combined:
 /// register_histogram!("some_metric_name", "number of woopsy daisies", "service" => "http");
 /// register_histogram!(<"some_metric_name">, "number of woopsy daisies", "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// register_histogram!("some_metric_name", &labels);
 /// # }
 /// ```
 #[proc_macro_hack]
@@ -301,27 +316,32 @@ pub use metrics_macros::register_histogram;
 /// Increments a counter.
 ///
 /// Counters represent a single value that can only be incremented over time, or reset to zero.
-/// 
+///
 /// # Scoped versus unscoped
 /// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
 /// is taking place in.  This scope is used as a prefix to the provided metric name.
-/// 
+///
 /// # Example
 /// ```
 /// # use metrics::increment;
 /// # fn main() {
 /// // A regular, unscoped increment:
 /// increment!("some_metric_name");
-/// 
+///
 /// // A scoped increment.  This inherits a scope derived by the current module:
 /// increment!(<"some_metric_name">);
-/// 
+///
 /// // Specifying labels:
 /// increment!("some_metric_name", "service" => "http");
-/// 
+///
 /// // And all combined:
 /// increment!("some_metric_name", "service" => "http");
 /// increment!(<"some_metric_name">, "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// increment!("some_metric_name", &labels);
 /// # }
 /// ```
 #[proc_macro_hack]
@@ -330,77 +350,87 @@ pub use metrics_macros::increment;
 /// Increments a counter.
 ///
 /// Counters represent a single value that can only be incremented over time, or reset to zero.
-/// 
+///
 /// # Scoped versus unscoped
 /// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
 /// is taking place in.  This scope is used as a prefix to the provided metric name.
-/// 
+///
 /// # Example
 /// ```
 /// # use metrics::counter;
 /// # fn main() {
 /// // A regular, unscoped counter:
 /// counter!("some_metric_name", 12);
-/// 
+///
 /// // A scoped counter.  This inherits a scope derived by the current module:
 /// counter!(<"some_metric_name">, 12);
-/// 
+///
 /// // Specifying labels:
 /// counter!("some_metric_name", 12, "service" => "http");
-/// 
+///
 /// // And all combined:
 /// counter!("some_metric_name", 12, "service" => "http");
 /// counter!(<"some_metric_name">, 12, "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// counter!("some_metric_name", 12, &labels);
 /// # }
 /// ```
 #[proc_macro_hack]
 pub use metrics_macros::counter;
 
 /// Updates a gauge.
-/// 
+///
 /// Gauges represent a single value that can go up or down over time.
-/// 
+///
 /// # Scoped versus unscoped
 /// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
 /// is taking place in.  This scope is used as a prefix to the provided metric name.
-/// 
+///
 /// # Example
 /// ```
 /// # use metrics::gauge;
 /// # fn main() {
 /// // A regular, unscoped gauge:
 /// gauge!("some_metric_name", 42.2222);
-/// 
+///
 /// // A scoped gauge.  This inherits a scope derived by the current module:
 /// gauge!(<"some_metric_name">, 33.3333);
-/// 
+///
 /// // Specifying labels:
 /// gauge!("some_metric_name", 66.6666, "service" => "http");
-/// 
+///
 /// // And all combined:
 /// gauge!("some_metric_name", 55.5555, "service" => "http");
 /// gauge!(<"some_metric_name">, 11.1111, "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// gauge!("some_metric_name", 42.42, &labels);
 /// # }
 /// ```
 #[proc_macro_hack]
 pub use metrics_macros::gauge;
 
 /// Records a histogram.
-/// 
+///
 /// Histograms measure the distribution of values for a given set of measurements.
-/// 
+///
 /// # Scoped versus unscoped
 /// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
 /// is taking place in.  This scope is used as a prefix to the provided metric name.
-/// 
+///
 /// # Implicit conversions
 /// Histograms are represented as `u64` values, but often come from another source, such as a time
 /// measurement.  By default, `histogram!` will accept a `u64` directly or a
 /// [`Duration`](std::time::Duration), which uses the nanoseconds total as the converted value.
-/// 
+///
 /// External libraries and applications can create their own conversions by implementing the
 /// [`IntoU64`] trait for their types, which is required for the value being passed to `histogram!`.
-/// 
+///
 /// # Example
 /// ```
 /// # use metrics::histogram;
@@ -408,21 +438,26 @@ pub use metrics_macros::gauge;
 /// # fn main() {
 /// // A regular, unscoped histogram:
 /// histogram!("some_metric_name", 34);
-/// 
+///
 /// // An implicit conversion from `Duration`:
 /// let d = Duration::from_millis(17);
 /// histogram!("some_metric_name", d);
-/// 
+///
 /// // A scoped histogram.  This inherits a scope derived by the current module:
 /// histogram!(<"some_metric_name">, 38);
 /// histogram!(<"some_metric_name">, d);
-/// 
+///
 /// // Specifying labels:
 /// histogram!("some_metric_name", 38, "service" => "http");
-/// 
+///
 /// // And all combined:
 /// histogram!("some_metric_name", d, "service" => "http");
 /// histogram!(<"some_metric_name">, 57, "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// histogram!("some_metric_name", 1337, &labels);
 /// # }
 /// ```
 #[proc_macro_hack]

@@ -1,4 +1,4 @@
-use crate::{Label, ScopedString};
+use crate::{IntoLabels, Label, ScopedString};
 use std::{fmt, slice::Iter};
 
 /// A metric key.
@@ -24,13 +24,14 @@ impl Key {
     }
 
     /// Creates a `Key` from a name and vector of `Label`s.
-    pub fn from_name_and_labels<N>(name: N, labels: Vec<Label>) -> Self
+    pub fn from_name_and_labels<N, L>(name: N, labels: L) -> Self
     where
         N: Into<ScopedString>,
+        L: IntoLabels,
     {
         Key {
             name: name.into(),
-            labels: Some(labels),
+            labels: Some(labels.into_labels()),
         }
     }
 
@@ -68,10 +69,10 @@ impl fmt::Display for Key {
                             write!(f, ", {} = {}", label.0, label.1)?;
                         }
                     }
-                     write!(f, "]")?;
+                    write!(f, "]")?;
                 }
                 write!(f, ")")
-            },
+            }
         }
     }
 }
@@ -85,6 +86,16 @@ impl From<String> for Key {
 impl From<&'static str> for Key {
     fn from(name: &'static str) -> Key {
         Key::from_name(name)
+    }
+}
+
+impl<N, L> From<(N, L)> for Key
+where
+    N: Into<ScopedString>,
+    L: IntoLabels,
+{
+    fn from(parts: (N, L)) -> Key {
+        Key::from_name_and_labels(parts.0, parts.1)
     }
 }
 
@@ -103,19 +114,25 @@ mod tests {
         let result2 = key2.to_string();
         assert_eq!(result2, "Key(foobar, [system = http])");
 
-        let key3 = Key::from_name_and_labels("foobar", vec![
-            Label::new("system", "http"),
-            Label::new("user", "joe"),
-        ]);
+        let key3 = Key::from_name_and_labels(
+            "foobar",
+            vec![Label::new("system", "http"), Label::new("user", "joe")],
+        );
         let result3 = key3.to_string();
         assert_eq!(result3, "Key(foobar, [system = http, user = joe])");
 
-        let key4 = Key::from_name_and_labels("foobar", vec![
-            Label::new("black", "black"),
-            Label::new("lives", "lives"),
-            Label::new("matter", "matter"),
-        ]);
+        let key4 = Key::from_name_and_labels(
+            "foobar",
+            vec![
+                Label::new("black", "black"),
+                Label::new("lives", "lives"),
+                Label::new("matter", "matter"),
+            ],
+        );
         let result4 = key4.to_string();
-        assert_eq!(result4, "Key(foobar, [black = black, lives = lives, matter = matter])");
+        assert_eq!(
+            result4,
+            "Key(foobar, [black = black, lives = lives, matter = matter])"
+        );
     }
 }

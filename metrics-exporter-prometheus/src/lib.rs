@@ -325,11 +325,11 @@ impl Inner {
 }
 
 /// A Prometheus recorder.
-/// 
+///
 /// This recorder should be composed with other recorders or installed globally via
 /// [`metrics::set_boxed_recorder`][set_boxed_recorder].
-/// 
-/// 
+///
+///
 pub struct PrometheusRecorder {
     inner: Arc<Inner>,
 }
@@ -546,7 +546,8 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
     let name = name.replace(sanitize, "_");
     let labels = labels
         .map(|labels| {
-            labels.into_iter()
+            labels
+                .into_iter()
                 .map(Label::into_parts)
                 .map(|(k, v)| {
                     format!(

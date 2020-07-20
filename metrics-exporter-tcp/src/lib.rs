@@ -1,48 +1,48 @@
 //! A [`metrics`][metrics]-compatible exporter that outputs metrics to clients over TCP.
-//! 
+//!
 //! This exporter creates a TCP server, that when connected to, will stream individual metrics to
 //! the client using a Protocol Buffers encoding.
-//! 
+//!
 //! # Backpressure
 //! The exporter has configurable buffering, which allows users to trade off how many metrics they
 //! want to be queued up at any given time.  This buffer limit applies both to incoming metrics, as
 //! well as the individual buffers for each connected client.
-//! 
+//!
 //! By default, the buffer limit is set at 1024 metrics.  When the incoming buffer -- metrics being
 //! fed to the exported -- is full, metrics will be dropped.  If a client's buffer is full,
 //! potentially due to slow network conditions or slow processing, then messages in the client's
 //! buffer will be dropped in FIFO order in order to allow the exporter to continue fanning out
 //! metrics to clients.
-//! 
+//!
 //! If no buffer limit is set, then te exporter will ingest and enqueue as many metrics as possible,
 //! potentially up until the point of memory exhaustion.  A buffer limit is advised for this reason,
 //! even if it is many multiples of the default.
-//! 
+//!
 //! # Encoding
 //! Metrics are encoded using Protocol Buffers.  The protocol file can be found in the repository at
 //! `proto/event.proto`.
-//! 
+//!
 //! # Usage
 //! The TCP exporter can be constructed by creating a [`TcpBuilder], configuring it as needed, and
 //! calling [`TcpBuilder::install`] to both spawn the TCP server as well as install the exporter
 //! globally.
-//! 
+//!
 //! If necessary, the recorder itself can be returned so that it can be composed separately, while
 //! still installing the TCP server itself, by calling [`TcpBuilder::build`].
-//! 
+//!
 //! ```
 //! # use metrics_exporter_tcp::TcpBuilder;
 //! # fn direct() {
 //! // Install the exporter directly:
 //! let builder = TcpBuilder::new();
 //! builder.install().expect("failed to install TCP exporter");
-//! 
+//!
 //! // Or install the TCP server and get the recorder:
 //! let builder = TcpBuilder::new();
 //! let recorder = builder.build().expect("failed to install TCP exporter");
 //! # }
 //! ```
-//! 
+//!
 //! [metrics]: https://docs.rs/metrics
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{self, Write};

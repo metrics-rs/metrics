@@ -20,7 +20,7 @@ impl Recorder for TestRecorder {
     }
     fn increment_counter(&self, _id: Identifier, _value: u64) {}
     fn update_gauge(&self, _id: Identifier, _value: f64) {}
-    fn record_histogram(&self, _id: Identifier, _value: f64) {}
+    fn record_histogram(&self, _id: Identifier, _value: u64) {}
 }
 
 fn reset_recorder() {
