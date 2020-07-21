@@ -1,15 +1,13 @@
 use crate::data::AtomicWindowedHistogram;
 use arc_swap::ArcSwapOption;
+use atomic_shim::{AtomicI64, AtomicU64};
 use metrics_core::Key;
 use metrics_util::StreamingIntegers;
 use quanta::Clock;
 use std::{
     fmt,
     ops::Deref,
-    sync::{
-        atomic::{AtomicI64, AtomicU64, Ordering},
-        Arc,
-    },
+    sync::{atomic::Ordering, Arc},
     time::{Duration, Instant},
 };
 

@@ -4,13 +4,14 @@ extern crate env_logger;
 extern crate getopts;
 extern crate hdrhistogram;
 
+use atomic_shim::AtomicU64;
 use getopts::Options;
 use hdrhistogram::Histogram;
 use quanta::Clock;
 use std::{
     env,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
     thread,

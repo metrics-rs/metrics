@@ -10,6 +10,7 @@ extern crate tokio;
 #[macro_use]
 extern crate metrics;
 
+use atomic_shim::AtomicU64;
 use getopts::Options;
 use hdrhistogram::Histogram;
 use metrics_runtime::{exporters::HttpExporter, observers::JsonBuilder, Receiver};
@@ -17,7 +18,7 @@ use quanta::Clock;
 use std::{
     env,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
     thread,

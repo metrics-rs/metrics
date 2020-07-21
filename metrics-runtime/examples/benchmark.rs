@@ -6,6 +6,7 @@ extern crate hdrhistogram;
 extern crate metrics_core;
 extern crate metrics_runtime;
 
+use atomic_shim::AtomicU64;
 use getopts::Options;
 use hdrhistogram::Histogram;
 use metrics_runtime::{Receiver, Sink};
@@ -13,7 +14,7 @@ use quanta::Clock;
 use std::{
     env,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
     thread,
