@@ -1,10 +1,11 @@
 use crate::common::{Delta, ValueHandle};
 use crate::helper::duration_as_nanos;
+use atomic_shim::AtomicU64;
 use crossbeam_utils::Backoff;
 use metrics_util::{AtomicBucket, StreamingIntegers};
 use quanta::Clock;
 use std::cmp;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 /// A reference to a [`Histogram`].

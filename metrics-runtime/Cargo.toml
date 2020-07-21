@@ -38,6 +38,7 @@ metrics-exporter-http = { path = "../metrics-exporter-http", version = "^0.3", o
 metrics-observer-yaml = { path = "../metrics-observer-yaml", version = "^0.1", optional = true }
 metrics-observer-prometheus = { path = "../metrics-observer-prometheus", version = "^0.1", optional = true }
 metrics-observer-json = { path = "../metrics-observer-json", version = "^0.1", optional = true }
+atomic-shim = "0.1.0"
 
 [dev-dependencies]
 log = "^0.4"
