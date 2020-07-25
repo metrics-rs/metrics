@@ -66,7 +66,7 @@ Overall, this repository is home to the following crates:
 
 # contributing
 
-We're always looking for users who have thoughts on how to make metrics better, or users with interesting use cases.  Of course, we're also happy to accept code contrbutions for outstanding feature requests! 😀
+We're always looking for users who have thoughts on how to make metrics better, or users with interesting use cases.  Of course, we're also happy to accept code contributions for outstanding feature requests! 😀
 
 We'd love to chat about any of the above, or anything else, really!  You can find us over on [Gitter](https://gitter.im/metrics-rs/community).
 
