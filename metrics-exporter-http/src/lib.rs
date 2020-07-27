@@ -39,7 +39,9 @@ where
 
     /// Starts an HTTP server on the `address` the exporter was originally configured with,
     /// responding to any request with the output of the configured observer.
-    pub async fn async_run(self) -> hyper::error::Result<()> {
+    pub fn async_run(
+        self,
+    ) -> Box<dyn futures::Future<Output = hyper::error::Result<()>> + Send + Unpin> {
         let builder = Arc::new(self.builder);
         let controller = Arc::new(self.controller);
 
@@ -62,6 +64,6 @@ where
             }
         });
 
-        Server::bind(&self.address).serve(make_svc).await
+        Box::new(Server::bind(&self.address).serve(make_svc))
     }
 }
