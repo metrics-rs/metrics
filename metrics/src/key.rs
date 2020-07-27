@@ -45,6 +45,18 @@ impl Key {
         self.labels.as_ref().map(|xs| xs.iter())
     }
 
+    /// Map the name of this key to a new name, based on `f`.
+    ///
+    /// The value returned by `f` becomes the new name of the key.
+    pub fn map_name<F>(mut self, f: F) -> Self
+    where
+        F: Fn(ScopedString) -> String,
+    {
+        let new_name = f(self.name);
+        self.name = new_name.into();
+        self
+    }
+
     /// Consumes this `Key`, returning the name and any labels.
     pub fn into_parts(self) -> (ScopedString, Option<Vec<Label>>) {
         (self.name, self.labels)

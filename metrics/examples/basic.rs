@@ -34,18 +34,15 @@ impl Recorder for PrintRecorder {
     }
 
     fn increment_counter(&self, id: Identifier, value: u64) {
-        let uid: usize = id.into();
-        println!("(counter) got value {} for id {}", value, uid);
+        println!("(counter) got value {} for id {:?}", value, id);
     }
 
     fn update_gauge(&self, id: Identifier, value: f64) {
-        let uid: usize = id.into();
-        println!("(gauge) got value {} for id {}", value, uid);
+        println!("(gauge) got value {} for id {:?}", value, id);
     }
 
     fn record_histogram(&self, id: Identifier, value: u64) {
-        let uid: usize = id.into();
-        println!("(histogram) got value {} for id {}", value, uid);
+        println!("(histogram) got value {} for id {:?}", value, id);
     }
 }
 

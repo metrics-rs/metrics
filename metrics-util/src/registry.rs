@@ -89,12 +89,16 @@ where
     where
         F: FnOnce(&H) -> V,
     {
-        let id: usize = identifier.into();
-        let rg = self
-            .handles
-            .read()
-            .expect("handles read lock was poisoned!");
-        rg.get(id).map(f)
+        match identifier {
+            Identifier::Valid(idx) => {
+                let rg = self
+                    .handles
+                    .read()
+                    .expect("handles read lock was poisoned!");
+                rg.get(idx).map(f)
+            },
+            Identifier::Invalid => None,
+        }
     }
 }
 
@@ -115,10 +119,14 @@ where
             .expect("handles read lock was poisoned!");
         mappings
             .into_iter()
-            .map(|(key, id)| {
-                let id: usize = id.into();
-                let handle = rg.get(id).expect("handle not present!").clone();
-                (key, handle)
+            .filter_map(|(key, id)| {
+                match id {
+                    Identifier::Valid(idx) => {
+                        let handle = rg.get(idx).expect("handle not present!").clone();
+                        Some((key, handle))
+                    },
+                    Identifier::Invalid => None,
+                }
             })
             .collect::<HashMap<_, _>>()
     }

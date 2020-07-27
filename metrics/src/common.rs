@@ -10,30 +10,28 @@ use std::sync::Once;
 pub type ScopedString = Cow<'static, str>;
 
 /// Opaque identifier for a metric.
-#[derive(Copy, Clone, Default, PartialEq, Eq, Hash)]
-pub struct Identifier(usize);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Identifier {
+    /// An uninitialized or invalid identifier.
+    ///
+    /// Used either as a default value where static construction is required, or in special cases
+    /// where an invalid identifier must be returned to signal downstream layers to not process a
+    /// particular call i.e. filtering metrics by returning an invalid identifier during registration.
+    Invalid,
 
-impl Identifier {
-    /// Creates a zeroed-out identifier.
-    pub const fn zeroed() -> Identifier {
-        Identifier(0)
-    }
+    /// A valid identifier.
+    Valid(usize),
+}
 
-    /// Gets the internal value of this `Identifier`.
-    pub fn to_usize(&self) -> usize {
-        self.0
+impl Default for Identifier {
+    fn default() -> Self {
+        Identifier::Invalid
     }
 }
 
 impl From<usize> for Identifier {
     fn from(v: usize) -> Self {
-        Identifier(v)
-    }
-}
-
-impl Into<usize> for Identifier {
-    fn into(self) -> usize {
-        self.0
+        Identifier::Valid(v)
     }
 }
 
@@ -52,7 +50,7 @@ impl OnceIdentifier {
     pub const fn new() -> OnceIdentifier {
         OnceIdentifier {
             init: Once::new(),
-            inner: UnsafeCell::new(Identifier::zeroed()),
+            inner: UnsafeCell::new(Identifier::Invalid),
         }
     }
 

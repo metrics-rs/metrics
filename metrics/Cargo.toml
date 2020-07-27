@@ -34,4 +34,5 @@ criterion = "^0.3"
 rand = "^0.7"
 
 [features]
+default = ["std"]
 std = []

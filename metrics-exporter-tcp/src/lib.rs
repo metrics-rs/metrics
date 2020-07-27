@@ -220,6 +220,10 @@ impl TcpRecorder {
     }
 
     fn push_metric(&self, id: Identifier, value: MetricValue) {
+        let id = match id {
+            Identifier::Invalid => return,
+            Identifier::Valid(_) => id,
+        };
         let _ = self.tx.try_send((id, value));
         let _ = self.waker.wake();
     }
@@ -308,7 +312,7 @@ fn run_transport(
                         match convert_metric_to_protobuf_encoded(&registry, msg.0, msg.1) {
                             Some(Ok(pmsg)) => buffered_pmsgs.push_back(pmsg),
                             Some(Err(e)) => error!(error = ?e, "error encoding metric"),
-                            None => error!(metric_id = msg.0.to_usize(), "unknown metric"),
+                            None => error!(metric_id = ?msg.0, "unknown metric"),
                         }
                     }
                     drop(_mrxspan);
@@ -461,6 +465,10 @@ fn convert_metric_to_protobuf_encoded(
     id: Identifier,
     value: MetricValue,
 ) -> Option<Result<Bytes, EncodeError>> {
+    let id = match id {
+        Identifier::Invalid => return None,
+        Identifier::Valid(_) => id,
+    };
     registry.with_handle(id, |ckey| {
         let name = ckey.key().name().to_string();
         let labels = ckey
