@@ -1,0 +1,4 @@
+[[redirects]]
+  from = "/"
+  to = "https://docs.rs/metrics"
+  status = 302
