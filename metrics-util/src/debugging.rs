@@ -5,7 +5,7 @@ use crate::{handle::Handle, registry::Registry};
 use metrics::{Identifier, Key, Recorder};
 
 /// Metric kinds.
-#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 pub enum MetricKind {
     /// Counter.
     Counter,
@@ -27,6 +27,7 @@ impl DifferentiatedKey {
 }
 
 /// A point-in-time value for a metric exposing raw values.
+#[derive(Debug, PartialEq)]
 pub enum DebugValue {
     /// Counter.
     Counter(u64),
