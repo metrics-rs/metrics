@@ -1,26 +1,40 @@
 use metrics::{counter, Key, Label};
 use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
 use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
-use tracing::dispatcher::{set_global_default, Dispatch};
+use parking_lot::{Mutex, MutexGuard, const_mutex};
+use tracing::dispatcher::{set_default, DefaultGuard, Dispatch};
 use tracing::{span, Level};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
 
-fn setup() -> Snapshotter {
+static TEST_MUTEX: Mutex<()> = const_mutex(());
+
+struct TestGuard {
+    _test_mutex_guard: MutexGuard<'static, ()>,
+    _tracing_guard: DefaultGuard,
+}
+
+fn setup() -> (TestGuard, Snapshotter) {
+    let test_mutex_guard = TEST_MUTEX.lock();
     let subscriber = Registry::default().with(MetricsLayer::new());
-    set_global_default(Dispatch::new(subscriber)).unwrap();
+    let tracing_guard = set_default(&Dispatch::new(subscriber));
 
     let recorder = DebuggingRecorder::new();
     let snapshotter = recorder.snapshotter();
     let recorder = TracingContextLayer.layer(recorder);
 
+    metrics::clear_recorder();
     metrics::set_boxed_recorder(Box::new(recorder)).expect("failed to install recorder");
 
-    snapshotter
+    let test_guard = TestGuard {
+        _test_mutex_guard: test_mutex_guard,
+        _tracing_guard: tracing_guard,
+    };
+    (test_guard, snapshotter)
 }
 
 #[test]
 fn test_basic_functionality() {
-    let snapshotter = setup();
+    let (_guard, snapshotter) = setup();
 
     let user = "ferris";
     let email = "ferris@rust-lang.org";
@@ -50,7 +64,7 @@ fn test_basic_functionality() {
 
 #[test]
 fn test_no_labels() {
-    let snapshotter = setup();
+    let (_guard, snapshotter) = setup();
 
     let span = span!(Level::TRACE, "login");
     let _guard = span.enter();
@@ -71,7 +85,7 @@ fn test_no_labels() {
 
 #[test]
 fn test_multiple_paths_to_the_same_callsite() {
-    let snapshotter = setup();
+    let (_guard, snapshotter) = setup();
 
     let shared_fn = || {
         counter!("my_counter", 1);
