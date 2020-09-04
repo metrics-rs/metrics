@@ -47,3 +47,24 @@ fn test_basic_functionality() {
         )]
     )
 }
+
+#[test]
+fn test_no_labels() {
+    let snapshotter = setup();
+
+    let span = span!(Level::TRACE, "login");
+    let _guard = span.enter();
+
+    counter!("login_attempts", 1);
+
+    let snapshot = snapshotter.snapshot();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            MetricKind::Counter,
+            Key::from_name("login_attempts",),
+            DebugValue::Counter(1),
+        )]
+    )
+}
