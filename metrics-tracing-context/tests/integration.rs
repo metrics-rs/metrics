@@ -68,3 +68,73 @@ fn test_no_labels() {
         )]
     )
 }
+
+#[test]
+fn test_multiple_paths_to_the_same_callsite() {
+    let snapshotter = setup();
+
+    let shared_fn = || {
+        counter!("my_counter", 1);
+    };
+
+    let path1 = || {
+        let path1_specific_dynamic = "foo_dynamic";
+        let span = span!(
+            Level::TRACE,
+            "path1",
+            shared_field = "path1",
+            path1_specific = "foo",
+            path1_specific_dynamic,
+        );
+        let _guard = span.enter();
+        shared_fn();
+    };
+
+    let path2 = || {
+        let path2_specific_dynamic = "bar_dynamic";
+        let span = span!(
+            Level::TRACE,
+            "path2",
+            shared_field = "path2",
+            path2_specific = "foo",
+            path2_specific_dynamic,
+        );
+        let _guard = span.enter();
+        shared_fn();
+    };
+
+    path1();
+    path2();
+
+    let snapshot = snapshotter.snapshot();
+
+    assert_eq!(
+        snapshot,
+        vec![
+            (
+                MetricKind::Counter,
+                Key::from_name_and_labels(
+                    "my_counter",
+                    vec![
+                        Label::new("shared_field", "path1"),
+                        Label::new("path1_specific", "foo"),
+                        Label::new("path1_specific_dynamic", "foo_dynamic"),
+                    ],
+                ),
+                DebugValue::Counter(1),
+            ),
+            (
+                MetricKind::Counter,
+                Key::from_name_and_labels(
+                    "my_counter",
+                    vec![
+                        Label::new("shared_field", "path2"),
+                        Label::new("path2_specific", "bar"),
+                        Label::new("path2_specific_dynamic", "bar_dynamic"),
+                    ],
+                ),
+                DebugValue::Counter(1),
+            )
+        ]
+    )
+}
