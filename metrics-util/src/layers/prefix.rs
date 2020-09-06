@@ -1,26 +1,9 @@
+use crate::layers::Layer;
 use metrics::{Identifier, Key, Recorder};
 
-use crate::layers::Layer;
-
-/// A layer for applying a prefix to every metric key.
-pub struct PrefixLayer(String);
-
-impl PrefixLayer {
-    /// Creates a new `PrefixLayer` based on the given prefix.
-    pub fn new<S: Into<String>>(prefix: S) -> PrefixLayer {
-        PrefixLayer(prefix.into())
-    }
-}
-
-impl<R> Layer<R> for PrefixLayer {
-    type Output = Prefix<R>;
-
-    fn layer(&self, inner: R) -> Self::Output {
-        Prefix { prefix: self.0.clone(), inner }
-    }
-}
-
 /// Applies a prefix to every metric key.
+///
+/// Keys will be prefixed in the format of `<prefix>.<remaining>`.
 pub struct Prefix<R> {
     prefix: String,
     inner: R,
@@ -61,12 +44,35 @@ impl<R: Recorder> Recorder for Prefix<R> {
     }
 }
 
+/// A layer for applying a prefix to every metric key.
+///
+/// More information on the behavior of the layer can be found in [`Prefix`].
+pub struct PrefixLayer(String);
+
+impl PrefixLayer {
+    /// Creates a new `PrefixLayer` based on the given prefix.
+    pub fn new<S: Into<String>>(prefix: S) -> PrefixLayer {
+        PrefixLayer(prefix.into())
+    }
+}
+
+impl<R> Layer<R> for PrefixLayer {
+    type Output = Prefix<R>;
+
+    fn layer(&self, inner: R) -> Self::Output {
+        Prefix {
+            prefix: self.0.clone(),
+            inner,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use metrics::Recorder;
-    use crate::layers::Layer;
-    use crate::debugging::DebuggingRecorder;
     use super::PrefixLayer;
+    use crate::debugging::DebuggingRecorder;
+    use crate::layers::Layer;
+    use metrics::Recorder;
 
     #[test]
     fn test_basic_functionality() {

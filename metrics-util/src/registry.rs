@@ -96,7 +96,7 @@ where
                     .read()
                     .expect("handles read lock was poisoned!");
                 rg.get(idx).map(f)
-            },
+            }
             Identifier::Invalid => None,
         }
     }
@@ -119,14 +119,12 @@ where
             .expect("handles read lock was poisoned!");
         mappings
             .into_iter()
-            .filter_map(|(key, id)| {
-                match id {
-                    Identifier::Valid(idx) => {
-                        let handle = rg.get(idx).expect("handle not present!").clone();
-                        Some((key, handle))
-                    },
-                    Identifier::Invalid => None,
+            .filter_map(|(key, id)| match id {
+                Identifier::Valid(idx) => {
+                    let handle = rg.get(idx).expect("handle not present!").clone();
+                    Some((key, handle))
                 }
+                Identifier::Invalid => None,
             })
             .collect::<HashMap<_, _>>()
     }
