@@ -475,8 +475,11 @@ fn convert_metric_to_protobuf_encoded(
             .key()
             .labels()
             .map(|labels| {
-                labels
-                    .map(|label| (label.key().to_string(), label.value().to_string()))
+                labels.iter()
+                    .filter_map(|label| match label.value() {
+                        Some(value) => Some((label.key().to_string(), value.to_string())),
+                        None => None,
+                    })
                     .collect::<BTreeMap<_, _>>()
             })
             .unwrap_or_else(|| BTreeMap::new());

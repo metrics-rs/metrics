@@ -14,7 +14,7 @@ enum Key {
 
 enum Labels {
     Existing(Expr),
-    Inline(Vec<(LitStr, Expr)>),
+    Inline(Vec<(LitStr, Option<Expr>)>),
 }
 
 struct WithoutExpression {
@@ -283,7 +283,10 @@ fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
             Labels::Inline(pairs) => {
                 let labels = pairs
                     .into_iter()
-                    .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
+                    .map(|(k, v)| match v {
+                        Some(v) => quote! { metrics::Label::from_static(#k, #v) },
+                        None => quote! { metrics::Label::from_dynamic(#k) },
+                    });
                 quote! {
                     metrics::Key::from_name_and_labels(#name, vec![#(#labels),*])
                 }
@@ -306,10 +309,10 @@ fn can_use_fast_path(labels: &Option<Labels>) -> bool {
                 let mut use_fast_path = true;
                 for (_, lvalue) in pairs {
                     match lvalue {
-                        Expr::Lit(_) => {}
+                        Some(Expr::Lit(_))=> {},
                         _ => {
                             use_fast_path = false;
-                        }
+                        },
                     }
                 }
                 use_fast_path
@@ -334,11 +337,11 @@ fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
 
     // Two possible states for labels: references to a label iterator, or key/value pairs.
     //
-    // We check to see if we have the ", key =>" part, which tells us that we're taking in key/value
+    // We check to see if we have the ", key" part, which tells us that we're taking in key/value
     // pairs.  If we don't have that, we check to see if we have a "`, <expr" part, which could us
     // getting handed a labels iterator.  The type checking for `IntoLabels` in `metrics::Recorder`
     // will do the heavy lifting from that point forward.
-    if input.peek(Token![,]) && input.peek2(LitStr) && input.peek3(Token![=>]) {
+    if input.peek(Token![,]) && input.peek2(LitStr) {
         let mut labels = Vec::new();
         loop {
             if input.is_empty() {
@@ -346,10 +349,15 @@ fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
             }
             input.parse::<Token![,]>()?;
             let lkey: LitStr = input.parse()?;
-            input.parse::<Token![=>]>()?;
-            let lvalue: Expr = input.parse()?;
 
-            labels.push((lkey, lvalue));
+            if let Ok(_) = input.parse::<Token![=>]>() {
+                // Full key/value pair.
+                let lvalue: Expr = input.parse()?;
+                labels.push((lkey, Some(lvalue))); 
+            } else {
+                // Dynamic label (unresolved value).
+                labels.push((lkey, None));
+            }
         }
 
         return Ok(Some(Labels::Inline(labels)));

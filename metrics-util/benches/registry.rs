@@ -20,7 +20,7 @@ fn registry_benchmark(c: &mut Criterion) {
             let registry: Registry<Key, ()> = Registry::new();
 
             b.iter(|| {
-                let labels = vec![Label::new("type", "http")];
+                let labels = vec![Label::from_static("type", "http")];
                 let key = ("simple_key", labels).into();
                 let _ = registry.get_or_create_identifier(key, |_| ());
             })
@@ -39,7 +39,7 @@ fn registry_benchmark(c: &mut Criterion) {
             b.iter_batched_ref(
                 || Registry::<Key, ()>::new(),
                 |registry| {
-                    let labels = vec![Label::new("type", "http")];
+                    let labels = vec![Label::from_static("type", "http")];
                     let key = ("simple_key", labels).into();
                     let _ = registry.get_or_create_identifier(key, |_| ());
                 },
@@ -68,7 +68,7 @@ fn registry_benchmark(c: &mut Criterion) {
         .with_function("key overhead (labels)", |b| {
             b.iter(|| {
                 let key = "simple_key";
-                let labels = vec![Label::new("type", "http")];
+                let labels = vec![Label::from_static("type", "http")];
                 let _: Key = (key, labels).into();
             })
         }),

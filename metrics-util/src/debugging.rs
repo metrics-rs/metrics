@@ -1,11 +1,12 @@
 use std::sync::Arc;
+use std::cmp::Ordering;
 
 use crate::{handle::Handle, registry::Registry};
 
 use metrics::{Identifier, Key, Recorder};
 
 /// Metric kinds.
-#[derive(Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum MetricKind {
     /// Counter.
     Counter,
@@ -17,7 +18,7 @@ pub enum MetricKind {
     Histogram,
 }
 
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 struct DifferentiatedKey(MetricKind, Key);
 
 impl DifferentiatedKey {
@@ -27,6 +28,7 @@ impl DifferentiatedKey {
 }
 
 /// A point-in-time value for a metric exposing raw values.
+#[derive(Debug, PartialEq, PartialOrd)]
 pub enum DebugValue {
     /// Counter.
     Counter(u64),
@@ -34,6 +36,14 @@ pub enum DebugValue {
     Gauge(f64),
     /// Histogram.
     Histogram(Vec<u64>),
+}
+
+impl Eq for DebugValue {}
+
+impl Ord for DebugValue {
+    fn cmp(&self, other: &DebugValue) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
 }
 
 /// Captures point-in-time snapshots of `DebuggingRecorder`.

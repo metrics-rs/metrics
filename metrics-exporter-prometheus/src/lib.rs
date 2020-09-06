@@ -549,14 +549,10 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
             labels
                 .into_iter()
                 .map(Label::into_parts)
-                .map(|(k, v)| {
-                    format!(
-                        "{}=\"{}\"",
-                        k,
-                        v.replace("\\", "\\\\")
-                            .replace("\"", "\\\"")
-                            .replace("\n", "\\n")
-                    )
+                .filter_map(|(k, v)| match v {
+                    Some(value) => Some(format!("{}=\"{}\"",
+                        k, value.replace("\\", "\\\\") .replace("\"", "\\\"") .replace("\n", "\\n"))),
+                    None => None,
                 })
                 .collect()
         })

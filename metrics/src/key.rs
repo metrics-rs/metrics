@@ -1,11 +1,11 @@
 use crate::{IntoLabels, Label, ScopedString};
-use std::{fmt, slice::Iter};
+use std::fmt;
 
 /// A metric key.
 ///
 /// A key always includes a name, but can optional include multiple labels used to further describe
 /// the metric.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Debug)]
 pub struct Key {
     name: ScopedString,
     labels: Option<Vec<Label>>,
@@ -41,8 +41,13 @@ impl Key {
     }
 
     /// Labels of this key, if they exist.
-    pub fn labels(&self) -> Option<Iter<Label>> {
-        self.labels.as_ref().map(|xs| xs.iter())
+    pub fn labels(&self) -> Option<&Vec<Label>> {
+        self.labels.as_ref()
+    }
+
+    /// Mutable reference to labels of this key, if they exist.
+    pub fn labels_mut(&mut self) -> &mut Option<Vec<Label>> {
+        &mut self.labels
     }
 
     /// Map the name of this key to a new name, based on `f`.
@@ -75,10 +80,10 @@ impl fmt::Display for Key {
                     write!(f, ", [")?;
                     for label in labels {
                         if first {
-                            write!(f, "{} = {}", label.0, label.1)?;
+                            write!(f, "{}", label)?;
                             first = false;
                         } else {
-                            write!(f, ", {} = {}", label.0, label.1)?;
+                            write!(f, ", {}", label)?;
                         }
                     }
                     write!(f, "]")?;
@@ -122,29 +127,42 @@ mod tests {
         let result1 = key1.to_string();
         assert_eq!(result1, "Key(foobar)");
 
-        let key2 = Key::from_name_and_labels("foobar", vec![Label::new("system", "http")]);
+        let key2 = Key::from_name_and_labels("foobar", vec![Label::from_static("system", "http")]);
         let result2 = key2.to_string();
-        assert_eq!(result2, "Key(foobar, [system = http])");
+        assert_eq!(result2, "Key(foobar, [system => http])");
 
         let key3 = Key::from_name_and_labels(
             "foobar",
-            vec![Label::new("system", "http"), Label::new("user", "joe")],
+            vec![Label::from_static("system", "http"), Label::from_static("user", "joe")],
         );
         let result3 = key3.to_string();
-        assert_eq!(result3, "Key(foobar, [system = http, user = joe])");
+        assert_eq!(result3, "Key(foobar, [system => http, user => joe])");
 
         let key4 = Key::from_name_and_labels(
             "foobar",
             vec![
-                Label::new("black", "black"),
-                Label::new("lives", "lives"),
-                Label::new("matter", "matter"),
+                Label::from_static("black", "black"),
+                Label::from_static("lives", "lives"),
+                Label::from_static("matter", "matter"),
             ],
         );
         let result4 = key4.to_string();
         assert_eq!(
             result4,
-            "Key(foobar, [black = black, lives = lives, matter = matter])"
+            "Key(foobar, [black => black, lives => lives, matter => matter])"
+        );
+
+        let key5 = Key::from_name_and_labels(
+            "foodz",
+            vec![
+                Label::from_static("gazpacho", "tasty"),
+                Label::from_dynamic("durian"),
+            ],
+        );
+        let result5 = key5.to_string();
+        assert_eq!(
+            result5,
+            "Key(foodz, [gazpacho => tasty, unresolved(\"durian\")])"
         );
     }
 }
