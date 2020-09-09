@@ -16,7 +16,10 @@ impl<R> Layer<R> for PrefixLayer {
     type Output = Prefix<R>;
 
     fn layer(&self, inner: R) -> Self::Output {
-        Prefix { prefix: self.0.clone(), inner }
+        Prefix {
+            prefix: self.0.clone(),
+            inner,
+        }
     }
 }
 
@@ -81,10 +84,10 @@ impl<R: Recorder> Recorder for Prefix<R> {
 
 #[cfg(test)]
 mod tests {
-    use metrics::Recorder;
-    use crate::layers::Layer;
-    use crate::debugging::DebuggingRecorder;
     use super::PrefixLayer;
+    use crate::debugging::DebuggingRecorder;
+    use crate::layers::Layer;
+    use metrics::Recorder;
 
     #[test]
     fn test_basic_functionality() {
