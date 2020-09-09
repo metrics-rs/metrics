@@ -26,6 +26,7 @@ use parking_lot::Mutex;
 /// `Registry` is optimized for reads.
 pub struct Registry<K, H> {
     mappings: ArcSwap<ImmutableHashMap<K, Identifier>>,
+    reverse_mappings: ArcSwap<ImmutableHashMap<Identifier, K>>,
     handles: ShardedLock<Vec<H>>,
     lock: Mutex<()>,
 }
@@ -38,6 +39,7 @@ where
     pub fn new() -> Self {
         Registry {
             mappings: ArcSwap::from(Arc::new(ImmutableHashMap::new())),
+            reverse_mappings: ArcSwap::from(Arc::new(ImmutableHashMap::new())),
             handles: ShardedLock::new(Vec::new()),
             lock: Mutex::new(()),
         }
@@ -76,9 +78,17 @@ where
         drop(wg);
 
         // Update our mapping table and drop the lock.
-        let new_mappings = mappings.update(key, id);
+        let new_mappings = mappings.update(key.clone(), id);
         drop(mappings);
         self.mappings.store(Arc::new(new_mappings));
+
+        // Update reverse mappings table.
+        let reverse_mappings = self.reverse_mappings.load();
+        let new_reverse_mappings = reverse_mappings.update(id, key);
+        drop(reverse_mappings);
+        self.reverse_mappings.store(Arc::new(new_reverse_mappings));
+
+        // Unlock the registy.
         drop(guard);
 
         id
@@ -96,9 +106,17 @@ where
                     .read()
                     .expect("handles read lock was poisoned!");
                 rg.get(idx).map(f)
-            },
+            }
             Identifier::Invalid => None,
         }
+    }
+
+    /// Gets the key for a given identifier.
+    pub fn with_key<F, V>(&self, identifier: Identifier, f: F) -> Option<V>
+    where
+        F: FnOnce(&K) -> V,
+    {
+        self.reverse_mappings.load().get(&identifier).map(f)
     }
 }
 
@@ -119,14 +137,12 @@ where
             .expect("handles read lock was poisoned!");
         mappings
             .into_iter()
-            .filter_map(|(key, id)| {
-                match id {
-                    Identifier::Valid(idx) => {
-                        let handle = rg.get(idx).expect("handle not present!").clone();
-                        Some((key, handle))
-                    },
-                    Identifier::Invalid => None,
+            .filter_map(|(key, id)| match id {
+                Identifier::Valid(idx) => {
+                    let handle = rg.get(idx).expect("handle not present!").clone();
+                    Some((key, handle))
                 }
+                Identifier::Invalid => None,
             })
             .collect::<HashMap<_, _>>()
     }
