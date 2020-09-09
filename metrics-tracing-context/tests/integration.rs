@@ -1,7 +1,7 @@
 use metrics::{counter, Key, Label};
 use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
 use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
-use parking_lot::{Mutex, MutexGuard, const_mutex};
+use parking_lot::{const_mutex, Mutex, MutexGuard};
 use tracing::dispatcher::{set_default, DefaultGuard, Dispatch};
 use tracing::{span, Level};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
