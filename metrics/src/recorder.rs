@@ -1,4 +1,4 @@
-use crate::{Identifier, Key};
+use crate::{Identifier, Key, Label};
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -46,6 +46,18 @@ pub trait Recorder {
     /// The value can be value that implements [`IntoU64`].  By default, `metrics` provides an
     /// implementation for both `u64` itself as well as [`Duration`](std::time::Duration).
     fn record_histogram(&self, id: Identifier, value: u64);
+
+    /// Increments a counter with dynamic labels.
+    fn increment_dynamic_counter(&self, key: Key, value: u64, dynamic_labels: Vec<Label>);
+
+    /// Updates a gauge with dynamic labels.
+    fn update_dynamic_gauge(&self, key: Key, value: f64, dynamic_labels: Vec<Label>);
+
+    /// Records a histogram with dynamic labels.
+    ///
+    /// The value can be value that implements [`IntoU64`].  By default, `metrics` provides an
+    /// implementation for both `u64` itself as well as [`Duration`](std::time::Duration).
+    fn record_dynamic_histogram(&self, key: Key, value: u64, dynamic_labels: Vec<Label>);
 }
 
 struct NoopRecorder;
@@ -63,6 +75,9 @@ impl Recorder for NoopRecorder {
     fn increment_counter(&self, _id: Identifier, _value: u64) {}
     fn update_gauge(&self, _id: Identifier, _value: f64) {}
     fn record_histogram(&self, _id: Identifier, _value: u64) {}
+    fn increment_dynamic_counter(&self, _key: Key, _value: u64, _dynamic_labels: Vec<Label>) {}
+    fn update_dynamic_gauge(&self, _key: Key, _value: f64, _dynamic_labels: Vec<Label>) {}
+    fn record_dynamic_histogram(&self, _key: Key, _value: u64, _dynamic_labels: Vec<Label>) {}
 }
 
 /// Sets the global recorder to a `&'static Recorder`.

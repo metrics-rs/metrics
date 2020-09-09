@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use metrics::{counter, gauge, histogram, increment, Identifier, Key, Recorder};
+use metrics::{counter, gauge, histogram, increment, Identifier, Key, Label, Recorder};
 
 #[allow(dead_code)]
 static RECORDER: PrintRecorder = PrintRecorder::new();
@@ -43,6 +43,27 @@ impl Recorder for PrintRecorder {
 
     fn record_histogram(&self, id: Identifier, value: u64) {
         println!("(histogram) got value {} for id {:?}", value, id);
+    }
+
+    fn increment_dynamic_counter(&self, key: Key, value: u64, dynamic_labels: Vec<Label>) {
+        println!(
+            "(dynamic counter) got value {} for key {:?} and labels {:?}",
+            value, key, dynamic_labels
+        );
+    }
+
+    fn update_dynamic_gauge(&self, key: Key, value: f64, dynamic_labels: Vec<Label>) {
+        println!(
+            "(dynamic gauge) got value {} for key {:?} and labels {:?}",
+            value, key, dynamic_labels
+        );
+    }
+
+    fn record_dynamic_histogram(&self, key: Key, value: u64, dynamic_labels: Vec<Label>) {
+        println!(
+            "(dynamic histogram) got value {} for key {:?} and labels {:?}",
+            value, key, dynamic_labels
+        );
     }
 }
 

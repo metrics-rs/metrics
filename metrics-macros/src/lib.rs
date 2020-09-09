@@ -176,7 +176,14 @@ fn get_expanded_registration(
     labels: Option<Labels>,
 ) -> TokenStream {
     let register_ident = format_ident!("register_{}", metric_type);
-    let key = key_to_quoted(key, labels);
+    let (key, dynamic_labels) = key_to_quoted(key, labels);
+
+    if let Some(dynamic_labels) = dynamic_labels {
+        eprintln!("DYNAMIC LABELS: {}", dynamic_labels);
+        return TokenStream::from(
+            quote! { compile_error!("you can't pass dynamic labels during metrics registration, please use literals only here") },
+        );
+    }
 
     let description = match description {
         Some(s) => quote! { Some(#s) },
@@ -205,10 +212,7 @@ fn get_expanded_callsite<V>(
 where
     V: ToTokens,
 {
-    let register_ident = format_ident!("register_{}", metric_type);
-    let op_ident = format_ident!("{}_{}", op_type, metric_type);
-    let use_fast_path = can_use_fast_path(&labels);
-    let key = key_to_quoted(key, labels);
+    let (key, dynamic_labels) = key_to_quoted(key, labels);
 
     let op_values = if metric_type == "histogram" {
         quote! {
@@ -218,35 +222,33 @@ where
         quote! { #op_values }
     };
 
-    let expanded = if use_fast_path {
-        // We're on the fast path here, so we'll end up registering with the recorder
-        // and statically caching the identifier for our metric to speed up any future
-        // increment operations.
-        quote! {
-            {
-                static METRICS_INIT: metrics::OnceIdentifier = metrics::OnceIdentifier::new();
-
-                // Only do this work if there's a recorder installed.
-                if let Some(recorder) = metrics::try_recorder() {
-                    // Initialize our fast path cached identifier.
-                    let id = METRICS_INIT.get_or_init(|| {
-                        recorder.#register_ident(#key, None)
-                    });
-                    recorder.#op_ident(id, #op_values);
+    let expanded = match dynamic_labels {
+        Some(dynamic_labels) => {
+            let op_ident = format_ident!("{}_dynamic_{}", op_type, metric_type);
+            quote! {
+                {
+                    if let Some(recorder) = metrics::try_recorder() {
+                        recorder.#op_ident(#key, #op_values, #dynamic_labels);
+                    }
                 }
             }
         }
-    } else {
-        // We're on the slow path, so basically we register every single time.
-        //
-        // Recorders are expected to deduplicate any duplicate registrations.
-        quote! {
-            {
-                // Only do this work if there's a recorder installed.
-                if let Some(recorder) = metrics::try_recorder() {
-                    let id = recorder.#register_ident(#key, None);
-                    recorder.#op_ident(id, #op_values);
-                }
+        None => {
+            let register_ident = format_ident!("register_{}", metric_type);
+            let op_ident = format_ident!("{}_{}", op_type, metric_type);
+            quote! {
+                  {
+                      static METRICS_INIT: metrics::OnceIdentifier = metrics::OnceIdentifier::new();
+
+                      // Only do this work if there's a recorder installed.
+                      if let Some(recorder) = metrics::try_recorder() {
+                          // Initialize our fast path cached identifier.
+                          let id = METRICS_INIT.get_or_init(|| {
+                              recorder.#register_ident(#key, None)
+                          });
+                          recorder.#op_ident(id, #op_values);
+                      }
+                  }
             }
         }
     };
@@ -265,7 +267,10 @@ fn read_key(input: &mut ParseStream) -> Result<Key> {
     }
 }
 
-fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
+fn key_to_quoted(
+    key: Key,
+    labels: Option<Labels>,
+) -> (proc_macro2::TokenStream, Option<proc_macro2::TokenStream>) {
     let name = match key {
         Key::NotScoped(s) => {
             quote! { #s }
@@ -278,42 +283,32 @@ fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
     };
 
     match labels {
-        None => quote! { metrics::Key::from_name(#name) },
+        None => (quote! { metrics::Key::from_name(#name) }, None),
         Some(labels) => match labels {
             Labels::Inline(pairs) => {
-                let labels = pairs
-                    .into_iter()
-                    .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
-                quote! {
-                    metrics::Key::from_name_and_labels(#name, vec![#(#labels),*])
-                }
-            }
-            Labels::Existing(e) => {
-                quote! {
-                    metrics::Key::from_name_and_labels(#name, #e)
-                }
-            }
-        },
-    }
-}
-
-fn can_use_fast_path(labels: &Option<Labels>) -> bool {
-    match labels {
-        None => true,
-        Some(labels) => match labels {
-            Labels::Existing(_) => false,
-            Labels::Inline(pairs) => {
-                let mut use_fast_path = true;
-                for (_, lvalue) in pairs {
-                    match lvalue {
-                        Expr::Lit(_) => {}
-                        _ => {
-                            use_fast_path = false;
+                let mut static_labels = Vec::new();
+                let mut dynamic_labels = Vec::new();
+                for (key, val) in pairs {
+                    match val {
+                        Expr::Lit(_) => {
+                            static_labels.push(quote! { metrics::Label::new(#key, #val) })
                         }
+                        _ => dynamic_labels.push(quote! { metrics::Label::new(#key, #val) }),
                     }
                 }
-                use_fast_path
+                (
+                    quote! { metrics::Key::from_name_and_labels(#name, vec![#(#static_labels),*]) },
+                    if dynamic_labels.is_empty() {
+                        None
+                    } else {
+                        Some(quote! { vec![#(#dynamic_labels),*] })
+                    },
+                )
             }
+            Labels::Existing(e) => (
+                quote! { metrics::Key::from_name(#name) },
+                Some(quote! { metrics::IntoLabels::into_labels(#e) }),
+            ),
         },
     }
 }
