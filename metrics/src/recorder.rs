@@ -48,16 +48,25 @@ pub trait Recorder {
     fn record_histogram(&self, id: Identifier, value: u64);
 
     /// Increments a counter with dynamic labels.
-    fn increment_dynamic_counter(&self, key: Key, value: u64, dynamic_labels: Vec<Label>);
+    fn increment_dynamic_counter(&self, key: Key, value: u64, dynamic_labels: Vec<Label>) {
+        let id = self.register_counter(key.with_extra_labels(dynamic_labels), None);
+        self.increment_counter(id, value)
+    }
 
     /// Updates a gauge with dynamic labels.
-    fn update_dynamic_gauge(&self, key: Key, value: f64, dynamic_labels: Vec<Label>);
+    fn update_dynamic_gauge(&self, key: Key, value: f64, dynamic_labels: Vec<Label>) {
+        let id = self.register_gauge(key.with_extra_labels(dynamic_labels), None);
+        self.update_gauge(id, value)
+    }
 
     /// Records a histogram with dynamic labels.
     ///
     /// The value can be value that implements [`IntoU64`].  By default, `metrics` provides an
     /// implementation for both `u64` itself as well as [`Duration`](std::time::Duration).
-    fn record_dynamic_histogram(&self, key: Key, value: u64, dynamic_labels: Vec<Label>);
+    fn record_dynamic_histogram(&self, key: Key, value: u64, dynamic_labels: Vec<Label>) {
+        let id = self.register_histogram(key.with_extra_labels(dynamic_labels), None);
+        self.record_histogram(id, value)
+    }
 }
 
 struct NoopRecorder;

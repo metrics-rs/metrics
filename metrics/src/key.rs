@@ -61,6 +61,22 @@ impl Key {
     pub fn into_parts(self) -> (ScopedString, Option<Vec<Label>>) {
         (self.name, self.labels)
     }
+
+    /// Returns a clone of this key with some additional labels.
+    pub fn with_extra_labels(&self, extra_labels: Vec<Label>) -> Self {
+        if extra_labels.is_empty() {
+            return self.clone();
+        }
+
+        let name = self.name.clone();
+        let mut labels = self.labels.clone().unwrap_or_default();
+        labels.extend(extra_labels);
+
+        Self {
+            name,
+            labels: Some(labels),
+        }
+    }
 }
 
 impl fmt::Display for Key {
