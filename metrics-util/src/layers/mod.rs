@@ -102,7 +102,7 @@
 use metrics::{Identifier, Key, Recorder};
 
 #[cfg(feature = "std")]
-use metrics::SetRecorderError;
+use metrics::{Label, SetRecorderError};
 
 mod prefix;
 pub use prefix::{PrefixLayer, Prefix};
@@ -167,4 +167,18 @@ impl<R: Recorder> Recorder for Stack<R> {
     fn record_histogram(&self, id: Identifier, value: u64) {
         self.inner.record_histogram(id, value);
     } 
+
+    fn increment_dynamic_counter(&self, key: Key, value: u64, dynamic_labels: Vec<Label>) {
+        self.inner
+            .increment_dynamic_counter(key, value, dynamic_labels)
+    }
+
+    fn update_dynamic_gauge(&self, key: Key, value: f64, dynamic_labels: Vec<Label>) {
+        self.inner.update_dynamic_gauge(key, value, dynamic_labels)
+    }
+
+    fn record_dynamic_histogram(&self, key: Key, value: u64, dynamic_labels: Vec<Label>) {
+        self.inner
+            .record_dynamic_histogram(key, value, dynamic_labels)
+    }
 }
