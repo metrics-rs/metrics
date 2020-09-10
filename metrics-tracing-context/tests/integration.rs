@@ -110,7 +110,7 @@ fn test_multiple_paths_to_the_same_callsite() {
             Level::TRACE,
             "path2",
             shared_field = "path2",
-            path2_specific = "foo",
+            path2_specific = "bar",
             path2_specific_dynamic,
         );
         let _guard = span.enter();
