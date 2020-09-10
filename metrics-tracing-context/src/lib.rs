@@ -21,11 +21,22 @@ pub struct TracingContext<R> {
 }
 
 impl<R> TracingContext<R> {
-    fn enhance_dynamic_labels(&self, labels: &mut Vec<Label>) {
+    fn enhance_labels(&self, labels: &mut Vec<Label>) {
         let span = Span::current();
         span.with_labels(|new_labels| {
             labels.extend_from_slice(&new_labels);
         });
+    }
+
+    fn enhance_key(&self, key: Key) -> Key {
+        let (name, labels) = key.into_parts();
+        let mut labels = labels.unwrap_or_default();
+        self.enhance_labels(&mut labels);
+        if labels.is_empty() {
+            Key::from_name(name)
+        } else {
+            Key::from_name_and_labels(name, labels)
+        }
     }
 }
 
@@ -42,32 +53,18 @@ impl<R: Recorder> Recorder for TracingContext<R> {
         self.inner.register_histogram(key, description)
     }
 
-    fn increment_counter(&self, id: Identifier, value: u64) {
-        self.inner.increment_counter(id, value);
+    fn increment_counter(&self, key: Key, value: u64) {
+        let key = self.enhance_key(key);
+        self.inner.increment_counter(key, value);
     }
 
-    fn update_gauge(&self, id: Identifier, value: f64) {
-        self.inner.update_gauge(id, value);
+    fn update_gauge(&self, key: Key, value: f64) {
+        let key = self.enhance_key(key);
+        self.inner.update_gauge(key, value);
     }
 
-    fn record_histogram(&self, id: Identifier, value: u64) {
-        self.inner.record_histogram(id, value);
-    }
-
-    fn increment_dynamic_counter(&self, key: Key, value: u64, mut dynamic_labels: Vec<Label>) {
-        self.enhance_dynamic_labels(&mut dynamic_labels);
-        self.inner
-            .increment_dynamic_counter(key, value, dynamic_labels);
-    }
-
-    fn update_dynamic_gauge(&self, key: Key, value: f64, mut dynamic_labels: Vec<Label>) {
-        self.enhance_dynamic_labels(&mut dynamic_labels);
-        self.inner.update_dynamic_gauge(key, value, dynamic_labels);
-    }
-
-    fn record_dynamic_histogram(&self, key: Key, value: u64, mut dynamic_labels: Vec<Label>) {
-        self.enhance_dynamic_labels(&mut dynamic_labels);
-        self.inner
-            .record_dynamic_histogram(key, value, dynamic_labels);
+    fn record_histogram(&self, key: Key, value: u64) {
+        let key = self.enhance_key(key);
+        self.inner.record_histogram(key, value);
     }
 }
