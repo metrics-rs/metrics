@@ -7,6 +7,9 @@ use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Error, Parse, ParseStream, Result};
 use syn::{parse_macro_input, Expr, LitStr, Token};
 
+#[cfg(test)]
+mod tests;
+
 enum Key {
     NotScoped(LitStr),
     Scoped(LitStr),
@@ -102,7 +105,7 @@ pub fn register_counter(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("counter", key, description, labels)
+    get_expanded_registration("counter", key, description, labels).into()
 }
 
 #[proc_macro_hack]
@@ -113,7 +116,7 @@ pub fn register_gauge(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("gauge", key, description, labels)
+    get_expanded_registration("gauge", key, description, labels).into()
 }
 
 #[proc_macro_hack]
@@ -124,7 +127,7 @@ pub fn register_histogram(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("histogram", key, description, labels)
+    get_expanded_registration("histogram", key, description, labels).into()
 }
 
 #[proc_macro_hack]
@@ -133,7 +136,7 @@ pub fn increment(input: TokenStream) -> TokenStream {
 
     let op_value = quote! { 1 };
 
-    get_expanded_callsite("counter", "increment", key, labels, op_value)
+    get_expanded_callsite("counter", "increment", key, labels, op_value).into()
 }
 
 #[proc_macro_hack]
@@ -144,7 +147,7 @@ pub fn counter(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite("counter", "increment", key, labels, op_value)
+    get_expanded_callsite("counter", "increment", key, labels, op_value).into()
 }
 
 #[proc_macro_hack]
@@ -155,7 +158,7 @@ pub fn gauge(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite("gauge", "update", key, labels, op_value)
+    get_expanded_callsite("gauge", "update", key, labels, op_value).into()
 }
 
 #[proc_macro_hack]
@@ -166,7 +169,7 @@ pub fn histogram(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite("histogram", "record", key, labels, op_value)
+    get_expanded_callsite("histogram", "record", key, labels, op_value).into()
 }
 
 fn get_expanded_registration(
@@ -174,7 +177,7 @@ fn get_expanded_registration(
     key: Key,
     description: Option<LitStr>,
     labels: Option<Labels>,
-) -> TokenStream {
+) -> proc_macro2::TokenStream {
     let register_ident = format_ident!("register_{}", metric_type);
     let key = prepare_quoted_registration(key, labels);
 
@@ -183,16 +186,14 @@ fn get_expanded_registration(
         None => quote! { None },
     };
 
-    let expanded = quote! {
+    quote! {
         {
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
                 recorder.#register_ident(#key, #description);
             }
         }
-    };
-
-    TokenStream::from(expanded)
+    }
 }
 
 fn get_expanded_callsite<V>(
@@ -201,7 +202,7 @@ fn get_expanded_callsite<V>(
     key: Key,
     labels: Option<Labels>,
     op_values: V,
-) -> TokenStream
+) -> proc_macro2::TokenStream
 where
     V: ToTokens,
 {
@@ -244,9 +245,7 @@ where
                   }
             }
         }
-    };
-
-    TokenStream::from(expanded)
+    }
 }
 
 fn read_key(input: &mut ParseStream) -> Result<Key> {
