@@ -108,17 +108,20 @@ impl Recorder for DebuggingRecorder {
             .get_or_create_identifier(rkey, |_| Handle::histogram())
     }
 
-    fn increment_counter(&self, id: Identifier, value: u64) {
+    fn increment_counter(&self, key: Key, value: u64) {
+        let id = self.register_counter(key, None);
         self.registry
             .with_handle(id, |handle| handle.increment_counter(value));
     }
 
-    fn update_gauge(&self, id: Identifier, value: f64) {
+    fn update_gauge(&self, key: Key, value: f64) {
+        let id = self.register_gauge(key, None);
         self.registry
             .with_handle(id, |handle| handle.update_gauge(value));
     }
 
-    fn record_histogram(&self, id: Identifier, value: u64) {
+    fn record_histogram(&self, key: Key, value: u64) {
+        let id = self.register_histogram(key, None);
         self.registry
             .with_handle(id, |handle| handle.record_histogram(value));
     }

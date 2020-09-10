@@ -1,4 +1,4 @@
-use metrics::{Identifier, Key, Label, Recorder};
+use metrics::{Identifier, Key, Recorder};
 
 use crate::layers::Layer;
 
@@ -51,34 +51,16 @@ impl<R: Recorder> Recorder for Prefix<R> {
         self.inner.register_histogram(new_key, description)
     }
 
-    fn increment_counter(&self, id: Identifier, value: u64) {
-        self.inner.increment_counter(id, value);
+    fn increment_counter(&self, key: Key, value: u64) {
+        self.inner.increment_counter(key, value);
     }
 
-    fn update_gauge(&self, id: Identifier, value: f64) {
-        self.inner.update_gauge(id, value);
+    fn update_gauge(&self, key: Key, value: f64) {
+        self.inner.update_gauge(key, value);
     }
 
-    fn record_histogram(&self, id: Identifier, value: u64) {
-        self.inner.record_histogram(id, value);
-    }
-
-    fn increment_dynamic_counter(&self, key: Key, value: u64, dynamic_labels: Vec<Label>) {
-        let new_key = self.prefix_key(key);
-        self.inner
-            .increment_dynamic_counter(new_key, value, dynamic_labels)
-    }
-
-    fn update_dynamic_gauge(&self, key: Key, value: f64, dynamic_labels: Vec<Label>) {
-        let new_key = self.prefix_key(key);
-        self.inner
-            .update_dynamic_gauge(new_key, value, dynamic_labels)
-    }
-
-    fn record_dynamic_histogram(&self, key: Key, value: u64, dynamic_labels: Vec<Label>) {
-        let new_key = self.prefix_key(key);
-        self.inner
-            .record_dynamic_histogram(new_key, value, dynamic_labels)
+    fn record_histogram(&self, key: Key, value: u64) {
+        self.inner.record_histogram(key, value);
     }
 }
 
