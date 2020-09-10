@@ -20,6 +20,9 @@ build = "build.rs"
 [package.metadata.docs.rs]
 features = ["std"]
 
+[lib]
+bench = false
+
 [[bench]]
 name = "macros"
 harness = false
