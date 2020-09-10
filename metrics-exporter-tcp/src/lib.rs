@@ -242,15 +242,18 @@ impl Recorder for TcpRecorder {
         self.register_metric(MetricKind::Histogram, key)
     }
 
-    fn increment_counter(&self, id: Identifier, value: u64) {
+    fn increment_counter(&self, key: Key, value: u64) {
+        let id = self.register_counter(key, None);
         self.push_metric(id, MetricValue::Counter(value));
     }
 
-    fn update_gauge(&self, id: Identifier, value: f64) {
+    fn update_gauge(&self, key: Key, value: f64) {
+        let id = self.register_gauge(key, None);
         self.push_metric(id, MetricValue::Gauge(value));
     }
 
-    fn record_histogram(&self, id: Identifier, value: u64) {
+    fn record_histogram(&self, key: Key, value: u64) {
+        let id = self.register_histogram(key, None);
         self.push_metric(id, MetricValue::Histogram(value));
     }
 }

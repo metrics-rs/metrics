@@ -521,19 +521,22 @@ impl Recorder for PrometheusRecorder {
             })
     }
 
-    fn increment_counter(&self, id: Identifier, value: u64) {
+    fn increment_counter(&self, key: Key, value: u64) {
+        let id = self.register_counter(key, None);
         self.inner
             .registry()
             .with_handle(id, |h| h.increment_counter(value));
     }
 
-    fn update_gauge(&self, id: Identifier, value: f64) {
+    fn update_gauge(&self, key: Key, value: f64) {
+        let id = self.register_gauge(key, None);
         self.inner
             .registry()
             .with_handle(id, |h| h.update_gauge(value));
     }
 
-    fn record_histogram(&self, id: Identifier, value: u64) {
+    fn record_histogram(&self, key: Key, value: u64) {
+        let id = self.register_histogram(key, None);
         self.inner
             .registry()
             .with_handle(id, |h| h.record_histogram(value));
