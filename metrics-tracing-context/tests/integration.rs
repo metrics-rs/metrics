@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use metrics::{counter, Key, Label};
 use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
 use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
@@ -121,6 +123,7 @@ fn test_multiple_paths_to_the_same_callsite() {
     path2();
 
     let snapshot = snapshotter.snapshot();
+    let snapshot: HashSet<_> = snapshot.into_iter().collect();
 
     assert_eq!(
         snapshot,
@@ -150,5 +153,7 @@ fn test_multiple_paths_to_the_same_callsite() {
                 DebugValue::Counter(1),
             )
         ]
+        .into_iter()
+        .collect()
     )
 }

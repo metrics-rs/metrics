@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{hash::Hash, hash::Hasher, sync::Arc};
 
 use crate::{handle::Handle, registry::Registry};
 
 use metrics::{Identifier, Key, Recorder};
 
 /// Metric kinds.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Ord, PartialOrd)]
 pub enum MetricKind {
     /// Counter.
     Counter,
@@ -35,6 +35,26 @@ pub enum DebugValue {
     Gauge(f64),
     /// Histogram.
     Histogram(Vec<u64>),
+}
+
+// We don't care that much about total equality nuances here.
+impl Eq for DebugValue {}
+
+impl Hash for DebugValue {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Counter(val) => val.hash(state),
+            Self::Gauge(val) => {
+                // Whatever works, we don't really care in here...
+                if val.is_normal() {
+                    val.to_ne_bytes().hash(state)
+                } else {
+                    0f64.to_ne_bytes().hash(state)
+                }
+            }
+            Self::Histogram(val) => val.hash(state),
+        }
+    }
 }
 
 /// Captures point-in-time snapshots of `DebuggingRecorder`.
