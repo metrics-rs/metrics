@@ -179,7 +179,7 @@ fn get_expanded_registration(
     labels: Option<Labels>,
 ) -> proc_macro2::TokenStream {
     let register_ident = format_ident!("register_{}", metric_type);
-    let key = prepare_quoted_registration(key, labels);
+    let key = key_to_quoted(key, labels);
 
     let description = match description {
         Some(s) => quote! { Some(#s) },
@@ -206,7 +206,7 @@ fn get_expanded_callsite<V>(
 where
     V: ToTokens,
 {
-    let (key, dynamic_labels) = prepare_quoted_op(key, labels);
+    let key = key_to_quoted(key, labels);
 
     let op_values = if metric_type == "histogram" {
         quote! {
@@ -216,33 +216,12 @@ where
         quote! { #op_values }
     };
 
-    match dynamic_labels {
-        Some(dynamic_labels) => {
-            let op_ident = format_ident!("{}_dynamic_{}", op_type, metric_type);
-            quote! {
-                {
-                    if let Some(recorder) = metrics::try_recorder() {
-                        recorder.#op_ident(#key, #op_values, #dynamic_labels);
-                    }
-                }
-            }
-        }
-        None => {
-            let register_ident = format_ident!("register_{}", metric_type);
-            let op_ident = format_ident!("{}_{}", op_type, metric_type);
-            quote! {
-                  {
-                      static METRICS_INIT: metrics::OnceIdentifier = metrics::OnceIdentifier::new();
-
-                      // Only do this work if there's a recorder installed.
-                      if let Some(recorder) = metrics::try_recorder() {
-                          // Initialize our fast path cached identifier.
-                          let id = METRICS_INIT.get_or_init(|| {
-                              recorder.#register_ident(#key, None)
-                          });
-                          recorder.#op_ident(id, #op_values);
-                      }
-                  }
+    let op_ident = format_ident!("{}_{}", op_type, metric_type);
+    quote! {
+        {
+            // Only do this work if there's a recorder installed.
+            if let Some(recorder) = metrics::try_recorder() {
+                recorder.#op_ident(#key, #op_values);
             }
         }
     }
@@ -272,7 +251,7 @@ fn quote_key_name(key: Key) -> proc_macro2::TokenStream {
     }
 }
 
-fn prepare_quoted_registration(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
+fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
     let name = quote_key_name(key);
 
     match labels {
@@ -285,42 +264,6 @@ fn prepare_quoted_registration(key: Key, labels: Option<Labels>) -> proc_macro2:
                 quote! { metrics::Key::from_name_and_labels(#name, vec![#(#labels),*]) }
             }
             Labels::Existing(e) => quote! { metrics::Key::from_name_and_labels(#name, #e) },
-        },
-    }
-}
-
-fn prepare_quoted_op(
-    key: Key,
-    labels: Option<Labels>,
-) -> (proc_macro2::TokenStream, Option<proc_macro2::TokenStream>) {
-    let name = quote_key_name(key);
-
-    match labels {
-        None => (quote! { metrics::Key::from_name(#name) }, None),
-        Some(labels) => match labels {
-            Labels::Inline(pairs) => {
-                let mut static_labels = Vec::new();
-                let mut dynamic_labels = Vec::new();
-                for (key, val) in pairs {
-                    let label = quote! { metrics::Label::new(#key, #val) };
-                    match val {
-                        Expr::Lit(_) => static_labels.push(label),
-                        _ => dynamic_labels.push(label),
-                    }
-                }
-                (
-                    quote! { metrics::Key::from_name_and_labels(#name, vec![#(#static_labels),*]) },
-                    if dynamic_labels.is_empty() {
-                        None
-                    } else {
-                        Some(quote! { vec![#(#dynamic_labels),*] })
-                    },
-                )
-            }
-            Labels::Existing(e) => (
-                quote! { metrics::Key::from_name(#name) },
-                Some(quote! { metrics::IntoLabels::into_labels(#e) }),
-            ),
         },
     }
 }
