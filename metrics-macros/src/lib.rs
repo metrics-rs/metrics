@@ -176,14 +176,7 @@ fn get_expanded_registration(
     labels: Option<Labels>,
 ) -> TokenStream {
     let register_ident = format_ident!("register_{}", metric_type);
-    let (key, dynamic_labels) = key_to_quoted(key, labels);
-
-    if let Some(dynamic_labels) = dynamic_labels {
-        eprintln!("DYNAMIC LABELS: {}", dynamic_labels);
-        return TokenStream::from(
-            quote! { compile_error!("you can't pass dynamic labels during metrics registration, please use literals only here") },
-        );
-    }
+    let key = prepare_quoted_registration(key, labels);
 
     let description = match description {
         Some(s) => quote! { Some(#s) },
@@ -212,7 +205,7 @@ fn get_expanded_callsite<V>(
 where
     V: ToTokens,
 {
-    let (key, dynamic_labels) = key_to_quoted(key, labels);
+    let (key, dynamic_labels) = prepare_quoted_op(key, labels);
 
     let op_values = if metric_type == "histogram" {
         quote! {
@@ -222,7 +215,7 @@ where
         quote! { #op_values }
     };
 
-    let expanded = match dynamic_labels {
+    match dynamic_labels {
         Some(dynamic_labels) => {
             let op_ident = format_ident!("{}_dynamic_{}", op_type, metric_type);
             quote! {
@@ -267,11 +260,8 @@ fn read_key(input: &mut ParseStream) -> Result<Key> {
     }
 }
 
-fn key_to_quoted(
-    key: Key,
-    labels: Option<Labels>,
-) -> (proc_macro2::TokenStream, Option<proc_macro2::TokenStream>) {
-    let name = match key {
+fn quote_key_name(key: Key) -> proc_macro2::TokenStream {
+    match key {
         Key::NotScoped(s) => {
             quote! { #s }
         }
@@ -280,7 +270,31 @@ fn key_to_quoted(
                 format!("{}.{}", std::module_path!().replace("::", "."), #s)
             }
         }
-    };
+    }
+}
+
+fn prepare_quoted_registration(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
+    let name = quote_key_name(key);
+
+    match labels {
+        None => quote! { metrics::Key::from_name(#name) },
+        Some(labels) => match labels {
+            Labels::Inline(pairs) => {
+                let labels = pairs
+                    .into_iter()
+                    .map(|(key, val)| quote! { metrics::Label::new(#key, #val) });
+                quote! { metrics::Key::from_name_and_labels(#name, vec![#(#labels),*]) }
+            }
+            Labels::Existing(e) => quote! { metrics::Key::from_name_and_labels(#name, #e) },
+        },
+    }
+}
+
+fn prepare_quoted_op(
+    key: Key,
+    labels: Option<Labels>,
+) -> (proc_macro2::TokenStream, Option<proc_macro2::TokenStream>) {
+    let name = quote_key_name(key);
 
     match labels {
         None => (quote! { metrics::Key::from_name(#name) }, None),
@@ -289,11 +303,10 @@ fn key_to_quoted(
                 let mut static_labels = Vec::new();
                 let mut dynamic_labels = Vec::new();
                 for (key, val) in pairs {
+                    let label = quote! { metrics::Label::new(#key, #val) };
                     match val {
-                        Expr::Lit(_) => {
-                            static_labels.push(quote! { metrics::Label::new(#key, #val) })
-                        }
-                        _ => dynamic_labels.push(quote! { metrics::Label::new(#key, #val) }),
+                        Expr::Lit(_) => static_labels.push(label),
+                        _ => dynamic_labels.push(label),
                     }
                 }
                 (
