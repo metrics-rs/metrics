@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use metrics::{counter, Key, Label};
+use metrics::{counter, KeyData, Label};
 use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
 use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
 use parking_lot::{const_mutex, Mutex, MutexGuard};
@@ -51,7 +51,7 @@ fn test_basic_functionality() {
         snapshot,
         vec![(
             MetricKind::Counter,
-            Key::from_name_and_labels(
+            KeyData::from_name_and_labels(
                 "login_attempts",
                 vec![
                     Label::new("service", "login_service"),
@@ -80,7 +80,7 @@ fn test_no_labels() {
         snapshot,
         vec![(
             MetricKind::Counter,
-            Key::from_name("login_attempts").into(),
+            KeyData::from_name("login_attempts").into(),
             DebugValue::Counter(1),
         )]
     )
@@ -131,7 +131,7 @@ fn test_multiple_paths_to_the_same_callsite() {
         vec![
             (
                 MetricKind::Counter,
-                Key::from_name_and_labels(
+                KeyData::from_name_and_labels(
                     "my_counter",
                     vec![
                         Label::new("shared_field", "path1"),
@@ -144,7 +144,7 @@ fn test_multiple_paths_to_the_same_callsite() {
             ),
             (
                 MetricKind::Counter,
-                Key::from_name_and_labels(
+                KeyData::from_name_and_labels(
                     "my_counter",
                     vec![
                         Label::new("shared_field", "path2"),

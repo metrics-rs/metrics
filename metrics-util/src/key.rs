@@ -1,5 +1,5 @@
 use crate::MetricKind;
-use metrics::KeyRef;
+use metrics::Key;
 
 /// A composite key that stores both the metric key and the metric kind.
 ///
@@ -12,16 +12,16 @@ use metrics::KeyRef;
 /// that inevitably panic.  With `CompositeKey`, the kind can tied to the underlying
 /// handle, ensuring parity between the two.
 #[derive(Eq, PartialEq, Hash, Clone)]
-pub struct CompositeKey(MetricKind, KeyRef);
+pub struct CompositeKey(MetricKind, Key);
 
 impl CompositeKey {
     /// Creates a new `CompositeKey`.
-    pub const fn new(kind: MetricKind, key: KeyRef) -> CompositeKey {
+    pub const fn new(kind: MetricKind, key: Key) -> CompositeKey {
         CompositeKey(kind, key)
     }
 
     /// Gets the inner key represented by this `CompositeKey`.
-    pub fn key(&self) -> &KeyRef {
+    pub fn key(&self) -> &Key {
         &self.1
     }
 
@@ -31,7 +31,7 @@ impl CompositeKey {
     }
 
     /// Takes the individual pieces of this `CompositeKey`.
-    pub fn into_parts(self) -> (MetricKind, KeyRef) {
+    pub fn into_parts(self) -> (MetricKind, Key) {
         (self.0, self.1)
     }
 }

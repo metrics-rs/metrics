@@ -1,4 +1,4 @@
-use metrics::{KeyRef, Recorder};
+use metrics::{Key, Recorder};
 
 use crate::layers::Layer;
 
@@ -30,7 +30,7 @@ pub struct Prefix<R> {
 }
 
 impl<R> Prefix<R> {
-    fn prefix_key(&self, key: KeyRef) -> KeyRef {
+    fn prefix_key(&self, key: Key) -> Key {
         key.into_owned()
             .map_name(|old| format!("{}.{}", self.prefix, old))
             .into()
@@ -38,32 +38,32 @@ impl<R> Prefix<R> {
 }
 
 impl<R: Recorder> Recorder for Prefix<R> {
-    fn register_counter(&self, key: KeyRef, description: Option<&'static str>) {
+    fn register_counter(&self, key: Key, description: Option<&'static str>) {
         let new_key = self.prefix_key(key);
         self.inner.register_counter(new_key, description)
     }
 
-    fn register_gauge(&self, key: KeyRef, description: Option<&'static str>) {
+    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
         let new_key = self.prefix_key(key);
         self.inner.register_gauge(new_key, description)
     }
 
-    fn register_histogram(&self, key: KeyRef, description: Option<&'static str>) {
+    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
         let new_key = self.prefix_key(key);
         self.inner.register_histogram(new_key, description)
     }
 
-    fn increment_counter(&self, key: KeyRef, value: u64) {
+    fn increment_counter(&self, key: Key, value: u64) {
         let new_key = self.prefix_key(key);
         self.inner.increment_counter(new_key, value);
     }
 
-    fn update_gauge(&self, key: KeyRef, value: f64) {
+    fn update_gauge(&self, key: Key, value: f64) {
         let new_key = self.prefix_key(key);
         self.inner.update_gauge(new_key, value);
     }
 
-    fn record_histogram(&self, key: KeyRef, value: u64) {
+    fn record_histogram(&self, key: Key, value: u64) {
         let new_key = self.prefix_key(key);
         self.inner.record_histogram(new_key, value);
     }
@@ -74,7 +74,7 @@ mod tests {
     use super::PrefixLayer;
     use crate::debugging::DebuggingRecorder;
     use crate::layers::Layer;
-    use metrics::{Key, Recorder};
+    use metrics::{KeyData, Recorder};
 
     #[test]
     fn test_basic_functionality() {
@@ -86,9 +86,9 @@ mod tests {
         let before = snapshotter.snapshot();
         assert_eq!(before.len(), 0);
 
-        layered.register_counter(Key::from_name("counter_metric").into(), None);
-        layered.register_gauge(Key::from_name("gauge_metric").into(), None);
-        layered.register_histogram(Key::from_name("histogram_metric").into(), None);
+        layered.register_counter(KeyData::from_name("counter_metric").into(), None);
+        layered.register_gauge(KeyData::from_name("gauge_metric").into(), None);
+        layered.register_histogram(KeyData::from_name("histogram_metric").into(), None);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 3);

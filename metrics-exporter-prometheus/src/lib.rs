@@ -6,7 +6,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     {Body, Error as HyperError, Response, Server},
 };
-use metrics::{KeyRef, Recorder, SetRecorderError};
+use metrics::{Key, Recorder, SetRecorderError};
 use metrics_util::{
     parse_quantiles, CompositeKey, Handle, Histogram, MetricKind, Quantile, Registry,
 };
@@ -335,7 +335,7 @@ pub struct PrometheusRecorder {
 }
 
 impl PrometheusRecorder {
-    fn add_description_if_missing(&self, key: &KeyRef, description: Option<&'static str>) {
+    fn add_description_if_missing(&self, key: &Key, description: Option<&'static str>) {
         if let Some(description) = description {
             let mut descriptions = self.inner.descriptions.write();
             if !descriptions.contains_key(key.name().as_ref()) {
@@ -494,7 +494,7 @@ impl PrometheusBuilder {
 }
 
 impl Recorder for PrometheusRecorder {
-    fn register_counter(&self, key: KeyRef, description: Option<&'static str>) {
+    fn register_counter(&self, key: Key, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner
             .registry()
@@ -503,7 +503,7 @@ impl Recorder for PrometheusRecorder {
             });
     }
 
-    fn register_gauge(&self, key: KeyRef, description: Option<&'static str>) {
+    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner
             .registry()
@@ -512,7 +512,7 @@ impl Recorder for PrometheusRecorder {
             });
     }
 
-    fn register_histogram(&self, key: KeyRef, description: Option<&'static str>) {
+    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner
             .registry()
@@ -521,7 +521,7 @@ impl Recorder for PrometheusRecorder {
             });
     }
 
-    fn increment_counter(&self, key: KeyRef, value: u64) {
+    fn increment_counter(&self, key: Key, value: u64) {
         let id = self
             .inner
             .registry()
@@ -533,7 +533,7 @@ impl Recorder for PrometheusRecorder {
             .with_handle(id, |h| h.increment_counter(value));
     }
 
-    fn update_gauge(&self, key: KeyRef, value: f64) {
+    fn update_gauge(&self, key: Key, value: f64) {
         let id = self
             .inner
             .registry()
@@ -545,7 +545,7 @@ impl Recorder for PrometheusRecorder {
             .with_handle(id, |h| h.update_gauge(value));
     }
 
-    fn record_histogram(&self, key: KeyRef, value: u64) {
+    fn record_histogram(&self, key: Key, value: u64) {
         let id = self
             .inner
             .registry()
@@ -558,7 +558,7 @@ impl Recorder for PrometheusRecorder {
     }
 }
 
-fn key_to_parts(key: KeyRef) -> (String, Vec<String>) {
+fn key_to_parts(key: Key) -> (String, Vec<String>) {
     let name = key.name();
     let labels = key.labels();
     let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';

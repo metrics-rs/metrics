@@ -192,7 +192,7 @@ fn get_expanded_registration(
             if let Some(recorder) = metrics::try_recorder() {
                 // Registrations are fairly rare, don't attempt to cache here
                 // and just use and owned ref.
-                recorder.#register_ident(metrics::KeyRef::Owned(#key), #description);
+                recorder.#register_ident(metrics::Key::Owned(#key), #description);
             }
         }
     }
@@ -227,13 +227,13 @@ where
         // increment operations.
         quote! {
             {
-                static CACHED_KEY: metrics::OnceKey = metrics::OnceKey::new();
+                static CACHED_KEY: metrics::OnceKeyData = metrics::OnceKeyData::new();
 
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
                     // Initialize our fast path.
                     let key = CACHED_KEY.get_or_init(|| { #key });
-                    recorder.#op_ident(metrics::KeyRef::Borrowed(&key), #op_values);
+                    recorder.#op_ident(metrics::Key::Borrowed(&key), #op_values);
                 }
             }
         }
@@ -245,7 +245,7 @@ where
             {
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
-                    recorder.#op_ident(metrics::KeyRef::Owned(#key), #op_values);
+                    recorder.#op_ident(metrics::Key::Owned(#key), #op_values);
                 }
             }
         }
@@ -290,15 +290,15 @@ fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
     let name = quote_key_name(key);
 
     match labels {
-        None => quote! { metrics::Key::from_name(#name) },
+        None => quote! { metrics::KeyData::from_name(#name) },
         Some(labels) => match labels {
             Labels::Inline(pairs) => {
                 let labels = pairs
                     .into_iter()
                     .map(|(key, val)| quote! { metrics::Label::new(#key, #val) });
-                quote! { metrics::Key::from_name_and_labels(#name, vec![#(#labels),*]) }
+                quote! { metrics::KeyData::from_name_and_labels(#name, vec![#(#labels),*]) }
             }
-            Labels::Existing(e) => quote! { metrics::Key::from_name_and_labels(#name, #e) },
+            Labels::Existing(e) => quote! { metrics::KeyData::from_name_and_labels(#name, #e) },
         },
     }
 }

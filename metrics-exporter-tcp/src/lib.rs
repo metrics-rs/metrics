@@ -53,7 +53,7 @@ use std::time::SystemTime;
 
 use bytes::Bytes;
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
-use metrics::{KeyRef, Recorder, SetRecorderError};
+use metrics::{Key, Recorder, SetRecorderError};
 use metrics_util::{Identifier, Registry};
 use mio::{
     net::{TcpListener, TcpStream},
@@ -87,10 +87,10 @@ enum MetricValue {
 }
 
 #[derive(Eq, PartialEq, Hash, Clone)]
-struct CompositeKey(MetricKind, KeyRef);
+struct CompositeKey(MetricKind, Key);
 
 impl CompositeKey {
-    pub fn key(&self) -> &KeyRef {
+    pub fn key(&self) -> &Key {
         &self.1
     }
 }
@@ -214,7 +214,7 @@ impl TcpBuilder {
 }
 
 impl TcpRecorder {
-    fn register_metric(&self, kind: MetricKind, key: KeyRef) -> Identifier {
+    fn register_metric(&self, kind: MetricKind, key: Key) -> Identifier {
         let ckey = CompositeKey(kind, key);
         self.registry.get_or_create_identifier(ckey, |k| k.clone())
     }
@@ -226,29 +226,29 @@ impl TcpRecorder {
 }
 
 impl Recorder for TcpRecorder {
-    fn register_counter(&self, key: KeyRef, _description: Option<&'static str>) {
+    fn register_counter(&self, key: Key, _description: Option<&'static str>) {
         self.register_metric(MetricKind::Counter, key);
     }
 
-    fn register_gauge(&self, key: KeyRef, _description: Option<&'static str>) {
+    fn register_gauge(&self, key: Key, _description: Option<&'static str>) {
         self.register_metric(MetricKind::Gauge, key);
     }
 
-    fn register_histogram(&self, key: KeyRef, _description: Option<&'static str>) {
+    fn register_histogram(&self, key: Key, _description: Option<&'static str>) {
         self.register_metric(MetricKind::Histogram, key);
     }
 
-    fn increment_counter(&self, key: KeyRef, value: u64) {
+    fn increment_counter(&self, key: Key, value: u64) {
         let id = self.register_metric(MetricKind::Counter, key);
         self.push_metric(id, MetricValue::Counter(value));
     }
 
-    fn update_gauge(&self, key: KeyRef, value: f64) {
+    fn update_gauge(&self, key: Key, value: f64) {
         let id = self.register_metric(MetricKind::Gauge, key);
         self.push_metric(id, MetricValue::Gauge(value));
     }
 
-    fn record_histogram(&self, key: KeyRef, value: u64) {
+    fn record_histogram(&self, key: Key, value: u64) {
         let id = self.register_metric(MetricKind::Histogram, key);
         self.push_metric(id, MetricValue::Histogram(value));
     }
