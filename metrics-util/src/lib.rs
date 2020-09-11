@@ -19,7 +19,7 @@ mod tree;
 pub use tree::{Integer, MetricsTree};
 
 mod registry;
-pub use registry::Registry;
+pub use registry::{Identifier, Registry};
 
 mod key;
 pub use key::CompositeKey;

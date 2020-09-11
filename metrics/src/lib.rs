@@ -184,9 +184,6 @@ pub use self::label::*;
 mod recorder;
 pub use self::recorder::*;
 
-mod identifier;
-pub use self::identifier::*;
-
 /// Registers a counter.
 ///
 /// Counters represent a single value that can only be incremented over time, or reset to zero.

@@ -5,8 +5,11 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use crossbeam_utils::sync::ShardedLock;
 use im::HashMap as ImmutableHashMap;
-use metrics::Identifier;
 use parking_lot::Mutex;
+
+/// An identifier of a metric in a registry.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Identifier(usize);
 
 /// A high-performance metric registry.
 ///
@@ -72,19 +75,19 @@ where
             .handles
             .write()
             .expect("handles write lock was poisoned!");
-        let id = wg.len().into();
+        let id = Identifier(wg.len());
         let handle = f(&key);
         wg.push(handle);
         drop(wg);
 
         // Update our mapping table and drop the lock.
-        let new_mappings = mappings.update(key.clone(), id);
+        let new_mappings = mappings.update(key.clone(), id.clone());
         drop(mappings);
         self.mappings.store(Arc::new(new_mappings));
 
         // Update reverse mappings table.
         let reverse_mappings = self.reverse_mappings.load();
-        let new_reverse_mappings = reverse_mappings.update(id, key);
+        let new_reverse_mappings = reverse_mappings.update(id.clone(), key);
         drop(reverse_mappings);
         self.reverse_mappings.store(Arc::new(new_reverse_mappings));
 
@@ -99,16 +102,12 @@ where
     where
         F: FnOnce(&H) -> V,
     {
-        match identifier {
-            Identifier::Valid(idx) => {
-                let rg = self
-                    .handles
-                    .read()
-                    .expect("handles read lock was poisoned!");
-                rg.get(idx).map(f)
-            }
-            Identifier::Invalid => None,
-        }
+        let idx = identifier.0;
+        let rg = self
+            .handles
+            .read()
+            .expect("handles read lock was poisoned!");
+        rg.get(idx).map(f)
     }
 
     /// Gets the key for a given identifier.
@@ -137,12 +136,9 @@ where
             .expect("handles read lock was poisoned!");
         mappings
             .into_iter()
-            .filter_map(|(key, id)| match id {
-                Identifier::Valid(idx) => {
-                    let handle = rg.get(idx).expect("handle not present!").clone();
-                    Some((key, handle))
-                }
-                Identifier::Invalid => None,
+            .filter_map(|(key, id)| {
+                let handle = rg.get(id.0).expect("handle not present!").clone();
+                Some((key, handle))
             })
             .collect::<HashMap<_, _>>()
     }
