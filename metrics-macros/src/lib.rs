@@ -257,18 +257,7 @@ fn can_use_fast_path(labels: &Option<Labels>) -> bool {
         None => true,
         Some(labels) => match labels {
             Labels::Existing(_) => false,
-            Labels::Inline(pairs) => {
-                let mut use_fast_path = true;
-                for (_, lvalue) in pairs {
-                    match lvalue {
-                        Expr::Lit(_) => {}
-                        _ => {
-                            use_fast_path = false;
-                        }
-                    }
-                }
-                use_fast_path
-            }
+            Labels::Inline(pairs) => pairs.iter().all(|(_, v)| matches!(v, Expr::Lit(_))),
         },
     }
 }
