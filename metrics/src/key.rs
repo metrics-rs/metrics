@@ -8,7 +8,7 @@ use std::{fmt, slice::Iter};
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Key {
     name: ScopedString,
-    labels: Option<Vec<Label>>,
+    labels: Vec<Label>,
 }
 
 impl Key {
@@ -19,7 +19,7 @@ impl Key {
     {
         Key {
             name: name.into(),
-            labels: None,
+            labels: Vec::new(),
         }
     }
 
@@ -31,7 +31,7 @@ impl Key {
     {
         Key {
             name: name.into(),
-            labels: Some(labels.into_labels()),
+            labels: labels.into_labels(),
         }
     }
 
@@ -42,7 +42,11 @@ impl Key {
 
     /// Labels of this key, if they exist.
     pub fn labels(&self) -> Option<Iter<Label>> {
-        self.labels.as_ref().map(|xs| xs.iter())
+        if self.labels.is_empty() {
+            None
+        } else {
+            Some(self.labels.iter())
+        }
     }
 
     /// Map the name of this key to a new name, based on `f`.
@@ -59,7 +63,14 @@ impl Key {
 
     /// Consumes this `Key`, returning the name and any labels.
     pub fn into_parts(self) -> (ScopedString, Option<Vec<Label>>) {
-        (self.name, self.labels)
+        (
+            self.name,
+            if self.labels.is_empty() {
+                None
+            } else {
+                Some(self.labels)
+            },
+        )
     }
 
     /// Returns a clone of this key with some additional labels.
@@ -69,38 +80,29 @@ impl Key {
         }
 
         let name = self.name.clone();
-        let mut labels = self.labels.clone().unwrap_or_default();
+        let mut labels = self.labels.clone();
         labels.extend(extra_labels);
 
-        Self {
-            name,
-            labels: Some(labels),
-        }
+        Self { name, labels }
     }
 }
 
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.labels {
-            None => write!(f, "Key({})", self.name),
-            Some(labels) => {
-                write!(f, "Key({}", self.name)?;
-
-                if !labels.is_empty() {
-                    let mut first = true;
-                    write!(f, ", [")?;
-                    for label in labels {
-                        if first {
-                            write!(f, "{} = {}", label.0, label.1)?;
-                            first = false;
-                        } else {
-                            write!(f, ", {} = {}", label.0, label.1)?;
-                        }
-                    }
-                    write!(f, "]")?;
+        if self.labels.is_empty() {
+            write!(f, "Key({})", self.name)
+        } else {
+            write!(f, "Key({}, [", self.name)?;
+            let mut first = true;
+            for label in &self.labels {
+                if first {
+                    write!(f, "{} = {}", label.0, label.1)?;
+                    first = false;
+                } else {
+                    write!(f, ", {} = {}", label.0, label.1)?;
                 }
-                write!(f, ")")
             }
+            write!(f, "])")
         }
     }
 }
