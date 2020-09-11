@@ -58,7 +58,8 @@ fn test_basic_functionality() {
                     Label::new("user", "ferris"),
                     Label::new("user.email", "ferris@rust-lang.org"),
                 ],
-            ),
+            )
+            .into(),
             DebugValue::Counter(1),
         )]
     )
@@ -79,7 +80,7 @@ fn test_no_labels() {
         snapshot,
         vec![(
             MetricKind::Counter,
-            Key::from_name("login_attempts",),
+            Key::from_name("login_attempts").into(),
             DebugValue::Counter(1),
         )]
     )
@@ -137,7 +138,8 @@ fn test_multiple_paths_to_the_same_callsite() {
                         Label::new("path1_specific", "foo"),
                         Label::new("path1_specific_dynamic", "foo_dynamic"),
                     ],
-                ),
+                )
+                .into(),
                 DebugValue::Counter(1),
             ),
             (
@@ -149,7 +151,8 @@ fn test_multiple_paths_to_the_same_callsite() {
                         Label::new("path2_specific", "bar"),
                         Label::new("path2_specific_dynamic", "bar_dynamic"),
                     ],
-                ),
+                )
+                .into(),
                 DebugValue::Counter(1),
             )
         ]

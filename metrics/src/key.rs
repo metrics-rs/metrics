@@ -127,9 +127,87 @@ where
     }
 }
 
+#[warn(missing_docs)]
+#[derive(Debug, Hash, Clone)]
+pub enum KeyRef {
+    Borrowed(&'static Key),
+    Owned(Key),
+}
+
+impl PartialEq for KeyRef {
+    /// We deliberately hide the differences between the containment types.
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref() == other.as_ref()
+    }
+}
+
+impl Eq for KeyRef {}
+
+impl KeyRef {
+    #[warn(missing_docs)]
+    pub fn into_owned(self) -> Key {
+        match self {
+            Self::Borrowed(val) => val.clone(),
+            Self::Owned(val) => val,
+        }
+    }
+}
+
+impl std::ops::Deref for KeyRef {
+    type Target = Key;
+
+    #[must_use]
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Borrowed(val) => val,
+            Self::Owned(val) => val,
+        }
+    }
+}
+
+impl AsRef<Key> for KeyRef {
+    #[must_use]
+    fn as_ref(&self) -> &Key {
+        match self {
+            Self::Borrowed(val) => val,
+            Self::Owned(val) => val,
+        }
+    }
+}
+
+impl fmt::Display for KeyRef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Borrowed(val) => val.fmt(f),
+            Self::Owned(val) => val.fmt(f),
+        }
+    }
+}
+
+// Here we don't provide generic `From` impls
+// (i.e. `impl <T: Into<Key>> From<T> for KeyRef`) because the decision whether
+// to construct the owned or borrowed ref is important for performance, and
+// we want users of this type to explicitly make this decision rather than rely
+// on the the magic of `.into()`.
+
+impl From<Key> for KeyRef {
+    fn from(key: Key) -> Self {
+        Self::Owned(key)
+    }
+}
+
+impl From<&'static Key> for KeyRef {
+    fn from(key: &'static Key) -> Self {
+        Self::Borrowed(key)
+    }
+}
+
+#[warn(missing_docs)]
+pub type OnceKey = once_cell::sync::OnceCell<Key>;
+
 #[cfg(test)]
 mod tests {
-    use super::Key;
+    use super::{Key, KeyRef, OnceKey};
     use crate::Label;
 
     #[test]
@@ -162,5 +240,43 @@ mod tests {
             result4,
             "Key(foobar, [black = black, lives = lives, matter = matter])"
         );
+    }
+
+    #[test]
+    fn key_ref_equality() {
+        let owned_a = Key::from_name("a");
+        let owned_b = Key::from_name("b");
+
+        static STATIC_A: OnceKey = OnceKey::new();
+        static STATIC_B: OnceKey = OnceKey::new();
+
+        let borrowed_a = STATIC_A.get_or_init(|| owned_a.clone());
+        let borrowed_b = STATIC_B.get_or_init(|| owned_b.clone());
+
+        assert_eq!(
+            KeyRef::Owned(owned_a.clone()),
+            KeyRef::Owned(owned_a.clone())
+        );
+        assert_eq!(
+            KeyRef::Owned(owned_b.clone()),
+            KeyRef::Owned(owned_b.clone())
+        );
+
+        assert_eq!(KeyRef::Borrowed(borrowed_a), KeyRef::Borrowed(borrowed_a));
+        assert_eq!(KeyRef::Borrowed(borrowed_b), KeyRef::Borrowed(borrowed_b));
+
+        assert_eq!(KeyRef::Owned(owned_a.clone()), KeyRef::Borrowed(borrowed_a));
+        assert_eq!(KeyRef::Owned(owned_b.clone()), KeyRef::Borrowed(borrowed_b));
+
+        assert_eq!(KeyRef::Borrowed(borrowed_a), KeyRef::Owned(owned_a.clone()));
+        assert_eq!(KeyRef::Borrowed(borrowed_b), KeyRef::Owned(owned_b.clone()));
+
+        assert_ne!(
+            KeyRef::Owned(owned_a.clone()),
+            KeyRef::Owned(owned_b.clone()),
+        );
+        assert_ne!(KeyRef::Borrowed(borrowed_a), KeyRef::Borrowed(borrowed_b));
+        assert_ne!(KeyRef::Owned(owned_a.clone()), KeyRef::Borrowed(borrowed_b));
+        assert_ne!(KeyRef::Owned(owned_b.clone()), KeyRef::Borrowed(borrowed_a));
     }
 }

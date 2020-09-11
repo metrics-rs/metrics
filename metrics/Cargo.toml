@@ -30,6 +30,7 @@ harness = false
 [dependencies]
 metrics-macros = { version = "0.1.0-alpha.1", path = "../metrics-macros" }
 proc-macro-hack = "^0.5"
+once_cell = "1"
 
 [dev-dependencies]
 log = "^0.4"

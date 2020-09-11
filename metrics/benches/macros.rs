@@ -3,7 +3,7 @@ extern crate criterion;
 
 use criterion::{Benchmark, Criterion};
 
-use metrics::{counter, Identifier, Key, Recorder};
+use metrics::{counter, Identifier, Key, KeyRef, Recorder};
 use rand::{thread_rng, Rng};
 
 #[derive(Default)]
@@ -18,9 +18,9 @@ impl Recorder for TestRecorder {
     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier {
         thread_rng().gen::<usize>().into()
     }
-    fn increment_counter(&self, _key: Key, _value: u64) {}
-    fn update_gauge(&self, _key: Key, _value: f64) {}
-    fn record_histogram(&self, _key: Key, _value: u64) {}
+    fn increment_counter(&self, _key: KeyRef, _value: u64) {}
+    fn update_gauge(&self, _key: KeyRef, _value: f64) {}
+    fn record_histogram(&self, _key: KeyRef, _value: u64) {}
 }
 
 fn reset_recorder() {

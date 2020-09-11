@@ -99,7 +99,7 @@
 //!     .expect("failed to install stack");
 //! # }
 //! ```
-use metrics::{Identifier, Key, Recorder};
+use metrics::{KeyRef, Recorder};
 
 #[cfg(feature = "std")]
 use metrics::SetRecorderError;
@@ -144,27 +144,27 @@ impl<R: Recorder + 'static> Stack<R> {
 }
 
 impl<R: Recorder> Recorder for Stack<R> {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_counter(&self, key: KeyRef, description: Option<&'static str>) {
         self.inner.register_counter(key, description)
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_gauge(&self, key: KeyRef, description: Option<&'static str>) {
         self.inner.register_gauge(key, description)
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_histogram(&self, key: KeyRef, description: Option<&'static str>) {
         self.inner.register_histogram(key, description)
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: KeyRef, value: u64) {
         self.inner.increment_counter(key, value);
     }
 
-    fn update_gauge(&self, key: Key, value: f64) {
+    fn update_gauge(&self, key: KeyRef, value: f64) {
         self.inner.update_gauge(key, value);
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: KeyRef, value: u64) {
         self.inner.record_histogram(key, value);
     }
 }

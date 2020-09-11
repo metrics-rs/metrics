@@ -1,47 +1,42 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-use metrics::{counter, gauge, histogram, increment, Identifier, Key, Recorder};
+use metrics::{counter, gauge, histogram, increment, KeyRef, Recorder};
 
 #[allow(dead_code)]
-static RECORDER: PrintRecorder = PrintRecorder::new();
+static RECORDER: PrintRecorder = PrintRecorder;
 
 #[derive(Default)]
-struct PrintRecorder(AtomicUsize);
-
-impl PrintRecorder {
-    pub const fn new() -> PrintRecorder {
-        PrintRecorder(AtomicUsize::new(0))
-    }
-}
+struct PrintRecorder;
 
 impl Recorder for PrintRecorder {
-    fn register_counter(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-        let id = self.0.fetch_add(1, Ordering::SeqCst);
-        println!("(counter) mapping key {} to id {}", key, id);
-        id.into()
+    fn register_counter(&self, key: KeyRef, description: Option<&'static str>) {
+        println!(
+            "(counter) registered key {} with description {:?}",
+            key, description
+        );
     }
 
-    fn register_gauge(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-        let id = self.0.fetch_add(1, Ordering::SeqCst);
-        println!("(gauge) mapping key {} to id {}", key, id);
-        id.into()
+    fn register_gauge(&self, key: KeyRef, description: Option<&'static str>) {
+        println!(
+            "(gauge) registered key {} with description {:?}",
+            key, description
+        );
     }
 
-    fn register_histogram(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-        let id = self.0.fetch_add(1, Ordering::SeqCst);
-        println!("(histogram) mapping key {} to id {}", key, id);
-        id.into()
+    fn register_histogram(&self, key: KeyRef, description: Option<&'static str>) {
+        println!(
+            "(histogram) registered key {} with description {:?}",
+            key, description
+        );
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: KeyRef, value: u64) {
         println!("(counter) got value {} for key {}", value, key);
     }
 
-    fn update_gauge(&self, key: Key, value: f64) {
+    fn update_gauge(&self, key: KeyRef, value: f64) {
         println!("(gauge) got value {} for key {}", value, key);
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: KeyRef, value: u64) {
         println!("(histogram) got value {} for key {}", value, key);
     }
 }

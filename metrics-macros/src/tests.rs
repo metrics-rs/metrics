@@ -29,7 +29,7 @@ fn test_get_expanded_registration() {
     let expected = concat!(
         "{ if let Some ( recorder ) = metrics :: try_recorder ( ) { ",
         "recorder . register_mytype ( ",
-        "metrics :: Key :: from_name ( \"mykeyname\" ) , ",
+        "metrics :: KeyRef :: Owned ( metrics :: Key :: from_name ( \"mykeyname\" ) ) , ",
         "None ",
         ") ; ",
         "} }",
@@ -38,9 +38,9 @@ fn test_get_expanded_registration() {
     assert_eq!(stream.to_string(), expected);
 }
 
-/// If there are no dynamic labels - we generate the static invocation.
+/// If there are no dynamic labels - generate an invocation with caching.
 #[test]
-fn test_get_expanded_callsite() {
+fn test_get_expanded_callsite_fast_path() {
     let stream = get_expanded_callsite(
         "mytype",
         "myop",
@@ -51,8 +51,36 @@ fn test_get_expanded_callsite() {
 
     let expected = concat!(
         "{ ",
+        "static CACHED_KEY : metrics :: OnceKey = metrics :: OnceKey :: new ( ) ; ",
         "if let Some ( recorder ) = metrics :: try_recorder ( ) { ",
-        "recorder . myop_mytype ( metrics :: Key :: from_name ( \"mykeyname\" ) , 1 ) ; ",
+        "let key = CACHED_KEY . get_or_init ( || { ",
+        "metrics :: Key :: from_name ( \"mykeyname\" ) ",
+        "} ) ; ",
+        "recorder . myop_mytype ( metrics :: KeyRef :: Borrowed ( & key ) , 1 ) ; ",
+        "} }",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+/// If there are dynamic labels - generate a direct invocation.
+#[test]
+fn test_get_expanded_callsite_regular_path() {
+    let stream = get_expanded_callsite(
+        "mytype",
+        "myop",
+        Key::NotScoped(parse_quote! {"mykeyname"}),
+        Some(Labels::Existing(parse_quote! { mylabels })),
+        quote! { 1 },
+    );
+
+    let expected = concat!(
+        "{ ",
+        "if let Some ( recorder ) = metrics :: try_recorder ( ) { ",
+        "recorder . myop_mytype ( ",
+        "metrics :: KeyRef :: Owned ( metrics :: Key :: from_name_and_labels ( \"mykeyname\" , mylabels ) ) , ",
+        "1 ",
+        ") ; ",
         "} }",
     );
 

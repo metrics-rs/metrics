@@ -6,7 +6,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     {Body, Error as HyperError, Response, Server},
 };
-use metrics::{Identifier, Key, Label, Recorder, SetRecorderError};
+use metrics::{KeyRef, Recorder, SetRecorderError};
 use metrics_util::{
     parse_quantiles, CompositeKey, Handle, Histogram, MetricKind, Quantile, Registry,
 };
@@ -335,7 +335,7 @@ pub struct PrometheusRecorder {
 }
 
 impl PrometheusRecorder {
-    fn add_description_if_missing(&self, key: &Key, description: Option<&'static str>) {
+    fn add_description_if_missing(&self, key: &KeyRef, description: Option<&'static str>) {
         if let Some(description) = description {
             let mut descriptions = self.inner.descriptions.write();
             if !descriptions.contains_key(key.name().as_ref()) {
@@ -494,65 +494,82 @@ impl PrometheusBuilder {
 }
 
 impl Recorder for PrometheusRecorder {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_counter(&self, key: KeyRef, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner
             .registry()
             .get_or_create_identifier(CompositeKey::new(MetricKind::Counter, key), |_| {
                 Handle::counter()
-            })
+            });
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_gauge(&self, key: KeyRef, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner
             .registry()
             .get_or_create_identifier(CompositeKey::new(MetricKind::Gauge, key), |_| {
                 Handle::gauge()
-            })
+            });
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_histogram(&self, key: KeyRef, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner
             .registry()
             .get_or_create_identifier(CompositeKey::new(MetricKind::Histogram, key), |_| {
                 Handle::histogram()
-            })
+            });
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
-        let id = self.register_counter(key, None);
+    fn increment_counter(&self, key: KeyRef, value: u64) {
+        let id = self
+            .inner
+            .registry()
+            .get_or_create_identifier(CompositeKey::new(MetricKind::Counter, key), |_| {
+                Handle::counter()
+            });
         self.inner
             .registry()
             .with_handle(id, |h| h.increment_counter(value));
     }
 
-    fn update_gauge(&self, key: Key, value: f64) {
-        let id = self.register_gauge(key, None);
+    fn update_gauge(&self, key: KeyRef, value: f64) {
+        let id = self
+            .inner
+            .registry()
+            .get_or_create_identifier(CompositeKey::new(MetricKind::Gauge, key), |_| {
+                Handle::gauge()
+            });
         self.inner
             .registry()
             .with_handle(id, |h| h.update_gauge(value));
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
-        let id = self.register_histogram(key, None);
+    fn record_histogram(&self, key: KeyRef, value: u64) {
+        let id = self
+            .inner
+            .registry()
+            .get_or_create_identifier(CompositeKey::new(MetricKind::Histogram, key), |_| {
+                Handle::histogram()
+            });
         self.inner
             .registry()
             .with_handle(id, |h| h.record_histogram(value));
     }
 }
 
-fn key_to_parts(key: Key) -> (String, Vec<String>) {
-    let (name, labels) = key.into_parts();
+fn key_to_parts(key: KeyRef) -> (String, Vec<String>) {
+    let name = key.name();
+    let labels = key.labels();
     let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';
     let name = name.replace(sanitize, "_");
     let labels = labels
         .map(|labels| {
             labels
                 .into_iter()
-                .map(Label::into_parts)
-                .map(|(k, v)| {
+                .map(|label| {
+                    let k = label.key();
+                    let v = label.value();
                     format!(
                         "{}=\"{}\"",
                         k,

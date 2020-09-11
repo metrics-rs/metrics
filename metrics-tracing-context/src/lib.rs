@@ -1,4 +1,4 @@
-use metrics::{Identifier, Key, Label, Recorder};
+use metrics::{Key, KeyRef, Label, Recorder};
 use metrics_util::layers::Layer;
 use tracing::Span;
 
@@ -28,8 +28,8 @@ impl<R> TracingContext<R> {
         });
     }
 
-    fn enhance_key(&self, key: Key) -> Key {
-        let (name, labels) = key.into_parts();
+    fn enhance_key(&self, key: KeyRef) -> KeyRef {
+        let (name, labels) = key.into_owned().into_parts();
         let mut labels = labels.unwrap_or_default();
         self.enhance_labels(&mut labels);
         if labels.is_empty() {
@@ -37,33 +37,34 @@ impl<R> TracingContext<R> {
         } else {
             Key::from_name_and_labels(name, labels)
         }
+        .into()
     }
 }
 
 impl<R: Recorder> Recorder for TracingContext<R> {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_counter(&self, key: KeyRef, description: Option<&'static str>) {
         self.inner.register_counter(key, description)
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_gauge(&self, key: KeyRef, description: Option<&'static str>) {
         self.inner.register_gauge(key, description)
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_histogram(&self, key: KeyRef, description: Option<&'static str>) {
         self.inner.register_histogram(key, description)
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: KeyRef, value: u64) {
         let key = self.enhance_key(key);
         self.inner.increment_counter(key, value);
     }
 
-    fn update_gauge(&self, key: Key, value: f64) {
+    fn update_gauge(&self, key: KeyRef, value: f64) {
         let key = self.enhance_key(key);
         self.inner.update_gauge(key, value);
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: KeyRef, value: u64) {
         let key = self.enhance_key(key);
         self.inner.record_histogram(key, value);
     }

@@ -190,7 +190,9 @@ fn get_expanded_registration(
         {
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
-                recorder.#register_ident(#key, #description);
+                // Registrations are fairly rare, don't attempt to cache here
+                // and just use and owned ref.
+                recorder.#register_ident(metrics::KeyRef::Owned(#key), #description);
             }
         }
     }
@@ -206,6 +208,7 @@ fn get_expanded_callsite<V>(
 where
     V: ToTokens,
 {
+    let use_fast_path = can_use_fast_path(&labels);
     let key = key_to_quoted(key, labels);
 
     let op_values = if metric_type == "histogram" {
@@ -217,13 +220,56 @@ where
     };
 
     let op_ident = format_ident!("{}_{}", op_type, metric_type);
-    quote! {
-        {
-            // Only do this work if there's a recorder installed.
-            if let Some(recorder) = metrics::try_recorder() {
-                recorder.#op_ident(#key, #op_values);
+
+    if use_fast_path {
+        // We're on the fast path here, so we'll end up registering with the recorder
+        // and statically caching the identifier for our metric to speed up any future
+        // increment operations.
+        quote! {
+            {
+                static CACHED_KEY: metrics::OnceKey = metrics::OnceKey::new();
+
+                // Only do this work if there's a recorder installed.
+                if let Some(recorder) = metrics::try_recorder() {
+                    // Initialize our fast path.
+                    let key = CACHED_KEY.get_or_init(|| { #key });
+                    recorder.#op_ident(metrics::KeyRef::Borrowed(&key), #op_values);
+                }
             }
         }
+    } else {
+        // We're on the slow path, so basically we register every single time.
+        //
+        // Recorders are expected to deduplicate any duplicate registrations.
+        quote! {
+            {
+                // Only do this work if there's a recorder installed.
+                if let Some(recorder) = metrics::try_recorder() {
+                    recorder.#op_ident(metrics::KeyRef::Owned(#key), #op_values);
+                }
+            }
+        }
+    }
+}
+
+fn can_use_fast_path(labels: &Option<Labels>) -> bool {
+    match labels {
+        None => true,
+        Some(labels) => match labels {
+            Labels::Existing(_) => false,
+            Labels::Inline(pairs) => {
+                let mut use_fast_path = true;
+                for (_, lvalue) in pairs {
+                    match lvalue {
+                        Expr::Lit(_) => {}
+                        _ => {
+                            use_fast_path = false;
+                        }
+                    }
+                }
+                use_fast_path
+            }
+        },
     }
 }
 
