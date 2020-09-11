@@ -477,12 +477,8 @@ fn convert_metric_to_protobuf_encoded(
         let labels = ckey
             .key()
             .labels()
-            .map(|labels| {
-                labels
-                    .map(|label| (label.key().to_string(), label.value().to_string()))
-                    .collect::<BTreeMap<_, _>>()
-            })
-            .unwrap_or_else(|| BTreeMap::new());
+            .map(|label| (label.key().to_owned(), label.value().to_owned()))
+            .collect::<BTreeMap<_, _>>();
         let mvalue = match value {
             MetricValue::Counter(cv) => proto::metric::Value::Counter(proto::Counter { value: cv }),
             MetricValue::Gauge(gv) => proto::metric::Value::Gauge(proto::Gauge { value: gv }),

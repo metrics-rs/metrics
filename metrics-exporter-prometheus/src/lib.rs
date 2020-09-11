@@ -564,23 +564,19 @@ fn key_to_parts(key: KeyRef) -> (String, Vec<String>) {
     let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';
     let name = name.replace(sanitize, "_");
     let labels = labels
-        .map(|labels| {
-            labels
-                .into_iter()
-                .map(|label| {
-                    let k = label.key();
-                    let v = label.value();
-                    format!(
-                        "{}=\"{}\"",
-                        k,
-                        v.replace("\\", "\\\\")
-                            .replace("\"", "\\\"")
-                            .replace("\n", "\\n")
-                    )
-                })
-                .collect()
+        .into_iter()
+        .map(|label| {
+            let k = label.key();
+            let v = label.value();
+            format!(
+                "{}=\"{}\"",
+                k,
+                v.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+            )
         })
-        .unwrap_or_else(|| Vec::new());
+        .collect();
 
     (name, labels)
 }

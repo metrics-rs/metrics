@@ -41,12 +41,8 @@ impl Key {
     }
 
     /// Labels of this key, if they exist.
-    pub fn labels(&self) -> Option<Iter<Label>> {
-        if self.labels.is_empty() {
-            None
-        } else {
-            Some(self.labels.iter())
-        }
+    pub fn labels(&self) -> Iter<Label> {
+        self.labels.iter()
     }
 
     /// Map the name of this key to a new name, based on `f`.
@@ -62,15 +58,8 @@ impl Key {
     }
 
     /// Consumes this `Key`, returning the name and any labels.
-    pub fn into_parts(self) -> (ScopedString, Option<Vec<Label>>) {
-        (
-            self.name,
-            if self.labels.is_empty() {
-                None
-            } else {
-                Some(self.labels)
-            },
-        )
+    pub fn into_parts(self) -> (ScopedString, Vec<Label>) {
+        (self.name, self.labels)
     }
 
     /// Returns a clone of this key with some additional labels.

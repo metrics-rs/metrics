@@ -29,15 +29,9 @@ impl<R> TracingContext<R> {
     }
 
     fn enhance_key(&self, key: KeyRef) -> KeyRef {
-        let (name, labels) = key.into_owned().into_parts();
-        let mut labels = labels.unwrap_or_default();
+        let (name, mut labels) = key.into_owned().into_parts();
         self.enhance_labels(&mut labels);
-        if labels.is_empty() {
-            Key::from_name(name)
-        } else {
-            Key::from_name_and_labels(name, labels)
-        }
-        .into()
+        Key::from_name_and_labels(name, labels).into()
     }
 }
 
