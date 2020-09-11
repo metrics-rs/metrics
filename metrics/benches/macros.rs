@@ -3,24 +3,18 @@ extern crate criterion;
 
 use criterion::{Benchmark, Criterion};
 
-use metrics::{counter, Identifier, Key, KeyRef, Recorder};
+use metrics::{counter, Key, Recorder};
 use rand::{thread_rng, Rng};
 
 #[derive(Default)]
 struct TestRecorder;
 impl Recorder for TestRecorder {
-    fn register_counter(&self, _key: Key, _description: Option<&'static str>) -> Identifier {
-        thread_rng().gen::<usize>().into()
-    }
-    fn register_gauge(&self, _key: Key, _description: Option<&'static str>) -> Identifier {
-        thread_rng().gen::<usize>().into()
-    }
-    fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier {
-        thread_rng().gen::<usize>().into()
-    }
-    fn increment_counter(&self, _key: KeyRef, _value: u64) {}
-    fn update_gauge(&self, _key: KeyRef, _value: f64) {}
-    fn record_histogram(&self, _key: KeyRef, _value: u64) {}
+    fn register_counter(&self, _key: Key, _description: Option<&'static str>) {}
+    fn register_gauge(&self, _key: Key, _description: Option<&'static str>) {}
+    fn register_histogram(&self, _key: Key, _description: Option<&'static str>) {}
+    fn increment_counter(&self, _key: Key, _value: u64) {}
+    fn update_gauge(&self, _key: Key, _value: f64) {}
+    fn record_histogram(&self, _key: Key, _value: u64) {}
 }
 
 fn reset_recorder() {
