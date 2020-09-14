@@ -8,16 +8,16 @@ use metrics_util::Registry;
 fn registry_benchmark(c: &mut Criterion) {
     c.bench(
         "registry",
-        Benchmark::new("cached get/create (basic)", |b| {
+        Benchmark::new("cached op (basic)", |b| {
             let registry: Registry<Key, ()> = Registry::new();
             static KEY_DATA: OnceKeyData = OnceKeyData::new();
 
             b.iter(|| {
                 let key = Key::Borrowed(KEY_DATA.get_or_init(|| KeyData::from_name("simple_key")));
-                let _ = registry.get_or_create_identifier(key, |_| ());
+                let _ = registry.op(key, |_| (), || ());
             })
         })
-        .with_function("cached get/create (labels)", |b| {
+        .with_function("cached op (labels)", |b| {
             let registry: Registry<Key, ()> = Registry::new();
             static KEY_DATA: OnceKeyData = OnceKeyData::new();
 
@@ -26,35 +26,29 @@ fn registry_benchmark(c: &mut Criterion) {
                     let labels = vec![Label::new("type", "http")];
                     KeyData::from_name_and_labels("simple_key", labels)
                 }));
-                let _ = registry.get_or_create_identifier(key, |_| ());
+                let _ = registry.op(key, |_| (), || ());
             })
         })
-        .with_function("uncached get/create (basic)", |b| {
+        .with_function("uncached op (basic)", |b| {
             b.iter_batched_ref(
                 || Registry::<Key, ()>::new(),
                 |registry| {
                     let key = Key::Owned("simple_key".into());
-                    let _ = registry.get_or_create_identifier(key, |_| ());
+                    let _ = registry.op(key, |_| (), || ());
                 },
                 BatchSize::SmallInput,
             )
         })
-        .with_function("uncached get/create (labels)", |b| {
+        .with_function("uncached op (labels)", |b| {
             b.iter_batched_ref(
                 || Registry::<Key, ()>::new(),
                 |registry| {
                     let labels = vec![Label::new("type", "http")];
                     let key = Key::Owned(("simple_key", labels).into());
-                    let _ = registry.get_or_create_identifier(key, |_| ());
+                    let _ = registry.op(key, |_| (), || ());
                 },
                 BatchSize::SmallInput,
             )
-        })
-        .with_function("with handle", |b| {
-            let registry = Registry::<Key, ()>::new();
-            let id = registry.get_or_create_identifier(KeyData::from_name("foo").into(), |_| ());
-
-            b.iter(|| registry.with_handle(id.clone(), |_| {}))
         })
         .with_function("registry overhead", |b| {
             b.iter_batched(
