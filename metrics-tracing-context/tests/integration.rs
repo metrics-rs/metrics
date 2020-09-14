@@ -66,6 +66,90 @@ fn test_basic_functionality() {
 }
 
 #[test]
+fn test_macro_forms() {
+    let (_guard, snapshotter) = setup();
+
+    let user = "ferris";
+    let email = "ferris@rust-lang.org";
+    let span = span!(Level::TRACE, "login", user, user.email = email);
+    let _guard = span.enter();
+
+    // No labels.
+    counter!("login_attempts_no_labels", 1);
+    // Static labels only.
+    counter!("login_attempts_static_labels", 1, "service" => "login_service");
+    // Dynamic labels only.
+    let node_name = "localhost".to_string();
+    counter!("login_attempts_dynamic_labels", 1, "node_name" => node_name.clone());
+    // Static and dynamic.
+    counter!("login_attempts_static_and_dynamic_labels", 1,
+        "service" => "login_service", "node_name" => node_name.clone());
+
+    let snapshot = snapshotter.snapshot();
+    let snapshot: HashSet<_> = snapshot.into_iter().collect();
+
+    assert_eq!(
+        snapshot,
+        vec![
+            (
+                MetricKind::Counter,
+                KeyData::from_name_and_labels(
+                    "login_attempts_no_labels",
+                    vec![
+                        Label::new("user", "ferris"),
+                        Label::new("user.email", "ferris@rust-lang.org"),
+                    ],
+                )
+                .into(),
+                DebugValue::Counter(1),
+            ),
+            (
+                MetricKind::Counter,
+                KeyData::from_name_and_labels(
+                    "login_attempts_static_labels",
+                    vec![
+                        Label::new("service", "login_service"),
+                        Label::new("user", "ferris"),
+                        Label::new("user.email", "ferris@rust-lang.org"),
+                    ],
+                )
+                .into(),
+                DebugValue::Counter(1),
+            ),
+            (
+                MetricKind::Counter,
+                KeyData::from_name_and_labels(
+                    "login_attempts_dynamic_labels",
+                    vec![
+                        Label::new("node_name", "localhost"),
+                        Label::new("user", "ferris"),
+                        Label::new("user.email", "ferris@rust-lang.org"),
+                    ],
+                )
+                .into(),
+                DebugValue::Counter(1),
+            ),
+            (
+                MetricKind::Counter,
+                KeyData::from_name_and_labels(
+                    "login_attempts_static_and_dynamic_labels",
+                    vec![
+                        Label::new("service", "login_service"),
+                        Label::new("node_name", "localhost"),
+                        Label::new("user", "ferris"),
+                        Label::new("user.email", "ferris@rust-lang.org"),
+                    ],
+                )
+                .into(),
+                DebugValue::Counter(1),
+            ),
+        ]
+        .into_iter()
+        .collect()
+    )
+}
+
+#[test]
 fn test_no_labels() {
     let (_guard, snapshotter) = setup();
 
