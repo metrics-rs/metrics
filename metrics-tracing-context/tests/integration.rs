@@ -288,12 +288,12 @@ fn test_nested_spans() {
             KeyData::from_name_and_labels(
                 "my_counter",
                 vec![
-                    Label::new("shared_field", "outer"),
-                    Label::new("outer_specific", "bar"),
-                    Label::new("outer_specific_dynamic", "bar_dynamic"),
                     Label::new("shared_field", "inner"),
                     Label::new("inner_specific", "foo"),
                     Label::new("inner_specific_dynamic", "foo_dynamic"),
+                    Label::new("shared_field", "outer"),
+                    Label::new("outer_specific", "bar"),
+                    Label::new("outer_specific_dynamic", "bar_dynamic"),
                 ],
             )
             .into(),
