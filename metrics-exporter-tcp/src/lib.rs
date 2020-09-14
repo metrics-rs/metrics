@@ -54,7 +54,6 @@ use std::time::SystemTime;
 use bytes::Bytes;
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use metrics::{Key, Recorder, SetRecorderError};
-use metrics_util::{Identifier, Registry};
 use mio::{
     net::{TcpListener, TcpStream},
     Events, Interest, Poll, Token, Waker,
@@ -71,28 +70,10 @@ mod proto {
     include!(concat!(env!("OUT_DIR"), "/event.proto.rs"));
 }
 
-type TcpRegistry = Registry<CompositeKey, CompositeKey>;
-
-#[derive(Eq, PartialEq, Hash, Clone)]
-enum MetricKind {
-    Counter,
-    Gauge,
-    Histogram,
-}
-
 enum MetricValue {
     Counter(u64),
     Gauge(f64),
     Histogram(u64),
-}
-
-#[derive(Eq, PartialEq, Hash, Clone)]
-struct CompositeKey(MetricKind, Key);
-
-impl CompositeKey {
-    pub fn key(&self) -> &Key {
-        &self.1
-    }
 }
 
 /// Errors that could occur while installing a TCP recorder/exporter.
@@ -119,8 +100,7 @@ impl From<SetRecorderError> for Error {
 
 /// A TCP recorder.
 pub struct TcpRecorder {
-    registry: Arc<TcpRegistry>,
-    tx: Sender<(Identifier, MetricValue)>,
+    tx: Sender<(Key, MetricValue)>,
     waker: Arc<Waker>,
 }
 
@@ -200,66 +180,48 @@ impl TcpBuilder {
         poll.registry()
             .register(&mut listener, LISTENER, Interest::READABLE)?;
 
-        let registry = Arc::new(Registry::new());
-
         let recorder = TcpRecorder {
-            registry: Arc::clone(&registry),
             tx,
             waker: Arc::clone(&waker),
         };
 
-        thread::spawn(move || run_transport(registry, poll, waker, listener, rx, buffer_size));
+        thread::spawn(move || run_transport(poll, waker, listener, rx, buffer_size));
         Ok(recorder)
     }
 }
 
 impl TcpRecorder {
-    fn register_metric(&self, kind: MetricKind, key: Key) -> Identifier {
-        let ckey = CompositeKey(kind, key);
-        self.registry.get_or_create_identifier(ckey, |k| k.clone())
-    }
-
-    fn push_metric(&self, id: Identifier, value: MetricValue) {
-        let _ = self.tx.try_send((id, value));
+    fn push_metric(&self, key: Key, value: MetricValue) {
+        let _ = self.tx.try_send((key, value));
         let _ = self.waker.wake();
     }
 }
 
 impl Recorder for TcpRecorder {
-    fn register_counter(&self, key: Key, _description: Option<&'static str>) {
-        self.register_metric(MetricKind::Counter, key);
-    }
+    fn register_counter(&self, _key: Key, _description: Option<&'static str>) {}
 
-    fn register_gauge(&self, key: Key, _description: Option<&'static str>) {
-        self.register_metric(MetricKind::Gauge, key);
-    }
+    fn register_gauge(&self, _key: Key, _description: Option<&'static str>) {}
 
-    fn register_histogram(&self, key: Key, _description: Option<&'static str>) {
-        self.register_metric(MetricKind::Histogram, key);
-    }
+    fn register_histogram(&self, _key: Key, _description: Option<&'static str>) {}
 
     fn increment_counter(&self, key: Key, value: u64) {
-        let id = self.register_metric(MetricKind::Counter, key);
-        self.push_metric(id, MetricValue::Counter(value));
+        self.push_metric(key, MetricValue::Counter(value));
     }
 
     fn update_gauge(&self, key: Key, value: f64) {
-        let id = self.register_metric(MetricKind::Gauge, key);
-        self.push_metric(id, MetricValue::Gauge(value));
+        self.push_metric(key, MetricValue::Gauge(value));
     }
 
     fn record_histogram(&self, key: Key, value: u64) {
-        let id = self.register_metric(MetricKind::Histogram, key);
-        self.push_metric(id, MetricValue::Histogram(value));
+        self.push_metric(key, MetricValue::Histogram(value));
     }
 }
 
 fn run_transport(
-    registry: Arc<TcpRegistry>,
     mut poll: Poll,
     waker: Arc<Waker>,
     listener: TcpListener,
-    rx: Receiver<(Identifier, MetricValue)>,
+    rx: Receiver<(Key, MetricValue)>,
     buffer_size: Option<usize>,
 ) {
     let buffer_limit = buffer_size.unwrap_or(std::usize::MAX);
@@ -308,11 +270,10 @@ fn run_transport(
                             // If our sender is dead, we can't do anything else, so just return.
                             Err(_) => return,
                         };
-                        let (id, value) = msg;
-                        match convert_metric_to_protobuf_encoded(&registry, id.clone(), value) {
-                            Some(Ok(pmsg)) => buffered_pmsgs.push_back(pmsg),
-                            Some(Err(e)) => error!(error = ?e, "error encoding metric"),
-                            None => error!(metric_id = ?id, "unknown metric"),
+                        let (key, value) = msg;
+                        match convert_metric_to_protobuf_encoded(key, value) {
+                            Ok(pmsg) => buffered_pmsgs.push_back(pmsg),
+                            Err(e) => error!(error = ?e, "error encoding metric"),
                         }
                     }
                     drop(_mrxspan);
@@ -460,38 +421,31 @@ fn drive_connection(
     }
 }
 
-fn convert_metric_to_protobuf_encoded(
-    registry: &Arc<TcpRegistry>,
-    id: Identifier,
-    value: MetricValue,
-) -> Option<Result<Bytes, EncodeError>> {
-    registry.with_handle(id, |ckey| {
-        let name = ckey.key().name().to_string();
-        let labels = ckey
-            .key()
-            .labels()
-            .map(|label| (label.key().to_owned(), label.value().to_owned()))
-            .collect::<BTreeMap<_, _>>();
-        let mvalue = match value {
-            MetricValue::Counter(cv) => proto::metric::Value::Counter(proto::Counter { value: cv }),
-            MetricValue::Gauge(gv) => proto::metric::Value::Gauge(proto::Gauge { value: gv }),
-            MetricValue::Histogram(hv) => {
-                proto::metric::Value::Histogram(proto::Histogram { value: hv })
-            }
-        };
+fn convert_metric_to_protobuf_encoded(key: Key, value: MetricValue) -> Result<Bytes, EncodeError> {
+    let name = key.name().to_string();
+    let labels = key
+        .labels()
+        .map(|label| (label.key().to_owned(), label.value().to_owned()))
+        .collect::<BTreeMap<_, _>>();
+    let mvalue = match value {
+        MetricValue::Counter(cv) => proto::metric::Value::Counter(proto::Counter { value: cv }),
+        MetricValue::Gauge(gv) => proto::metric::Value::Gauge(proto::Gauge { value: gv }),
+        MetricValue::Histogram(hv) => {
+            proto::metric::Value::Histogram(proto::Histogram { value: hv })
+        }
+    };
 
-        let now: prost_types::Timestamp = SystemTime::now().into();
-        let metric = proto::Metric {
-            name,
-            labels,
-            timestamp: Some(now),
-            value: Some(mvalue),
-        };
+    let now: prost_types::Timestamp = SystemTime::now().into();
+    let metric = proto::Metric {
+        name,
+        labels,
+        timestamp: Some(now),
+        value: Some(mvalue),
+    };
 
-        let mut buf = Vec::new();
-        metric.encode_length_delimited(&mut buf)?;
-        Ok(Bytes::from(buf))
-    })
+    let mut buf = Vec::new();
+    metric.encode_length_delimited(&mut buf)?;
+    Ok(Bytes::from(buf))
 }
 
 fn next(current: &mut Token) -> Token {
