@@ -36,9 +36,9 @@ crossbeam-epoch = "^0.8"
 crossbeam-utils = "^0.7"
 serde = "^1.0"
 arc-swap = "^0.4"
-im = "^15"
 parking_lot = "^0.10"
 aho-corasick = { version = "^0.7", optional = true }
+dashmap = "3"
 
 [dev-dependencies]
 criterion = "^0.3"

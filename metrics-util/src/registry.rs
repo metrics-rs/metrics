@@ -1,15 +1,6 @@
+use dashmap::DashMap;
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::sync::Arc;
-
-use arc_swap::ArcSwap;
-use crossbeam_utils::sync::ShardedLock;
-use im::HashMap as ImmutableHashMap;
-use parking_lot::Mutex;
-
-/// An identifier of a metric in a registry.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Identifier(usize);
 
 /// A high-performance metric registry.
 ///
@@ -28,10 +19,7 @@ pub struct Identifier(usize);
 ///
 /// `Registry` is optimized for reads.
 pub struct Registry<K, H> {
-    mappings: ArcSwap<ImmutableHashMap<K, Identifier>>,
-    reverse_mappings: ArcSwap<ImmutableHashMap<Identifier, K>>,
-    handles: ShardedLock<Vec<H>>,
-    lock: Mutex<()>,
+    map: DashMap<K, H>,
 }
 
 impl<K, H> Registry<K, H>
@@ -40,106 +28,39 @@ where
 {
     /// Creates a new `Registry`.
     pub fn new() -> Self {
-        Registry {
-            mappings: ArcSwap::from(Arc::new(ImmutableHashMap::new())),
-            reverse_mappings: ArcSwap::from(Arc::new(ImmutableHashMap::new())),
-            handles: ShardedLock::new(Vec::new()),
-            lock: Mutex::new(()),
+        Self {
+            map: DashMap::new(),
         }
     }
 
-    /// Get or create a new identifier for a given key.
+    /// Perform an operation on a given key.
     ///
-    /// If the key is not already mapped, a new identifier will be generated, and the given handle
-    /// stored along side of it.  If the key is already mapped, its identifier will be returned.
-    pub fn get_or_create_identifier<F>(&self, key: K, f: F) -> Identifier
+    /// The `op` function will be called for the handle under the given `key`.
+    ///
+    /// If the `key` is not already mapped, the `init` function will be
+    /// called, and the resulting handle will be stored in the registry.
+    pub fn op<I, O, V>(&self, key: K, op: O, init: I) -> V
     where
-        F: FnOnce(&K) -> H,
+        I: FnOnce() -> H,
+        O: FnOnce(&H) -> V,
     {
-        // Check our mapping table first.
-        if let Some(id) = self.mappings.load().get(&key) {
-            return id.clone();
-        }
-
-        // Take control of the registry.
-        let guard = self.lock.lock();
-
-        // Check our mapping table again, in case someone just inserted what we need.
-        let mappings = self.mappings.load();
-        if let Some(id) = mappings.get(&key) {
-            return id.clone();
-        }
-
-        // Our identifier will be the index we insert the handle into.
-        let mut wg = self
-            .handles
-            .write()
-            .expect("handles write lock was poisoned!");
-        let id = Identifier(wg.len());
-        let handle = f(&key);
-        wg.push(handle);
-        drop(wg);
-
-        // Update our mapping table and drop the lock.
-        let new_mappings = mappings.update(key.clone(), id.clone());
-        drop(mappings);
-        self.mappings.store(Arc::new(new_mappings));
-
-        // Update reverse mappings table.
-        let reverse_mappings = self.reverse_mappings.load();
-        let new_reverse_mappings = reverse_mappings.update(id.clone(), key);
-        drop(reverse_mappings);
-        self.reverse_mappings.store(Arc::new(new_reverse_mappings));
-
-        // Unlock the registy.
-        drop(guard);
-
-        id
-    }
-
-    /// Gets the handle for a given identifier.
-    pub fn with_handle<F, V>(&self, identifier: Identifier, f: F) -> Option<V>
-    where
-        F: FnOnce(&H) -> V,
-    {
-        let idx = identifier.0;
-        let rg = self
-            .handles
-            .read()
-            .expect("handles read lock was poisoned!");
-        rg.get(idx).map(f)
-    }
-
-    /// Gets the key for a given identifier.
-    pub fn with_key<F, V>(&self, identifier: Identifier, f: F) -> Option<V>
-    where
-        F: FnOnce(&K) -> V,
-    {
-        self.reverse_mappings.load().get(&identifier).map(f)
+        let valref = self.map.entry(key).or_insert_with(init);
+        op(valref.value())
     }
 }
 
 impl<K, H> Registry<K, H>
 where
-    K: Eq + Hash + Clone,
-    H: Clone,
+    K: Eq + Hash + Clone + 'static,
+    H: Clone + 'static,
 {
     /// Gets a map of all present handles, mapped by key.
     ///
     /// Handles must implement `Clone`.  This map is a point-in-time snapshot of the registry.
     pub fn get_handles(&self) -> HashMap<K, H> {
-        let guard = self.mappings.load();
-        let mappings = ImmutableHashMap::clone(&guard);
-        let rg = self
-            .handles
-            .read()
-            .expect("handles read lock was poisoned!");
-        mappings
-            .into_iter()
-            .filter_map(|(key, id)| {
-                let handle = rg.get(id.0).expect("handle not present!").clone();
-                Some((key, handle))
-            })
-            .collect::<HashMap<_, _>>()
+        self.map
+            .iter()
+            .map(|item| (item.key().clone(), item.value().clone()))
+            .collect()
     }
 }

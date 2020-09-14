@@ -112,46 +112,43 @@ impl DebuggingRecorder {
 impl Recorder for DebuggingRecorder {
     fn register_counter(&self, key: Key, _description: Option<&'static str>) {
         let rkey = DifferentiatedKey(MetricKind::Counter, key);
-        self.registry
-            .get_or_create_identifier(rkey, |_| Handle::counter());
+        self.registry.op(rkey, |_| {}, || Handle::counter())
     }
 
     fn register_gauge(&self, key: Key, _description: Option<&'static str>) {
         let rkey = DifferentiatedKey(MetricKind::Gauge, key);
-        self.registry
-            .get_or_create_identifier(rkey, |_| Handle::gauge());
+        self.registry.op(rkey, |_| {}, || Handle::gauge())
     }
 
     fn register_histogram(&self, key: Key, _description: Option<&'static str>) {
         let rkey = DifferentiatedKey(MetricKind::Histogram, key);
-        self.registry
-            .get_or_create_identifier(rkey, |_| Handle::histogram());
+        self.registry.op(rkey, |_| {}, || Handle::histogram())
     }
 
     fn increment_counter(&self, key: Key, value: u64) {
         let rkey = DifferentiatedKey(MetricKind::Counter, key);
-        let id = self
-            .registry
-            .get_or_create_identifier(rkey, |_| Handle::counter());
-        self.registry
-            .with_handle(id, |handle| handle.increment_counter(value));
+        self.registry.op(
+            rkey,
+            |handle| handle.increment_counter(value),
+            || Handle::counter(),
+        )
     }
 
     fn update_gauge(&self, key: Key, value: f64) {
         let rkey = DifferentiatedKey(MetricKind::Gauge, key);
-        let id = self
-            .registry
-            .get_or_create_identifier(rkey, |_| Handle::gauge());
-        self.registry
-            .with_handle(id, |handle| handle.update_gauge(value));
+        self.registry.op(
+            rkey,
+            |handle| handle.update_gauge(value),
+            || Handle::gauge(),
+        )
     }
 
     fn record_histogram(&self, key: Key, value: u64) {
         let rkey = DifferentiatedKey(MetricKind::Histogram, key);
-        let id = self
-            .registry
-            .get_or_create_identifier(rkey, |_| Handle::histogram());
-        self.registry
-            .with_handle(id, |handle| handle.record_histogram(value));
+        self.registry.op(
+            rkey,
+            |handle| handle.record_histogram(value),
+            || Handle::histogram(),
+        )
     }
 }
