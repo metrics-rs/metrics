@@ -107,6 +107,11 @@ use metrics::{Key, Recorder};
 #[cfg(feature = "std")]
 use metrics::SetRecorderError;
 
+#[cfg(feature = "layer-filter")]
+mod filter;
+#[cfg(feature = "layer-filter")]
+pub use filter::{Filter, FilterLayer};
+
 mod prefix;
 pub use prefix::{Prefix, PrefixLayer};
 

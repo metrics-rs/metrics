@@ -1,29 +1,9 @@
+use crate::layers::Layer;
 use metrics::{Key, Recorder};
 
-use crate::layers::Layer;
-
-/// A layer for applying a prefix to every metric key.
-pub struct PrefixLayer(String);
-
-impl PrefixLayer {
-    /// Creates a new `PrefixLayer` based on the given prefix.
-    pub fn new<S: Into<String>>(prefix: S) -> PrefixLayer {
-        PrefixLayer(prefix.into())
-    }
-}
-
-impl<R> Layer<R> for PrefixLayer {
-    type Output = Prefix<R>;
-
-    fn layer(&self, inner: R) -> Self::Output {
-        Prefix {
-            prefix: self.0.clone(),
-            inner,
-        }
-    }
-}
-
 /// Applies a prefix to every metric key.
+///
+/// Keys will be prefixed in the format of `<prefix>.<remaining>`.
 pub struct Prefix<R> {
     prefix: String,
     inner: R,
@@ -66,6 +46,29 @@ impl<R: Recorder> Recorder for Prefix<R> {
     fn record_histogram(&self, key: Key, value: u64) {
         let new_key = self.prefix_key(key);
         self.inner.record_histogram(new_key, value);
+    }
+}
+
+/// A layer for applying a prefix to every metric key.
+///
+/// More information on the behavior of the layer can be found in [`Prefix`].
+pub struct PrefixLayer(String);
+
+impl PrefixLayer {
+    /// Creates a new `PrefixLayer` based on the given prefix.
+    pub fn new<S: Into<String>>(prefix: S) -> PrefixLayer {
+        PrefixLayer(prefix.into())
+    }
+}
+
+impl<R> Layer<R> for PrefixLayer {
+    type Output = Prefix<R>;
+
+    fn layer(&self, inner: R) -> Self::Output {
+        Prefix {
+            prefix: self.0.clone(),
+            inner,
+        }
     }
 }
 
