@@ -20,7 +20,7 @@
 //!
 //! // Prepare metrics.
 //! # let myrecorder = DebuggingRecorder::new();
-//! let recorder = TracingContextLayer.layer(myrecorder);
+//! let recorder = TracingContextLayer::all().layer(myrecorder);
 //! metrics::set_boxed_recorder(Box::new(recorder)).unwrap();
 //! ```
 //!
@@ -34,7 +34,7 @@
 //! # let subscriber = mysubscriber.with(MetricsLayer::new());
 //! # tracing::subscriber::set_global_default(subscriber).unwrap();
 //! # let myrecorder = DebuggingRecorder::new();
-//! # let recorder = TracingContextLayer.layer(myrecorder);
+//! # let recorder = TracingContextLayer::all().layer(myrecorder);
 //! # metrics::set_boxed_recorder(Box::new(recorder)).unwrap();
 //! use tracing::{span, Level};
 //! use metrics::counter;
@@ -57,33 +57,68 @@ use metrics::{Key, KeyData, Label, Recorder};
 use metrics_util::layers::Layer;
 use tracing::Span;
 
+pub mod label_filter;
 mod tracing_integration;
 
+pub use label_filter::LabelFilter;
 pub use tracing_integration::{MetricsLayer, SpanExt};
 
 /// [`TracingContextLayer`] provides an implementation of a [`metrics::Layer`]
 /// for [`TracingContext`].
-pub struct TracingContextLayer;
+pub struct TracingContextLayer<F> {
+    label_filter: F,
+}
 
-impl<R> Layer<R> for TracingContextLayer {
-    type Output = TracingContext<R>;
+impl<F> TracingContextLayer<F> {
+    /// Creates a new [`TracingContextLayer`].
+    pub fn new(label_filter: F) -> Self {
+        Self { label_filter }
+    }
+}
+
+impl TracingContextLayer<label_filter::IncludeAll> {
+    /// Creates a new [`TracingContextLayer`].
+    pub fn all() -> Self {
+        Self {
+            label_filter: label_filter::IncludeAll,
+        }
+    }
+}
+
+impl<R, F> Layer<R> for TracingContextLayer<F>
+where
+    F: Clone,
+{
+    type Output = TracingContext<R, F>;
 
     fn layer(&self, inner: R) -> Self::Output {
-        TracingContext { inner }
+        TracingContext {
+            inner,
+            label_filter: self.label_filter.clone(),
+        }
     }
 }
 
 /// [`TracingContext`] is a [`metrics::Recorder`] that injects labels from the
 /// [`tracing::span`]s.
-pub struct TracingContext<R> {
+pub struct TracingContext<R, F> {
     inner: R,
+    label_filter: F,
 }
 
-impl<R> TracingContext<R> {
+impl<R, F> TracingContext<R, F>
+where
+    F: LabelFilter,
+{
     fn enhance_labels(&self, labels: &mut Vec<Label>) {
         let span = Span::current();
         span.with_labels(|new_labels| {
-            labels.extend_from_slice(&new_labels);
+            labels.extend(
+                new_labels
+                    .iter()
+                    .filter(|&label| self.label_filter.should_include_label(label))
+                    .cloned(),
+            );
         });
     }
 
@@ -94,7 +129,11 @@ impl<R> TracingContext<R> {
     }
 }
 
-impl<R: Recorder> Recorder for TracingContext<R> {
+impl<R, F> Recorder for TracingContext<R, F>
+where
+    R: Recorder,
+    F: LabelFilter,
+{
     fn register_counter(&self, key: Key, description: Option<&'static str>) {
         self.inner.register_counter(key, description)
     }

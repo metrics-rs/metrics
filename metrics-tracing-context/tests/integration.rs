@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use metrics::{counter, KeyData, Label};
-use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
+use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
 use parking_lot::{const_mutex, Mutex, MutexGuard};
 use tracing::dispatcher::{set_default, DefaultGuard, Dispatch};
@@ -15,14 +15,17 @@ struct TestGuard {
     _tracing_guard: DefaultGuard,
 }
 
-fn setup() -> (TestGuard, Snapshotter) {
+fn setup<F>(layer: TracingContextLayer<F>) -> (TestGuard, Snapshotter)
+where
+    F: LabelFilter + Clone + 'static,
+{
     let test_mutex_guard = TEST_MUTEX.lock();
     let subscriber = Registry::default().with(MetricsLayer::new());
     let tracing_guard = set_default(&Dispatch::new(subscriber));
 
     let recorder = DebuggingRecorder::new();
     let snapshotter = recorder.snapshotter();
-    let recorder = TracingContextLayer.layer(recorder);
+    let recorder = layer.layer(recorder);
 
     metrics::clear_recorder();
     metrics::set_boxed_recorder(Box::new(recorder)).expect("failed to install recorder");
@@ -36,7 +39,7 @@ fn setup() -> (TestGuard, Snapshotter) {
 
 #[test]
 fn test_basic_functionality() {
-    let (_guard, snapshotter) = setup();
+    let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
     let user = "ferris";
     let email = "ferris@rust-lang.org";
@@ -67,7 +70,7 @@ fn test_basic_functionality() {
 
 #[test]
 fn test_macro_forms() {
-    let (_guard, snapshotter) = setup();
+    let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
     let user = "ferris";
     let email = "ferris@rust-lang.org";
@@ -151,7 +154,7 @@ fn test_macro_forms() {
 
 #[test]
 fn test_no_labels() {
-    let (_guard, snapshotter) = setup();
+    let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
     let span = span!(Level::TRACE, "login");
     let _guard = span.enter();
@@ -172,7 +175,7 @@ fn test_no_labels() {
 
 #[test]
 fn test_multiple_paths_to_the_same_callsite() {
-    let (_guard, snapshotter) = setup();
+    let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
     let shared_fn = || {
         counter!("my_counter", 1);
@@ -247,7 +250,7 @@ fn test_multiple_paths_to_the_same_callsite() {
 
 #[test]
 fn test_nested_spans() {
-    let (_guard, snapshotter) = setup();
+    let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
     let inner = || {
         let inner_specific_dynamic = "foo_dynamic";
@@ -301,5 +304,44 @@ fn test_nested_spans() {
         ),]
         .into_iter()
         .collect()
+    )
+}
+
+#[derive(Clone)]
+struct OnlyUser;
+
+impl LabelFilter for OnlyUser {
+    fn should_include_label(&self, label: &Label) -> bool {
+        label.key() == "user"
+    }
+}
+
+#[test]
+fn test_label_filtering() {
+    let (_guard, snapshotter) = setup(TracingContextLayer::new(OnlyUser));
+
+    let user = "ferris";
+    let email = "ferris@rust-lang.org";
+    let span = span!(Level::TRACE, "login", user, user.email = email);
+    let _guard = span.enter();
+
+    counter!("login_attempts", 1, "service" => "login_service");
+
+    let snapshot = snapshotter.snapshot();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            MetricKind::Counter,
+            KeyData::from_name_and_labels(
+                "login_attempts",
+                vec![
+                    Label::new("service", "login_service"),
+                    Label::new("user", "ferris"),
+                ],
+            )
+            .into(),
+            DebugValue::Counter(1),
+        )]
     )
 }
