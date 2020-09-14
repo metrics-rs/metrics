@@ -1,3 +1,58 @@
+//! Use [`tracing::span!`] fields as [`metrics`] labels.
+//!
+//! The `metrics-tracing-context` crate provides tools to enable injecting the
+//! contextual data maintained via `span!` macro from the [`tracing`] crate
+//! into the metrics.
+//!
+//! # Use
+//!
+//! First, set up `tracing` and `metrics` crates:
+//!
+//! ```rust
+//! # use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
+//! # use tracing_subscriber::{layer::SubscriberExt, Registry};
+//! use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
+//!
+//! // Prepare tracing.
+//! # let mysubscriber = Registry::default();
+//! let subscriber = mysubscriber.with(MetricsLayer::new());
+//! tracing::subscriber::set_global_default(subscriber).unwrap();
+//!
+//! // Prepare metrics.
+//! # let myrecorder = DebuggingRecorder::new();
+//! let recorder = TracingContextLayer.layer(myrecorder);
+//! metrics::set_boxed_recorder(Box::new(recorder)).unwrap();
+//! ```
+//!
+//! Then emit some metrics within spans and see the labels being injected!
+//!
+//! ```rust
+//! # use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
+//! # use tracing_subscriber::{layer::SubscriberExt, Registry};
+//! # use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
+//! # let mysubscriber = Registry::default();
+//! # let subscriber = mysubscriber.with(MetricsLayer::new());
+//! # tracing::subscriber::set_global_default(subscriber).unwrap();
+//! # let myrecorder = DebuggingRecorder::new();
+//! # let recorder = TracingContextLayer.layer(myrecorder);
+//! # metrics::set_boxed_recorder(Box::new(recorder)).unwrap();
+//! use tracing::{span, Level};
+//! use metrics::counter;
+//!
+//! let user = "ferris";
+//! let span = span!(Level::TRACE, "login", user);
+//! let _guard = span.enter();
+//!
+//! counter!("login_attempts", 1, "service" => "login_service");
+//! ```
+//!
+//! The code above will emit a increment for a `login_attempts` counter with
+//! the following labels:
+//! - `service=login_service`
+//! - `user=ferris`
+
+#![deny(missing_docs)]
+
 use metrics::{Key, KeyData, Label, Recorder};
 use metrics_util::layers::Layer;
 use tracing::Span;
@@ -6,6 +61,8 @@ mod tracing_integration;
 
 pub use tracing_integration::{MetricsLayer, SpanExt};
 
+/// [`TracingContextLayer`] provides an implementation of a [`metrics::Layer`]
+/// for [`TracingContext`].
 pub struct TracingContextLayer;
 
 impl<R> Layer<R> for TracingContextLayer {
@@ -16,6 +73,8 @@ impl<R> Layer<R> for TracingContextLayer {
     }
 }
 
+/// [`TracingContext`] is a [`metrics::Recorder`] that injects labels from the
+/// [`tracing::span`]s.
 pub struct TracingContext<R> {
     inner: R,
 }

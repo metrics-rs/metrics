@@ -47,6 +47,8 @@ impl WithContext {
     }
 }
 
+/// [`MetricsLayer`] is a [`tracing_subscriber::Layer`] that captures the span
+/// fields and allows them to be later on used as metrics labels.
 pub struct MetricsLayer<S> {
     ctx: WithContext,
     _subscriber: PhantomData<fn(S)>,
@@ -57,6 +59,7 @@ impl<S> MetricsLayer<S>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
+    /// Create a new `MetricsLayer`.
     pub fn new() -> Self {
         let ctx = WithContext {
             with_labels: Self::with_labels,
@@ -105,7 +108,9 @@ where
     }
 }
 
+/// An extention to the `tracing::Span`, enabling the access to labels.
 pub trait SpanExt {
+    /// Run the provided function with a read-only access to labels.
     fn with_labels<F>(&self, f: F)
     where
         F: FnMut(&Vec<Label>);
