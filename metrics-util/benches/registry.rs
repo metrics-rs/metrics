@@ -33,7 +33,7 @@ fn registry_benchmark(c: &mut Criterion) {
             b.iter_batched_ref(
                 || Registry::<Key, ()>::new(),
                 |registry| {
-                    let key = KeyData::from_name("simple_key").into();
+                    let key = Key::Owned("simple_key".into());
                     let _ = registry.get_or_create_identifier(key, |_| ());
                 },
                 BatchSize::SmallInput,
@@ -44,7 +44,7 @@ fn registry_benchmark(c: &mut Criterion) {
                 || Registry::<Key, ()>::new(),
                 |registry| {
                     let labels = vec![Label::new("type", "http")];
-                    let key = KeyData::from_name_and_labels("simple_key", labels).into();
+                    let key = Key::Owned(("simple_key", labels).into());
                     let _ = registry.get_or_create_identifier(key, |_| ());
                 },
                 BatchSize::SmallInput,
