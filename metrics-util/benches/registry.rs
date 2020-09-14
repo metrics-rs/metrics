@@ -14,7 +14,7 @@ fn registry_benchmark(c: &mut Criterion) {
 
             b.iter(|| {
                 let key = Key::Borrowed(KEY_DATA.get_or_init(|| KeyData::from_name("simple_key")));
-                let _ = registry.op(key, |_| (), || ());
+                registry.op(key, |_| (), || ())
             })
         })
         .with_function("cached op (labels)", |b| {
@@ -26,7 +26,7 @@ fn registry_benchmark(c: &mut Criterion) {
                     let labels = vec![Label::new("type", "http")];
                     KeyData::from_name_and_labels("simple_key", labels)
                 }));
-                let _ = registry.op(key, |_| (), || ());
+                registry.op(key, |_| (), || ())
             })
         })
         .with_function("uncached op (basic)", |b| {
@@ -34,7 +34,7 @@ fn registry_benchmark(c: &mut Criterion) {
                 || Registry::<Key, ()>::new(),
                 |registry| {
                     let key = Key::Owned("simple_key".into());
-                    let _ = registry.op(key, |_| (), || ());
+                    registry.op(key, |_| (), || ())
                 },
                 BatchSize::SmallInput,
             )
@@ -45,7 +45,7 @@ fn registry_benchmark(c: &mut Criterion) {
                 |registry| {
                     let labels = vec![Label::new("type", "http")];
                     let key = Key::Owned(("simple_key", labels).into());
-                    let _ = registry.op(key, |_| (), || ());
+                    registry.op(key, |_| (), || ())
                 },
                 BatchSize::SmallInput,
             )
@@ -57,17 +57,51 @@ fn registry_benchmark(c: &mut Criterion) {
                 BatchSize::NumIterations(1),
             )
         })
-        .with_function("key overhead (basic)", |b| {
+        .with_function("key data overhead (basic)", |b| {
             b.iter(|| {
                 let key = "simple_key";
-                let _: KeyData = KeyData::from_name(key);
+                KeyData::from_name(key)
             })
         })
-        .with_function("key overhead (labels)", |b| {
+        .with_function("key data overhead (labels)", |b| {
             b.iter(|| {
                 let key = "simple_key";
                 let labels = vec![Label::new("type", "http")];
-                let _: KeyData = KeyData::from_name_and_labels(key, labels);
+                KeyData::from_name_and_labels(key, labels)
+            })
+        })
+        .with_function("owned key overhead (basic)", |b| {
+            b.iter(|| {
+                let key = "simple_key";
+                Key::Owned(KeyData::from_name(key))
+            })
+        })
+        .with_function("owned key overhead (labels)", |b| {
+            b.iter(|| {
+                let key = "simple_key";
+                let labels = vec![Label::new("type", "http")];
+                Key::Owned(KeyData::from_name_and_labels(key, labels))
+            })
+        })
+        .with_function("cached key overhead (basic)", |b| {
+            static KEY_DATA: OnceKeyData = OnceKeyData::new();
+            b.iter(|| {
+                let key_data = KEY_DATA.get_or_init(|| {
+                    let key = "simple_key";
+                    KeyData::from_name(key)
+                });
+                Key::Borrowed(key_data)
+            })
+        })
+        .with_function("cached key overhead (labels)", |b| {
+            static KEY_DATA: OnceKeyData = OnceKeyData::new();
+            b.iter(|| {
+                let key_data = KEY_DATA.get_or_init(|| {
+                    let key = "simple_key";
+                    let labels = vec![Label::new("type", "http")];
+                    KeyData::from_name_and_labels(key, labels)
+                });
+                Key::Borrowed(key_data)
             })
         }),
     );
