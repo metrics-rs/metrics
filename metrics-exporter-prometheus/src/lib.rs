@@ -496,65 +496,53 @@ impl PrometheusBuilder {
 impl Recorder for PrometheusRecorder {
     fn register_counter(&self, key: Key, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
-        self.inner
-            .registry()
-            .get_or_create_identifier(CompositeKey::new(MetricKind::Counter, key), |_| {
-                Handle::counter()
-            });
+        self.inner.registry().op(
+            CompositeKey::new(MetricKind::Counter, key),
+            |_| {},
+            || Handle::counter(),
+        );
     }
 
     fn register_gauge(&self, key: Key, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
-        self.inner
-            .registry()
-            .get_or_create_identifier(CompositeKey::new(MetricKind::Gauge, key), |_| {
-                Handle::gauge()
-            });
+        self.inner.registry().op(
+            CompositeKey::new(MetricKind::Gauge, key),
+            |_| {},
+            || Handle::gauge(),
+        );
     }
 
     fn register_histogram(&self, key: Key, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
-        self.inner
-            .registry()
-            .get_or_create_identifier(CompositeKey::new(MetricKind::Histogram, key), |_| {
-                Handle::histogram()
-            });
+        self.inner.registry().op(
+            CompositeKey::new(MetricKind::Histogram, key),
+            |_| {},
+            || Handle::histogram(),
+        );
     }
 
     fn increment_counter(&self, key: Key, value: u64) {
-        let id = self
-            .inner
-            .registry()
-            .get_or_create_identifier(CompositeKey::new(MetricKind::Counter, key), |_| {
-                Handle::counter()
-            });
-        self.inner
-            .registry()
-            .with_handle(id, |h| h.increment_counter(value));
+        self.inner.registry().op(
+            CompositeKey::new(MetricKind::Counter, key),
+            |h| h.increment_counter(value),
+            || Handle::counter(),
+        );
     }
 
     fn update_gauge(&self, key: Key, value: f64) {
-        let id = self
-            .inner
-            .registry()
-            .get_or_create_identifier(CompositeKey::new(MetricKind::Gauge, key), |_| {
-                Handle::gauge()
-            });
-        self.inner
-            .registry()
-            .with_handle(id, |h| h.update_gauge(value));
+        self.inner.registry().op(
+            CompositeKey::new(MetricKind::Gauge, key),
+            |h| h.update_gauge(value),
+            || Handle::gauge(),
+        );
     }
 
     fn record_histogram(&self, key: Key, value: u64) {
-        let id = self
-            .inner
-            .registry()
-            .get_or_create_identifier(CompositeKey::new(MetricKind::Histogram, key), |_| {
-                Handle::histogram()
-            });
-        self.inner
-            .registry()
-            .with_handle(id, |h| h.record_histogram(value));
+        self.inner.registry().op(
+            CompositeKey::new(MetricKind::Histogram, key),
+            |h| h.record_histogram(value),
+            || Handle::histogram(),
+        );
     }
 }
 
