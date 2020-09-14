@@ -82,9 +82,12 @@ where
                 .expect("registry should have a span for the current ID")
         };
 
-        let extensions = span.extensions();
-        if let Some(value) = extensions.get::<Labels>() {
-            f(value);
+        let parents = span.parents();
+        for span in std::iter::once(span).chain(parents) {
+            let extensions = span.extensions();
+            if let Some(value) = extensions.get::<Labels>() {
+                f(value);
+            }
         }
     }
 }
