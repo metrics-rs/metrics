@@ -15,6 +15,9 @@ readme = "README.md"
 categories = ["development-tools::debugging"]
 keywords = ["metrics", "quantile", "percentile"]
 
+[lib]
+bench = false
+
 [[bench]]
 name = "bucket"
 harness = false
