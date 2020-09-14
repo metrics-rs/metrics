@@ -244,3 +244,62 @@ fn test_multiple_paths_to_the_same_callsite() {
         .collect()
     )
 }
+
+#[test]
+fn test_nested_spans() {
+    let (_guard, snapshotter) = setup();
+
+    let inner = || {
+        let inner_specific_dynamic = "foo_dynamic";
+        let span = span!(
+            Level::TRACE,
+            "inner",
+            shared_field = "inner",
+            inner_specific = "foo",
+            inner_specific_dynamic,
+        );
+        let _guard = span.enter();
+
+        counter!("my_counter", 1);
+    };
+
+    let outer = || {
+        let outer_specific_dynamic = "bar_dynamic";
+        let span = span!(
+            Level::TRACE,
+            "outer",
+            shared_field = "outer",
+            outer_specific = "bar",
+            outer_specific_dynamic,
+        );
+        let _guard = span.enter();
+        inner();
+    };
+
+    outer();
+
+    let snapshot = snapshotter.snapshot();
+    let snapshot: HashSet<_> = snapshot.into_iter().collect();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            MetricKind::Counter,
+            KeyData::from_name_and_labels(
+                "my_counter",
+                vec![
+                    Label::new("shared_field", "outer"),
+                    Label::new("outer_specific", "bar"),
+                    Label::new("outer_specific_dynamic", "bar_dynamic"),
+                    Label::new("shared_field", "inner"),
+                    Label::new("inner_specific", "foo"),
+                    Label::new("inner_specific_dynamic", "foo_dynamic"),
+                ],
+            )
+            .into(),
+            DebugValue::Counter(1),
+        ),]
+        .into_iter()
+        .collect()
+    )
+}
