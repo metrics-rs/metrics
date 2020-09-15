@@ -191,7 +191,7 @@ fn get_expanded_registration(
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
                 // Registrations are fairly rare, don't attempt to cache here
-                // and just use and owned ref.
+                // and just use an owned ref.
                 recorder.#register_ident(metrics::Key::Owned(#key), #description);
             }
         }
