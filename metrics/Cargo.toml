@@ -36,6 +36,7 @@ once_cell = "1"
 log = "^0.4"
 criterion = "^0.3"
 rand = "^0.7"
+trybuild = "1"
 
 [features]
 default = ["std"]

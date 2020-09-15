@@ -329,6 +329,10 @@ fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
                 break;
             }
             input.parse::<Token![,]>()?;
+            if input.is_empty() {
+                break;
+            }
+
             let lkey: LitStr = input.parse()?;
             input.parse::<Token![=>]>()?;
             let lvalue: Expr = input.parse()?;
@@ -339,13 +343,25 @@ fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
         return Ok(Some(Labels::Inline(labels)));
     }
 
-    // Has to be an expression otherwise.
+    // Has to be an expression otherwise, or a trailing comma.
     input.parse::<Token![,]>()?;
+
+    // Unless it was an expression - clear the trailing comma.
+    if input.is_empty() {
+        return Ok(None);
+    }
+
     let lvalue: Expr = input.parse().map_err(|e| {
         Error::new(
             e.span(),
             "expected label expression, but expression not found",
         )
     })?;
+
+    // Expression can end with a trailing comma, handle it.
+    if input.peek(Token![,]) {
+        input.parse::<Token![,]>()?;
+    }
+
     Ok(Some(Labels::Existing(lvalue)))
 }
