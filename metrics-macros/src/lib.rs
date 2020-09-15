@@ -222,9 +222,8 @@ where
     let op_ident = format_ident!("{}_{}", op_type, metric_type);
 
     if use_fast_path {
-        // We're on the fast path here, so we'll end up registering with the recorder
-        // and statically caching the identifier for our metric to speed up any future
-        // increment operations.
+        // We're on the fast path here, so we'll build our key, statically cache it,
+        // and use a borrowed reference to it for this and future operations.
         quote! {
             {
                 static CACHED_KEY: metrics::OnceKeyData = metrics::OnceKeyData::new();
