@@ -145,7 +145,7 @@ impl PartialEq for Key {
 impl Eq for Key {}
 
 impl Key {
-    /// Converts any kind of Key to an owned KeyData.
+    /// Converts any kind of [`Key`] into an owned [`KeyData`].
     ///
     /// Owned variant returned as is, borrowed variant is cloned.
     pub fn into_owned(self) -> KeyData {
