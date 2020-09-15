@@ -9,8 +9,10 @@
 //! First, set up `tracing` and `metrics` crates:
 //!
 //! ```rust
-//! # use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
-//! # use tracing_subscriber::{layer::SubscriberExt, Registry};
+//! # use metrics_util::DebuggingRecorder;
+//! # use tracing_subscriber::Registry;
+//! use metrics_util::layers::Layer;
+//! use tracing_subscriber::layer::SubscriberExt;
 //! use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
 //!
 //! // Prepare tracing.
@@ -27,7 +29,7 @@
 //! Then emit some metrics within spans and see the labels being injected!
 //!
 //! ```rust
-//! # use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
+//! # use metrics_util::{layers::Layer, DebuggingRecorder};
 //! # use tracing_subscriber::{layer::SubscriberExt, Registry};
 //! # use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
 //! # let mysubscriber = Registry::default();
