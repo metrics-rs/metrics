@@ -115,23 +115,25 @@ where
     }
 }
 
-/// Key is used to identiry the metrics in the API calls.
+/// Represents the identifier of a metric.
 ///
-/// Key holds either an owned variant or a static ref variant of the KeyData.
-/// It's purpose is to allow some flexibility in ways the KeyData can be passed
-/// around, enabling performance improvements.
+/// [`Key`] holds either an owned or static reference variant of [`KeyData`].
+///
+/// This allows for flexibility in the ways that [`KeyData`] can be passed around
+/// and reused, enabling performance improvements in specific situations.
 #[derive(Debug, Hash, Clone)]
 pub enum Key {
-    /// A staticly borrowed KeyData.
-    /// If you are capable of keeping a static KeyData around, it's possible
-    /// to reduce allocations and improve the performance.
-    /// The reference is read-only, so you can't modify the underlying KeyData.
+    /// A statically borrowed [`KeyData`].
+    ///
+    /// If you are capable of keeping a static [`KeyData`] around, this variant can
+    /// be used to reduce allocations and improve performance.
+    ///
+    /// The reference is read-only, so you can't modify the underlying data.
     Borrowed(&'static KeyData),
-    /// An owned KeyData.
-    /// The plain and simple way of handling KeyData. Useful when you need
-    /// to modify a borrowed KeyData in-flight, or when there's no way to
-    /// keep around the static KeyData, or when it's undesirable for some
-    /// reason.
+    /// An owned [`KeyData`].
+    ///
+    /// Useful when you need to modify a borrowed [`KeyData`] in-flight, or when
+    /// there's no way to keep around a static [`KeyData`] reference.
     Owned(KeyData),
 }
 
