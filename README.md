@@ -6,7 +6,7 @@
 [license-badge]: https://img.shields.io/badge/license-MIT-blue
 [conduct]: https://github.com/metrics-rs/metrics/blob/master/CODE_OF_CONDUCT.md
 [discord-badge]: https://img.shields.io/discord/500028886025895936
-[discord]: https://discord.gg/XmDVes
+[discord]: https://discord.gg/eTwKyY9
 [last-commit-badge]: https://img.shields.io/github/last-commit/metrics-rs/metrics
 [contributors-badge]: https://img.shields.io/github/contributors/metrics-rs/metrics
 
@@ -68,7 +68,7 @@ Overall, this repository is home to the following crates:
 
 We're always looking for users who have thoughts on how to make metrics better, or users with interesting use cases.  Of course, we're also happy to accept code contributions for outstanding feature requests! 😀
 
-We'd love to chat about any of the above, or anything else, really!  You can find us over on [Gitter](https://gitter.im/metrics-rs/community).
+We'd love to chat about any of the above, or anything else, really!  You can find us over on [Discord](https://discord.gg/eTwKyY9).
 
 [metrics]: https://github.com/metrics-rs/metrics/tree/master/metrics
 [metrics-core]: https://github.com/metrics-rs/metrics/tree/master/metrics-core
