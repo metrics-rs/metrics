@@ -8,7 +8,7 @@
 //! Here's an example of a layer that filters out all metrics that start with a specific string:
 //!
 //! ```rust
-//! # use metrics::{Key, Identifier, Recorder};
+//! # use metrics::{Key, Recorder};
 //! # use metrics_util::DebuggingRecorder;
 //! # use metrics_util::layers::{Layer, Stack, PrefixLayer};
 //! // A simple layer that denies any metrics that have "stairway" or "heaven" in their name.
@@ -22,43 +22,46 @@
 //! }
 //!
 //! impl<R: Recorder> Recorder for StairwayDeny<R> {
-//!    fn register_counter(&self, key: Key, description: Option<&'static str>) -> Identifier {
+//!    fn register_counter(&self, key: Key, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
-//!            return Identifier::Invalid;
+//!            return;
 //!        }
 //!        self.0.register_counter(key, description)
 //!    }
 //!
-//!    fn register_gauge(&self, key: Key, description: Option<&'static str>) -> Identifier {
+//!    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
-//!            return Identifier::Invalid;
+//!            return;
 //!        }
 //!        self.0.register_gauge(key, description)
 //!    }
 //!
-//!    fn register_histogram(&self, key: Key, description: Option<&'static str>) -> Identifier {
+//!    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
-//!            return Identifier::Invalid;
+//!            return;
 //!        }
 //!        self.0.register_histogram(key, description)
 //!    }
 //!
-//!    fn increment_counter(&self, id: Identifier, value: u64) {
-//!        if let Identifier::Valid(_) = id {
-//!            self.0.increment_counter(id, value);
+//!    fn increment_counter(&self, key: Key, value: u64) {
+//!        if self.is_invalid_key(&key) {
+//!            return;
 //!        }
+//!        self.0.increment_counter(key, value);
 //!    }
 //!
-//!    fn update_gauge(&self, id: Identifier, value: f64) {
-//!        if let Identifier::Valid(_) = id {
-//!            self.0.update_gauge(id, value);
+//!    fn update_gauge(&self, key: Key, value: f64) {
+//!        if self.is_invalid_key(&key) {
+//!            return;
 //!        }
+//!        self.0.update_gauge(key, value);
 //!    }
 //!
-//!    fn record_histogram(&self, id: Identifier, value: u64) {
-//!        if let Identifier::Valid(_) = id {
-//!            self.0.record_histogram(id, value);
+//!    fn record_histogram(&self, key: Key, value: u64) {
+//!        if self.is_invalid_key(&key) {
+//!            return;
 //!        }
+//!        self.0.record_histogram(key, value);
 //!    }
 //! }
 //!
@@ -99,7 +102,7 @@
 //!     .expect("failed to install stack");
 //! # }
 //! ```
-use metrics::{Identifier, Key, Recorder};
+use metrics::{Key, Recorder};
 
 #[cfg(feature = "std")]
 use metrics::SetRecorderError;
@@ -149,27 +152,27 @@ impl<R: Recorder + 'static> Stack<R> {
 }
 
 impl<R: Recorder> Recorder for Stack<R> {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_counter(&self, key: Key, description: Option<&'static str>) {
         self.inner.register_counter(key, description)
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
         self.inner.register_gauge(key, description)
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
         self.inner.register_histogram(key, description)
     }
 
-    fn increment_counter(&self, id: Identifier, value: u64) {
-        self.inner.increment_counter(id, value);
+    fn increment_counter(&self, key: Key, value: u64) {
+        self.inner.increment_counter(key, value);
     }
 
-    fn update_gauge(&self, id: Identifier, value: f64) {
-        self.inner.update_gauge(id, value);
+    fn update_gauge(&self, key: Key, value: f64) {
+        self.inner.update_gauge(key, value);
     }
 
-    fn record_histogram(&self, id: Identifier, value: u64) {
-        self.inner.record_histogram(id, value);
+    fn record_histogram(&self, key: Key, value: u64) {
+        self.inner.record_histogram(key, value);
     }
 }

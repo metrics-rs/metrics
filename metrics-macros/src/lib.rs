@@ -7,6 +7,9 @@ use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Error, Parse, ParseStream, Result};
 use syn::{parse_macro_input, Expr, LitStr, Token};
 
+#[cfg(test)]
+mod tests;
+
 enum Key {
     NotScoped(LitStr),
     Scoped(LitStr),
@@ -102,7 +105,7 @@ pub fn register_counter(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("counter", key, description, labels)
+    get_expanded_registration("counter", key, description, labels).into()
 }
 
 #[proc_macro_hack]
@@ -113,7 +116,7 @@ pub fn register_gauge(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("gauge", key, description, labels)
+    get_expanded_registration("gauge", key, description, labels).into()
 }
 
 #[proc_macro_hack]
@@ -124,7 +127,7 @@ pub fn register_histogram(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("histogram", key, description, labels)
+    get_expanded_registration("histogram", key, description, labels).into()
 }
 
 #[proc_macro_hack]
@@ -133,7 +136,7 @@ pub fn increment(input: TokenStream) -> TokenStream {
 
     let op_value = quote! { 1 };
 
-    get_expanded_callsite("counter", "increment", key, labels, op_value)
+    get_expanded_callsite("counter", "increment", key, labels, op_value).into()
 }
 
 #[proc_macro_hack]
@@ -144,7 +147,7 @@ pub fn counter(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite("counter", "increment", key, labels, op_value)
+    get_expanded_callsite("counter", "increment", key, labels, op_value).into()
 }
 
 #[proc_macro_hack]
@@ -155,7 +158,7 @@ pub fn gauge(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite("gauge", "update", key, labels, op_value)
+    get_expanded_callsite("gauge", "update", key, labels, op_value).into()
 }
 
 #[proc_macro_hack]
@@ -166,7 +169,7 @@ pub fn histogram(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite("histogram", "record", key, labels, op_value)
+    get_expanded_callsite("histogram", "record", key, labels, op_value).into()
 }
 
 fn get_expanded_registration(
@@ -174,7 +177,7 @@ fn get_expanded_registration(
     key: Key,
     description: Option<LitStr>,
     labels: Option<Labels>,
-) -> TokenStream {
+) -> proc_macro2::TokenStream {
     let register_ident = format_ident!("register_{}", metric_type);
     let key = key_to_quoted(key, labels);
 
@@ -183,16 +186,16 @@ fn get_expanded_registration(
         None => quote! { None },
     };
 
-    let expanded = quote! {
+    quote! {
         {
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
-                recorder.#register_ident(#key, #description);
+                // Registrations are fairly rare, don't attempt to cache here
+                // and just use an owned ref.
+                recorder.#register_ident(metrics::Key::Owned(#key), #description);
             }
         }
-    };
-
-    TokenStream::from(expanded)
+    }
 }
 
 fn get_expanded_callsite<V>(
@@ -201,12 +204,10 @@ fn get_expanded_callsite<V>(
     key: Key,
     labels: Option<Labels>,
     op_values: V,
-) -> TokenStream
+) -> proc_macro2::TokenStream
 where
     V: ToTokens,
 {
-    let register_ident = format_ident!("register_{}", metric_type);
-    let op_ident = format_ident!("{}_{}", op_type, metric_type);
     let use_fast_path = can_use_fast_path(&labels);
     let key = key_to_quoted(key, labels);
 
@@ -218,21 +219,20 @@ where
         quote! { #op_values }
     };
 
-    let expanded = if use_fast_path {
-        // We're on the fast path here, so we'll end up registering with the recorder
-        // and statically caching the identifier for our metric to speed up any future
-        // increment operations.
+    let op_ident = format_ident!("{}_{}", op_type, metric_type);
+
+    if use_fast_path {
+        // We're on the fast path here, so we'll build our key, statically cache it,
+        // and use a borrowed reference to it for this and future operations.
         quote! {
             {
-                static METRICS_INIT: metrics::OnceIdentifier = metrics::OnceIdentifier::new();
+                static CACHED_KEY: metrics::OnceKeyData = metrics::OnceKeyData::new();
 
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
-                    // Initialize our fast path cached identifier.
-                    let id = METRICS_INIT.get_or_init(|| {
-                        recorder.#register_ident(#key, None)
-                    });
-                    recorder.#op_ident(id, #op_values);
+                    // Initialize our fast path.
+                    let key = CACHED_KEY.get_or_init(|| { #key });
+                    recorder.#op_ident(metrics::Key::Borrowed(&key), #op_values);
                 }
             }
         }
@@ -244,14 +244,21 @@ where
             {
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
-                    let id = recorder.#register_ident(#key, None);
-                    recorder.#op_ident(id, #op_values);
+                    recorder.#op_ident(metrics::Key::Owned(#key), #op_values);
                 }
             }
         }
-    };
+    }
+}
 
-    TokenStream::from(expanded)
+fn can_use_fast_path(labels: &Option<Labels>) -> bool {
+    match labels {
+        None => true,
+        Some(labels) => match labels {
+            Labels::Existing(_) => false,
+            Labels::Inline(pairs) => pairs.iter().all(|(_, v)| matches!(v, Expr::Lit(_))),
+        },
+    }
 }
 
 fn read_key(input: &mut ParseStream) -> Result<Key> {
@@ -265,8 +272,8 @@ fn read_key(input: &mut ParseStream) -> Result<Key> {
     }
 }
 
-fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
-    let name = match key {
+fn quote_key_name(key: Key) -> proc_macro2::TokenStream {
+    match key {
         Key::NotScoped(s) => {
             quote! { #s }
         }
@@ -275,45 +282,22 @@ fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
                 format!("{}.{}", std::module_path!().replace("::", "."), #s)
             }
         }
-    };
+    }
+}
+
+fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
+    let name = quote_key_name(key);
 
     match labels {
-        None => quote! { metrics::Key::from_name(#name) },
+        None => quote! { metrics::KeyData::from_name(#name) },
         Some(labels) => match labels {
             Labels::Inline(pairs) => {
                 let labels = pairs
                     .into_iter()
-                    .map(|(k, v)| quote! { metrics::Label::new(#k, #v) });
-                quote! {
-                    metrics::Key::from_name_and_labels(#name, vec![#(#labels),*])
-                }
+                    .map(|(key, val)| quote! { metrics::Label::new(#key, #val) });
+                quote! { metrics::KeyData::from_name_and_labels(#name, vec![#(#labels),*]) }
             }
-            Labels::Existing(e) => {
-                quote! {
-                    metrics::Key::from_name_and_labels(#name, #e)
-                }
-            }
-        },
-    }
-}
-
-fn can_use_fast_path(labels: &Option<Labels>) -> bool {
-    match labels {
-        None => true,
-        Some(labels) => match labels {
-            Labels::Existing(_) => false,
-            Labels::Inline(pairs) => {
-                let mut use_fast_path = true;
-                for (_, lvalue) in pairs {
-                    match lvalue {
-                        Expr::Lit(_) => {}
-                        _ => {
-                            use_fast_path = false;
-                        }
-                    }
-                }
-                use_fast_path
-            }
+            Labels::Existing(e) => quote! { metrics::KeyData::from_name_and_labels(#name, #e) },
         },
     }
 }
@@ -345,6 +329,10 @@ fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
                 break;
             }
             input.parse::<Token![,]>()?;
+            if input.is_empty() {
+                break;
+            }
+
             let lkey: LitStr = input.parse()?;
             input.parse::<Token![=>]>()?;
             let lvalue: Expr = input.parse()?;
@@ -355,13 +343,25 @@ fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
         return Ok(Some(Labels::Inline(labels)));
     }
 
-    // Has to be an expression otherwise.
+    // Has to be an expression otherwise, or a trailing comma.
     input.parse::<Token![,]>()?;
+
+    // Unless it was an expression - clear the trailing comma.
+    if input.is_empty() {
+        return Ok(None);
+    }
+
     let lvalue: Expr = input.parse().map_err(|e| {
         Error::new(
             e.span(),
             "expected label expression, but expression not found",
         )
     })?;
+
+    // Expression can end with a trailing comma, handle it.
+    if input.peek(Token![,]) {
+        input.parse::<Token![,]>()?;
+    }
+
     Ok(Some(Labels::Existing(lvalue)))
 }

@@ -6,4 +6,5 @@ members = [
   "metrics-benchmark",
   "metrics-exporter-tcp",
   "metrics-exporter-prometheus",
+  "metrics-tracing-context",
 ]

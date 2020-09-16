@@ -20,6 +20,9 @@ build = "build.rs"
 [package.metadata.docs.rs]
 features = ["std"]
 
+[lib]
+bench = false
+
 [[bench]]
 name = "macros"
 harness = false
@@ -27,11 +30,13 @@ harness = false
 [dependencies]
 metrics-macros = { version = "0.1.0-alpha.1", path = "../metrics-macros" }
 proc-macro-hack = "^0.5"
+once_cell = "1"
 
 [dev-dependencies]
 log = "^0.4"
 criterion = "^0.3"
 rand = "^0.7"
+trybuild = "1"
 
 [features]
 default = ["std"]

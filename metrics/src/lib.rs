@@ -60,56 +60,27 @@
 //! metrics in text form via the `log` crate.
 //!
 //! ```rust
-//! # use std::sync::{Mutex, atomic::{AtomicUsize, Ordering}};
-//! # use std::collections::HashMap;
 //! use log::info;
-//! use metrics::{Identifier, Key, Recorder};
+//! use metrics::{Key, Recorder};
 //!
-//! struct LogRecorder {
-//!     id: AtomicUsize,
-//!     keys: Mutex<HashMap<Identifier, Key>>,
-//! }
-//!
-//! impl LogRecorder {
-//!     fn register(&self, key: Key) -> Identifier {
-//!         let uid = self.id.fetch_add(1, Ordering::AcqRel);
-//!         let id = uid.into();
-//!         let mut keys = self.keys.lock().expect("failed to lock keys");
-//!         keys.insert(id, key);
-//!         id
-//!     }
-//!
-//!     fn get_key(&self, id: Identifier) -> Key {
-//!         let keys = self.keys.lock().expect("failed to lock keys");
-//!         keys.get(&id).expect("invalid identifier").clone()
-//!     }
-//! }
+//! struct LogRecorder;
 //!
 //! impl Recorder for LogRecorder {
-//!     fn register_counter(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-//!         self.register(key)
-//!     }
+//!     fn register_counter(&self, key: Key, _description: Option<&'static str>) {}
 //!
-//!     fn register_gauge(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-//!         self.register(key)
-//!     }
+//!     fn register_gauge(&self, key: Key, _description: Option<&'static str>) {}
 //!
-//!     fn register_histogram(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-//!         self.register(key)
-//!     }
+//!     fn register_histogram(&self, key: Key, _description: Option<&'static str>) {}
 //!
-//!     fn increment_counter(&self, id: Identifier, value: u64) {
-//!         let key = self.get_key(id);
+//!     fn increment_counter(&self, key: Key, value: u64) {
 //!         info!("counter '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn update_gauge(&self, id: Identifier, value: f64) {
-//!         let key = self.get_key(id);
+//!     fn update_gauge(&self, key: Key, value: f64) {
 //!         info!("gauge '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn record_histogram(&self, id: Identifier, value: u64) {
-//!         let key = self.get_key(id);
+//!     fn record_histogram(&self, key: Key, value: u64) {
 //!         info!("histogram '{}' -> {}", key, value);
 //!     }
 //! }
@@ -120,15 +91,15 @@
 //! function that wraps the creation and installation of the recorder:
 //!
 //! ```rust
-//! # use metrics::{Recorder, Key, Identifier};
+//! # use metrics::{Recorder, Key};
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
-//! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
-//! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
-//! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
-//! #     fn increment_counter(&self, _id: Identifier, _value: u64) {}
-//! #     fn update_gauge(&self, _id: Identifier, _value: f64) {}
-//! #     fn record_histogram(&self, _id: Identifier, _value: u64) {}
+//! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn increment_counter(&self, _key: Key, _value: u64) {}
+//! #     fn update_gauge(&self, _key: Key, _value: f64) {}
+//! #     fn record_histogram(&self, _key: Key, _value: u64) {}
 //! # }
 //! use metrics::SetRecorderError;
 //!
@@ -148,15 +119,15 @@
 //! that it takes a `Box<Recorder>` rather than a `&'static Recorder`:
 //!
 //! ```rust
-//! # use metrics::{Recorder, Key, Identifier};
+//! # use metrics::{Recorder, Key};
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
-//! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
-//! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
-//! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) -> Identifier { Identifier::default() }
-//! #     fn increment_counter(&self, _id: Identifier, _value: u64) {}
-//! #     fn update_gauge(&self, _id: Identifier, _value: f64) {}
-//! #     fn record_histogram(&self, _id: Identifier, _value: u64) {}
+//! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn increment_counter(&self, _key: Key, _value: u64) {}
+//! #     fn update_gauge(&self, _key: Key, _value: f64) {}
+//! #     fn record_histogram(&self, _key: Key, _value: u64) {}
 //! # }
 //! use metrics::SetRecorderError;
 //!

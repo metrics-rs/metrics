@@ -1,6 +1,6 @@
 use crate::layers::Layer;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
-use metrics::{Identifier, Key, Recorder};
+use metrics::{Key, Recorder};
 
 /// Filters and discards metrics matching certain name patterns.
 ///
@@ -18,43 +18,46 @@ impl<R> Filter<R> {
 }
 
 impl<R: Recorder> Recorder for Filter<R> {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_counter(&self, key: Key, description: Option<&'static str>) {
         if self.should_filter(&key) {
-            return Identifier::Invalid;
+            return;
         }
         self.inner.register_counter(key, description)
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
         if self.should_filter(&key) {
-            return Identifier::Invalid;
+            return;
         }
         self.inner.register_gauge(key, description)
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) -> Identifier {
+    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
         if self.should_filter(&key) {
-            return Identifier::Invalid;
+            return;
         }
         self.inner.register_histogram(key, description)
     }
 
-    fn increment_counter(&self, id: Identifier, value: u64) {
-        if let Identifier::Valid(_) = id {
-            self.inner.increment_counter(id, value);
+    fn increment_counter(&self, key: Key, value: u64) {
+        if self.should_filter(&key) {
+            return;
         }
+        self.inner.increment_counter(key, value);
     }
 
-    fn update_gauge(&self, id: Identifier, value: f64) {
-        if let Identifier::Valid(_) = id {
-            self.inner.update_gauge(id, value);
+    fn update_gauge(&self, key: Key, value: f64) {
+        if self.should_filter(&key) {
+            return;
         }
+        self.inner.update_gauge(key, value);
     }
 
-    fn record_histogram(&self, id: Identifier, value: u64) {
-        if let Identifier::Valid(_) = id {
-            self.inner.record_histogram(id, value);
+    fn record_histogram(&self, key: Key, value: u64) {
+        if self.should_filter(&key) {
+            return;
         }
+        self.inner.record_histogram(key, value);
     }
 }
 
@@ -132,7 +135,7 @@ mod tests {
     use super::FilterLayer;
     use crate::debugging::DebuggingRecorder;
     use crate::layers::Layer;
-    use metrics::Recorder;
+    use metrics::{Key, Recorder};
 
     #[test]
     fn test_basic_functionality() {
@@ -145,11 +148,11 @@ mod tests {
         let before = snapshotter.snapshot();
         assert_eq!(before.len(), 0);
 
-        layered.register_counter("tokio.loops".into(), None);
-        layered.register_gauge("hyper.sent_bytes".into(), None);
-        layered.register_histogram("hyper.recv_bytes".into(), None);
-        layered.register_counter("bb8.conns".into(), None);
-        layered.register_gauge("hyper.tokio.sent_bytes".into(), None);
+        layered.register_counter(Key::Owned("tokio.loops".into()), None);
+        layered.register_gauge(Key::Owned("hyper.sent_bytes".into()), None);
+        layered.register_histogram(Key::Owned("hyper.recv_bytes".into()), None);
+        layered.register_counter(Key::Owned("bb8.conns".into()), None);
+        layered.register_gauge(Key::Owned("hyper.tokio.sent_bytes".into()), None);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);
@@ -171,11 +174,11 @@ mod tests {
         let before = snapshotter.snapshot();
         assert_eq!(before.len(), 0);
 
-        layered.register_counter("tokiO.loops".into(), None);
-        layered.register_gauge("hyper.sent_bytes".into(), None);
-        layered.register_histogram("hyper.recv_bytes".into(), None);
-        layered.register_counter("bb8.conns".into(), None);
-        layered.register_counter("Bb8.conns_closed".into(), None);
+        layered.register_counter(Key::Owned("tokiO.loops".into()), None);
+        layered.register_gauge(Key::Owned("hyper.sent_bytes".into()), None);
+        layered.register_histogram(Key::Owned("hyper.recv_bytes".into()), None);
+        layered.register_counter(Key::Owned("bb8.conns".into()), None);
+        layered.register_counter(Key::Owned("Bb8.conns_closed".into()), None);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);

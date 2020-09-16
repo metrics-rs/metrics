@@ -1,0 +1,26 @@
+[package]
+name = "metrics-tracing-context"
+version = "0.1.0-alpha1"
+authors = ["MOZGIII <mike-n@narod.ru>"]
+edition = "2018"
+
+license = "MIT"
+
+description = "A crate to use tracing context as metrics labels."
+homepage = "https://github.com/metrics-rs/metrics"
+repository = "https://github.com/metrics-rs/metrics"
+documentation = "https://docs.rs/metrics"
+readme = "README.md"
+
+categories = ["development-tools::debugging"]
+keywords = ["metrics", "tracing"]
+
+[dependencies]
+metrics = { version = "0.13.0-alpha.1", path = "../metrics", features = ["std"] }
+metrics-util = { version = "0.4.0-alpha.1", path = "../metrics-util" }
+tracing = "0.1"
+tracing-core = "0.1"
+tracing-subscriber = "0.2"
+
+[dev-dependencies]
+parking_lot = "0.11"
