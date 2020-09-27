@@ -1,7 +1,4 @@
-#[macro_use]
-extern crate criterion;
-
-use criterion::{BatchSize, Benchmark, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Benchmark, Criterion};
 use metrics::{Key, KeyData, Label, OnceKeyData};
 use metrics_util::Registry;
 

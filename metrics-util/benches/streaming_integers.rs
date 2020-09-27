@@ -1,10 +1,5 @@
-#[macro_use]
-extern crate criterion;
-
-#[macro_use]
-extern crate lazy_static;
-
-use criterion::{Benchmark, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Benchmark, Criterion, Throughput};
+use lazy_static::lazy_static;
 use metrics_util::StreamingIntegers;
 use rand::{distributions::Distribution, rngs::SmallRng, SeedableRng};
 use rand_distr::Gamma;
