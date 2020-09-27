@@ -1,3 +1,4 @@
+use atomic_shim::AtomicU64;
 use getopts::Options;
 use hdrhistogram::Histogram;
 use log::{error, info};
@@ -7,7 +8,7 @@ use std::{
     env,
     ops::Sub,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
     thread,

@@ -1,8 +1,7 @@
 use crate::AtomicBucket;
-use std::sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc,
-};
+
+use atomic_shim::AtomicU64;
+use std::sync::{atomic::Ordering, Arc};
 
 /// Basic metric handle.
 ///
