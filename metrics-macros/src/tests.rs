@@ -6,7 +6,7 @@ use super::*;
 fn test_quote_key_name_scoped() {
     let stream = quote_key_name(Key::Scoped(parse_quote! {"qwerty"}));
     let expected =
-        "format ! ( \"{}.{}\" , std :: module_path ! ( ) . replace ( \"::\" , \".\" ) , \"qwerty\" )";
+        "format ! (\"{}.{}\" , std :: module_path ! () . replace (\"::\" , \".\") , \"qwerty\")";
     assert_eq!(stream.to_string(), expected);
 }
 
@@ -27,10 +27,10 @@ fn test_get_expanded_registration() {
     );
 
     let expected = concat!(
-        "{ if let Some ( recorder ) = metrics :: try_recorder ( ) { ",
-        "recorder . register_mytype ( ",
-        "metrics :: Key :: Owned ( metrics :: KeyData :: from_name ( \"mykeyname\" ) ) , ",
-        "None ",
+        "{ if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . register_mytype (",
+        "metrics :: Key :: Owned (metrics :: KeyData :: from_name (\"mykeyname\")) , ",
+        "None",
         ") ; ",
         "} }",
     );
@@ -51,12 +51,12 @@ fn test_get_expanded_callsite_fast_path() {
 
     let expected = concat!(
         "{ ",
-        "static CACHED_KEY : metrics :: OnceKeyData = metrics :: OnceKeyData :: new ( ) ; ",
-        "if let Some ( recorder ) = metrics :: try_recorder ( ) { ",
-        "let key = CACHED_KEY . get_or_init ( || { ",
-        "metrics :: KeyData :: from_name ( \"mykeyname\" ) ",
-        "} ) ; ",
-        "recorder . myop_mytype ( metrics :: Key :: Borrowed ( & key ) , 1 ) ; ",
+        "static CACHED_KEY : metrics :: OnceKeyData = metrics :: OnceKeyData :: new () ; ",
+        "if let Some (recorder) = metrics :: try_recorder () { ",
+        "let key = CACHED_KEY . get_or_init (|| { ",
+        "metrics :: KeyData :: from_name (\"mykeyname\") ",
+        "}) ; ",
+        "recorder . myop_mytype (metrics :: Key :: Borrowed (& key) , 1) ; ",
         "} }",
     );
 
@@ -76,10 +76,10 @@ fn test_get_expanded_callsite_regular_path() {
 
     let expected = concat!(
         "{ ",
-        "if let Some ( recorder ) = metrics :: try_recorder ( ) { ",
-        "recorder . myop_mytype ( ",
-        "metrics :: Key :: Owned ( metrics :: KeyData :: from_name_and_labels ( \"mykeyname\" , mylabels ) ) , ",
-        "1 ",
+        "if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . myop_mytype (",
+        "metrics :: Key :: Owned (metrics :: KeyData :: from_name_and_labels (\"mykeyname\" , mylabels)) , ",
+        "1",
         ") ; ",
         "} }",
     );
@@ -90,7 +90,7 @@ fn test_get_expanded_callsite_regular_path() {
 #[test]
 fn test_key_to_quoted_no_labels() {
     let stream = key_to_quoted(Key::NotScoped(parse_quote! {"mykeyname"}), None);
-    let expected = "metrics :: KeyData :: from_name ( \"mykeyname\" )";
+    let expected = "metrics :: KeyData :: from_name (\"mykeyname\")";
     assert_eq!(stream.to_string(), expected);
 }
 
@@ -100,7 +100,7 @@ fn test_key_to_quoted_existing_labels() {
         Key::NotScoped(parse_quote! {"mykeyname"}),
         Some(Labels::Existing(Expr::Path(parse_quote! { mylabels }))),
     );
-    let expected = "metrics :: KeyData :: from_name_and_labels ( \"mykeyname\" , mylabels )";
+    let expected = "metrics :: KeyData :: from_name_and_labels (\"mykeyname\" , mylabels)";
     assert_eq!(stream.to_string(), expected);
 }
 
@@ -116,10 +116,10 @@ fn test_key_to_quoted_inline_labels() {
         ])),
     );
     let expected = concat!(
-        "metrics :: KeyData :: from_name_and_labels ( \"mykeyname\" , vec ! [ ",
-        "metrics :: Label :: new ( \"mylabel1\" , mylabel1 ) , ",
-        "metrics :: Label :: new ( \"mylabel2\" , \"mylabel2\" ) ",
-        "] )"
+        "metrics :: KeyData :: from_name_and_labels (\"mykeyname\" , vec ! [",
+        "metrics :: Label :: new (\"mylabel1\" , mylabel1) , ",
+        "metrics :: Label :: new (\"mylabel2\" , \"mylabel2\")",
+        "])"
     );
     assert_eq!(stream.to_string(), expected);
 }
@@ -131,8 +131,8 @@ fn test_key_to_quoted_inline_labels_empty() {
         Some(Labels::Inline(vec![])),
     );
     let expected = concat!(
-        "metrics :: KeyData :: from_name_and_labels ( \"mykeyname\" , vec ! [ ",
-        "] )"
+        "metrics :: KeyData :: from_name_and_labels (\"mykeyname\" , vec ! [",
+        "])"
     );
     assert_eq!(stream.to_string(), expected);
 }
