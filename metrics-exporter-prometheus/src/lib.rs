@@ -17,31 +17,26 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::thread;
 use std::{collections::HashMap, time::SystemTime};
+use thiserror::Error as ThisError;
 use tokio::{pin, runtime, select};
 
 type PrometheusRegistry = Registry<CompositeKey, Handle>;
 type HdrHistogram = hdrhistogram::Histogram<u64>;
 
 /// Errors that could occur while installing a Prometheus recorder/exporter.
-#[derive(Debug)]
+#[derive(ThisError, Debug)]
 pub enum Error {
     /// Creating the networking event loop did not succeed.
-    Io(io::Error),
+    #[error("failed to spawn Tokio runtime for endpoint: {0}")]
+    Io(#[from] io::Error),
+
+    /// Binding/listening to the given address did not succeed.
+    #[error("failed to bind to given listen address: {0}")]
+    Hyper(#[from] HyperError),
 
     /// Installing the recorder did not succeed.
-    Recorder(SetRecorderError),
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        Error::Io(e)
-    }
-}
-
-impl From<SetRecorderError> for Error {
-    fn from(e: SetRecorderError) -> Self {
-        Error::Recorder(e)
-    }
+    #[error("failed to install exporter as global recorder: {0}")]
+    Recorder(#[from] SetRecorderError),
 }
 
 #[derive(Clone)]
@@ -420,7 +415,7 @@ impl PrometheusBuilder {
     /// An error will be returned if there's an issue with creating the HTTP server or with
     /// installing the recorder as the global recorder.
     pub fn install(self) -> Result<(), Error> {
-        let (recorder, exporter) = self.build();
+        let (recorder, exporter) = self.build()?;
         metrics::set_boxed_recorder(Box::new(recorder))?;
 
         let mut runtime = runtime::Builder::new()
@@ -452,10 +447,13 @@ impl PrometheusBuilder {
     /// provides the flexibility to do so.
     pub fn build(
         self,
-    ) -> (
-        PrometheusRecorder,
-        impl Future<Output = Result<(), HyperError>> + Send + Sync + 'static,
-    ) {
+    ) -> Result<
+        (
+            PrometheusRecorder,
+            impl Future<Output = Result<(), HyperError>> + Send + Sync + 'static,
+        ),
+        Error,
+    > {
         let inner = Arc::new(Inner {
             registry: Registry::new(),
             distributions: RwLock::new(HashMap::new()),
@@ -470,6 +468,8 @@ impl PrometheusBuilder {
         };
 
         let address = self.listen_address;
+        let server = Server::try_bind(&address)?;
+
         let exporter = async move {
             let make_svc = make_service_fn(move |_| {
                 let inner = inner.clone();
@@ -486,10 +486,10 @@ impl PrometheusBuilder {
                 }
             });
 
-            Server::bind(&address).serve(make_svc).await
+            server.serve(make_svc).await
         };
 
-        (recorder, exporter)
+        Ok((recorder, exporter))
     }
 }
 

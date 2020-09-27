@@ -29,7 +29,7 @@ fn main() {
         "The time taken for iterations of the TCP server event loop."
     );
 
-    let clock = Clock::new();
+    let mut clock = Clock::new();
     let mut last = None;
 
     // Loop over and over, pretending to do some work.
