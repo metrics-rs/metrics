@@ -1,0 +1,52 @@
+name: Rust
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Rust Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+    - name: Check Formatting
+      run: cargo fmt --all -- --check
+  test:
+    name: Test ${{ matrix.rust_version }}/${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust_version: ['1.36.0', 'stable', 'nightly']
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install Rust ${{ matrix.rust_version }}
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: ${{ matrix.rust_version }}
+          override: true
+    - name: Run Tests
+      run: cargo test
+  bench:
+    name: Bench ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install Rust Stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: 'stable'
+          override: true
+    - name: Run Benchmarks
+      run: cargo bench
