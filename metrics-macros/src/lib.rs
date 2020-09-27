@@ -2,8 +2,11 @@ extern crate proc_macro;
 
 use self::proc_macro::TokenStream;
 
+use lazy_static::lazy_static;
+use proc_macro2::Span;
 use proc_macro_hack::proc_macro_hack;
 use quote::{format_ident, quote, ToTokens};
+use regex::Regex;
 use syn::parse::{Error, Parse, ParseStream, Result};
 use syn::{parse_macro_input, Expr, LitStr, Token};
 
@@ -13,6 +16,15 @@ mod tests;
 enum Key {
     NotScoped(LitStr),
     Scoped(LitStr),
+}
+
+impl Key {
+    pub fn span(&self) -> Span {
+        match self {
+            Key::Scoped(s) => s.span(),
+            Key::NotScoped(s) => s.span(),
+        }
+    }
 }
 
 enum Labels {
@@ -262,14 +274,31 @@ fn can_use_fast_path(labels: &Option<Labels>) -> bool {
 }
 
 fn read_key(input: &mut ParseStream) -> Result<Key> {
-    if let Ok(_) = input.parse::<Token![<]>() {
+    let key = if let Ok(_) = input.parse::<Token![<]>() {
         let s = input.parse::<LitStr>()?;
         input.parse::<Token![>]>()?;
-        Ok(Key::Scoped(s))
+        Key::Scoped(s)
     } else {
         let s = input.parse::<LitStr>()?;
-        Ok(Key::NotScoped(s))
+        Key::NotScoped(s)
+    };
+
+    let inner = match key {
+        Key::Scoped(ref s) => s.value(),
+        Key::NotScoped(ref s) => s.value(),
+    };
+
+    lazy_static! {
+        static ref RE: Regex = Regex::new("^[a-zA-Z_:\\.][a-zA-Z0-9_:\\.]*$").unwrap();
     }
+    if !RE.is_match(&inner) {
+        return Err(Error::new(
+            key.span(),
+            "metric name must match ^[a-zA-Z_:.][a-zA-Z0-9_:.]*$",
+        ));
+    }
+
+    Ok(key)
 }
 
 fn quote_key_name(key: Key) -> proc_macro2::TokenStream {
