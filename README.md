@@ -48,7 +48,7 @@ Overall, this repository is home to the following crates:
   fields as metric labels.
 * [`metrics-exporter-tcp`][metrics-exporter-tcp]: A `metrics`-compatible exporter for serving metrics over TCP.
 * [`metrics-exporter-prometheus`][metrics-exporter-prometheus]: A `metrics`-compatible exporter for
-  exposing a Prometheus scrape endpoint.
+  serving a Prometheus scrape endpoint.
 * [`metrics-util`][metrics-util]: Helper types/functions used by the `metrics` ecosystem.
 
 # contributing

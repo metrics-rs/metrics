@@ -12,7 +12,7 @@ fn main() {
     let builder = TcpBuilder::new();
     builder.install().expect("failed to install TCP recorder");
 
-    let clock = Clock::new();
+    let mut clock = Clock::new();
     let mut last = None;
 
     loop {

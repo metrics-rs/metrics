@@ -14,6 +14,12 @@ fn main() {
         .install()
         .expect("failed to install Prometheus recorder");
 
+    // We register these metrics, which gives us a chance to specify a description for them.  The
+    // Prometheus exporter records this description and adds it as HELP text when the endpoint is
+    // scraped.
+    //
+    // Registering metrics ahead of using them is not required, but is the only way to specify the
+    // description of a metric.
     register_counter!(
         "tcp_server_loops",
         "The iterations of the TCP server event loop so far."
@@ -26,6 +32,7 @@ fn main() {
     let clock = Clock::new();
     let mut last = None;
 
+    // Loop over and over, pretending to do some work.
     loop {
         increment!("tcp_server_loops", "system" => "foo");
 
