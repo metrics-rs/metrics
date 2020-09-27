@@ -108,6 +108,20 @@ fn visit_benchmark(c: &mut Criterion) {
                 BatchSize::NumIterations(BATCH_SIZE as u64),
             )
         })
+        .with_function("record_debug[bool]", |b| {
+            let field = CALLSITE
+                .metadata()
+                .fields()
+                .field("test")
+                .expect("test field missing");
+            b.iter_batched_ref(
+                || Labels(Vec::with_capacity(BATCH_SIZE)),
+                |labels| {
+                    labels.record_debug(&field, &true);
+                },
+                BatchSize::NumIterations(BATCH_SIZE as u64),
+            )
+        })
         .with_function("record_debug[i64]", |b| {
             let value: i64 = -3423432;
             let field = CALLSITE
