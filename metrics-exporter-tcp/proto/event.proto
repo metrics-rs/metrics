@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package event.proto;
+
+message Metric {
+  string name = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  map<string, string> labels = 3;
+  oneof value {
+    Counter counter = 4;
+    Gauge gauge = 5;
+    Histogram histogram = 6;
+  }
+}
+
+message Counter {
+  uint64 value = 1;
+}
+
+message Gauge {
+  double value = 1;
+}
+
+message Histogram {
+  uint64 value = 1;
+}

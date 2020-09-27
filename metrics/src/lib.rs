@@ -8,16 +8,9 @@
 //! ignores all metrics.  The overhead in this case is very small - an atomic load and comparison.
 //!
 //! # Use
-//! The basic use of the facade crate is through the four metrics macros: [`counter!`], [`gauge!`],
-//! [`timing!`], and [`value!`].  These macros correspond to updating a counter, updating a gauge,
-//! updating a histogram based on a start/end, and updating a histogram with a single value.
-//!
-//! Both [`timing!`] and [`value!`] are effectively identical in so far as that they both translate
-//! to recording a single value to an underlying histogram, but [`timing!`] is provided for
-//! contextual consistency: if you're recording a measurement of the time passed during an
-//! operation, the end result is a single value, but it's more of a "timing" value than just a
-//! "value".  The [`timing!`] macro also has a branch to accept the start and end values which
-//! allows for a potentially clearer invocation.
+//! The basic use of the facade crate is through the three metrics macros: [`counter!`], [`gauge!`],
+//! and [`histogram!`].  These macros correspond to updating a counter, updating a gauge,
+//! and updating a histogram.
 //!
 //! ## In libraries
 //! Libraries should link only to the `metrics` crate, and use the provided macros to record
@@ -26,16 +19,16 @@
 //! ### Examples
 //!
 //! ```rust
-//! use metrics::{timing, counter};
+//! use metrics::{histogram, counter};
 //!
 //! # use std::time::Instant;
 //! # pub fn run_query(_: &str) -> u64 { 42 }
 //! pub fn process(query: &str) -> u64 {
 //!     let start = Instant::now();
 //!     let row_count = run_query(query);
-//!     let end = Instant::now();
+//!     let delta = Instant::now() - start;
 //!
-//!     timing!("process.query_time", start, end);
+//!     histogram!("process.query_time", delta);
 //!     counter!("process.query_row_count", row_count);
 //!
 //!     row_count
@@ -58,7 +51,8 @@
 //! # Available metrics implementations
 //!
 //! * # Native recorder:
-//!     * [metrics-runtime]
+//!     * [metrics-exporter-tcp] - outputs metrics to clients over TCP
+//!     * [metrics-exporter-prometheus] - serves a Prometheus scrape endpoint
 //!
 //! # Implementing a Recorder
 //!
@@ -67,17 +61,22 @@
 //!
 //! ```rust
 //! use log::info;
-//! use metrics::Recorder;
-//! use metrics_core::Key;
+//! use metrics::{Key, Recorder};
 //!
 //! struct LogRecorder;
 //!
 //! impl Recorder for LogRecorder {
+//!     fn register_counter(&self, key: Key, _description: Option<&'static str>) {}
+//!
+//!     fn register_gauge(&self, key: Key, _description: Option<&'static str>) {}
+//!
+//!     fn register_histogram(&self, key: Key, _description: Option<&'static str>) {}
+//!
 //!     fn increment_counter(&self, key: Key, value: u64) {
 //!         info!("counter '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn update_gauge(&self, key: Key, value: i64) {
+//!     fn update_gauge(&self, key: Key, value: f64) {
 //!         info!("gauge '{}' -> {}", key, value);
 //!     }
 //!
@@ -92,12 +91,14 @@
 //! function that wraps the creation and installation of the recorder:
 //!
 //! ```rust
-//! # use metrics::Recorder;
-//! # use metrics_core::Key;
+//! # use metrics::{Recorder, Key};
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
+//! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) {}
 //! #     fn increment_counter(&self, _key: Key, _value: u64) {}
-//! #     fn update_gauge(&self, _key: Key, _value: i64) {}
+//! #     fn update_gauge(&self, _key: Key, _value: f64) {}
 //! #     fn record_histogram(&self, _key: Key, _value: u64) {}
 //! # }
 //! use metrics::SetRecorderError;
@@ -118,12 +119,14 @@
 //! that it takes a `Box<Recorder>` rather than a `&'static Recorder`:
 //!
 //! ```rust
-//! # use metrics::Recorder;
-//! # use metrics_core::Key;
+//! # use metrics::{Recorder, Key};
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
+//! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) {}
 //! #     fn increment_counter(&self, _key: Key, _value: u64) {}
-//! #     fn update_gauge(&self, _key: Key, _value: i64) {}
+//! #     fn update_gauge(&self, _key: Key, _value: f64) {}
 //! #     fn record_histogram(&self, _key: Key, _value: u64) {}
 //! # }
 //! use metrics::SetRecorderError;
@@ -135,210 +138,298 @@
 //! # fn main() {}
 //! ```
 //!
-//! [metrics-runtime]: https://docs.rs/metrics-runtime
+//! [metrics-exporter-tcp]: https://docs.rs/metrics-exporter-tcp
+//! [metrics-exporter-prometheus]: https://docs.rs/metrics-exporter-prometheus
 #![deny(missing_docs)]
-use metrics_core::AsNanoseconds;
-pub use metrics_core::{labels, Key, Label};
-#[cfg(feature = "std")]
-use std::error;
-use std::{
-    fmt,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use proc_macro_hack::proc_macro_hack;
 
-#[macro_use]
-mod macros;
+mod common;
+pub use self::common::*;
 
-static mut RECORDER: &'static dyn Recorder = &NoopRecorder;
-static STATE: AtomicUsize = AtomicUsize::new(0);
+mod key;
+pub use self::key::*;
 
-const UNINITIALIZED: usize = 0;
-const INITIALIZING: usize = 1;
-const INITIALIZED: usize = 2;
+mod label;
+pub use self::label::*;
 
-static SET_RECORDER_ERROR: &str =
-    "attempted to set a recorder after the metrics system was already initialized";
+mod recorder;
+pub use self::recorder::*;
 
-/// A value that records metrics behind the facade.
-pub trait Recorder {
-    /// Records a counter.
-    ///
-    /// From the perspective of an recorder, a counter and gauge are essentially identical, insofar
-    /// as they are both a single value tied to a key.  From the perspective of a collector,
-    /// counters and gauges usually have slightly different modes of operation.
-    ///
-    /// For the sake of flexibility on the exporter side, both are provided.
-    fn increment_counter(&self, key: Key, value: u64);
-
-    /// Records a gauge.
-    ///
-    /// From the perspective of a recorder, a counter and gauge are essentially identical, insofar
-    /// as they are both a single value tied to a key.  From the perspective of a collector,
-    /// counters and gauges usually have slightly different modes of operation.
-    ///
-    /// For the sake of flexibility on the exporter side, both are provided.
-    fn update_gauge(&self, key: Key, value: i64);
-
-    /// Records a histogram.
-    ///
-    /// Recorders are expected to tally their own histogram views, so this will be called with all
-    /// of the underlying observed values, and callers will need to process them accordingly.
-    ///
-    /// There is no guarantee that this method will not be called multiple times for the same key.
-    fn record_histogram(&self, key: Key, value: u64);
-}
-
-struct NoopRecorder;
-
-impl Recorder for NoopRecorder {
-    fn increment_counter(&self, _key: Key, _value: u64) {}
-    fn update_gauge(&self, _key: Key, _value: i64) {}
-    fn record_histogram(&self, _key: Key, _value: u64) {}
-}
-
-/// Sets the global recorder to a `&'static Recorder`.
+/// Registers a counter.
 ///
-/// This function may only be called once in the lifetime of a program.  Any metrics recorded
-/// before the call to `set_recorder` occurs will be completely ignored.
+/// Counters represent a single value that can only be incremented over time, or reset to zero.
 ///
-/// This function does not typically need to be called manually.  Metrics implementations should
-/// provide an initialization method that installs the recorder internally.
+/// Metrics can be registered with an optional description.  Whether or not the installed recorder
+/// does anything with the description is implementation defined.  Labels can also be specified
+/// when registering a metric.
 ///
-/// # Errors
+/// Counters, when registered, start at zero.
 ///
-/// An error is returned if a recorder has already been set.
-#[cfg(atomic_cas)]
-pub fn set_recorder(recorder: &'static dyn Recorder) -> Result<(), SetRecorderError> {
-    set_recorder_inner(|| recorder)
-}
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+///
+/// # Example
+/// ```
+/// # use metrics::register_counter;
+/// # fn main() {
+/// // A regular, unscoped counter:
+/// register_counter!("some_metric_name");
+///
+/// // A scoped counter.  This inherits a scope derived by the current module:
+/// register_counter!(<"some_metric_name">);
+///
+/// // Providing a description for a counter:
+/// register_counter!("some_metric_name", "number of woopsy daisies");
+///
+/// // Specifying labels:
+/// register_counter!("some_metric_name", "service" => "http");
+///
+/// // And all combined:
+/// register_counter!("some_metric_name", "number of woopsy daisies", "service" => "http");
+/// register_counter!(<"some_metric_name">, "number of woopsy daisies", "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// register_counter!("some_metric_name", &labels);
+/// # }
+/// ```
+#[proc_macro_hack]
+pub use metrics_macros::register_counter;
 
-/// Sets the global recorder to a `Box<Recorder>`.
+/// Registers a gauge.
 ///
-/// This is a simple convenience wrapper over `set_recorder`, which takes a `Box<Recorder>`
-/// rather than a `&'static Recorder`.  See the document for [`set_recorder`] for more
-/// details.
+/// Gauges represent a single value that can go up or down over time.
 ///
-/// Requires the `std` feature.
+/// Metrics can be registered with an optional description.  Whether or not the installed recorder
+/// does anything with the description is implementation defined.  Labels can also be specified
+/// when registering a metric.
 ///
-/// # Errors
+/// Gauges, when registered, start at zero.
 ///
-/// An error is returned if a recorder has already been set.
-#[cfg(all(feature = "std", atomic_cas))]
-pub fn set_boxed_recorder(recorder: Box<dyn Recorder>) -> Result<(), SetRecorderError> {
-    set_recorder_inner(|| unsafe { &*Box::into_raw(recorder) })
-}
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+///
+/// # Example
+/// ```
+/// # use metrics::register_gauge;
+/// # fn main() {
+/// // A regular, unscoped gauge:
+/// register_gauge!("some_metric_name");
+///
+/// // A scoped gauge.  This inherits a scope derived by the current module:
+/// register_gauge!(<"some_metric_name">);
+///
+/// // Providing a description for a gauge:
+/// register_gauge!("some_metric_name", "number of woopsy daisies");
+///
+/// // Specifying labels:
+/// register_gauge!("some_metric_name", "service" => "http");
+///
+/// // And all combined:
+/// register_gauge!("some_metric_name", "number of woopsy daisies", "service" => "http");
+/// register_gauge!(<"some_metric_name">, "number of woopsy daisies", "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// register_gauge!("some_metric_name", &labels);
+/// # }
+/// ```
+#[proc_macro_hack]
+pub use metrics_macros::register_gauge;
 
-#[cfg(atomic_cas)]
-fn set_recorder_inner<F>(make_recorder: F) -> Result<(), SetRecorderError>
-where
-    F: FnOnce() -> &'static dyn Recorder,
-{
-    unsafe {
-        match STATE.compare_and_swap(UNINITIALIZED, INITIALIZING, Ordering::SeqCst) {
-            UNINITIALIZED => {
-                RECORDER = make_recorder();
-                STATE.store(INITIALIZED, Ordering::SeqCst);
-                Ok(())
-            }
-            INITIALIZING => {
-                while STATE.load(Ordering::SeqCst) == INITIALIZING {}
-                Err(SetRecorderError(()))
-            }
-            _ => Err(SetRecorderError(())),
-        }
-    }
-}
-
-/// A thread-unsafe version of [`set_recorder`].
+/// Records a histogram.
 ///
-/// This function is available on all platforms, even those that do not have support for atomics
-/// that is need by [`set_recorder`].
+/// Histograms measure the distribution of values for a given set of measurements.
 ///
-/// In almost all cases, [`set_recorder`] should be preferred.
+/// Metrics can be registered with an optional description.  Whether or not the installed recorder
+/// does anything with the description is implementation defined.  Labels can also be specified
+/// when registering a metric.
 ///
-/// # Safety
+/// Histograms, when registered, start at zero.
 ///
-/// This function is only safe to call when no other metrics initialization function is called
-/// while this function still executes.
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
 ///
-/// This can be upheld by (for example) making sure that **there are no other threads**, and (on
-/// embedded) that **interrupts are disabled**.
+/// # Example
+/// ```
+/// # use metrics::register_histogram;
+/// # fn main() {
+/// // A regular, unscoped histogram:
+/// register_histogram!("some_metric_name");
 ///
-/// It is safe to use other metrics functions while this function runs (including all metrics
-/// macros).
-pub unsafe fn set_recorder_racy(recorder: &'static dyn Recorder) -> Result<(), SetRecorderError> {
-    match STATE.load(Ordering::SeqCst) {
-        UNINITIALIZED => {
-            RECORDER = recorder;
-            STATE.store(INITIALIZED, Ordering::SeqCst);
-            Ok(())
-        }
-        INITIALIZING => {
-            // This is just plain UB, since we were racing another initialization function
-            unreachable!("set_recorder_racy must not be used with other initialization functions")
-        }
-        _ => Err(SetRecorderError(())),
-    }
-}
-
-/// The type returned by [`set_recorder`] if [`set_recorder`] has already been called.
-#[derive(Debug)]
-pub struct SetRecorderError(());
-
-impl fmt::Display for SetRecorderError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.write_str(SET_RECORDER_ERROR)
-    }
-}
-
-// The Error trait is not available in libcore
-#[cfg(feature = "std")]
-impl error::Error for SetRecorderError {
-    fn description(&self) -> &str {
-        SET_RECORDER_ERROR
-    }
-}
-
-/// Returns a reference to the recorder.
+/// // A scoped histogram.  This inherits a scope derived by the current module:
+/// register_histogram!(<"some_metric_name">);
 ///
-/// If a recorder has not been set, a no-op implementation is returned.
-pub fn recorder() -> &'static dyn Recorder {
-    static NOOP: NoopRecorder = NoopRecorder;
-    try_recorder().unwrap_or(&NOOP)
-}
-
-/// Returns a reference to the recorder.
+/// // Providing a description for a histogram:
+/// register_histogram!("some_metric_name", "number of woopsy daisies");
 ///
-/// If a recorder has not been set, returns `None`.
-pub fn try_recorder() -> Option<&'static dyn Recorder> {
-    unsafe {
-        if STATE.load(Ordering::SeqCst) != INITIALIZED {
-            None
-        } else {
-            Some(RECORDER)
-        }
-    }
-}
+/// // Specifying labels:
+/// register_histogram!("some_metric_name", "service" => "http");
+///
+/// // And all combined:
+/// register_histogram!("some_metric_name", "number of woopsy daisies", "service" => "http");
+/// register_histogram!(<"some_metric_name">, "number of woopsy daisies", "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// register_histogram!("some_metric_name", &labels);
+/// # }
+/// ```
+#[proc_macro_hack]
+pub use metrics_macros::register_histogram;
 
-#[doc(hidden)]
-pub fn __private_api_increment_counter(recorder: &'static dyn Recorder, key: Key, value: u64) {
-    recorder.increment_counter(key, value);
-}
+/// Increments a counter.
+///
+/// Counters represent a single value that can only be incremented over time, or reset to zero.
+///
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+///
+/// # Example
+/// ```
+/// # use metrics::increment;
+/// # fn main() {
+/// // A regular, unscoped increment:
+/// increment!("some_metric_name");
+///
+/// // A scoped increment.  This inherits a scope derived by the current module:
+/// increment!(<"some_metric_name">);
+///
+/// // Specifying labels:
+/// increment!("some_metric_name", "service" => "http");
+///
+/// // And all combined:
+/// increment!("some_metric_name", "service" => "http");
+/// increment!(<"some_metric_name">, "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// increment!("some_metric_name", &labels);
+/// # }
+/// ```
+#[proc_macro_hack]
+pub use metrics_macros::increment;
 
-#[doc(hidden)]
-pub fn __private_api_update_gauge<K: Into<Key>>(
-    recorder: &'static dyn Recorder,
-    key: K,
-    value: i64,
-) {
-    recorder.update_gauge(key.into(), value);
-}
+/// Increments a counter.
+///
+/// Counters represent a single value that can only be incremented over time, or reset to zero.
+///
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+///
+/// # Example
+/// ```
+/// # use metrics::counter;
+/// # fn main() {
+/// // A regular, unscoped counter:
+/// counter!("some_metric_name", 12);
+///
+/// // A scoped counter.  This inherits a scope derived by the current module:
+/// counter!(<"some_metric_name">, 12);
+///
+/// // Specifying labels:
+/// counter!("some_metric_name", 12, "service" => "http");
+///
+/// // And all combined:
+/// counter!("some_metric_name", 12, "service" => "http");
+/// counter!(<"some_metric_name">, 12, "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// counter!("some_metric_name", 12, &labels);
+/// # }
+/// ```
+#[proc_macro_hack]
+pub use metrics_macros::counter;
 
-#[doc(hidden)]
-pub fn __private_api_record_histogram<K: Into<Key>, V: AsNanoseconds>(
-    recorder: &'static dyn Recorder,
-    key: K,
-    value: V,
-) {
-    recorder.record_histogram(key.into(), value.as_nanos());
-}
+/// Updates a gauge.
+///
+/// Gauges represent a single value that can go up or down over time.
+///
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+///
+/// # Example
+/// ```
+/// # use metrics::gauge;
+/// # fn main() {
+/// // A regular, unscoped gauge:
+/// gauge!("some_metric_name", 42.2222);
+///
+/// // A scoped gauge.  This inherits a scope derived by the current module:
+/// gauge!(<"some_metric_name">, 33.3333);
+///
+/// // Specifying labels:
+/// gauge!("some_metric_name", 66.6666, "service" => "http");
+///
+/// // And all combined:
+/// gauge!("some_metric_name", 55.5555, "service" => "http");
+/// gauge!(<"some_metric_name">, 11.1111, "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// gauge!("some_metric_name", 42.42, &labels);
+/// # }
+/// ```
+#[proc_macro_hack]
+pub use metrics_macros::gauge;
+
+/// Records a histogram.
+///
+/// Histograms measure the distribution of values for a given set of measurements.
+///
+/// # Scoped versus unscoped
+/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
+/// is taking place in.  This scope is used as a prefix to the provided metric name.
+///
+/// # Implicit conversions
+/// Histograms are represented as `u64` values, but often come from another source, such as a time
+/// measurement.  By default, `histogram!` will accept a `u64` directly or a
+/// [`Duration`](std::time::Duration), which uses the nanoseconds total as the converted value.
+///
+/// External libraries and applications can create their own conversions by implementing the
+/// [`IntoU64`] trait for their types, which is required for the value being passed to `histogram!`.
+///
+/// # Example
+/// ```
+/// # use metrics::histogram;
+/// # use std::time::Duration;
+/// # fn main() {
+/// // A regular, unscoped histogram:
+/// histogram!("some_metric_name", 34);
+///
+/// // An implicit conversion from `Duration`:
+/// let d = Duration::from_millis(17);
+/// histogram!("some_metric_name", d);
+///
+/// // A scoped histogram.  This inherits a scope derived by the current module:
+/// histogram!(<"some_metric_name">, 38);
+/// histogram!(<"some_metric_name">, d);
+///
+/// // Specifying labels:
+/// histogram!("some_metric_name", 38, "service" => "http");
+///
+/// // And all combined:
+/// histogram!("some_metric_name", d, "service" => "http");
+/// histogram!(<"some_metric_name">, 57, "service" => "http");
+///
+/// // And just for an alternative form of passing labels:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// histogram!("some_metric_name", 1337, &labels);
+/// # }
+/// ```
+#[proc_macro_hack]
+pub use metrics_macros::histogram;

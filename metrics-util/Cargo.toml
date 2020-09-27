@@ -1,6 +1,6 @@
 [package]
 name = "metrics-util"
-version = "0.3.1"
+version = "0.4.0-alpha.3"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -15,8 +15,15 @@ readme = "README.md"
 categories = ["development-tools::debugging"]
 keywords = ["metrics", "quantile", "percentile"]
 
+[lib]
+bench = false
+
 [[bench]]
 name = "bucket"
+harness = false
+
+[[bench]]
+name = "registry"
 harness = false
 
 [[bench]]
@@ -24,11 +31,23 @@ name = "streaming_integers"
 harness = false
 
 [dependencies]
-crossbeam-epoch = "^0.8"
-serde = "^1.0"
+metrics = { version = "0.13.0-alpha.1", path = "../metrics", features = ["std"] }
+crossbeam-epoch = "0.8"
+crossbeam-utils = "0.7"
+serde = "1.0"
+arc-swap = "0.4"
+atomic-shim = "0.1"
+parking_lot = "0.11"
+aho-corasick = { version = "0.7", optional = true }
+dashmap = "3"
 
 [dev-dependencies]
-crossbeam-utils = "^0.7"
-criterion = "^0.2.9"
-lazy_static = "^1.3"
-rand = "^0.6"
+criterion = "0.3"
+lazy_static = "1.3"
+rand = { version = "0.7", features = ["small_rng"] }
+rand_distr = "0.3"
+
+[features]
+default = ["std", "layer-filter"]
+std = []
+layer-filter = ["aho-corasick"]

@@ -6,11 +6,8 @@ extern crate lazy_static;
 
 use criterion::{Benchmark, Criterion, Throughput};
 use metrics_util::StreamingIntegers;
-use rand::{
-    distributions::{Distribution, Gamma},
-    rngs::SmallRng,
-    Rng, SeedableRng,
-};
+use rand::{distributions::Distribution, rngs::SmallRng, SeedableRng};
+use rand_distr::Gamma;
 use std::time::Duration;
 
 lazy_static! {
@@ -28,7 +25,7 @@ fn get_gamma_distribution(len: usize, upper_bound: Duration) -> Vec<u64> {
 
     // This Gamma distribution gets us pretty close to a typical web server response time
     // distribution where there's a big peak down low, and a long tail that drops off sharply.
-    let gamma = Gamma::new(1.75, 1.0);
+    let gamma = Gamma::new(1.75, 1.0).expect("failed to create gamma distribution");
 
     // Scale all the values by 22 million to simulate a lower bound of 22ms (but in
     // nanoseconds) for all generated values.
@@ -86,7 +83,7 @@ macro_rules! define_basic_benches {
                     });
                 });
             })
-            .throughput(Throughput::Elements($input.len() as u32)),
+            .throughput(Throughput::Elements($input.len() as u64)),
         )
     };
 }
