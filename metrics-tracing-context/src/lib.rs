@@ -63,7 +63,7 @@ pub mod label_filter;
 mod tracing_integration;
 
 pub use label_filter::LabelFilter;
-pub use tracing_integration::{MetricsLayer, SpanExt};
+pub use tracing_integration::{Labels, MetricsLayer, SpanExt};
 
 /// [`TracingContextLayer`] provides an implementation of a [`metrics::Layer`]
 /// for [`TracingContext`].
