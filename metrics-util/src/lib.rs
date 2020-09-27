@@ -3,6 +3,12 @@
 mod bucket;
 pub use bucket::AtomicBucket;
 
+mod debugging;
+pub use debugging::{DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
+
+mod handle;
+pub use handle::Handle;
+
 mod streaming;
 pub use streaming::StreamingIntegers;
 
@@ -11,3 +17,14 @@ pub use quantile::{parse_quantiles, Quantile};
 
 mod tree;
 pub use tree::{Integer, MetricsTree};
+
+mod registry;
+pub use registry::Registry;
+
+mod key;
+pub use key::CompositeKey;
+
+mod histogram;
+pub use histogram::Histogram;
+
+pub mod layers;

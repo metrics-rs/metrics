@@ -1,8 +1,4 @@
-#[macro_use]
-extern crate metrics;
-
-use metrics::Recorder;
-use metrics_core::Key;
+use metrics::{counter, gauge, histogram, increment, Key, Recorder};
 
 #[allow(dead_code)]
 static RECORDER: PrintRecorder = PrintRecorder;
@@ -11,16 +7,37 @@ static RECORDER: PrintRecorder = PrintRecorder;
 struct PrintRecorder;
 
 impl Recorder for PrintRecorder {
-    fn increment_counter(&self, key: Key, value: u64) {
-        println!("metrics -> counter(name={}, value={})", key, value);
+    fn register_counter(&self, key: Key, description: Option<&'static str>) {
+        println!(
+            "(counter) registered key {} with description {:?}",
+            key, description
+        );
     }
 
-    fn update_gauge(&self, key: Key, value: i64) {
-        println!("metrics -> gauge(name={}, value={})", key, value);
+    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
+        println!(
+            "(gauge) registered key {} with description {:?}",
+            key, description
+        );
+    }
+
+    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
+        println!(
+            "(histogram) registered key {} with description {:?}",
+            key, description
+        );
+    }
+
+    fn increment_counter(&self, key: Key, value: u64) {
+        println!("(counter) got value {} for key {}", value, key);
+    }
+
+    fn update_gauge(&self, key: Key, value: f64) {
+        println!("(gauge) got value {} for key {}", value, key);
     }
 
     fn record_histogram(&self, key: Key, value: u64) {
-        println!("metrics -> histogram(name={}, value={})", key, value);
+        println!("(histogram) got value {} for key {}", value, key);
     }
 }
 
@@ -39,24 +56,21 @@ fn main() {
     let server_name = "web03".to_string();
 
     init_print_logger();
+    for _ in 0..3 {
+        increment!("requests_processed");
+        increment!("requests_processed", "request_type" => "admin");
+    }
+    increment!("requests_processed", "request_type" => "admin", "server" => server_name.clone());
     counter!("requests_processed", 1);
     counter!("requests_processed", 1, "request_type" => "admin");
     counter!("requests_processed", 1, "request_type" => "admin", "server" => server_name.clone());
-    counter!("requests_processed", 1, "request_type" => "admin", "server" => server_name.clone(), "version" => "e7d6f12");
-    gauge!("connection_count", 300);
-    gauge!("connection_count", 300, "listener" => "frontend");
-    gauge!("connection_count", 300, "listener" => "frontend", "server" => server_name.clone());
-    gauge!("connection_count", 300, "listener" => "frontend", "server" => server_name.clone(), "version" => "e7d6f12");
-    timing!("service.execution_time", 120, 190);
-    timing!("service.execution_time", 120, 190, "type" => "users");
-    timing!("service.execution_time", 120, 190, "type" => "users", "server" => server_name.clone());
-    timing!("service.execution_time", 120, 190, "type" => "users", "server" => server_name.clone(), "version" => "e7d6f12");
-    timing!("service.execution_time", 70);
-    timing!("service.execution_time", 70, "type" => "users");
-    timing!("service.execution_time", 70, "type" => "users", "server" => server_name.clone());
-    timing!("service.execution_time", 70, "type" => "users", "server" => server_name.clone(), "version" => "e7d6f12");
-    value!("service.results_returned", 666);
-    value!("service.results_returned", 666, "type" => "users");
-    value!("service.results_returned", 666, "type" => "users", "server" => server_name.clone());
-    value!("service.results_returned", 666, "type" => "users", "server" => server_name.clone(), "version" => "e7d6f12");
+    gauge!("connection_count", 300.0);
+    gauge!("connection_count", 300.0, "listener" => "frontend");
+    gauge!("connection_count", 300.0, "listener" => "frontend", "server" => server_name.clone());
+    histogram!("service.execution_time", 70);
+    histogram!("service.execution_time", 70, "type" => "users");
+    histogram!("service.execution_time", 70, "type" => "users", "server" => server_name.clone());
+    histogram!(<"service.execution_time">, 70);
+    histogram!(<"service.execution_time">, 70, "type" => "users");
+    histogram!(<"service.execution_time">, 70, "type" => "users", "server" => server_name.clone());
 }

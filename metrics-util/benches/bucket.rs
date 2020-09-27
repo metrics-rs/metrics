@@ -52,7 +52,7 @@ fn bucket_benchmark(c: &mut Criterion) {
                 }
             })
         })
-        .throughput(Throughput::Elements(RANDOM_INTS.len() as u32)),
+        .throughput(Throughput::Elements(RANDOM_INTS.len() as u64)),
     );
 }
 

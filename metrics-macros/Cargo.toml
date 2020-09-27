@@ -1,0 +1,25 @@
+[package]
+name = "metrics-macros"
+version = "0.1.0-alpha.3"
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+edition = "2018"
+
+license = "MIT"
+
+description = "Macros for the metrics crate."
+homepage = "https://github.com/metrics-rs/metrics"
+repository = "https://github.com/metrics-rs/metrics"
+documentation = "https://docs.rs/metrics"
+readme = "README.md"
+
+categories = ["development-tools::debugging"]
+keywords = ["metrics", "facade", "macros"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0"
+quote = "1.0"
+proc-macro2 = "1.0"
+proc-macro-hack = "0.5"
