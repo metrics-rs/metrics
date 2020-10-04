@@ -1,5 +1,9 @@
 use crate::{IntoLabels, Label, ScopedString};
-use std::{fmt, slice::Iter};
+use std::{
+    fmt,
+    hash::{Hash, Hasher},
+    slice::Iter,
+};
 
 /// A metric key data.
 ///
@@ -121,7 +125,7 @@ where
 ///
 /// This allows for flexibility in the ways that [`KeyData`] can be passed around
 /// and reused, enabling performance improvements in specific situations.
-#[derive(Debug, Hash, Clone)]
+#[derive(Debug, Clone)]
 pub enum Key {
     /// A statically borrowed [`KeyData`].
     ///
@@ -145,6 +149,15 @@ impl PartialEq for Key {
 }
 
 impl Eq for Key {}
+
+impl Hash for Key {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Key::Borrowed(inner) => inner.hash(state),
+            Key::Owned(inner) => inner.hash(state),
+        }
+    }
+}
 
 impl Key {
     /// Converts any kind of [`Key`] into an owned [`KeyData`].
@@ -216,6 +229,65 @@ pub type OnceKeyData = once_cell::sync::OnceCell<KeyData>;
 mod tests {
     use super::{Key, KeyData, OnceKeyData};
     use crate::Label;
+    use std::collections::HashMap;
+
+    static BORROWED_BASIC: OnceKeyData = OnceKeyData::new();
+    static BORROWED_LABELS: OnceKeyData = OnceKeyData::new();
+
+    #[test]
+    fn test_keydata_eq_and_hash() {
+        let mut keys = HashMap::new();
+
+        let owned_basic = KeyData::from_name("name");
+        let borrowed_basic = BORROWED_BASIC.get_or_init(|| KeyData::from_name("name"));
+        assert_eq!(&owned_basic, borrowed_basic);
+
+        let previous = keys.insert(owned_basic, 42);
+        assert!(previous.is_none());
+
+        let previous = keys.get(&borrowed_basic);
+        assert_eq!(previous, Some(&42));
+
+        let labels = vec![Label::new("key", "value")];
+        let owned_labels = KeyData::from_name_and_labels("name", labels.clone());
+        let borrowed_labels =
+            BORROWED_LABELS.get_or_init(|| KeyData::from_name_and_labels("name", labels.clone()));
+        assert_eq!(&owned_labels, borrowed_labels);
+
+        let previous = keys.insert(owned_labels, 43);
+        assert!(previous.is_none());
+
+        let previous = keys.get(&borrowed_labels);
+        assert_eq!(previous, Some(&43));
+    }
+
+    #[test]
+    fn test_key_eq_and_hash() {
+        let mut keys = HashMap::new();
+
+        let owned_basic = Key::from(KeyData::from_name("name"));
+        let borrowed_basic = Key::from(BORROWED_BASIC.get_or_init(|| KeyData::from_name("name")));
+        assert_eq!(owned_basic, borrowed_basic);
+
+        let previous = keys.insert(owned_basic, 42);
+        assert!(previous.is_none());
+
+        let previous = keys.get(&borrowed_basic);
+        assert_eq!(previous, Some(&42));
+
+        let labels = vec![Label::new("key", "value")];
+        let owned_labels = Key::from(KeyData::from_name_and_labels("name", labels.clone()));
+        let borrowed_labels = Key::from(
+            BORROWED_LABELS.get_or_init(|| KeyData::from_name_and_labels("name", labels.clone())),
+        );
+        assert_eq!(owned_labels, borrowed_labels);
+
+        let previous = keys.insert(owned_labels, 43);
+        assert!(previous.is_none());
+
+        let previous = keys.get(&borrowed_labels);
+        assert_eq!(previous, Some(&43));
+    }
 
     #[test]
     fn test_key_data_proper_display() {

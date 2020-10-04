@@ -289,12 +289,12 @@ fn read_key(input: &mut ParseStream) -> Result<Key> {
     };
 
     lazy_static! {
-        static ref RE: Regex = Regex::new("^[a-zA-Z_:\\.][a-zA-Z0-9_:\\.]*$").unwrap();
+        static ref RE: Regex = Regex::new("^[a-zA-Z][a-zA-Z0-9_:\\.]*$").unwrap();
     }
     if !RE.is_match(&inner) {
         return Err(Error::new(
             key.span(),
-            "metric name must match ^[a-zA-Z_:.][a-zA-Z0-9_:.]*$",
+            "metric name must match ^[a-zA-Z][a-zA-Z0-9_:.]*$",
         ));
     }
 
