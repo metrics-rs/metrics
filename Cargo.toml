@@ -7,4 +7,5 @@ members = [
   "metrics-exporter-tcp",
   "metrics-exporter-prometheus",
   "metrics-tracing-context",
+  "metrics-observer",
 ]
