@@ -1,0 +1,25 @@
+[package]
+name = "metrics-observer"
+version = "0.1.0"
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+edition = "2018"
+
+license = "MIT"
+
+[dependencies]
+getopts = "0.2"
+bytes = "0.5"
+crossbeam-channel = "0.4"
+prost = "0.6"
+prost-types = "0.6"
+tui = "0.12"
+termion = "1.5"
+hdrhistogram = "7.1"
+evmap = "10.0"
+chrono = "0.4"
+metrics = { version = "0.13.0-alpha.5", path = "../metrics" }
+metrics-util = { version = "0.4.0-alpha.3", path = "../metrics-util" }
+
+[build-dependencies]
+prost-build = "0.6"
+built = "0.4"
