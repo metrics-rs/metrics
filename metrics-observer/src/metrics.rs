@@ -95,24 +95,6 @@ impl Runner {
         }
     }
 
-    /*pub fn run(&mut self) {
-        let mut metrics = self.metrics.write().unwrap();
-
-        metrics.insert(("test_counter".into(), Vec::new()), MetricData::Counter(42));
-        metrics.insert(
-            ("test_counter_two".into(), vec!["endpoint = http".to_string()]),
-            MetricData::Counter(42)
-        );
-        metrics.insert(("test_gauge".into(), Vec::new()), MetricData::Gauge(-666));
-        
-        let mut histogram = Histogram::<u64>::new(3)
-            .expect("failed to create histogram");
-        for i in 1..100 {
-            histogram.record(i).expect("failed to record value");
-        }
-        metrics.insert(("test_histogram".into(), Vec::new()), MetricData::Histogram(histogram));
-    }*/
-
     pub fn run(&mut self) {
         loop {
             let next = match self.state {

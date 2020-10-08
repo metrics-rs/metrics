@@ -27,7 +27,7 @@ impl InputEvents {
             }
         });
 
-        Self { rx, handle }
+        InputEvents { rx, handle }
     }
 
     pub fn next(&mut self) -> Result<Option<Key>, RecvTimeoutError> {
