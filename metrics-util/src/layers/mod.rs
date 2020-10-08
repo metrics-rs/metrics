@@ -115,6 +115,9 @@ pub use filter::{Filter, FilterLayer};
 mod prefix;
 pub use prefix::{Prefix, PrefixLayer};
 
+mod fanout;
+pub use fanout::{Fanout, FanoutBuilder};
+
 /// Decorates an object by wrapping it within another type.
 pub trait Layer<R> {
     /// The output type after wrapping.

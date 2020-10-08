@@ -1,0 +1,111 @@
+use metrics::{Key, Recorder};
+
+/// Fans out metrics to multiple recorders.
+pub struct Fanout {
+    recorders: Vec<Box<dyn Recorder>>,
+}
+
+impl Recorder for Fanout {
+    fn register_counter(&self, key: Key, description: Option<&'static str>) {
+        for recorder in &self.recorders {
+            recorder.register_counter(key.clone(), description);
+        }
+    }
+
+    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
+        for recorder in &self.recorders {
+            recorder.register_gauge(key.clone(), description);
+        }
+    }
+
+    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
+        for recorder in &self.recorders {
+            recorder.register_histogram(key.clone(), description);
+        }
+    }
+
+    fn increment_counter(&self, key: Key, value: u64) {
+        for recorder in &self.recorders {
+            recorder.increment_counter(key.clone(), value);
+        }
+    }
+
+    fn update_gauge(&self, key: Key, value: f64) {
+        for recorder in &self.recorders {
+            recorder.update_gauge(key.clone(), value);
+        }
+    }
+
+    fn record_histogram(&self, key: Key, value: u64) {
+        for recorder in &self.recorders {
+            recorder.record_histogram(key.clone(), value);
+        }
+    }
+}
+
+/// A layer for fanning out metrics to multiple recorders.
+///
+/// More information on the behavior of the layer can be found in [`Fanout`].
+#[derive(Default)]
+pub struct FanoutBuilder {
+    recorders: Vec<Box<dyn Recorder>>,
+}
+
+impl FanoutBuilder {
+    /// Adds a recorder to the fanout list.
+    pub fn add_recorder<R>(mut self, recorder: R) -> FanoutBuilder
+    where
+        R: Recorder + 'static,
+    {
+        self.recorders.push(Box::new(recorder));
+        self
+    }
+
+    /// Builds the `Fanout` layer.
+    pub fn build(self) -> Fanout {
+        Fanout {
+            recorders: self.recorders,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FanoutBuilder;
+    use crate::debugging::DebuggingRecorder;
+    use metrics::{Key, Recorder};
+
+    #[test]
+    fn test_basic_functionality() {
+        let recorder1 = DebuggingRecorder::new();
+        let snapshotter1 = recorder1.snapshotter();
+        let recorder2 = DebuggingRecorder::new();
+        let snapshotter2 = recorder2.snapshotter();
+        let fanout = FanoutBuilder::default()
+            .add_recorder(recorder1)
+            .add_recorder(recorder2)
+            .build();
+
+        let before1 = snapshotter1.snapshot();
+        let before2 = snapshotter2.snapshot();
+        assert_eq!(before1.len(), 0);
+        assert_eq!(before2.len(), 0);
+
+        fanout.register_counter(Key::Owned("tokio.loops".into()), None);
+        fanout.register_gauge(Key::Owned("hyper.sent_bytes".into()), None);
+        fanout.increment_counter(Key::Owned("tokio.loops".into()), 47);
+        fanout.update_gauge(Key::Owned("hyper.sent_bytes".into()), 12.0);
+
+        let after1 = snapshotter1.snapshot();
+        let after2 = snapshotter2.snapshot();
+        assert_eq!(after1.len(), 2);
+        assert_eq!(after2.len(), 2);
+
+        let after = after1.into_iter().zip(after2).collect::<Vec<_>>();
+
+        for ((_, k1, v1), (_, k2, v2)) in after {
+            assert_eq!(k1, k2);
+            assert_eq!(v1, v2);
+        }
+    }
+}
