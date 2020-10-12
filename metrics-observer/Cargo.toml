@@ -9,7 +9,7 @@ license = "MIT"
 [dependencies]
 getopts = "0.2"
 bytes = "0.5"
-crossbeam-channel = "0.4"
+crossbeam-channel = "0.5"
 prost = "0.6"
 prost-types = "0.6"
 tui = "0.12"
