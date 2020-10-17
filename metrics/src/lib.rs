@@ -61,16 +61,16 @@
 //!
 //! ```rust
 //! use log::info;
-//! use metrics::{Key, Recorder};
+//! use metrics::{Key, Recorder, Unit};
 //!
 //! struct LogRecorder;
 //!
 //! impl Recorder for LogRecorder {
-//!     fn register_counter(&self, key: Key, _description: Option<&'static str>) {}
+//!     fn register_counter(&self, key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //!
-//!     fn register_gauge(&self, key: Key, _description: Option<&'static str>) {}
+//!     fn register_gauge(&self, key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //!
-//!     fn register_histogram(&self, key: Key, _description: Option<&'static str>) {}
+//!     fn register_histogram(&self, key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //!
 //!     fn increment_counter(&self, key: Key, value: u64) {
 //!         info!("counter '{}' -> {}", key, value);
@@ -91,12 +91,12 @@
 //! function that wraps the creation and installation of the recorder:
 //!
 //! ```rust
-//! # use metrics::{Recorder, Key};
+//! # use metrics::{Key, Recorder, Unit};
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
-//! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) {}
-//! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) {}
-//! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn register_counter(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+//! #     fn register_gauge(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+//! #     fn register_histogram(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //! #     fn increment_counter(&self, _key: Key, _value: u64) {}
 //! #     fn update_gauge(&self, _key: Key, _value: f64) {}
 //! #     fn record_histogram(&self, _key: Key, _value: u64) {}
@@ -119,12 +119,12 @@
 //! that it takes a `Box<Recorder>` rather than a `&'static Recorder`:
 //!
 //! ```rust
-//! # use metrics::{Recorder, Key};
+//! # use metrics::{Key, Recorder, Unit};
 //! # struct LogRecorder;
 //! # impl Recorder for LogRecorder {
-//! #     fn register_counter(&self, _key: Key, _description: Option<&'static str>) {}
-//! #     fn register_gauge(&self, _key: Key, _description: Option<&'static str>) {}
-//! #     fn register_histogram(&self, _key: Key, _description: Option<&'static str>) {}
+//! #     fn register_counter(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+//! #     fn register_gauge(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+//! #     fn register_histogram(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //! #     fn increment_counter(&self, _key: Key, _value: u64) {}
 //! #     fn update_gauge(&self, _key: Key, _value: f64) {}
 //! #     fn record_histogram(&self, _key: Key, _value: u64) {}

@@ -2,7 +2,7 @@ use std::io;
 use std::thread;
 use std::time::Duration;
 
-use crossbeam_channel::{bounded, Receiver, TrySendError, RecvTimeoutError};
+use crossbeam_channel::{bounded, Receiver, RecvTimeoutError, TrySendError};
 use termion::event::Key;
 use termion::input::TermRead;
 

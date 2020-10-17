@@ -1,4 +1,4 @@
-use metrics::{Key, Recorder};
+use metrics::{Key, Recorder, Unit};
 
 /// Fans out metrics to multiple recorders.
 pub struct Fanout {
@@ -6,21 +6,21 @@ pub struct Fanout {
 }
 
 impl Recorder for Fanout {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) {
+    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         for recorder in &self.recorders {
-            recorder.register_counter(key.clone(), description);
+            recorder.register_counter(key.clone(), unit.clone(), description);
         }
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
+    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         for recorder in &self.recorders {
-            recorder.register_gauge(key.clone(), description);
+            recorder.register_gauge(key.clone(), unit.clone(), description);
         }
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
+    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         for recorder in &self.recorders {
-            recorder.register_histogram(key.clone(), description);
+            recorder.register_histogram(key.clone(), unit.clone(), description);
         }
     }
 
@@ -73,7 +73,7 @@ impl FanoutBuilder {
 mod tests {
     use super::FanoutBuilder;
     use crate::debugging::DebuggingRecorder;
-    use metrics::{Key, Recorder};
+    use metrics::{Key, Recorder, Unit};
 
     #[test]
     fn test_basic_functionality() {
@@ -91,8 +91,18 @@ mod tests {
         assert_eq!(before1.len(), 0);
         assert_eq!(before2.len(), 0);
 
-        fanout.register_counter(Key::Owned("tokio.loops".into()), None);
-        fanout.register_gauge(Key::Owned("hyper.sent_bytes".into()), None);
+        let ud = &[(Unit::Count, "counter desc"), (Unit::Bytes, "gauge desc")];
+
+        fanout.register_counter(
+            Key::Owned("tokio.loops".into()),
+            Some(ud[0].0.clone()),
+            Some(ud[0].1),
+        );
+        fanout.register_gauge(
+            Key::Owned("hyper.sent_bytes".into()),
+            Some(ud[1].0.clone()),
+            Some(ud[1].1),
+        );
         fanout.increment_counter(Key::Owned("tokio.loops".into()), 47);
         fanout.update_gauge(Key::Owned("hyper.sent_bytes".into()), 12.0);
 
@@ -101,11 +111,21 @@ mod tests {
         assert_eq!(after1.len(), 2);
         assert_eq!(after2.len(), 2);
 
-        let after = after1.into_iter().zip(after2).collect::<Vec<_>>();
+        let after = after1
+            .into_iter()
+            .zip(after2)
+            .enumerate()
+            .collect::<Vec<_>>();
 
-        for ((_, k1, v1), (_, k2, v2)) in after {
+        for (i, ((_, k1, u1, d1, v1), (_, k2, u2, d2, v2))) in after {
             assert_eq!(k1, k2);
+            assert_eq!(u1, u2);
+            assert_eq!(d1, d2);
             assert_eq!(v1, v2);
+            assert_eq!(Some(ud[i].0.clone()), u1);
+            assert_eq!(Some(ud[i].0.clone()), u2);
+            assert_eq!(Some(ud[i].1), d1);
+            assert_eq!(Some(ud[i].1), d2);
         }
     }
 }

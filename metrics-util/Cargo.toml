@@ -40,6 +40,7 @@ atomic-shim = "0.1"
 parking_lot = "0.11"
 aho-corasick = { version = "0.7", optional = true }
 dashmap = "3"
+indexmap = "1.6"
 
 [dev-dependencies]
 criterion = "0.3"
