@@ -36,6 +36,16 @@ impl KeyData {
         }
     }
 
+    /// Creates a `KeyData` from a static name.
+    ///
+    /// This function is const, so it can be used in a static context.
+    pub const fn from_static_name(name: &'static str) -> Self {
+        Self {
+            name: ScopedString::Borrowed(name),
+            labels: Vec::new(),
+        }
+    }
+
     /// Name of this key.
     pub fn name(&self) -> &ScopedString {
         &self.name

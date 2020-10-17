@@ -33,7 +33,7 @@ harness = false
 [dependencies]
 metrics = { version = "0.13.0-alpha.1", path = "../metrics", features = ["std"] }
 crossbeam-epoch = "0.9"
-crossbeam-utils = "0.7"
+crossbeam-utils = "0.8"
 serde = "1.0"
 arc-swap = "0.4"
 atomic-shim = "0.1"
