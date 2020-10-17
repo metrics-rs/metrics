@@ -55,7 +55,7 @@
 
 #![deny(missing_docs)]
 
-use metrics::{Key, KeyData, Label, Recorder};
+use metrics::{Key, KeyData, Label, Recorder, Unit};
 use metrics_util::layers::Layer;
 use tracing::Span;
 
@@ -136,16 +136,16 @@ where
     R: Recorder,
     F: LabelFilter,
 {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) {
-        self.inner.register_counter(key, description)
+    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.register_counter(key, unit, description)
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
-        self.inner.register_gauge(key, description)
+    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.register_gauge(key, unit, description)
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
-        self.inner.register_histogram(key, description)
+    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.register_histogram(key, unit, description)
     }
 
     fn increment_counter(&self, key: Key, value: u64) {

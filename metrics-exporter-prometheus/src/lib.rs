@@ -6,7 +6,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     {Body, Error as HyperError, Response, Server},
 };
-use metrics::{Key, Recorder, SetRecorderError};
+use metrics::{Key, Recorder, SetRecorderError, Unit};
 use metrics_util::{
     parse_quantiles, CompositeKey, Handle, Histogram, MetricKind, Quantile, Registry,
 };
@@ -494,7 +494,7 @@ impl PrometheusBuilder {
 }
 
 impl Recorder for PrometheusRecorder {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) {
+    fn register_counter(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
             CompositeKey::new(MetricKind::Counter, key),
@@ -503,7 +503,7 @@ impl Recorder for PrometheusRecorder {
         );
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
+    fn register_gauge(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
             CompositeKey::new(MetricKind::Gauge, key),
@@ -512,7 +512,7 @@ impl Recorder for PrometheusRecorder {
         );
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
+    fn register_histogram(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
             CompositeKey::new(MetricKind::Histogram, key),

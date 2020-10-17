@@ -53,7 +53,7 @@ use std::time::SystemTime;
 
 use bytes::Bytes;
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
-use metrics::{Key, Recorder, SetRecorderError};
+use metrics::{Key, Recorder, SetRecorderError, Unit};
 use mio::{
     net::{TcpListener, TcpStream},
     Events, Interest, Poll, Token, Waker,
@@ -70,10 +70,17 @@ mod proto {
     include!(concat!(env!("OUT_DIR"), "/event.proto.rs"));
 }
 
+use self::proto::metadata::MetricType;
+
 enum MetricValue {
     Counter(u64),
     Gauge(f64),
     Histogram(u64),
+}
+
+enum Event {
+    Metadata(Key, MetricType, Option<Unit>, Option<&'static str>),
+    Metric(Key, MetricValue),
 }
 
 /// Errors that could occur while installing a TCP recorder/exporter.
@@ -100,7 +107,7 @@ impl From<SetRecorderError> for Error {
 
 /// A TCP recorder.
 pub struct TcpRecorder {
-    tx: Sender<(Key, MetricValue)>,
+    tx: Sender<Event>,
     waker: Arc<Waker>,
 }
 
@@ -191,18 +198,37 @@ impl TcpBuilder {
 }
 
 impl TcpRecorder {
+    fn register_metric(
+        &self,
+        key: Key,
+        metric_type: MetricType,
+        unit: Option<Unit>,
+        description: Option<&'static str>,
+    ) {
+        let _ = self
+            .tx
+            .try_send(Event::Metadata(key, metric_type, unit, description));
+        let _ = self.waker.wake();
+    }
+
     fn push_metric(&self, key: Key, value: MetricValue) {
-        let _ = self.tx.try_send((key, value));
+        let _ = self.tx.try_send(Event::Metric(key, value));
         let _ = self.waker.wake();
     }
 }
 
 impl Recorder for TcpRecorder {
-    fn register_counter(&self, _key: Key, _description: Option<&'static str>) {}
+    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.register_metric(key, MetricType::Counter, unit, description);
+    }
 
-    fn register_gauge(&self, _key: Key, _description: Option<&'static str>) {}
+    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.register_metric(key, MetricType::Gauge, unit, description);
+    }
 
-    fn register_histogram(&self, _key: Key, _description: Option<&'static str>) {}
+    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.register_metric(key, MetricType::Histogram, unit, description);
+    }
 
     fn increment_counter(&self, key: Key, value: u64) {
         self.push_metric(key, MetricValue::Counter(value));
@@ -221,13 +247,14 @@ fn run_transport(
     mut poll: Poll,
     waker: Arc<Waker>,
     listener: TcpListener,
-    rx: Receiver<(Key, MetricValue)>,
+    rx: Receiver<Event>,
     buffer_size: Option<usize>,
 ) {
     let buffer_limit = buffer_size.unwrap_or(std::usize::MAX);
     let mut events = Events::with_capacity(1024);
     let mut clients = HashMap::new();
     let mut clients_to_remove = Vec::new();
+    let mut metadata = HashMap::new();
     let mut next_token = START_TOKEN;
     let mut buffered_pmsgs = VecDeque::with_capacity(buffer_limit);
 
@@ -270,10 +297,22 @@ fn run_transport(
                             // If our sender is dead, we can't do anything else, so just return.
                             Err(_) => return,
                         };
-                        let (key, value) = msg;
-                        match convert_metric_to_protobuf_encoded(key, value) {
-                            Ok(pmsg) => buffered_pmsgs.push_back(pmsg),
-                            Err(e) => error!(error = ?e, "error encoding metric"),
+
+                        match msg {
+                            Event::Metadata(key, metric_type, unit, desc) => {
+                                let entry = metadata
+                                    .entry(key)
+                                    .or_insert_with(|| (metric_type, None, None));
+                                let (_, uentry, dentry) = entry;
+                                *uentry = unit;
+                                *dentry = desc;
+                            }
+                            Event::Metric(key, value) => {
+                                match convert_metric_to_protobuf_encoded(key, value) {
+                                    Ok(pmsg) => buffered_pmsgs.push_back(pmsg),
+                                    Err(e) => error!(error = ?e, "error encoding metric"),
+                                }
+                            }
                         }
                     }
                     drop(_mrxspan);
@@ -340,9 +379,10 @@ fn run_transport(
                                     .register(&mut conn, token, CLIENT_INTEREST)
                                     .expect("failed to register interest for client connection");
 
-                                // Start tracking them.
+                                // Start tracking them, and enqueue all of the metadata.
+                                let metadata = generate_metadata_messages(&metadata);
                                 clients
-                                    .insert(token, (conn, None, VecDeque::new()))
+                                    .insert(token, (conn, None, metadata))
                                     .ok_or(())
                                     .expect_err("client mapped to existing token!");
                             }
@@ -368,6 +408,23 @@ fn run_transport(
             }
         }
     }
+}
+
+fn generate_metadata_messages(
+    metadata: &HashMap<Key, (MetricType, Option<Unit>, Option<&'static str>)>,
+) -> VecDeque<Bytes> {
+    let mut bufs = VecDeque::new();
+    for (key, (metric_type, unit, desc)) in metadata.iter() {
+        let msg = convert_metadata_to_protobuf_encoded(
+            key,
+            metric_type.clone(),
+            unit.clone(),
+            desc.clone(),
+        )
+        .expect("failed to encode metadata buffer");
+        bufs.push_back(msg);
+    }
+    bufs
 }
 
 #[tracing::instrument(skip(wbuf, msgs))]
@@ -421,6 +478,28 @@ fn drive_connection(
     }
 }
 
+fn convert_metadata_to_protobuf_encoded(
+    key: &Key,
+    metric_type: MetricType,
+    unit: Option<Unit>,
+    desc: Option<&'static str>,
+) -> Result<Bytes, EncodeError> {
+    let name = key.name().to_string();
+    let metadata = proto::Metadata {
+        name,
+        metric_type: metric_type.into(),
+        unit: unit.map(|u| proto::metadata::Unit::UnitValue(u.as_str().to_owned())),
+        description: desc.map(|d| proto::metadata::Description::DescriptionValue(d.to_owned())),
+    };
+    let event = proto::Event {
+        event: Some(proto::event::Event::Metadata(metadata)),
+    };
+
+    let mut buf = Vec::new();
+    event.encode_length_delimited(&mut buf)?;
+    Ok(Bytes::from(buf))
+}
+
 fn convert_metric_to_protobuf_encoded(key: Key, value: MetricValue) -> Result<Bytes, EncodeError> {
     let name = key.name().to_string();
     let labels = key
@@ -442,9 +521,12 @@ fn convert_metric_to_protobuf_encoded(key: Key, value: MetricValue) -> Result<By
         timestamp: Some(now),
         value: Some(mvalue),
     };
+    let event = proto::Event {
+        event: Some(proto::event::Event::Metric(metric)),
+    };
 
     let mut buf = Vec::new();
-    metric.encode_length_delimited(&mut buf)?;
+    event.encode_length_delimited(&mut buf)?;
     Ok(Bytes::from(buf))
 }
 

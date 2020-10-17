@@ -1,7 +1,7 @@
 use std::thread;
 use std::time::Duration;
 
-use metrics::{histogram, increment};
+use metrics::{histogram, increment, register_histogram, Unit};
 use metrics_exporter_tcp::TcpBuilder;
 
 use quanta::Clock;
@@ -14,6 +14,8 @@ fn main() {
 
     let mut clock = Clock::new();
     let mut last = None;
+
+    register_histogram!("tcp_server_loop_delta_ns", Unit::Nanoseconds);
 
     loop {
         increment!("tcp_server_loops", "system" => "foo");

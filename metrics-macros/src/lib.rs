@@ -7,6 +7,7 @@ use proc_macro2::Span;
 use proc_macro_hack::proc_macro_hack;
 use quote::{format_ident, quote, ToTokens};
 use regex::Regex;
+use syn::parse::discouraged::Speculative;
 use syn::parse::{Error, Parse, ParseStream, Result};
 use syn::{parse_macro_input, Expr, LitStr, Token};
 
@@ -45,6 +46,7 @@ struct WithExpression {
 
 struct Registration {
     key: Key,
+    unit: Option<Expr>,
     description: Option<LitStr>,
     labels: Option<Labels>,
 }
@@ -79,30 +81,78 @@ impl Parse for Registration {
     fn parse(mut input: ParseStream) -> Result<Self> {
         let key = read_key(&mut input)?;
 
+        // We accept three possible parameters: unit, description, and labels.
+        //
+        // If our first parameter is a literal string, we either have the description and no labels,
+        // or a description and labels.  Peek at the trailing token after the description to see if
+        // we need to keep parsing.
+
         // This may or may not be the start of labels, if the description has been omitted, so
         // we hold on to it until we can make sure nothing else is behind it, or if it's a full
         // fledged set of labels.
-        let (description, labels) = if input.peek(Token![,]) && input.peek3(Token![=>]) {
+        let (unit, description, labels) = if input.peek(Token![,]) && input.peek3(Token![=>]) {
             // We have a ", <something> =>" pattern, which can only be labels, so we have no
-            // description.
+            // unit or description.
             let labels = parse_labels(&mut input)?;
 
-            (None, labels)
+            (None, None, labels)
         } else if input.peek(Token![,]) && input.peek2(LitStr) {
             // We already know we're not working with labels only, and if we have ", <literal
             // string>" then we have to at least have a description, possibly with labels.
             input.parse::<Token![,]>()?;
             let description = input.parse::<LitStr>().ok();
             let labels = parse_labels(&mut input)?;
-            (description, labels)
-        } else {
-            // We might have labels passed as an expression.
+            (None, description, labels)
+        } else if input.peek(Token![,]) {
+            // We may or may not have anything left to parse here, but it could also be any
+            // combination of unit + description and/or labels.
+            //
+            // We speculatively try and parse an expression from the buffer, and see if we can match
+            // it to the qualified name of the Unit enum.  We run all of the other normal parsing
+            // after that for description and labels.
+            let forked = input.fork();
+            forked.parse::<Token![,]>()?;
+
+            let unit = if let Ok(Expr::Path(path)) = forked.parse::<Expr>() {
+                let qname = path
+                    .path
+                    .segments
+                    .iter()
+                    .map(|x| x.ident.to_string())
+                    .collect::<Vec<_>>()
+                    .join("::");
+                if qname.starts_with("metrics::Unit") || qname.starts_with("Unit") {
+                    Some(Expr::Path(path))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // If we succeeded, advance the main parse stream up to where the fork left off.
+            if unit.is_some() {
+                input.advance_to(&forked);
+            }
+
+            // We still have to check for a possible description.
+            let description =
+                if input.peek(Token![,]) && input.peek2(LitStr) && !input.peek3(Token![=>]) {
+                    input.parse::<Token![,]>()?;
+                    input.parse::<LitStr>().ok()
+                } else {
+                    None
+                };
+
             let labels = parse_labels(&mut input)?;
-            (None, labels)
+            (unit, description, labels)
+        } else {
+            (None, None, None)
         };
 
         Ok(Registration {
             key,
+            unit,
             description,
             labels,
         })
@@ -113,33 +163,36 @@ impl Parse for Registration {
 pub fn register_counter(input: TokenStream) -> TokenStream {
     let Registration {
         key,
+        unit,
         description,
         labels,
     } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("counter", key, description, labels).into()
+    get_expanded_registration("counter", key, unit, description, labels).into()
 }
 
 #[proc_macro_hack]
 pub fn register_gauge(input: TokenStream) -> TokenStream {
     let Registration {
         key,
+        unit,
         description,
         labels,
     } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("gauge", key, description, labels).into()
+    get_expanded_registration("gauge", key, unit, description, labels).into()
 }
 
 #[proc_macro_hack]
 pub fn register_histogram(input: TokenStream) -> TokenStream {
     let Registration {
         key,
+        unit,
         description,
         labels,
     } = parse_macro_input!(input as Registration);
 
-    get_expanded_registration("histogram", key, description, labels).into()
+    get_expanded_registration("histogram", key, unit, description, labels).into()
 }
 
 #[proc_macro_hack]
@@ -187,11 +240,17 @@ pub fn histogram(input: TokenStream) -> TokenStream {
 fn get_expanded_registration(
     metric_type: &str,
     key: Key,
+    unit: Option<Expr>,
     description: Option<LitStr>,
     labels: Option<Labels>,
 ) -> proc_macro2::TokenStream {
     let register_ident = format_ident!("register_{}", metric_type);
     let key = key_to_quoted(key, labels);
+
+    let unit = match unit {
+        Some(e) => quote! { Some(#e) },
+        None => quote! { None },
+    };
 
     let description = match description {
         Some(s) => quote! { Some(#s) },
@@ -204,7 +263,7 @@ fn get_expanded_registration(
             if let Some(recorder) = metrics::try_recorder() {
                 // Registrations are fairly rare, don't attempt to cache here
                 // and just use an owned ref.
-                recorder.#register_ident(metrics::Key::Owned(#key), #description);
+                recorder.#register_ident(metrics::Key::Owned(#key), #unit, #description);
             }
         }
     }

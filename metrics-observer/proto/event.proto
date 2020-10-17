@@ -4,6 +4,22 @@ import "google/protobuf/timestamp.proto";
 
 package event.proto;
 
+message Metadata {
+  string name = 1;
+  enum MetricType {
+    COUNTER = 0;
+    GAUGE = 1;
+    HISTOGRAM = 2;
+  }
+  MetricType metric_type = 2;
+  oneof unit {
+    string unit_value = 3;
+  }
+  oneof description {
+    string description_value = 4;
+  }
+}
+
 message Metric {
   string name = 1;
   google.protobuf.Timestamp timestamp = 2;
@@ -25,4 +41,11 @@ message Gauge {
 
 message Histogram {
   uint64 value = 1;
+}
+
+message Event {
+  oneof event {
+    Metadata metadata = 1;
+    Metric metric = 2;
+  }
 }
