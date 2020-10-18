@@ -10,7 +10,7 @@ use bytes::{BufMut, BytesMut};
 use hdrhistogram::Histogram;
 use prost::Message;
 
-use metrics::{KeyData, Label};
+use metrics::{KeyData, Label, Unit};
 use metrics_util::{CompositeKey, MetricKind};
 
 mod proto {
@@ -19,7 +19,7 @@ mod proto {
 
 use self::proto::{
     event::Event,
-    metadata::{Description, MetricType, Unit},
+    metadata::{Description as DescriptionMetadata, MetricType, Unit as UnitMetadata},
     Event as EventWrapper,
 };
 
@@ -39,7 +39,7 @@ pub enum MetricData {
 pub struct Client {
     state: Arc<Mutex<ClientState>>,
     metrics: Arc<RwLock<HashMap<CompositeKey, MetricData>>>,
-    metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<String>, Option<String>)>>>,
+    metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<Unit>, Option<String>)>>>,
     handle: thread::JoinHandle<()>,
 }
 
@@ -70,7 +70,7 @@ impl Client {
         self.state.lock().unwrap().clone()
     }
 
-    pub fn get_metrics(&self) -> Vec<(CompositeKey, MetricData, Option<String>, Option<String>)> {
+    pub fn get_metrics(&self) -> Vec<(CompositeKey, MetricData, Option<Unit>, Option<String>)> {
         let metrics = self.metrics.read().unwrap();
         let metadata = self.metadata.read().unwrap();
 
@@ -100,7 +100,7 @@ struct Runner {
     addr: String,
     client_state: Arc<Mutex<ClientState>>,
     metrics: Arc<RwLock<HashMap<CompositeKey, MetricData>>>,
-    metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<String>, Option<String>)>>>,
+    metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<Unit>, Option<String>)>>>,
 }
 
 impl Runner {
@@ -108,7 +108,7 @@ impl Runner {
         addr: String,
         state: Arc<Mutex<ClientState>>,
         metrics: Arc<RwLock<HashMap<CompositeKey, MetricData>>>,
-        metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<String>, Option<String>)>>>,
+        metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<Unit>, Option<String>)>>>,
     ) -> Runner {
         Runner {
             state: RunnerState::Disconnected,
@@ -210,11 +210,14 @@ impl Runner {
                                         .expect("failed to get metadata write lock");
                                     let entry = mmap.entry(key).or_insert((None, None));
                                     let (uentry, dentry) = entry;
-                                    *uentry = metadata.unit.map(|u| match u {
-                                        Unit::UnitValue(us) => us,
-                                    });
+                                    *uentry = metadata
+                                        .unit
+                                        .map(|u| match u {
+                                            UnitMetadata::UnitValue(us) => us,
+                                        })
+                                        .and_then(|s| Unit::from_str(s.as_str()));
                                     *dentry = metadata.description.map(|d| match d {
-                                        Description::DescriptionValue(ds) => ds,
+                                        DescriptionMetadata::DescriptionValue(ds) => ds,
                                     });
                                 }
                                 Event::Metric(metric) => {
