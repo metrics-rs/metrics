@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use metrics::{counter, KeyData, Label};
 use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
