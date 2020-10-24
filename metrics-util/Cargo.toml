@@ -26,10 +26,6 @@ harness = false
 name = "registry"
 harness = false
 
-[[bench]]
-name = "streaming_integers"
-harness = false
-
 [dependencies]
 metrics = { version = "0.13.0-alpha.1", path = "../metrics", features = ["std"] }
 crossbeam-epoch = { version = "0.9", optional = true }
@@ -50,8 +46,3 @@ rand_distr = "0.3"
 default = ["std"]
 std = ["arc-swap", "atomic-shim", "crossbeam-epoch", "dashmap", "indexmap"]
 layer-filter = ["aho-corasick"]
-
-[[test]]
-name = "streaming"
-path = "tests/streaming/fuzz_target.rs"
-harness = false
