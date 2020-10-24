@@ -1,5 +1,5 @@
 use crate::layers::Layer;
-use metrics::{Key, Recorder};
+use metrics::{Key, Recorder, Unit};
 
 /// Applies a prefix to every metric key.
 ///
@@ -18,19 +18,19 @@ impl<R> Prefix<R> {
 }
 
 impl<R: Recorder> Recorder for Prefix<R> {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) {
+    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         let new_key = self.prefix_key(key);
-        self.inner.register_counter(new_key, description)
+        self.inner.register_counter(new_key, unit, description)
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
+    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         let new_key = self.prefix_key(key);
-        self.inner.register_gauge(new_key, description)
+        self.inner.register_gauge(new_key, unit, description)
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
+    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         let new_key = self.prefix_key(key);
-        self.inner.register_histogram(new_key, description)
+        self.inner.register_histogram(new_key, unit, description)
     }
 
     fn increment_counter(&self, key: Key, value: u64) {
@@ -77,7 +77,7 @@ mod tests {
     use super::PrefixLayer;
     use crate::debugging::DebuggingRecorder;
     use crate::layers::Layer;
-    use metrics::{KeyData, Recorder};
+    use metrics::{KeyData, Recorder, Unit};
 
     #[test]
     fn test_basic_functionality() {
@@ -89,15 +89,35 @@ mod tests {
         let before = snapshotter.snapshot();
         assert_eq!(before.len(), 0);
 
-        layered.register_counter(KeyData::from_name("counter_metric").into(), None);
-        layered.register_gauge(KeyData::from_name("gauge_metric").into(), None);
-        layered.register_histogram(KeyData::from_name("histogram_metric").into(), None);
+        let ud = &[
+            (Unit::Nanoseconds, "counter desc"),
+            (Unit::Microseconds, "gauge desc"),
+            (Unit::Milliseconds, "histogram desc"),
+        ];
+
+        layered.register_counter(
+            KeyData::from_name("counter_metric").into(),
+            Some(ud[0].0.clone()),
+            Some(ud[0].1),
+        );
+        layered.register_gauge(
+            KeyData::from_name("gauge_metric").into(),
+            Some(ud[1].0.clone()),
+            Some(ud[1].1),
+        );
+        layered.register_histogram(
+            KeyData::from_name("histogram_metric").into(),
+            Some(ud[2].0.clone()),
+            Some(ud[2].1),
+        );
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 3);
 
-        for (_kind, key, _value) in &after {
+        for (i, (_kind, key, unit, desc, _value)) in after.iter().enumerate() {
             assert!(key.name().starts_with("testing"));
+            assert_eq!(&Some(ud[i].0.clone()), unit);
+            assert_eq!(&Some(ud[i].1), desc);
         }
     }
 }

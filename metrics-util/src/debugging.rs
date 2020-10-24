@@ -1,8 +1,11 @@
-use std::{hash::Hash, hash::Hasher, sync::Arc};
+use core::hash::{Hash, Hasher};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use crate::{handle::Handle, registry::Registry};
 
-use metrics::{Key, Recorder};
+use indexmap::IndexMap;
+use metrics::{Key, Recorder, Unit};
 
 /// Metric kinds.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Ord, PartialOrd)]
@@ -60,23 +63,52 @@ impl Hash for DebugValue {
 /// Captures point-in-time snapshots of `DebuggingRecorder`.
 pub struct Snapshotter {
     registry: Arc<Registry<DifferentiatedKey, Handle>>,
+    metrics: Arc<Mutex<IndexMap<DifferentiatedKey, ()>>>,
+    units: Arc<Mutex<HashMap<DifferentiatedKey, Unit>>>,
+    descriptions: Arc<Mutex<HashMap<DifferentiatedKey, &'static str>>>,
 }
 
 impl Snapshotter {
     /// Takes a snapshot of the recorder.
-    pub fn snapshot(&self) -> Vec<(MetricKind, Key, DebugValue)> {
-        let mut metrics = Vec::new();
+    pub fn snapshot(
+        &self,
+    ) -> Vec<(
+        MetricKind,
+        Key,
+        Option<Unit>,
+        Option<&'static str>,
+        DebugValue,
+    )> {
+        let mut snapshot = Vec::new();
         let handles = self.registry.get_handles();
-        for (dkey, handle) in handles {
-            let (kind, key) = dkey.into_parts();
-            let value = match kind {
-                MetricKind::Counter => DebugValue::Counter(handle.read_counter()),
-                MetricKind::Gauge => DebugValue::Gauge(handle.read_gauge()),
-                MetricKind::Histogram => DebugValue::Histogram(handle.read_histogram()),
-            };
-            metrics.push((kind, key, value));
+        let metrics = {
+            let metrics = self.metrics.lock().expect("metrics lock poisoned");
+            metrics.clone()
+        };
+        for (dkey, _) in metrics.into_iter() {
+            if let Some(handle) = handles.get(&dkey) {
+                let unit = self
+                    .units
+                    .lock()
+                    .expect("units lock poisoned")
+                    .get(&dkey)
+                    .cloned();
+                let description = self
+                    .descriptions
+                    .lock()
+                    .expect("descriptions lock poisoned")
+                    .get(&dkey)
+                    .cloned();
+                let (kind, key) = dkey.into_parts();
+                let value = match kind {
+                    MetricKind::Counter => DebugValue::Counter(handle.read_counter()),
+                    MetricKind::Gauge => DebugValue::Gauge(handle.read_gauge()),
+                    MetricKind::Histogram => DebugValue::Histogram(handle.read_histogram()),
+                };
+                snapshot.push((kind, key, unit, description, value));
+            }
         }
-        metrics
+        snapshot
     }
 }
 
@@ -86,6 +118,9 @@ impl Snapshotter {
 /// to the raw values.
 pub struct DebuggingRecorder {
     registry: Arc<Registry<DifferentiatedKey, Handle>>,
+    metrics: Arc<Mutex<IndexMap<DifferentiatedKey, ()>>>,
+    units: Arc<Mutex<HashMap<DifferentiatedKey, Unit>>>,
+    descriptions: Arc<Mutex<HashMap<DifferentiatedKey, &'static str>>>,
 }
 
 impl DebuggingRecorder {
@@ -93,6 +128,9 @@ impl DebuggingRecorder {
     pub fn new() -> DebuggingRecorder {
         DebuggingRecorder {
             registry: Arc::new(Registry::new()),
+            metrics: Arc::new(Mutex::new(IndexMap::new())),
+            units: Arc::new(Mutex::new(HashMap::new())),
+            descriptions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -100,6 +138,32 @@ impl DebuggingRecorder {
     pub fn snapshotter(&self) -> Snapshotter {
         Snapshotter {
             registry: self.registry.clone(),
+            metrics: self.metrics.clone(),
+            units: self.units.clone(),
+            descriptions: self.descriptions.clone(),
+        }
+    }
+
+    fn register_metric(&self, rkey: DifferentiatedKey) {
+        let mut metrics = self.metrics.lock().expect("metrics lock poisoned");
+        let _ = metrics.insert(rkey.clone(), ());
+    }
+
+    fn insert_unit_description(
+        &self,
+        rkey: DifferentiatedKey,
+        unit: Option<Unit>,
+        description: Option<&'static str>,
+    ) {
+        if let Some(unit) = unit {
+            let mut units = self.units.lock().expect("units lock poisoned");
+            let uentry = units.entry(rkey.clone()).or_insert_with(|| unit.clone());
+            *uentry = unit;
+        }
+        if let Some(description) = description {
+            let mut descriptions = self.descriptions.lock().expect("description lock poisoned");
+            let dentry = descriptions.entry(rkey).or_insert_with(|| description);
+            *dentry = description;
         }
     }
 
@@ -110,23 +174,30 @@ impl DebuggingRecorder {
 }
 
 impl Recorder for DebuggingRecorder {
-    fn register_counter(&self, key: Key, _description: Option<&'static str>) {
+    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         let rkey = DifferentiatedKey(MetricKind::Counter, key);
+        self.register_metric(rkey.clone());
+        self.insert_unit_description(rkey.clone(), unit, description);
         self.registry.op(rkey, |_| {}, || Handle::counter())
     }
 
-    fn register_gauge(&self, key: Key, _description: Option<&'static str>) {
+    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         let rkey = DifferentiatedKey(MetricKind::Gauge, key);
+        self.register_metric(rkey.clone());
+        self.insert_unit_description(rkey.clone(), unit, description);
         self.registry.op(rkey, |_| {}, || Handle::gauge())
     }
 
-    fn register_histogram(&self, key: Key, _description: Option<&'static str>) {
+    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         let rkey = DifferentiatedKey(MetricKind::Histogram, key);
+        self.register_metric(rkey.clone());
+        self.insert_unit_description(rkey.clone(), unit, description);
         self.registry.op(rkey, |_| {}, || Handle::histogram())
     }
 
     fn increment_counter(&self, key: Key, value: u64) {
         let rkey = DifferentiatedKey(MetricKind::Counter, key);
+        self.register_metric(rkey.clone());
         self.registry.op(
             rkey,
             |handle| handle.increment_counter(value),
@@ -136,6 +207,7 @@ impl Recorder for DebuggingRecorder {
 
     fn update_gauge(&self, key: Key, value: f64) {
         let rkey = DifferentiatedKey(MetricKind::Gauge, key);
+        self.register_metric(rkey.clone());
         self.registry.op(
             rkey,
             |handle| handle.update_gauge(value),
@@ -145,6 +217,7 @@ impl Recorder for DebuggingRecorder {
 
     fn record_histogram(&self, key: Key, value: u64) {
         let rkey = DifferentiatedKey(MetricKind::Histogram, key);
+        self.register_metric(rkey.clone());
         self.registry.op(
             rkey,
             |handle| handle.record_histogram(value),

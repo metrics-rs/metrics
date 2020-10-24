@@ -7,15 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+### Added
+- Support for specifying the unit of a measurement during registration. ([#107](https://github.com/metrics-rs/metrics/pull/107))
 
 ## [0.12.1] - 2019-11-21
 ### Changed
-- Cost for macros dropped to almost zero when no recorder is installed. (#55)
+- Cost for macros dropped to almost zero when no recorder is installed. ([#55](https://github.com/metrics-rs/metrics/pull/55))
 
 ## [0.12.0] - 2019-10-18
 ### Changed
 - Improved documentation. (#44, #45, #46)
-- Renamed `Recorder::record_counter` to `increment_counter` and `Recorder::record_gauge` to `update_gauge`. (#47)
+- Renamed `Recorder::record_counter` to `increment_counter` and `Recorder::record_gauge` to `update_gauge`. ([#47](https://github.com/metrics-rs/metrics/pull/47))
 
 ## [0.11.1] - 2019-08-09
 ### Changed

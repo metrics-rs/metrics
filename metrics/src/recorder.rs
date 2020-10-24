@@ -1,4 +1,4 @@
-use crate::Key;
+use crate::{Key, Unit};
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -16,24 +16,27 @@ static SET_RECORDER_ERROR: &str =
 pub trait Recorder {
     /// Registers a counter.
     ///
-    /// Callers may provide a description of the counter being registered. Whether or not a metric
-    /// can be reregistered to provide a description, if one was already passed or not, as well as
-    /// how descriptions are used by the underlying recorder, is an implementation detail.
-    fn register_counter(&self, key: Key, description: Option<&'static str>);
+    /// Callers may provide the unit or a description of the counter being registered. Whether or
+    /// not a metric can be reregistered to provide a unit/description, if one was already passed
+    /// or not, as well as how descriptions are used by the underlying recorder, is an
+    /// implementation detail.
+    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>);
 
     /// Registers a gauge.
     ///
-    /// Callers may provide a description of the counter being registered. Whether or not a metric
-    /// can be reregistered to provide a description, if one was already passed or not, as well as
-    /// how descriptions are used by the underlying recorder, is an implementation detail.
-    fn register_gauge(&self, key: Key, description: Option<&'static str>);
+    /// Callers may provide the unit or a description of the gauge being registered. Whether or
+    /// not a metric can be reregistered to provide a unit/description, if one was already passed
+    /// or not, as well as how descriptions are used by the underlying recorder, is an
+    /// implementation detail.
+    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>);
 
     /// Registers a histogram.
     ///
-    /// Callers may provide a description of the counter being registered. Whether or not a metric
-    /// can be reregistered to provide a description, if one was already passed or not, as well as
-    /// how descriptions are used by the underlying recorder, is an implementation detail.
-    fn register_histogram(&self, key: Key, description: Option<&'static str>);
+    /// Callers may provide the unit or a description of the histogram being registered. Whether or
+    /// not a metric can be reregistered to provide a unit/description, if one was already passed
+    /// or not, as well as how descriptions are used by the underlying recorder, is an
+    /// implementation detail.
+    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>);
 
     /// Increments a counter.
     fn increment_counter(&self, key: Key, value: u64);
@@ -42,18 +45,22 @@ pub trait Recorder {
     fn update_gauge(&self, key: Key, value: f64);
 
     /// Records a histogram.
-    ///
-    /// The value can be value that implements [`IntoU64`].  By default, `metrics` provides an
-    /// implementation for both `u64` itself as well as [`Duration`](std::time::Duration).
     fn record_histogram(&self, key: Key, value: u64);
 }
 
 struct NoopRecorder;
 
 impl Recorder for NoopRecorder {
-    fn register_counter(&self, _key: Key, _description: Option<&'static str>) {}
-    fn register_gauge(&self, _key: Key, _description: Option<&'static str>) {}
-    fn register_histogram(&self, _key: Key, _description: Option<&'static str>) {}
+    fn register_counter(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {
+    }
+    fn register_gauge(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+    fn register_histogram(
+        &self,
+        _key: Key,
+        _unit: Option<Unit>,
+        _description: Option<&'static str>,
+    ) {
+    }
     fn increment_counter(&self, _key: Key, _value: u64) {}
     fn update_gauge(&self, _key: Key, _value: f64) {}
     fn record_histogram(&self, _key: Key, _value: u64) {}

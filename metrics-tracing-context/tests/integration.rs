@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use metrics::{counter, KeyData, Label};
 use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
@@ -63,6 +61,8 @@ fn test_basic_functionality() {
                 ],
             )
             .into(),
+            None,
+            None,
             DebugValue::Counter(1),
         )]
     )
@@ -89,7 +89,6 @@ fn test_macro_forms() {
         "service" => "login_service", "node_name" => node_name.clone());
 
     let snapshot = snapshotter.snapshot();
-    let snapshot: HashSet<_> = snapshot.into_iter().collect();
 
     assert_eq!(
         snapshot,
@@ -104,6 +103,8 @@ fn test_macro_forms() {
                     ],
                 )
                 .into(),
+                None,
+                None,
                 DebugValue::Counter(1),
             ),
             (
@@ -117,6 +118,8 @@ fn test_macro_forms() {
                     ],
                 )
                 .into(),
+                None,
+                None,
                 DebugValue::Counter(1),
             ),
             (
@@ -130,6 +133,8 @@ fn test_macro_forms() {
                     ],
                 )
                 .into(),
+                None,
+                None,
                 DebugValue::Counter(1),
             ),
             (
@@ -144,11 +149,11 @@ fn test_macro_forms() {
                     ],
                 )
                 .into(),
+                None,
+                None,
                 DebugValue::Counter(1),
             ),
         ]
-        .into_iter()
-        .collect()
     )
 }
 
@@ -168,6 +173,8 @@ fn test_no_labels() {
         vec![(
             MetricKind::Counter,
             KeyData::from_name("login_attempts").into(),
+            None,
+            None,
             DebugValue::Counter(1),
         )]
     )
@@ -211,7 +218,6 @@ fn test_multiple_paths_to_the_same_callsite() {
     path2();
 
     let snapshot = snapshotter.snapshot();
-    let snapshot: HashSet<_> = snapshot.into_iter().collect();
 
     assert_eq!(
         snapshot,
@@ -227,6 +233,8 @@ fn test_multiple_paths_to_the_same_callsite() {
                     ],
                 )
                 .into(),
+                None,
+                None,
                 DebugValue::Counter(1),
             ),
             (
@@ -240,11 +248,11 @@ fn test_multiple_paths_to_the_same_callsite() {
                     ],
                 )
                 .into(),
+                None,
+                None,
                 DebugValue::Counter(1),
             )
         ]
-        .into_iter()
-        .collect()
     )
 }
 
@@ -282,7 +290,6 @@ fn test_nested_spans() {
     outer();
 
     let snapshot = snapshotter.snapshot();
-    let snapshot: HashSet<_> = snapshot.into_iter().collect();
 
     assert_eq!(
         snapshot,
@@ -300,10 +307,10 @@ fn test_nested_spans() {
                 ],
             )
             .into(),
+            None,
+            None,
             DebugValue::Counter(1),
-        ),]
-        .into_iter()
-        .collect()
+        )]
     )
 }
 
@@ -341,6 +348,8 @@ fn test_label_filtering() {
                 ],
             )
             .into(),
+            None,
+            None,
             DebugValue::Counter(1),
         )]
     )

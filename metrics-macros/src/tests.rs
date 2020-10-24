@@ -1,10 +1,11 @@
 use syn::parse_quote;
+use syn::{Expr, ExprPath};
 
 use super::*;
 
 #[test]
 fn test_quote_key_name_scoped() {
-    let stream = quote_key_name(Key::Scoped(parse_quote! {"qwerty"}));
+    let stream = quote_key_name(Key::Scoped(parse_quote! { "qwerty" }));
     let expected =
         "format ! (\"{}.{}\" , std :: module_path ! () . replace (\"::\" , \".\") , \"qwerty\")";
     assert_eq!(stream.to_string(), expected);
@@ -12,16 +13,18 @@ fn test_quote_key_name_scoped() {
 
 #[test]
 fn test_quote_key_name_not_scoped() {
-    let stream = quote_key_name(Key::NotScoped(parse_quote! {"qwerty"}));
+    let stream = quote_key_name(Key::NotScoped(parse_quote! { "qwerty" }));
     let expected = "\"qwerty\"";
     assert_eq!(stream.to_string(), expected);
 }
 
 #[test]
 fn test_get_expanded_registration() {
+    // Basic registration.
     let stream = get_expanded_registration(
         "mytype",
-        Key::NotScoped(parse_quote! {"mykeyname"}),
+        Key::NotScoped(parse_quote! { "mykeyname" }),
+        None,
         None,
         None,
     );
@@ -30,7 +33,82 @@ fn test_get_expanded_registration() {
         "{ if let Some (recorder) = metrics :: try_recorder () { ",
         "recorder . register_mytype (",
         "metrics :: Key :: Owned (metrics :: KeyData :: from_name (\"mykeyname\")) , ",
+        "None , ",
         "None",
+        ") ; ",
+        "} }",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_expanded_registration_with_unit() {
+    // Now with unit.
+    let units: ExprPath = parse_quote! { metrics::Unit::Nanoseconds };
+    let stream = get_expanded_registration(
+        "mytype",
+        Key::NotScoped(parse_quote! { "mykeyname" }),
+        Some(Expr::Path(units)),
+        None,
+        None,
+    );
+
+    let expected = concat!(
+        "{ if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . register_mytype (",
+        "metrics :: Key :: Owned (metrics :: KeyData :: from_name (\"mykeyname\")) , ",
+        "Some (metrics :: Unit :: Nanoseconds) , ",
+        "None",
+        ") ; ",
+        "} }",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_expanded_registration_with_description() {
+    // And with description.
+    let stream = get_expanded_registration(
+        "mytype",
+        Key::NotScoped(parse_quote! { "mykeyname" }),
+        None,
+        Some(parse_quote! { "flerkin" }),
+        None,
+    );
+
+    let expected = concat!(
+        "{ if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . register_mytype (",
+        "metrics :: Key :: Owned (metrics :: KeyData :: from_name (\"mykeyname\")) , ",
+        "None , ",
+        "Some (\"flerkin\")",
+        ") ; ",
+        "} }",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_expanded_registration_with_unit_and_description() {
+    // And with unit and description.
+    let units: ExprPath = parse_quote! { metrics::Unit::Nanoseconds };
+    let stream = get_expanded_registration(
+        "mytype",
+        Key::NotScoped(parse_quote! { "mykeyname" }),
+        Some(Expr::Path(units)),
+        Some(parse_quote! { "flerkin" }),
+        None,
+    );
+
+    let expected = concat!(
+        "{ if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . register_mytype (",
+        "metrics :: Key :: Owned (metrics :: KeyData :: from_name (\"mykeyname\")) , ",
+        "Some (metrics :: Unit :: Nanoseconds) , ",
+        "Some (\"flerkin\")",
         ") ; ",
         "} }",
     );
