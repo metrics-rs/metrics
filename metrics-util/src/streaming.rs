@@ -247,10 +247,7 @@ mod tests {
         let decompressed = si.decompress();
         assert_eq!(decompressed.len(), 0);
 
-        let values = vec![
-            140754668284938,
-            9223372079804448768,
-        ];
+        let values = vec![140754668284938, 9223372079804448768];
         si.compress(&values);
 
         let decompressed = si.decompress();
