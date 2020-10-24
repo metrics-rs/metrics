@@ -1,4 +1,4 @@
-use std::slice;
+use core::slice;
 
 /// A compressed set of integers.
 ///
@@ -50,7 +50,7 @@ use std::slice;
 pub struct StreamingIntegers {
     inner: Vec<u8>,
     len: usize,
-    last: Option<i64>,
+    last: Option<i128>,
 }
 
 impl StreamingIntegers {
@@ -99,7 +99,7 @@ impl StreamingIntegers {
         // a delta value.
         let mut src_idx = 0;
         if self.last.is_none() {
-            let first = src[src_idx] as i64;
+            let first = src[src_idx] as i128;
             self.last = Some(first);
 
             let zigzag = zigzag_encode(first);
@@ -112,7 +112,8 @@ impl StreamingIntegers {
         let mut last = self.last.unwrap();
 
         while src_idx < src_len {
-            let value = src[src_idx] as i64;
+            let value = src[src_idx] as i128;
+            // attempted to subtract with overflow
             let diff = value - last;
             let zigzag = zigzag_encode(diff);
             buf_idx = vbyte_encode(zigzag, &mut buf, buf_idx);
@@ -194,17 +195,17 @@ impl StreamingIntegers {
 }
 
 #[inline]
-fn zigzag_encode(input: i64) -> u64 {
-    ((input << 1) ^ (input >> 63)) as u64
+fn zigzag_encode(input: i128) -> u128 {
+    ((input << 1) ^ (input >> 127)) as u128
 }
 
 #[inline]
-fn zigzag_decode(input: u64) -> i64 {
-    ((input >> 1) as i64) ^ (-((input & 1) as i64))
+fn zigzag_decode(input: u128) -> i128 {
+    ((input >> 1) as i128) ^ (-((input & 1) as i128))
 }
 
 #[inline]
-fn vbyte_encode(mut input: u64, buf: &mut [u8], mut buf_idx: usize) -> usize {
+fn vbyte_encode(mut input: u128, buf: &mut [u8], mut buf_idx: usize) -> usize {
     while input >= 128 {
         buf[buf_idx] = 0x80 as u8 | (input as u8 & 0x7F);
         buf_idx += 1;
@@ -215,11 +216,11 @@ fn vbyte_encode(mut input: u64, buf: &mut [u8], mut buf_idx: usize) -> usize {
 }
 
 #[inline]
-fn vbyte_decode(buf: &[u8], mut buf_idx: usize) -> (u64, usize) {
+fn vbyte_decode(buf: &[u8], mut buf_idx: usize) -> (u128, usize) {
     let mut tmp = 0;
     let mut factor = 0;
     loop {
-        tmp |= u64::from(buf[buf_idx] & 0x7F) << (7 * factor);
+        tmp |= u128::from(buf[buf_idx] & 0x7F) << (7 * factor);
         if buf[buf_idx] & 0x80 != 0x80 {
             return (tmp, buf_idx + 1);
         }
@@ -238,6 +239,22 @@ mod tests {
         let si = StreamingIntegers::new();
         let decompressed = si.decompress();
         assert_eq!(decompressed.len(), 0);
+    }
+
+    #[test]
+    fn test_streaming_integers_edge_cases() {
+        let mut si = StreamingIntegers::new();
+        let decompressed = si.decompress();
+        assert_eq!(decompressed.len(), 0);
+
+        let values = vec![
+            140754668284938,
+            9223372079804448768,
+        ];
+        si.compress(&values);
+
+        let decompressed = si.decompress();
+        assert_eq!(decompressed, values);
     }
 
     #[test]

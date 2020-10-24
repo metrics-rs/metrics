@@ -1,6 +1,6 @@
 use dashmap::DashMap;
 use std::collections::HashMap;
-use std::hash::Hash;
+use core::hash::Hash;
 
 /// A high-performance metric registry.
 ///
