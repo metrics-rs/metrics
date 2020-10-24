@@ -17,11 +17,6 @@ mod handle;
 #[cfg(feature = "std")]
 pub use handle::Handle;
 
-#[cfg(feature = "std")]
-mod streaming;
-#[cfg(feature = "std")]
-pub use streaming::StreamingIntegers;
-
 mod quantile;
 pub use quantile::{parse_quantiles, Quantile};
 

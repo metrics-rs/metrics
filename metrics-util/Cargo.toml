@@ -41,7 +41,6 @@ dashmap = { version = "3", optional = true }
 indexmap = { version = "1.6", optional = true }
 
 [dev-dependencies]
-bolero = "0.5"
 criterion = "0.3"
 lazy_static = "1.3"
 rand = { version = "0.7", features = ["small_rng"] }
