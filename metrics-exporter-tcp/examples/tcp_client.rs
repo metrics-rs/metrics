@@ -25,9 +25,9 @@ fn main() {
             Err(e) => eprintln!("read error: {:?}", e),
         };
 
-        match proto::Metric::decode_length_delimited(&mut buf) {
+        match proto::Event::decode_length_delimited(&mut buf) {
             Err(e) => eprintln!("decode error: {:?}", e),
-            Ok(msg) => println!("metric: {:?}", msg),
+            Ok(msg) => println!("event: {:?}", msg),
         }
     }
 }
