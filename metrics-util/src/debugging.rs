@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use core::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use crate::{handle::Handle, registry::Registry};
