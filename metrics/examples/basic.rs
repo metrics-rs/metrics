@@ -1,4 +1,4 @@
-use metrics::{counter, gauge, histogram, increment, Key, Recorder};
+use metrics::{counter, gauge, histogram, increment, Key, Recorder, Unit};
 
 #[allow(dead_code)]
 static RECORDER: PrintRecorder = PrintRecorder;
@@ -7,24 +7,24 @@ static RECORDER: PrintRecorder = PrintRecorder;
 struct PrintRecorder;
 
 impl Recorder for PrintRecorder {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) {
+    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         println!(
-            "(counter) registered key {} with description {:?}",
-            key, description
+            "(counter) registered key {} with unit {:?} and description {:?}",
+            key, unit, description
         );
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
+    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         println!(
-            "(gauge) registered key {} with description {:?}",
-            key, description
+            "(gauge) registered key {} with unit {:?} and description {:?}",
+            key, unit, description
         );
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
+    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         println!(
-            "(histogram) registered key {} with description {:?}",
-            key, description
+            "(histogram) registered key {} with unit {:?} and description {:?}",
+            key, unit, description
         );
     }
 

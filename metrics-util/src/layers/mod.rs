@@ -8,7 +8,7 @@
 //! Here's an example of a layer that filters out all metrics that start with a specific string:
 //!
 //! ```rust
-//! # use metrics::{Key, Recorder};
+//! # use metrics::{Key, Recorder, Unit};
 //! # use metrics_util::DebuggingRecorder;
 //! # use metrics_util::layers::{Layer, Stack, PrefixLayer};
 //! // A simple layer that denies any metrics that have "stairway" or "heaven" in their name.
@@ -22,25 +22,25 @@
 //! }
 //!
 //! impl<R: Recorder> Recorder for StairwayDeny<R> {
-//!    fn register_counter(&self, key: Key, description: Option<&'static str>) {
+//!    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
-//!        self.0.register_counter(key, description)
+//!        self.0.register_counter(key, unit, description)
 //!    }
 //!
-//!    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
+//!    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
-//!        self.0.register_gauge(key, description)
+//!        self.0.register_gauge(key, unit, description)
 //!    }
 //!
-//!    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
+//!    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
-//!        self.0.register_histogram(key, description)
+//!        self.0.register_histogram(key, unit, description)
 //!    }
 //!
 //!    fn increment_counter(&self, key: Key, value: u64) {
@@ -102,7 +102,7 @@
 //!     .expect("failed to install stack");
 //! # }
 //! ```
-use metrics::{Key, Recorder};
+use metrics::{Key, Recorder, Unit};
 
 #[cfg(feature = "std")]
 use metrics::SetRecorderError;
@@ -155,16 +155,16 @@ impl<R: Recorder + 'static> Stack<R> {
 }
 
 impl<R: Recorder> Recorder for Stack<R> {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) {
-        self.inner.register_counter(key, description)
+    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.register_counter(key, unit, description);
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
-        self.inner.register_gauge(key, description)
+    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.register_gauge(key, unit, description);
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
-        self.inner.register_histogram(key, description)
+    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.register_histogram(key, unit, description);
     }
 
     fn increment_counter(&self, key: Key, value: u64) {

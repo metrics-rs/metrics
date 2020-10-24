@@ -32,22 +32,27 @@ harness = false
 
 [dependencies]
 metrics = { version = "0.13.0-alpha.1", path = "../metrics", features = ["std"] }
-crossbeam-epoch = "0.9"
-crossbeam-utils = "0.8"
-serde = "1.0"
-arc-swap = "0.4"
-atomic-shim = "0.1"
-parking_lot = "0.11"
+crossbeam-epoch = { version = "0.9", optional = true }
+crossbeam-utils = { version = "0.8", default-features = false }
+arc-swap = { version = "0.4", optional = true }
+atomic-shim = { version = "0.1", optional = true }
 aho-corasick = { version = "0.7", optional = true }
-dashmap = "3"
+dashmap = { version = "3", optional = true }
+indexmap = { version = "1.6", optional = true }
 
 [dev-dependencies]
+bolero = "0.5"
 criterion = "0.3"
 lazy_static = "1.3"
 rand = { version = "0.7", features = ["small_rng"] }
 rand_distr = "0.3"
 
 [features]
-default = ["std", "layer-filter"]
-std = []
+default = ["std"]
+std = ["arc-swap", "atomic-shim", "crossbeam-epoch", "dashmap", "indexmap"]
 layer-filter = ["aho-corasick"]
+
+[[test]]
+name = "streaming"
+path = "tests/streaming/fuzz_target.rs"
+harness = false

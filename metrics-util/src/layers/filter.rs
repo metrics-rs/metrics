@@ -1,6 +1,6 @@
 use crate::layers::Layer;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
-use metrics::{Key, Recorder};
+use metrics::{Key, Recorder, Unit};
 
 /// Filters and discards metrics matching certain name patterns.
 ///
@@ -18,25 +18,25 @@ impl<R> Filter<R> {
 }
 
 impl<R: Recorder> Recorder for Filter<R> {
-    fn register_counter(&self, key: Key, description: Option<&'static str>) {
+    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         if self.should_filter(&key) {
             return;
         }
-        self.inner.register_counter(key, description)
+        self.inner.register_counter(key, unit, description)
     }
 
-    fn register_gauge(&self, key: Key, description: Option<&'static str>) {
+    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         if self.should_filter(&key) {
             return;
         }
-        self.inner.register_gauge(key, description)
+        self.inner.register_gauge(key, unit, description)
     }
 
-    fn register_histogram(&self, key: Key, description: Option<&'static str>) {
+    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
         if self.should_filter(&key) {
             return;
         }
-        self.inner.register_histogram(key, description)
+        self.inner.register_histogram(key, unit, description)
     }
 
     fn increment_counter(&self, key: Key, value: u64) {
@@ -135,7 +135,7 @@ mod tests {
     use super::FilterLayer;
     use crate::debugging::DebuggingRecorder;
     use crate::layers::Layer;
-    use metrics::{Key, Recorder};
+    use metrics::{Key, Recorder, Unit};
 
     #[test]
     fn test_basic_functionality() {
@@ -148,17 +148,49 @@ mod tests {
         let before = snapshotter.snapshot();
         assert_eq!(before.len(), 0);
 
-        layered.register_counter(Key::Owned("tokio.loops".into()), None);
-        layered.register_gauge(Key::Owned("hyper.sent_bytes".into()), None);
-        layered.register_histogram(Key::Owned("hyper.recv_bytes".into()), None);
-        layered.register_counter(Key::Owned("bb8.conns".into()), None);
-        layered.register_gauge(Key::Owned("hyper.tokio.sent_bytes".into()), None);
+        let ud = &[
+            (Unit::Count, "counter desc"),
+            (Unit::Bytes, "gauge desc"),
+            (Unit::Bytes, "histogram desc"),
+            (Unit::Count, "counter desc"),
+            (Unit::Bytes, "gauge desc"),
+        ];
+
+        layered.register_counter(
+            Key::Owned("tokio.loops".into()),
+            Some(ud[0].0.clone()),
+            Some(ud[0].1),
+        );
+        layered.register_gauge(
+            Key::Owned("hyper.sent_bytes".into()),
+            Some(ud[1].0.clone()),
+            Some(ud[1].1),
+        );
+        layered.register_histogram(
+            Key::Owned("hyper.tokio.sent_bytes".into()),
+            Some(ud[2].0.clone()),
+            Some(ud[2].1),
+        );
+        layered.register_counter(
+            Key::Owned("bb8.conns".into()),
+            Some(ud[3].0.clone()),
+            Some(ud[3].1),
+        );
+        layered.register_gauge(
+            Key::Owned("hyper.recv_bytes".into()),
+            Some(ud[4].0.clone()),
+            Some(ud[4].1),
+        );
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);
 
-        for (_kind, key, _value) in &after {
+        for (_kind, key, unit, desc, _value) in after {
             assert!(!key.name().contains("tokio") && !key.name().contains("bb8"));
+            // We cheat here since we're not comparing one-to-one with the source data,
+            // but we know which metrics are going to make it through so we can hard code.
+            assert_eq!(Some(Unit::Bytes), unit);
+            assert!(!desc.unwrap().is_empty() && desc.unwrap() == "gauge desc");
         }
     }
 
@@ -174,16 +206,16 @@ mod tests {
         let before = snapshotter.snapshot();
         assert_eq!(before.len(), 0);
 
-        layered.register_counter(Key::Owned("tokiO.loops".into()), None);
-        layered.register_gauge(Key::Owned("hyper.sent_bytes".into()), None);
-        layered.register_histogram(Key::Owned("hyper.recv_bytes".into()), None);
-        layered.register_counter(Key::Owned("bb8.conns".into()), None);
-        layered.register_counter(Key::Owned("Bb8.conns_closed".into()), None);
+        layered.register_counter(Key::Owned("tokiO.loops".into()), None, None);
+        layered.register_gauge(Key::Owned("hyper.sent_bytes".into()), None, None);
+        layered.register_histogram(Key::Owned("hyper.recv_bytes".into()), None, None);
+        layered.register_counter(Key::Owned("bb8.conns".into()), None, None);
+        layered.register_counter(Key::Owned("Bb8.conns_closed".into()), None, None);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);
 
-        for (_kind, key, _value) in &after {
+        for (_kind, key, _unit, _desc, _value) in &after {
             assert!(
                 !key.name().to_lowercase().contains("tokio")
                     && !key.name().to_lowercase().contains("bb8")
