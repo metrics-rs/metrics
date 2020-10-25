@@ -1,14 +1,14 @@
 use crate::{IntoLabels, Label, ScopedString};
-use std::{
+use core::{
     fmt,
     hash::{Hash, Hasher},
     slice::Iter,
 };
 
-/// A metric key data.
+/// Inner representation of [`Key`].
 ///
-/// A key data always includes a name, but can optionally include multiple
-/// labels used to further describe the metric.
+/// While [`Key`] is the type that users will interact with via [`crate::Recorder`], [`KeyData`] is
+/// responsible for the actual storage of the name and label data.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct KeyData {
     name: ScopedString,
@@ -16,7 +16,7 @@ pub struct KeyData {
 }
 
 impl KeyData {
-    /// Creates a `KeyData` from a name.
+    /// Creates a [`KeyData`] from a name.
     pub fn from_name<N>(name: N) -> Self
     where
         N: Into<ScopedString>,
@@ -24,7 +24,7 @@ impl KeyData {
         Self::from_name_and_labels(name, Vec::new())
     }
 
-    /// Creates a `KeyData` from a name and vector of `Label`s.
+    /// Creates a [`KeyData`] from a name and vector of [`Label`]s.
     pub fn from_name_and_labels<N, L>(name: N, labels: L) -> Self
     where
         N: Into<ScopedString>,
@@ -36,12 +36,12 @@ impl KeyData {
         }
     }
 
-    /// Creates a `KeyData` from a static name.
+    /// Creates a [`KeyData`] from a static name.
     ///
-    /// This function is const, so it can be used in a static context.
+    /// This function is `const`, so it can be used in a static context.
     pub const fn from_static_name(name: &'static str) -> Self {
         Self {
-            name: ScopedString::Borrowed(name),
+            name: ScopedString::const_str(name),
             labels: Vec::new(),
         }
     }
@@ -68,12 +68,12 @@ impl KeyData {
         self
     }
 
-    /// Consumes this `Key`, returning the name and any labels.
+    /// Consumes this [`Key`], returning the name and any labels.
     pub fn into_parts(self) -> (ScopedString, Vec<Label>) {
         (self.name, self.labels)
     }
 
-    /// Returns a clone of this key with some additional labels.
+    /// Clones this [`Key`], and expands the existing set of labels.
     pub fn with_extra_labels(&self, extra_labels: Vec<Label>) -> Self {
         if extra_labels.is_empty() {
             return self.clone();
@@ -129,20 +129,20 @@ where
     }
 }
 
-/// Represents the identifier of a metric.
+/// A metric identifier.
 ///
-/// [`Key`] holds either an owned or static reference variant of [`KeyData`].
+/// While [`KeyData`] holds the actual name and label data for a metric, [`Key`] works similar to
+/// [`std::borrow::Cow`] in that we can either hold an owned version of the key data, or a static
+/// reference to key data initialized elsewhere.
 ///
-/// This allows for flexibility in the ways that [`KeyData`] can be passed around
-/// and reused, enabling performance improvements in specific situations.
+/// This allows for flexibility in the ways that [`KeyData`] can be passed around and reused, which
+/// allus to enable performance optimizations in specific circumstances.
 #[derive(Debug, Clone)]
 pub enum Key {
     /// A statically borrowed [`KeyData`].
     ///
     /// If you are capable of keeping a static [`KeyData`] around, this variant can
     /// be used to reduce allocations and improve performance.
-    ///
-    /// The reference is read-only, so you can't modify the underlying data.
     Borrowed(&'static KeyData),
     /// An owned [`KeyData`].
     ///
@@ -152,7 +152,6 @@ pub enum Key {
 }
 
 impl PartialEq for Key {
-    /// We deliberately hide the differences between the containment types.
     fn eq(&self, other: &Self) -> bool {
         self.as_ref() == other.as_ref()
     }
@@ -212,12 +211,6 @@ impl fmt::Display for Key {
     }
 }
 
-// Here we don't provide generic `From` impls
-// (i.e. `impl <T: Into<KeyData>> From<T> for Key`) because the decision whether
-// to construct the owned or borrowed ref is important for performance, and
-// we want users of this type to explicitly make this decision rather than rely
-// on the the magic of `.into()`.
-
 impl From<KeyData> for Key {
     fn from(key_data: KeyData) -> Self {
         Self::Owned(key_data)
@@ -230,9 +223,9 @@ impl From<&'static KeyData> for Key {
     }
 }
 
-/// A type to simplify management of the static `KeyData`.
+/// A thread-safe cell which can only be written to once, for key data.
 ///
-/// Allows for an efficient caching of the `KeyData` at the callsites.
+/// Allows for efficient caching of static [`KeyData`] at metric callsites.
 pub type OnceKeyData = once_cell::sync::OnceCell<KeyData>;
 
 #[cfg(test)]
@@ -275,8 +268,10 @@ mod tests {
     fn test_key_eq_and_hash() {
         let mut keys = HashMap::new();
 
-        let owned_basic = Key::from(KeyData::from_name("name"));
-        let borrowed_basic = Key::from(BORROWED_BASIC.get_or_init(|| KeyData::from_name("name")));
+        let owned_basic: Key = KeyData::from_name("name").into();
+        let borrowed_basic: Key = BORROWED_BASIC
+            .get_or_init(|| KeyData::from_name("name"))
+            .into();
         assert_eq!(owned_basic, borrowed_basic);
 
         let previous = keys.insert(owned_basic, 42);
