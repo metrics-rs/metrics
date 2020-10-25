@@ -1,6 +1,6 @@
 use crate::{Key, Unit};
-use std::fmt;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use core::fmt;
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 static mut RECORDER: &'static dyn Recorder = &NoopRecorder;
 static STATE: AtomicUsize = AtomicUsize::new(0);
@@ -12,13 +12,16 @@ const INITIALIZED: usize = 2;
 static SET_RECORDER_ERROR: &str =
     "attempted to set a recorder after the metrics system was already initialized";
 
-/// A value that records metrics behind the facade.
+/// A trait for registering and recording metrics.
+///
+/// This is the core trait that allows interoperability between exporter implementations and the
+/// macros provided by `metrics`.
 pub trait Recorder {
     /// Registers a counter.
     ///
     /// Callers may provide the unit or a description of the counter being registered. Whether or
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
-    /// or not, as well as how descriptions are used by the underlying recorder, is an
+    /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
     fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>);
 
@@ -26,7 +29,7 @@ pub trait Recorder {
     ///
     /// Callers may provide the unit or a description of the gauge being registered. Whether or
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
-    /// or not, as well as how descriptions are used by the underlying recorder, is an
+    /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
     fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>);
 
@@ -34,7 +37,7 @@ pub trait Recorder {
     ///
     /// Callers may provide the unit or a description of the histogram being registered. Whether or
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
-    /// or not, as well as how descriptions are used by the underlying recorder, is an
+    /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
     fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>);
 

@@ -1,4 +1,7 @@
-use std::borrow::Cow;
+#[cfg(target_pointer_width = "64")]
+use beef::lean::Cow;
+#[cfg(not(target_pointer_width = "64"))]
+use beef::Cow;
 
 /// An allocation-optimized string.
 ///
@@ -111,6 +114,9 @@ impl Unit {
 
     /// Gets the canonical string label for the given unit.
     ///
+    /// For example, the canonical label for Seconds` would be `s`, while for `Nanoseconds, it would
+    /// be `ns`.
+    ///
     /// Not all units have a meaningful display label and so may be empty.
     pub fn as_canonical_label(&self) -> &str {
         match self {
@@ -145,6 +151,8 @@ impl Unit {
     }
 
     /// Converts the string representation of a unit back into `Unit` if possible.
+    ///
+    /// The value passed here should match the output of [`Unit::as_str`].
     pub fn from_str(s: &str) -> Option<Unit> {
         match s {
             "count" => Some(Unit::Count),
@@ -189,14 +197,26 @@ impl Unit {
     /// Whether or not this unit relates to the measurement of data.
     pub fn is_data_based(&self) -> bool {
         match self {
-            Unit::Terabytes | Unit::Gigabytes | Unit::Megabytes | Unit::Kilobytes | Unit::Bytes => {
-                true
-            }
-            Unit::Terabits | Unit::Gigabits | Unit::Megabits | Unit::Kilobits | Unit::Bits => true,
-            Unit::TerabytesPerSecond | Unit::GigabytesPerSecond | Unit::MegabytesPerSecond => true,
-            Unit::KilobytesPerSecond | Unit::BytesPerSecond | Unit::TerabitsPerSecond => true,
-            Unit::GigabitsPerSecond | Unit::MegabitsPerSecond | Unit::KilobitsPerSecond => true,
-            Unit::BitsPerSecond => true,
+            Unit::Terabytes
+            | Unit::Gigabytes
+            | Unit::Megabytes
+            | Unit::Kilobytes
+            | Unit::Bytes
+            | Unit::Terabits
+            | Unit::Gigabits
+            | Unit::Megabits
+            | Unit::Kilobits
+            | Unit::Bits
+            | Unit::TerabytesPerSecond
+            | Unit::GigabytesPerSecond
+            | Unit::MegabytesPerSecond
+            | Unit::KilobytesPerSecond
+            | Unit::BytesPerSecond
+            | Unit::TerabitsPerSecond
+            | Unit::GigabitsPerSecond
+            | Unit::MegabitsPerSecond
+            | Unit::KilobitsPerSecond
+            | Unit::BitsPerSecond => true,
             _ => false,
         }
     }
@@ -204,12 +224,16 @@ impl Unit {
     /// Whether or not this unit relates to the measurement of data rates.
     pub fn is_data_rate_based(&self) -> bool {
         match self {
-            Unit::TerabytesPerSecond | Unit::GigabytesPerSecond | Unit::MegabytesPerSecond => true,
-            Unit::KilobytesPerSecond
+            Unit::TerabytesPerSecond
+            | Unit::GigabytesPerSecond
+            | Unit::MegabytesPerSecond
+            | Unit::KilobytesPerSecond
             | Unit::BytesPerSecond
             | Unit::TerabitsPerSecond
-            | Unit::Gigabits => true,
-            Unit::MegabitsPerSecond | Unit::KilobitsPerSecond | Unit::BitsPerSecond => true,
+            | Unit::Gigabits
+            | Unit::MegabitsPerSecond
+            | Unit::KilobitsPerSecond
+            | Unit::BitsPerSecond => true,
             _ => false,
         }
     }
