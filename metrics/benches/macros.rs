@@ -33,11 +33,13 @@ fn macro_benchmark(c: &mut Criterion) {
     c.bench(
         "macros",
         Benchmark::new("uninitialized/no_labels", |b| {
+            metrics::clear_recorder();
             b.iter(|| {
                 counter!("counter_bench", 42);
             })
         })
         .with_function("uninitialized/with_static_labels", |b| {
+            metrics::clear_recorder();
             b.iter(|| {
                 counter!("counter_bench", 42, "request" => "http", "svc" => "admin");
             })

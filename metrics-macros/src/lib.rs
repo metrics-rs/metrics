@@ -3,7 +3,6 @@ extern crate proc_macro;
 use self::proc_macro::TokenStream;
 
 use lazy_static::lazy_static;
-use proc_macro2::Span;
 use proc_macro_hack::proc_macro_hack;
 use quote::{format_ident, quote, ToTokens};
 use regex::Regex;
@@ -14,38 +13,24 @@ use syn::{parse_macro_input, Expr, LitStr, Token};
 #[cfg(test)]
 mod tests;
 
-enum Key {
-    NotScoped(LitStr),
-    Scoped(LitStr),
-}
-
-impl Key {
-    pub fn span(&self) -> Span {
-        match self {
-            Key::Scoped(s) => s.span(),
-            Key::NotScoped(s) => s.span(),
-        }
-    }
-}
-
 enum Labels {
     Existing(Expr),
     Inline(Vec<(LitStr, Expr)>),
 }
 
 struct WithoutExpression {
-    key: Key,
+    key: LitStr,
     labels: Option<Labels>,
 }
 
 struct WithExpression {
-    key: Key,
+    key: LitStr,
     op_value: Expr,
     labels: Option<Labels>,
 }
 
 struct Registration {
-    key: Key,
+    key: LitStr,
     unit: Option<Expr>,
     description: Option<LitStr>,
     labels: Option<Labels>,
@@ -239,7 +224,7 @@ pub fn histogram(input: TokenStream) -> TokenStream {
 
 fn get_expanded_registration(
     metric_type: &str,
-    key: Key,
+    key: LitStr,
     unit: Option<Expr>,
     description: Option<LitStr>,
     labels: Option<Labels>,
@@ -272,45 +257,64 @@ fn get_expanded_registration(
 fn get_expanded_callsite<V>(
     metric_type: &str,
     op_type: &str,
-    key: Key,
+    key: LitStr,
     labels: Option<Labels>,
     op_values: V,
 ) -> proc_macro2::TokenStream
 where
     V: ToTokens,
 {
-    let use_fast_path = can_use_fast_path(&labels);
-    let key = key_to_quoted(key, labels);
-
+    // We use a helper method for histogram values to coerce into u64, but otherwise,
+    // just pass through whatever the caller gave us.
     let op_values = if metric_type == "histogram" {
-        quote! {
-            metrics::__into_u64(#op_values)
-        }
+        quote! { metrics::__into_u64(#op_values) }
     } else {
         quote! { #op_values }
     };
 
     let op_ident = format_ident!("{}_{}", op_type, metric_type);
 
+    let use_fast_path = can_use_fast_path(&labels);
     if use_fast_path {
         // We're on the fast path here, so we'll build our key, statically cache it,
         // and use a borrowed reference to it for this and future operations.
+        let statics = match labels {
+            Some(Labels::Inline(pairs)) => {
+                let labels = pairs
+                    .into_iter()
+                    .map(|(key, val)| quote! { metrics::Label::from_static_parts(#key, #val) })
+                    .collect::<Vec<_>>();
+                let labels_len = labels.len();
+                let labels_len = quote! { #labels_len };
+
+                quote! {
+                    static METRIC_LABELS: [metrics::Label; #labels_len] = [#(#labels),*];
+                    static METRIC_KEY: metrics::KeyData =
+                        metrics::KeyData::from_static_parts(#key, &METRIC_LABELS);
+                }
+            }
+            None => {
+                quote! {
+                    static METRIC_KEY: metrics::KeyData =
+                        metrics::KeyData::from_static_name(#key);
+                }
+            }
+            _ => unreachable!("use_fast_path == true, but found expression-based labels"),
+        };
+
         quote! {
             {
-                static CACHED_KEY: metrics::OnceKeyData = metrics::OnceKeyData::new();
+                #statics
 
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
-                    // Initialize our fast path.
-                    let key = CACHED_KEY.get_or_init(|| { #key });
-                    recorder.#op_ident(metrics::Key::Borrowed(&key), #op_values);
+                    recorder.#op_ident(metrics::Key::Borrowed(&METRIC_KEY), #op_values);
                 }
             }
         }
     } else {
-        // We're on the slow path, so basically we register every single time.
-        //
-        // Recorders are expected to deduplicate any duplicate registrations.
+        // We're on the slow path, so we allocate, womp.
+        let key = key_to_quoted(key, labels);
         quote! {
             {
                 // Only do this work if there's a recorder installed.
@@ -332,20 +336,9 @@ fn can_use_fast_path(labels: &Option<Labels>) -> bool {
     }
 }
 
-fn read_key(input: &mut ParseStream) -> Result<Key> {
-    let key = if let Ok(_) = input.parse::<Token![<]>() {
-        let s = input.parse::<LitStr>()?;
-        input.parse::<Token![>]>()?;
-        Key::Scoped(s)
-    } else {
-        let s = input.parse::<LitStr>()?;
-        Key::NotScoped(s)
-    };
-
-    let inner = match key {
-        Key::Scoped(ref s) => s.value(),
-        Key::NotScoped(ref s) => s.value(),
-    };
+fn read_key(input: &mut ParseStream) -> Result<LitStr> {
+    let key = input.parse::<LitStr>()?;
+    let inner = key.value();
 
     lazy_static! {
         static ref RE: Regex = Regex::new("^[a-zA-Z][a-zA-Z0-9_:\\.]*$").unwrap();
@@ -360,22 +353,7 @@ fn read_key(input: &mut ParseStream) -> Result<Key> {
     Ok(key)
 }
 
-fn quote_key_name(key: Key) -> proc_macro2::TokenStream {
-    match key {
-        Key::NotScoped(s) => {
-            quote! { #s }
-        }
-        Key::Scoped(s) => {
-            quote! {
-                format!("{}.{}", std::module_path!().replace("::", "."), #s)
-            }
-        }
-    }
-}
-
-fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
-    let name = quote_key_name(key);
-
+fn key_to_quoted(name: LitStr, labels: Option<Labels>) -> proc_macro2::TokenStream {
     match labels {
         None => quote! { metrics::KeyData::from_name(#name) },
         Some(labels) => match labels {
@@ -383,9 +361,9 @@ fn key_to_quoted(key: Key, labels: Option<Labels>) -> proc_macro2::TokenStream {
                 let labels = pairs
                     .into_iter()
                     .map(|(key, val)| quote! { metrics::Label::new(#key, #val) });
-                quote! { metrics::KeyData::from_name_and_labels(#name, vec![#(#labels),*]) }
+                quote! { metrics::KeyData::from_parts(#name, vec![#(#labels),*]) }
             }
-            Labels::Existing(e) => quote! { metrics::KeyData::from_name_and_labels(#name, #e) },
+            Labels::Existing(e) => quote! { metrics::KeyData::from_parts(#name, #e) },
         },
     }
 }
