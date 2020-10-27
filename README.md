@@ -2,8 +2,6 @@
 
 [splash]: https://raw.githubusercontent.com/metrics-rs/metrics/main/assets/splash.png
 
-[![Documentation][docs-badge]][docs-url]
-
 [![Code of Conduct][conduct-badge]][conduct]
 [![MIT licensed][license-badge]](#license)
 [![Documentation][docs-badge]][docs]
