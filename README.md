@@ -2,11 +2,20 @@
 
 [splash]: https://raw.githubusercontent.com/metrics-rs/metrics/main/assets/splash.png
 
-[![conduct-badge][]][conduct] [![license-badge][]](#license) [![discord-badge][]][discord] ![last-commit-badge][] ![contributors-badge][]
+[![Documentation][docs-badge]][docs-url]
+
+[![Code of Conduct][conduct-badge]][conduct]
+[![MIT licensed][license-badge]](#license)
+[![Documentation][docs-badge]][docs]
+[![Discord chat][discord-badge]][discord]
+![last-commit-badge][]
+![contributors-badge][]
 
 [conduct-badge]: https://img.shields.io/badge/%E2%9D%A4-code%20of%20conduct-blue.svg
-[license-badge]: https://img.shields.io/badge/license-MIT-blue
 [conduct]: https://github.com/metrics-rs/metrics/blob/master/CODE_OF_CONDUCT.md
+[license-badge]: https://img.shields.io/badge/license-MIT-blue
+[docs-badge]: https://docs.rs/metrics/badge.svg
+[docs]: https://docs.rs/metrics
 [discord-badge]: https://img.shields.io/discord/500028886025895936
 [discord]: https://discord.gg/eTwKyY9
 [last-commit-badge]: https://img.shields.io/github/last-commit/metrics-rs/metrics
@@ -36,13 +45,12 @@ Importantly, this works for both library authors and application authors.  If th
 
 The Metrics project provides a number of crates for both library and application authors.
 
-If you're a library author, you'll only care about using [`metrics`] to instrument your library.  If
-you're an application author, you'll likely also want to instrument your application, but you'll
-care about "exporters" as a means to take those metrics and ship them somewhere for analysis.
+If you're a library author, you'll only care about using [`metrics`][metrics] to instrument your library.  If you're an application author, you'll likely also want to instrument your application, but you'll care about "exporters" as a means to take those metrics and ship them somewhere for analysis.
 
 Overall, this repository is home to the following crates:
 
-* [`metrics`][metrics]: A lightweight metrics facade, similar to [`log`](https://docs.rs/log).
+* [`metrics`][metrics]: A lightweight metrics facade, similar to [`log`][log].
+https://docs.rs/log).
 * [`metrics-macros`][metrics-macros]: Procedural macros that power `metrics`.
 * [`metrics-tracing-context`][metrics-tracing-context]: Allow capturing [`tracing`][tracing] span
   fields as metric labels.
@@ -63,4 +71,5 @@ We'd love to chat about any of the above, or anything else, really!  You can fin
 [metrics-exporter-tcp]: https://github.com/metrics-rs/metrics/tree/main/metrics-exporter-tcp
 [metrics-exporter-prometheus]: https://github.com/metrics-rs/metrics/tree/main/metrics-exporter-prometheus
 [metrics-util]: https://github.com/metrics-rs/metrics/tree/main/metrics-util
+[log]: https://docs.rs/log
 [tracing]: https://tracing.rs
