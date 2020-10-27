@@ -86,38 +86,22 @@ fn main() {
     increment!("requests_processed", "request_type" => "admin");
     increment!("requests_processed", "request_type" => "admin", "server" => server_name.clone());
     increment!("requests_processed", common_labels);
-    increment!(<"requests_processed">);
-    increment!(<"requests_processed">, "request_type" => "admin");
-    increment!(<"requests_processed">, "request_type" => "admin", "server" => server_name.clone());
-    increment!(<"requests_processed">, common_labels);
 
     // All the supported permutations of `counter!`:
     counter!("bytes_sent", 64);
     counter!("bytes_sent", 64, "listener" => "frontend");
     counter!("bytes_sent", 64, "listener" => "frontend", "server" => server_name.clone());
     counter!("bytes_sent", 64, common_labels);
-    counter!(<"bytes_sent">, 64);
-    counter!(<"bytes_sent">, 64, "listener" => "frontend");
-    counter!(<"bytes_sent">, 64, "listener" => "frontend", "server" => server_name.clone());
-    counter!(<"bytes_sent">, 64, common_labels);
 
     // All the supported permutations of `gauge!`:
     gauge!("connection_count", 300.0);
     gauge!("connection_count", 300.0, "listener" => "frontend");
     gauge!("connection_count", 300.0, "listener" => "frontend", "server" => server_name.clone());
     gauge!("connection_count", 300.0, common_labels);
-    gauge!(<"connection_count">, 300.0);
-    gauge!(<"connection_count">, 300.0, "listener" => "frontend");
-    gauge!(<"connection_count">, 300.0, "listener" => "frontend", "server" => server_name.clone());
-    gauge!(<"connection_count">, 300.0, common_labels);
 
     // All the supported permutations of `histogram!`:
     histogram!("svc.execution_time", 70);
     histogram!("svc.execution_time", 70, "type" => "users");
     histogram!("svc.execution_time", 70, "type" => "users", "server" => server_name.clone());
     histogram!("svc.execution_time", 70, common_labels);
-    histogram!(<"svc.execution_time">, 70);
-    histogram!(<"svc.execution_time">, 70, "type" => "users");
-    histogram!(<"svc.execution_time">, 70, "type" => "users", "server" => server_name.clone());
-    histogram!(<"svc.execution_time">, 70, common_labels);
 }

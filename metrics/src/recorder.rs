@@ -196,7 +196,7 @@ pub fn recorder() -> &'static dyn Recorder {
 /// If a recorder has not been set, returns `None`.
 pub fn try_recorder() -> Option<&'static dyn Recorder> {
     unsafe {
-        if STATE.load(Ordering::SeqCst) != INITIALIZED {
+        if STATE.load(Ordering::Relaxed) != INITIALIZED {
             None
         } else {
             Some(RECORDER)

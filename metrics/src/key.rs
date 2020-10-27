@@ -1,7 +1,9 @@
-use crate::{IntoLabels, Label, ScopedString};
+use crate::{IntoLabels, Label, SharedString};
+use alloc::{borrow::Cow, string::String, vec::Vec};
 use core::{
     fmt,
     hash::{Hash, Hasher},
+    ops,
     slice::Iter,
 };
 
@@ -11,28 +13,28 @@ use core::{
 /// responsible for the actual storage of the name and label data.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct KeyData {
-    name: ScopedString,
-    labels: Vec<Label>,
+    name: SharedString,
+    labels: Cow<'static, [Label]>,
 }
 
 impl KeyData {
     /// Creates a [`KeyData`] from a name.
     pub fn from_name<N>(name: N) -> Self
     where
-        N: Into<ScopedString>,
+        N: Into<SharedString>,
     {
-        Self::from_name_and_labels(name, Vec::new())
+        Self::from_parts(name, Vec::new())
     }
 
     /// Creates a [`KeyData`] from a name and vector of [`Label`]s.
-    pub fn from_name_and_labels<N, L>(name: N, labels: L) -> Self
+    pub fn from_parts<N, L>(name: N, labels: L) -> Self
     where
-        N: Into<ScopedString>,
+        N: Into<SharedString>,
         L: IntoLabels,
     {
         Self {
             name: name.into(),
-            labels: labels.into_labels(),
+            labels: labels.into_labels().into(),
         }
     }
 
@@ -41,13 +43,23 @@ impl KeyData {
     /// This function is `const`, so it can be used in a static context.
     pub const fn from_static_name(name: &'static str) -> Self {
         Self {
-            name: ScopedString::const_str(name),
-            labels: Vec::new(),
+            name: SharedString::const_str(name),
+            labels: Cow::Owned(Vec::new()),
+        }
+    }
+
+    /// Creates a [`KeyData`] from a static name and static set of labels.
+    ///
+    /// This function is `const`, so it can be used in a static context.
+    pub const fn from_static_parts(name: &'static str, labels: &'static [Label]) -> Self {
+        Self {
+            name: SharedString::const_str(name),
+            labels: Cow::Borrowed(labels),
         }
     }
 
     /// Name of this key.
-    pub fn name(&self) -> &ScopedString {
+    pub fn name(&self) -> &SharedString {
         &self.name
     }
 
@@ -61,7 +73,7 @@ impl KeyData {
     /// The value returned by `f` becomes the new name of the key.
     pub fn map_name<F>(mut self, f: F) -> Self
     where
-        F: Fn(ScopedString) -> String,
+        F: Fn(SharedString) -> String,
     {
         let new_name = f(self.name);
         self.name = new_name.into();
@@ -69,8 +81,8 @@ impl KeyData {
     }
 
     /// Consumes this [`Key`], returning the name and any labels.
-    pub fn into_parts(self) -> (ScopedString, Vec<Label>) {
-        (self.name, self.labels)
+    pub fn into_parts(self) -> (SharedString, Vec<Label>) {
+        (self.name, self.labels.into_owned())
     }
 
     /// Clones this [`Key`], and expands the existing set of labels.
@@ -80,10 +92,13 @@ impl KeyData {
         }
 
         let name = self.name.clone();
-        let mut labels = self.labels.clone();
+        let mut labels = self.labels.clone().into_owned();
         labels.extend(extra_labels);
 
-        Self { name, labels }
+        Self {
+            name,
+            labels: labels.into(),
+        }
     }
 }
 
@@ -94,7 +109,7 @@ impl fmt::Display for KeyData {
         } else {
             write!(f, "KeyData({}, [", self.name)?;
             let mut first = true;
-            for label in &self.labels {
+            for label in self.labels.as_ref() {
                 if first {
                     write!(f, "{} = {}", label.0, label.1)?;
                     first = false;
@@ -121,11 +136,11 @@ impl From<&'static str> for KeyData {
 
 impl<N, L> From<(N, L)> for KeyData
 where
-    N: Into<ScopedString>,
+    N: Into<SharedString>,
     L: IntoLabels,
 {
     fn from(parts: (N, L)) -> Self {
-        Self::from_name_and_labels(parts.0, parts.1)
+        Self::from_parts(parts.0, parts.1)
     }
 }
 
@@ -180,7 +195,7 @@ impl Key {
     }
 }
 
-impl std::ops::Deref for Key {
+impl ops::Deref for Key {
     type Target = KeyData;
 
     #[must_use]
@@ -223,44 +238,37 @@ impl From<&'static KeyData> for Key {
     }
 }
 
-/// A thread-safe cell which can only be written to once, for key data.
-///
-/// Allows for efficient caching of static [`KeyData`] at metric callsites.
-pub type OnceKeyData = once_cell::sync::OnceCell<KeyData>;
-
 #[cfg(test)]
 mod tests {
-    use super::{Key, KeyData, OnceKeyData};
+    use super::{Key, KeyData};
     use crate::Label;
     use std::collections::HashMap;
 
-    static BORROWED_BASIC: OnceKeyData = OnceKeyData::new();
-    static BORROWED_LABELS: OnceKeyData = OnceKeyData::new();
+    static BORROWED_BASIC: KeyData = KeyData::from_static_name("name");
+    static LABELS: [Label; 1] = [Label::from_static_parts("key", "value")];
+    static BORROWED_LABELS: KeyData = KeyData::from_static_parts("name", &LABELS);
 
     #[test]
     fn test_keydata_eq_and_hash() {
         let mut keys = HashMap::new();
 
         let owned_basic = KeyData::from_name("name");
-        let borrowed_basic = BORROWED_BASIC.get_or_init(|| KeyData::from_name("name"));
-        assert_eq!(&owned_basic, borrowed_basic);
+        assert_eq!(&owned_basic, &BORROWED_BASIC);
 
         let previous = keys.insert(owned_basic, 42);
         assert!(previous.is_none());
 
-        let previous = keys.get(&borrowed_basic);
+        let previous = keys.get(&BORROWED_BASIC);
         assert_eq!(previous, Some(&42));
 
-        let labels = vec![Label::new("key", "value")];
-        let owned_labels = KeyData::from_name_and_labels("name", labels.clone());
-        let borrowed_labels =
-            BORROWED_LABELS.get_or_init(|| KeyData::from_name_and_labels("name", labels.clone()));
-        assert_eq!(&owned_labels, borrowed_labels);
+        let labels = LABELS.to_vec();
+        let owned_labels = KeyData::from_parts("name", labels);
+        assert_eq!(&owned_labels, &BORROWED_LABELS);
 
         let previous = keys.insert(owned_labels, 43);
         assert!(previous.is_none());
 
-        let previous = keys.get(&borrowed_labels);
+        let previous = keys.get(&BORROWED_LABELS);
         assert_eq!(previous, Some(&43));
     }
 
@@ -269,9 +277,7 @@ mod tests {
         let mut keys = HashMap::new();
 
         let owned_basic: Key = KeyData::from_name("name").into();
-        let borrowed_basic: Key = BORROWED_BASIC
-            .get_or_init(|| KeyData::from_name("name"))
-            .into();
+        let borrowed_basic: Key = Key::from(&BORROWED_BASIC);
         assert_eq!(owned_basic, borrowed_basic);
 
         let previous = keys.insert(owned_basic, 42);
@@ -280,11 +286,9 @@ mod tests {
         let previous = keys.get(&borrowed_basic);
         assert_eq!(previous, Some(&42));
 
-        let labels = vec![Label::new("key", "value")];
-        let owned_labels = Key::from(KeyData::from_name_and_labels("name", labels.clone()));
-        let borrowed_labels = Key::from(
-            BORROWED_LABELS.get_or_init(|| KeyData::from_name_and_labels("name", labels.clone())),
-        );
+        let labels = LABELS.to_vec();
+        let owned_labels = Key::from(KeyData::from_parts("name", labels));
+        let borrowed_labels = Key::from(&BORROWED_LABELS);
         assert_eq!(owned_labels, borrowed_labels);
 
         let previous = keys.insert(owned_labels, 43);
@@ -300,18 +304,18 @@ mod tests {
         let result1 = key1.to_string();
         assert_eq!(result1, "KeyData(foobar)");
 
-        let key2 = KeyData::from_name_and_labels("foobar", vec![Label::new("system", "http")]);
+        let key2 = KeyData::from_parts("foobar", vec![Label::new("system", "http")]);
         let result2 = key2.to_string();
         assert_eq!(result2, "KeyData(foobar, [system = http])");
 
-        let key3 = KeyData::from_name_and_labels(
+        let key3 = KeyData::from_parts(
             "foobar",
             vec![Label::new("system", "http"), Label::new("user", "joe")],
         );
         let result3 = key3.to_string();
         assert_eq!(result3, "KeyData(foobar, [system = http, user = joe])");
 
-        let key4 = KeyData::from_name_and_labels(
+        let key4 = KeyData::from_parts(
             "foobar",
             vec![
                 Label::new("black", "black"),
@@ -331,27 +335,24 @@ mod tests {
         let owned_a = KeyData::from_name("a");
         let owned_b = KeyData::from_name("b");
 
-        static STATIC_A: OnceKeyData = OnceKeyData::new();
-        static STATIC_B: OnceKeyData = OnceKeyData::new();
-
-        let borrowed_a = STATIC_A.get_or_init(|| owned_a.clone());
-        let borrowed_b = STATIC_B.get_or_init(|| owned_b.clone());
+        static STATIC_A: KeyData = KeyData::from_static_name("a");
+        static STATIC_B: KeyData = KeyData::from_static_name("b");
 
         assert_eq!(Key::Owned(owned_a.clone()), Key::Owned(owned_a.clone()));
         assert_eq!(Key::Owned(owned_b.clone()), Key::Owned(owned_b.clone()));
 
-        assert_eq!(Key::Borrowed(borrowed_a), Key::Borrowed(borrowed_a));
-        assert_eq!(Key::Borrowed(borrowed_b), Key::Borrowed(borrowed_b));
+        assert_eq!(Key::Borrowed(&STATIC_A), Key::Borrowed(&STATIC_A));
+        assert_eq!(Key::Borrowed(&STATIC_B), Key::Borrowed(&STATIC_B));
 
-        assert_eq!(Key::Owned(owned_a.clone()), Key::Borrowed(borrowed_a));
-        assert_eq!(Key::Owned(owned_b.clone()), Key::Borrowed(borrowed_b));
+        assert_eq!(Key::Owned(owned_a.clone()), Key::Borrowed(&STATIC_A));
+        assert_eq!(Key::Owned(owned_b.clone()), Key::Borrowed(&STATIC_B));
 
-        assert_eq!(Key::Borrowed(borrowed_a), Key::Owned(owned_a.clone()));
-        assert_eq!(Key::Borrowed(borrowed_b), Key::Owned(owned_b.clone()));
+        assert_eq!(Key::Borrowed(&STATIC_A), Key::Owned(owned_a.clone()));
+        assert_eq!(Key::Borrowed(&STATIC_B), Key::Owned(owned_b.clone()));
 
         assert_ne!(Key::Owned(owned_a.clone()), Key::Owned(owned_b.clone()),);
-        assert_ne!(Key::Borrowed(borrowed_a), Key::Borrowed(borrowed_b));
-        assert_ne!(Key::Owned(owned_a.clone()), Key::Borrowed(borrowed_b));
-        assert_ne!(Key::Owned(owned_b.clone()), Key::Borrowed(borrowed_a));
+        assert_ne!(Key::Borrowed(&STATIC_A), Key::Borrowed(&STATIC_B));
+        assert_ne!(Key::Owned(owned_a.clone()), Key::Borrowed(&STATIC_B));
+        assert_ne!(Key::Owned(owned_b.clone()), Key::Borrowed(&STATIC_A));
     }
 }
