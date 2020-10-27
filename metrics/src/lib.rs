@@ -215,6 +215,10 @@
 //! [metrics-util]: https://docs.rs/metrics-util
 //! [AtomicBucket]: https://docs.rs/metrics-util/0.4.0-alpha.6/metrics_util/struct.AtomicBucket.html
 #![deny(missing_docs)]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 use proc_macro_hack::proc_macro_hack;
 
 mod common;
@@ -238,28 +242,13 @@ pub use self::recorder::*;
 /// recorder does anything with the description is implementation defined.  Labels can also be
 /// specified when registering a metric.
 ///
-/// # Scoped versus unscoped
-/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
-/// is taking place in.  This scope is used as a prefix to the provided metric name.  For example,
-/// take an example metric of "my_counter_metric" being emitted in a binary application "service":
-///
-/// - unscoped: `my_counter_metric`
-/// - scoped: `service.my_counter_metric`
-///
-/// If the metric was emitted in a nested module within the application, the scope would represent
-/// the full module path to where the metric is being emitted, such as
-/// `service.some_module.my_counter_metric`.
-///
 /// # Example
 /// ```
 /// # use metrics::register_counter;
 /// # use metrics::Unit;
 /// # fn main() {
-/// // A regular, unscoped counter:
+/// // A basic counter:
 /// register_counter!("some_metric_name");
-///
-/// // A scoped counter.  This inherits a scope derived by the current module:
-/// register_counter!(<"some_metric_name">);
 ///
 /// // Providing a unit for a counter:
 /// register_counter!("some_metric_name", Unit::Bytes);
@@ -297,28 +286,13 @@ pub use metrics_macros::register_counter;
 /// recorder does anything with the description is implementation defined.  Labels can also be
 /// specified when registering a metric.
 ///
-/// # Scoped versus unscoped
-/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
-/// is taking place in.  This scope is used as a prefix to the provided metric name.  For example,
-/// take an example metric of "my_gauge_metric" being emitted in a binary application "service":
-///
-/// - unscoped: `my_gauge_metric`
-/// - scoped: `service.my_gauge_metric`
-///
-/// If the metric was emitted in a nested module within the application, the scope would represent
-/// the full module path to where the metric is being emitted, such as
-/// `service.some_module.my_gauge_metric`.
-///
 /// # Example
 /// ```
 /// # use metrics::register_gauge;
 /// # use metrics::Unit;
 /// # fn main() {
-/// // A regular, unscoped gauge:
+/// // A basic gauge:
 /// register_gauge!("some_metric_name");
-///
-/// // A scoped gauge.  This inherits a scope derived by the current module:
-/// register_gauge!(<"some_metric_name">);
 ///
 /// // Providing a unit for a gauge:
 /// register_gauge!("some_metric_name", Unit::Bytes);
@@ -356,28 +330,13 @@ pub use metrics_macros::register_gauge;
 /// recorder does anything with the description is implementation defined.  Labels can also be
 /// specified when registering a metric.
 ///
-/// # Scoped versus unscoped
-/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
-/// is taking place in.  This scope is used as a prefix to the provided metric name.  For example,
-/// take an example metric of "my_histogram_metric" being emitted in a binary application "service":
-///
-/// - unscoped: `my_histogram_metric`
-/// - scoped: `service.my_histogram_metric`
-///
-/// If the metric was emitted in a nested module within the application, the scope would represent
-/// the full module path to where the metric is being emitted, such as
-/// `service.some_module.my_histogram_metric`.
-///
 /// # Example
 /// ```
 /// # use metrics::register_histogram;
 /// # use metrics::Unit;
 /// # fn main() {
-/// // A regular, unscoped histogram:
+/// // A basic histogram:
 /// register_histogram!("some_metric_name");
-///
-/// // A scoped histogram.  This inherits a scope derived by the current module:
-/// register_histogram!(<"some_metric_name">);
 ///
 /// // Providing a unit for a histogram:
 /// register_histogram!("some_metric_name", Unit::Nanoseconds);
@@ -411,27 +370,12 @@ pub use metrics_macros::register_histogram;
 /// Counters represent a single monotonic value, which means the value can only be incremented, not
 /// decremented, and always starts out with an initial value of zero.
 ///
-/// # Scoped versus unscoped
-/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
-/// is taking place in.  This scope is used as a prefix to the provided metric name.  For example,
-/// take an example metric of "my_counter_metric" being emitted in a binary application "service":
-///
-/// - unscoped: `my_counter_metric`
-/// - scoped: `service.my_counter_metric`
-///
-/// If the metric was emitted in a nested module within the application, the scope would represent
-/// the full module path to where the metric is being emitted, such as
-/// `service.some_module.my_counter_metric`.
-///
 /// # Example
 /// ```
 /// # use metrics::increment;
 /// # fn main() {
-/// // A regular, unscoped increment:
+/// // A basic increment:
 /// increment!("some_metric_name");
-///
-/// // A scoped increment.  This inherits a scope derived by the current module:
-/// increment!(<"some_metric_name">);
 ///
 /// // Specifying labels:
 /// increment!("some_metric_name", "service" => "http");
@@ -450,27 +394,12 @@ pub use metrics_macros::increment;
 /// Counters represent a single monotonic value, which means the value can only be incremented, not
 /// decremented, and always starts out with an initial value of zero.
 ///
-/// # Scoped versus unscoped
-/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
-/// is taking place in.  This scope is used as a prefix to the provided metric name.  For example,
-/// take an example metric of "my_counter_metric" being emitted in a binary application "service":
-///
-/// - unscoped: `my_counter_metric`
-/// - scoped: `service.my_counter_metric`
-///
-/// If the metric was emitted in a nested module within the application, the scope would represent
-/// the full module path to where the metric is being emitted, such as
-/// `service.some_module.my_counter_metric`.
-///
 /// # Example
 /// ```
 /// # use metrics::counter;
 /// # fn main() {
-/// // A regular, unscoped counter:
+/// // A basic counter:
 /// counter!("some_metric_name", 12);
-///
-/// // A scoped counter.  This inherits a scope derived by the current module:
-/// counter!(<"some_metric_name">, 12);
 ///
 /// // Specifying labels:
 /// counter!("some_metric_name", 12, "service" => "http");
@@ -489,27 +418,12 @@ pub use metrics_macros::counter;
 /// Gauges represent a single value that can go up or down over time, and always starts out with an
 /// initial value of zero.
 ///
-/// # Scoped versus unscoped
-/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
-/// is taking place in.  This scope is used as a prefix to the provided metric name.  For example,
-/// take an example metric of "my_gauge_metric" being emitted in a binary application "service":
-///
-/// - unscoped: `my_gauge_metric`
-/// - scoped: `service.my_gauge_metric`
-///
-/// If the metric was emitted in a nested module within the application, the scope would represent
-/// the full module path to where the metric is being emitted, such as
-/// `service.some_module.my_gauge_metric`.
-///
 /// # Example
 /// ```
 /// # use metrics::gauge;
 /// # fn main() {
-/// // A regular, unscoped gauge:
+/// // A basic gauge:
 /// gauge!("some_metric_name", 42.2222);
-///
-/// // A scoped gauge.  This inherits a scope derived by the current module:
-/// gauge!(<"some_metric_name">, 33.3333);
 ///
 /// // Specifying labels:
 /// gauge!("some_metric_name", 66.6666, "service" => "http");
@@ -528,18 +442,6 @@ pub use metrics_macros::gauge;
 /// Histograms measure the distribution of values for a given set of measurements, and start with no
 /// initial values.
 ///
-/// # Scoped versus unscoped
-/// Metrics can be unscoped or scoped, where the scoping is derived by the current module the call
-/// is taking place in.  This scope is used as a prefix to the provided metric name.  For example,
-/// take an example metric of "my_histogram_metric" being emitted in a binary application "service":
-///
-/// - unscoped: `my_histogram_metric`
-/// - scoped: `service.my_histogram_metric`
-///
-/// If the metric was emitted in a nested module within the application, the scope would represent
-/// the full module path to where the metric is being emitted, such as
-/// `service.some_module.my_histogram_metric`.
-///
 /// # Implicit conversions
 /// Histograms are represented as `u64` values, but often come from another source, such as a time
 /// measurement.  By default, `histogram!` will accept a `u64` directly or a
@@ -553,15 +455,12 @@ pub use metrics_macros::gauge;
 /// # use metrics::histogram;
 /// # use std::time::Duration;
 /// # fn main() {
-/// // A regular, unscoped histogram:
+/// // A basic histogram:
 /// histogram!("some_metric_name", 34);
 ///
 /// // An implicit conversion from `Duration`:
 /// let d = Duration::from_millis(17);
 /// histogram!("some_metric_name", d);
-///
-/// // A scoped histogram.  This inherits a scope derived by the current module:
-/// histogram!(<"some_metric_name">, 38);
 ///
 /// // Specifying labels:
 /// histogram!("some_metric_name", 38, "service" => "http");

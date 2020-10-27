@@ -52,7 +52,7 @@ fn test_basic_functionality() {
         snapshot,
         vec![(
             MetricKind::Counter,
-            KeyData::from_name_and_labels(
+            KeyData::from_parts(
                 "login_attempts",
                 vec![
                     Label::new("service", "login_service"),
@@ -95,7 +95,7 @@ fn test_macro_forms() {
         vec![
             (
                 MetricKind::Counter,
-                KeyData::from_name_and_labels(
+                KeyData::from_parts(
                     "login_attempts_no_labels",
                     vec![
                         Label::new("user", "ferris"),
@@ -109,7 +109,7 @@ fn test_macro_forms() {
             ),
             (
                 MetricKind::Counter,
-                KeyData::from_name_and_labels(
+                KeyData::from_parts(
                     "login_attempts_static_labels",
                     vec![
                         Label::new("service", "login_service"),
@@ -124,7 +124,7 @@ fn test_macro_forms() {
             ),
             (
                 MetricKind::Counter,
-                KeyData::from_name_and_labels(
+                KeyData::from_parts(
                     "login_attempts_dynamic_labels",
                     vec![
                         Label::new("node_name", "localhost"),
@@ -139,7 +139,7 @@ fn test_macro_forms() {
             ),
             (
                 MetricKind::Counter,
-                KeyData::from_name_and_labels(
+                KeyData::from_parts(
                     "login_attempts_static_and_dynamic_labels",
                     vec![
                         Label::new("service", "login_service"),
@@ -224,7 +224,7 @@ fn test_multiple_paths_to_the_same_callsite() {
         vec![
             (
                 MetricKind::Counter,
-                KeyData::from_name_and_labels(
+                KeyData::from_parts(
                     "my_counter",
                     vec![
                         Label::new("shared_field", "path1"),
@@ -239,7 +239,7 @@ fn test_multiple_paths_to_the_same_callsite() {
             ),
             (
                 MetricKind::Counter,
-                KeyData::from_name_and_labels(
+                KeyData::from_parts(
                     "my_counter",
                     vec![
                         Label::new("shared_field", "path2"),
@@ -295,7 +295,7 @@ fn test_nested_spans() {
         snapshot,
         vec![(
             MetricKind::Counter,
-            KeyData::from_name_and_labels(
+            KeyData::from_parts(
                 "my_counter",
                 vec![
                     Label::new("shared_field", "inner"),
@@ -340,7 +340,7 @@ fn test_label_filtering() {
         snapshot,
         vec![(
             MetricKind::Counter,
-            KeyData::from_name_and_labels(
+            KeyData::from_parts(
                 "login_attempts",
                 vec![
                     Label::new("service", "login_service"),

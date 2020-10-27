@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Benchmark, Criterion};
-use metrics::{Key, KeyData, Label, OnceKeyData};
+use metrics::{Key, KeyData, Label};
 use metrics_util::Registry;
 
 fn registry_benchmark(c: &mut Criterion) {
@@ -7,22 +7,20 @@ fn registry_benchmark(c: &mut Criterion) {
         "registry",
         Benchmark::new("cached op (basic)", |b| {
             let registry: Registry<Key, ()> = Registry::new();
-            static KEY_DATA: OnceKeyData = OnceKeyData::new();
+            static KEY_DATA: KeyData = KeyData::from_static_name("simple_key");
 
             b.iter(|| {
-                let key = Key::Borrowed(KEY_DATA.get_or_init(|| KeyData::from_name("simple_key")));
+                let key = Key::Borrowed(&KEY_DATA);
                 registry.op(key, |_| (), || ())
             })
         })
         .with_function("cached op (labels)", |b| {
             let registry: Registry<Key, ()> = Registry::new();
-            static KEY_DATA: OnceKeyData = OnceKeyData::new();
+            static KEY_LABELS: [Label; 1] = [Label::from_static_parts("type", "http")];
+            static KEY_DATA: KeyData = KeyData::from_static_parts("simple_key", &KEY_LABELS);
 
             b.iter(|| {
-                let key = Key::Borrowed(KEY_DATA.get_or_init(|| {
-                    let labels = vec![Label::new("type", "http")];
-                    KeyData::from_name_and_labels("simple_key", labels)
-                }));
+                let key = Key::Borrowed(&KEY_DATA);
                 registry.op(key, |_| (), || ())
             })
         })
@@ -64,7 +62,20 @@ fn registry_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let key = "simple_key";
                 let labels = vec![Label::new("type", "http")];
-                KeyData::from_name_and_labels(key, labels)
+                KeyData::from_parts(key, labels)
+            })
+        })
+        .with_function("const key data overhead (basic)", |b| {
+            b.iter(|| {
+                let key = "simple_key";
+                KeyData::from_static_name(key)
+            })
+        })
+        .with_function("const key data overhead (labels)", |b| {
+            b.iter(|| {
+                let key = "simple_key";
+                static LABELS: [Label; 1] = [Label::from_static_parts("type", "http")];
+                KeyData::from_static_parts(key, &LABELS)
             })
         })
         .with_function("owned key overhead (basic)", |b| {
@@ -77,29 +88,17 @@ fn registry_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let key = "simple_key";
                 let labels = vec![Label::new("type", "http")];
-                Key::Owned(KeyData::from_name_and_labels(key, labels))
+                Key::Owned(KeyData::from_parts(key, labels))
             })
         })
         .with_function("cached key overhead (basic)", |b| {
-            static KEY_DATA: OnceKeyData = OnceKeyData::new();
-            b.iter(|| {
-                let key_data = KEY_DATA.get_or_init(|| {
-                    let key = "simple_key";
-                    KeyData::from_name(key)
-                });
-                Key::Borrowed(key_data)
-            })
+            static KEY_DATA: KeyData = KeyData::from_static_name("simple_key");
+            b.iter(|| Key::Borrowed(&KEY_DATA))
         })
         .with_function("cached key overhead (labels)", |b| {
-            static KEY_DATA: OnceKeyData = OnceKeyData::new();
-            b.iter(|| {
-                let key_data = KEY_DATA.get_or_init(|| {
-                    let key = "simple_key";
-                    let labels = vec![Label::new("type", "http")];
-                    KeyData::from_name_and_labels(key, labels)
-                });
-                Key::Borrowed(key_data)
-            })
+            static KEY_LABELS: [Label; 1] = [Label::from_static_parts("type", "http")];
+            static KEY_DATA: KeyData = KeyData::from_static_parts("simple_key", &KEY_LABELS);
+            b.iter(|| Key::Borrowed(&KEY_DATA))
         }),
     );
 }
