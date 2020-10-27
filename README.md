@@ -1,4 +1,3 @@
-# metrics
 ![Metrics - High-performance, protocol-agnostic instrumentation][splash]
 
 [splash]: https://raw.githubusercontent.com/metrics-rs/metrics/main/assets/splash.png
