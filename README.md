@@ -1,4 +1,7 @@
 # metrics
+![Metrics - High-performance, protocol-agnostic instrumentation][splash]
+
+[splash]: https://raw.githubusercontent.com/metrics-rs/metricsmaster/assets/splash.png
 
 [![conduct-badge][]][conduct] [![license-badge][]](#license) [![discord-badge][]][discord] ![last-commit-badge][] ![contributors-badge][]
 
@@ -10,8 +13,6 @@
 [last-commit-badge]: https://img.shields.io/github/last-commit/metrics-rs/metrics
 [contributors-badge]: https://img.shields.io/github/contributors/metrics-rs/metrics
 
-
-The Metrics project: a metrics ecosystem for Rust.
 
 ## code of conduct
 
