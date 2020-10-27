@@ -2,6 +2,7 @@
 #![deny(missing_docs)]
 use std::future::Future;
 
+#[cfg(feature = "tokio-exporter")]
 use hyper::{
     service::{make_service_fn, service_fn},
     {Body, Error as HyperError, Response, Server},
@@ -15,9 +16,11 @@ use std::io;
 use std::iter::FromIterator;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
+#[cfg(feature = "tokio-exporter")]
 use std::thread;
 use std::{collections::HashMap, time::SystemTime};
 use thiserror::Error as ThisError;
+#[cfg(feature = "tokio-exporter")]
 use tokio::{pin, runtime, select};
 
 type PrometheusRegistry = Registry<CompositeKey, Handle>;
@@ -31,6 +34,7 @@ pub enum Error {
     Io(#[from] io::Error),
 
     /// Binding/listening to the given address did not succeed.
+    #[cfg(feature = "tokio-exporter")]
     #[error("failed to bind to given listen address: {0}")]
     Hyper(#[from] HyperError),
 
@@ -330,6 +334,11 @@ pub struct PrometheusRecorder {
 }
 
 impl PrometheusRecorder {
+    /// Renders the Prometheus metrics in string format.
+    pub fn render(&self) -> String {
+        self.inner.render()
+    }
+
     fn add_description_if_missing(&self, key: &Key, description: Option<&'static str>) {
         if let Some(description) = description {
             let mut descriptions = self.inner.descriptions.write();
@@ -414,6 +423,7 @@ impl PrometheusBuilder {
     ///
     /// An error will be returned if there's an issue with creating the HTTP server or with
     /// installing the recorder as the global recorder.
+    #[cfg(feature = "tokio-exporter")]
     pub fn install(self) -> Result<(), Error> {
         let (recorder, exporter) = self.build()?;
         metrics::set_boxed_recorder(Box::new(recorder))?;
@@ -439,12 +449,31 @@ impl PrometheusBuilder {
         Ok(())
     }
 
+    /// Builds the recorder and returns it.
+    /// This function is only enabled when default features are not set.
+    #[cfg(not(feature = "tokio-exporter"))]
+    pub fn build(self) -> Result<PrometheusRecorder, Error> {
+        let inner = Arc::new(Inner {
+            registry: Registry::new(),
+            distributions: RwLock::new(HashMap::new()),
+            quantiles: self.quantiles.clone(),
+            buckets: self.buckets.clone(),
+            buckets_by_name: self.buckets_by_name,
+            descriptions: RwLock::new(HashMap::new()),
+        });
+
+        let recorder = PrometheusRecorder { inner };
+
+        Ok(recorder)
+    }
+
     /// Builds the recorder and exporter and returns them both.
     ///
     /// In most cases, users should prefer to use [`PrometheusBuilder::install`] to create and
     /// install the recorder and exporter automatically for them.  If a caller is combining
     /// recorders, or needs to schedule the exporter to run in a particular way, this method
     /// provides the flexibility to do so.
+    #[cfg(feature = "tokio-exporter")]
     pub fn build(
         self,
     ) -> Result<
