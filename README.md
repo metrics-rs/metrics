@@ -1,4 +1,7 @@
 # metrics
+![Metrics - High-performance, protocol-agnostic instrumentation][splash]
+
+[splash]: https://raw.githubusercontent.com/metrics-rs/metrics/main/assets/splash.png
 
 [![conduct-badge][]][conduct] [![license-badge][]](#license) [![discord-badge][]][discord] ![last-commit-badge][] ![contributors-badge][]
 
@@ -10,8 +13,6 @@
 [last-commit-badge]: https://img.shields.io/github/last-commit/metrics-rs/metrics
 [contributors-badge]: https://img.shields.io/github/contributors/metrics-rs/metrics
 
-
-The Metrics project: a metrics ecosystem for Rust.
 
 ## code of conduct
 
@@ -57,10 +58,10 @@ We're always looking for users who have thoughts on how to make `metrics` better
 
 We'd love to chat about any of the above, or anything else, really!  You can find us over on [Discord](https://discord.gg/eTwKyY9).
 
-[metrics]: https://github.com/metrics-rs/metrics/tree/master/metrics
-[metrics-macros]: https://github.com/metrics-rs/metrics/tree/master/metrics-macros
-[metrics-tracing-context]: https://github.com/metrics-rs/metrics/tree/master/metrics-tracing-context
-[metrics-exporter-tcp]: https://github.com/metrics-rs/metrics/tree/master/metrics-exporter-tcp
-[metrics-exporter-prometheus]: https://github.com/metrics-rs/metrics/tree/master/metrics-exporter-prometheus
-[metrics-util]: https://github.com/metrics-rs/metrics/tree/master/metrics-util
+[metrics]: https://github.com/metrics-rs/metrics/tree/main/metrics
+[metrics-macros]: https://github.com/metrics-rs/metrics/tree/main/metrics-macros
+[metrics-tracing-context]: https://github.com/metrics-rs/metrics/tree/main/metrics-tracing-context
+[metrics-exporter-tcp]: https://github.com/metrics-rs/metrics/tree/main/metrics-exporter-tcp
+[metrics-exporter-prometheus]: https://github.com/metrics-rs/metrics/tree/main/metrics-exporter-prometheus
+[metrics-util]: https://github.com/metrics-rs/metrics/tree/main/metrics-util
 [tracing]: https://tracing.rs

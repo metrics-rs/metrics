@@ -5,10 +5,10 @@ use beef::Cow;
 
 /// An allocation-optimized string.
 ///
-/// We specify `ScopedString` to attempt to get the best of both worlds: flexibility to provide a
+/// We specify `SharedString` to attempt to get the best of both worlds: flexibility to provide a
 /// static or dynamic (owned) string, while retaining the performance benefits of being able to
 /// take ownership of owned strings and borrows of completely static strings.
-pub type ScopedString = Cow<'static, str>;
+pub type SharedString = Cow<'static, str>;
 
 /// Units for a given metric.
 ///
@@ -254,7 +254,7 @@ impl IntoU64 for u64 {
     }
 }
 
-impl IntoU64 for std::time::Duration {
+impl IntoU64 for core::time::Duration {
     fn into_u64(self) -> u64 {
         self.as_nanos() as u64
     }

@@ -1,4 +1,5 @@
-use crate::ScopedString;
+use crate::SharedString;
+use alloc::vec::Vec;
 
 /// Metadata for a metric key in the for of a key/value pair.
 ///
@@ -11,16 +12,21 @@ use crate::ScopedString;
 /// branched internally -- for example, an optimized path and a fallback path -- you may wish to
 /// add a label that tracks which codepath was taken.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct Label(pub(crate) ScopedString, pub(crate) ScopedString);
+pub struct Label(pub(crate) SharedString, pub(crate) SharedString);
 
 impl Label {
     /// Creates a [`Label`] from a key and value.
     pub fn new<K, V>(key: K, value: V) -> Self
     where
-        K: Into<ScopedString>,
-        V: Into<ScopedString>,
+        K: Into<SharedString>,
+        V: Into<SharedString>,
     {
         Label(key.into(), value.into())
+    }
+
+    /// Creates a [`Label`] from a static key and value.
+    pub const fn from_static_parts(key: &'static str, value: &'static str) -> Self {
+        Label(SharedString::const_str(key), SharedString::const_str(value))
     }
 
     /// Key of this label.
@@ -34,15 +40,15 @@ impl Label {
     }
 
     /// Consumes this [`Label`], returning the key and value.
-    pub fn into_parts(self) -> (ScopedString, ScopedString) {
+    pub fn into_parts(self) -> (SharedString, SharedString) {
         (self.0, self.1)
     }
 }
 
 impl<K, V> From<&(K, V)> for Label
 where
-    K: Into<ScopedString> + Clone,
-    V: Into<ScopedString> + Clone,
+    K: Into<SharedString> + Clone,
+    V: Into<SharedString> + Clone,
 {
     fn from(pair: &(K, V)) -> Label {
         Label::new(pair.0.clone(), pair.1.clone())
