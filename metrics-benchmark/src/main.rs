@@ -4,6 +4,7 @@ use hdrhistogram::Histogram;
 use log::{error, info};
 use metrics::{gauge, histogram, increment};
 use metrics_util::DebuggingRecorder;
+use quanta::{Clock, Instant as QuantaInstant};
 use std::{
     env,
     ops::Sub,
@@ -18,7 +19,7 @@ use std::{
 const LOOP_SAMPLE: u64 = 1000;
 
 struct Generator {
-    t0: Option<Instant>,
+    t0: Option<QuantaInstant>,
     gauge: i64,
     hist: Histogram<u64>,
     done: Arc<AtomicBool>,
@@ -37,6 +38,7 @@ impl Generator {
     }
 
     fn run(&mut self) {
+        let mut clock = Clock::new();
         let mut counter = 0;
         loop {
             counter += 1;
@@ -47,11 +49,11 @@ impl Generator {
 
             self.gauge += 1;
 
-            let t1 = Instant::now();
+            let t1 = clock.now();
 
             if let Some(t0) = self.t0 {
-                let start = if counter % 1000 == 0 {
-                    Some(Instant::now())
+                let start = if counter % LOOP_SAMPLE == 0 {
+                    Some(clock.now())
                 } else {
                     None
                 };
@@ -61,7 +63,7 @@ impl Generator {
                 histogram!("ok", t1.sub(t0));
 
                 if let Some(val) = start {
-                    let delta = Instant::now() - val;
+                    let delta = clock.now() - val;
                     self.hist.saturating_record(delta.as_nanos() as u64);
 
                     // We also increment our global counter for the sample rate here.
@@ -146,7 +148,7 @@ fn main() {
     info!("duration: {}s", seconds);
     info!("producers: {}", producers);
 
-    let recorder = DebuggingRecorder::new();
+    let recorder = DebuggingRecorder::with_ordering(false);
     let snapshotter = recorder.snapshotter();
     recorder.install().expect("failed to install recorder");
 

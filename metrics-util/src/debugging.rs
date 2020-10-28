@@ -7,6 +7,16 @@ use crate::{handle::Handle, registry::Registry};
 use indexmap::IndexMap;
 use metrics::{Key, Recorder, Unit};
 
+type UnitMap = Arc<Mutex<HashMap<DifferentiatedKey, Unit>>>;
+type DescriptionMap = Arc<Mutex<HashMap<DifferentiatedKey, &'static str>>>;
+type Snapshot = Vec<(
+    MetricKind,
+    Key,
+    Option<Unit>,
+    Option<&'static str>,
+    DebugValue,
+)>;
+
 /// Metric kinds.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Ord, PartialOrd)]
 pub enum MetricKind {
@@ -63,51 +73,73 @@ impl Hash for DebugValue {
 /// Captures point-in-time snapshots of `DebuggingRecorder`.
 pub struct Snapshotter {
     registry: Arc<Registry<DifferentiatedKey, Handle>>,
-    metrics: Arc<Mutex<IndexMap<DifferentiatedKey, ()>>>,
-    units: Arc<Mutex<HashMap<DifferentiatedKey, Unit>>>,
-    descriptions: Arc<Mutex<HashMap<DifferentiatedKey, &'static str>>>,
+    metrics: Option<Arc<Mutex<IndexMap<DifferentiatedKey, ()>>>>,
+    units: UnitMap,
+    descriptions: DescriptionMap,
 }
 
 impl Snapshotter {
     /// Takes a snapshot of the recorder.
-    pub fn snapshot(
-        &self,
-    ) -> Vec<(
-        MetricKind,
-        Key,
-        Option<Unit>,
-        Option<&'static str>,
-        DebugValue,
-    )> {
+    pub fn snapshot(&self) -> Snapshot {
         let mut snapshot = Vec::new();
         let handles = self.registry.get_handles();
-        let metrics = {
-            let metrics = self.metrics.lock().expect("metrics lock poisoned");
-            metrics.clone()
+
+        let collect_metric = |dkey: DifferentiatedKey,
+                              handle: &Handle,
+                              units: &UnitMap,
+                              descs: &DescriptionMap,
+                              snapshot: &mut Snapshot| {
+            let unit = units
+                .lock()
+                .expect("units lock poisoned")
+                .get(&dkey)
+                .cloned();
+            let desc = descs
+                .lock()
+                .expect("descriptions lock poisoned")
+                .get(&dkey)
+                .cloned();
+            let (kind, key) = dkey.into_parts();
+            let value = match kind {
+                MetricKind::Counter => DebugValue::Counter(handle.read_counter()),
+                MetricKind::Gauge => DebugValue::Gauge(handle.read_gauge()),
+                MetricKind::Histogram => DebugValue::Histogram(handle.read_histogram()),
+            };
+            snapshot.push((kind, key, unit, desc, value));
         };
-        for (dkey, _) in metrics.into_iter() {
-            if let Some(handle) = handles.get(&dkey) {
-                let unit = self
-                    .units
-                    .lock()
-                    .expect("units lock poisoned")
-                    .get(&dkey)
-                    .cloned();
-                let description = self
-                    .descriptions
-                    .lock()
-                    .expect("descriptions lock poisoned")
-                    .get(&dkey)
-                    .cloned();
-                let (kind, key) = dkey.into_parts();
-                let value = match kind {
-                    MetricKind::Counter => DebugValue::Counter(handle.read_counter()),
-                    MetricKind::Gauge => DebugValue::Gauge(handle.read_gauge()),
-                    MetricKind::Histogram => DebugValue::Histogram(handle.read_histogram()),
+
+        match &self.metrics {
+            Some(inner) => {
+                let metrics = {
+                    let metrics = inner.lock().expect("metrics lock poisoned");
+                    metrics.clone()
                 };
-                snapshot.push((kind, key, unit, description, value));
+
+                for (dkey, _) in metrics.into_iter() {
+                    if let Some(handle) = handles.get(&dkey) {
+                        collect_metric(
+                            dkey,
+                            handle,
+                            &self.units,
+                            &self.descriptions,
+                            &mut snapshot,
+                        );
+                    }
+                }
+            }
+            None => {
+                for (dkey, handle) in handles.into_iter() {
+                    collect_metric(
+                        dkey,
+                        &handle,
+                        &self.units,
+                        &self.descriptions,
+                        &mut snapshot,
+                    );
+                }
             }
         }
+
         snapshot
     }
 }
@@ -118,7 +150,7 @@ impl Snapshotter {
 /// to the raw values.
 pub struct DebuggingRecorder {
     registry: Arc<Registry<DifferentiatedKey, Handle>>,
-    metrics: Arc<Mutex<IndexMap<DifferentiatedKey, ()>>>,
+    metrics: Option<Arc<Mutex<IndexMap<DifferentiatedKey, ()>>>>,
     units: Arc<Mutex<HashMap<DifferentiatedKey, Unit>>>,
     descriptions: Arc<Mutex<HashMap<DifferentiatedKey, &'static str>>>,
 }
@@ -126,9 +158,24 @@ pub struct DebuggingRecorder {
 impl DebuggingRecorder {
     /// Creates a new `DebuggingRecorder`.
     pub fn new() -> DebuggingRecorder {
+        Self::with_ordering(true)
+    }
+
+    /// Creates a new `DebuggingRecorder` with ordering enabled or disabled.
+    ///
+    /// When ordering is enabled, any snapshotter derived from this recorder will iterate the
+    /// collected metrics in order of when the metric was first observed.  If ordering is disabled,
+    /// then the iteration order is undefined.
+    pub fn with_ordering(ordered: bool) -> Self {
+        let metrics = if ordered {
+            Some(Arc::new(Mutex::new(IndexMap::new())))
+        } else {
+            None
+        };
+
         DebuggingRecorder {
             registry: Arc::new(Registry::new()),
-            metrics: Arc::new(Mutex::new(IndexMap::new())),
+            metrics,
             units: Arc::new(Mutex::new(HashMap::new())),
             descriptions: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -145,8 +192,10 @@ impl DebuggingRecorder {
     }
 
     fn register_metric(&self, rkey: DifferentiatedKey) {
-        let mut metrics = self.metrics.lock().expect("metrics lock poisoned");
-        let _ = metrics.insert(rkey.clone(), ());
+        if let Some(metrics) = &self.metrics {
+            let mut metrics = metrics.lock().expect("metrics lock poisoned");
+            let _ = metrics.entry(rkey.clone()).or_insert(());
+        }
     }
 
     fn insert_unit_description(
