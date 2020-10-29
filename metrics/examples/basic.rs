@@ -10,9 +10,6 @@ use metrics::{
     Key, Recorder, Unit,
 };
 
-#[allow(dead_code)]
-static RECORDER: PrintRecorder = PrintRecorder;
-
 #[derive(Default)]
 struct PrintRecorder;
 
@@ -51,15 +48,9 @@ impl Recorder for PrintRecorder {
     }
 }
 
-#[cfg(feature = "std")]
 fn init_print_logger() {
     let recorder = PrintRecorder::default();
     metrics::set_boxed_recorder(Box::new(recorder)).unwrap()
-}
-
-#[cfg(not(feature = "std"))]
-fn init_print_logger() {
-    metrics::set_recorder(&RECORDER).unwrap()
 }
 
 fn main() {
