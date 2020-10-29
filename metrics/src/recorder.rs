@@ -101,6 +101,7 @@ pub fn set_recorder(recorder: &'static dyn Recorder) -> Result<(), SetRecorderEr
 ///
 /// An error is returned if a recorder has already been set.
 #[cfg(all(feature = "std", atomic_cas))]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub fn set_boxed_recorder(recorder: Box<dyn Recorder>) -> Result<(), SetRecorderError> {
     set_recorder_inner(|| unsafe { &*Box::into_raw(recorder) })
 }
