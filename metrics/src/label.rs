@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 /// of when an where a metric are emitted.
 ///
 /// For example, in a web service, you might wish to label metrics with the user ID responsible for
-/// the request currently being processed, or the request path being processedd.  If a codepath
+/// the request currently being processed, or the request path being processed.  If a codepath
 /// branched internally -- for example, an optimized path and a fallback path -- you may wish to
 /// add a label that tracks which codepath was taken.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]

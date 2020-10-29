@@ -23,7 +23,7 @@
 //! `proto/event.proto`.
 //!
 //! # Usage
-//! The TCP exporter can be constructed by creating a [`TcpBuilder], configuring it as needed, and
+//! The TCP exporter can be constructed by creating a [`TcpBuilder`], configuring it as needed, and
 //! calling [`TcpBuilder::install`] to both spawn the TCP server as well as install the exporter
 //! globally.
 //!

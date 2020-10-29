@@ -322,7 +322,7 @@ impl Inner {
 /// A Prometheus recorder.
 ///
 /// This recorder should be composed with other recorders or installed globally via
-/// [`metrics::set_boxed_recorder`][set_boxed_recorder].
+/// [`metrics::set_boxed_recorder`].
 ///
 ///
 pub struct PrometheusRecorder {
@@ -379,8 +379,9 @@ impl PrometheusBuilder {
     /// By default, the quantiles will be set to: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and 1.0. This means
     /// that all histograms will be exposed as Prometheus summaries.
     ///
-    /// If buckets are set (via [`set_buckets`] or [`set_buckets_for_metric`]) then all histograms will
-    /// be exposed as summaries instead.
+    /// If buckets are set (via [`set_buckets`][Self::set_buckets] or
+    /// [`set_buckets_for_metric`][Self::set_buckets_for_metric]) then all histograms will be exposed
+    /// as summaries instead.
     pub fn set_quantiles(mut self, quantiles: &[f64]) -> Self {
         self.quantiles = parse_quantiles(quantiles);
         self
