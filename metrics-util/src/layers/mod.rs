@@ -1,4 +1,4 @@
-//! Layers are composable helpers that can be "layered" on top of an existing `Recorder` to enhancne
+//! Layers are composable helpers that can be "layered" on top of an existing `Recorder` to enhance
 //! or alter its behavior as desired, without having to change the recorder implementation itself.
 //!
 //! As well, [`Stack`] can be used to easily compose multiple layers together and provides a

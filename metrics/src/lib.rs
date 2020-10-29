@@ -14,14 +14,12 @@
 //! - [`register_gauge!`] and [`gauge!`] for gauges
 //! - [`register_histogram!`] and [`histogram!`] for histograms
 //!
-//! There is also an [`increment!`] macro, which is shorthand for incrementing a counter by one.
-//!
 //! In order to register or emit a metric, you need a way to record these events, which is where
 //! [`Recorder`] comes into play.
 //!
 //! ## Recording
 //! The [`Recorder`] trait defines the interface between the registration/emission macros, and
-//! exporters, which is we refer to concrete implementations of [`Recorder`].  The trait defines
+//! exporters, which is how we refer to concrete implementations of [`Recorder`].  The trait defines
 //! what the exporters are doing -- recording -- but ultimately exporters are sending data from your
 //! application to somewhere else: whether it be a third-party service or logging via standard out.
 //! It's "exporting" the metric data somewhere else besides your application.

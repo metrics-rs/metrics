@@ -114,8 +114,8 @@ impl Unit {
 
     /// Gets the canonical string label for the given unit.
     ///
-    /// For example, the canonical label for Seconds` would be `s`, while for `Nanoseconds, it would
-    /// be `ns`.
+    /// For example, the canonical label for `Seconds` would be `s`, while for `Nanoseconds`,
+    /// it would be `ns`.
     ///
     /// Not all units have a meaningful display label and so may be empty.
     pub fn as_canonical_label(&self) -> &str {
