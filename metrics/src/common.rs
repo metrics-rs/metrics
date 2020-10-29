@@ -117,7 +117,7 @@ impl Unit {
     /// For example, the canonical label for `Seconds` would be `s`, while for `Nanoseconds`,
     /// it would be `ns`.
     ///
-    /// Not all units have a meaningful display label and so may be empty.
+    /// Not all units have a meaningful display label and so some may be empty.
     pub fn as_canonical_label(&self) -> &str {
         match self {
             Unit::Count => "",

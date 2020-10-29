@@ -188,10 +188,10 @@
 //! would be to utilize atomic variables for the storage.  For counters and gauges, this can be done
 //! simply by using types like [`AtomicU64`](std::sync::atomic::AtomicU64).  For histograms, this can be
 //! slightly tricky as you must hold on to all of the distinct values.  In our helper crate,
-//! [metrics-util], we've provided a type called [AtomicBucket].  For exporters that will want to get
-//! all of the current values in a batch, while clearing the bucket so that values aren't processed
-//! again, [AtomicBucket] provides a simple interface to do so, as well as optimized performance on
-//! both the insertion and read side.
+//! [`metrics-util`][metrics-util], we've provided a type called [`AtomicBucket`][AtomicBucket].  For
+//! exporters that will want to get all of the current values in a batch, while clearing the bucket so
+//! that values aren't processed again, [AtomicBucket] provides a simple interface to do so, as well as
+//! optimized performance on both the insertion and read side.
 //!
 //! ## Installing recorders
 //!
