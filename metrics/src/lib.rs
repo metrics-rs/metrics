@@ -216,6 +216,7 @@
 //! [AtomicBucket]: https://docs.rs/metrics-util/0.4.0-alpha.6/metrics_util/struct.AtomicBucket.html
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
 
 extern crate alloc;
 
