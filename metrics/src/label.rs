@@ -3,14 +3,14 @@ use alloc::vec::Vec;
 
 /// Metadata for a metric key in the for of a key/value pair.
 ///
-/// Metrics are always defined by a name, but can optionally be assigned "labels", key/value pairs
-/// that provide metadata about the key.  Labels are typically used for differentiating the context
-/// of when an where a metric are emitted.
+/// Metrics are always defined by a name, but can optionally be assigned "labels", which are
+/// key/value pairs that provide metadata about the key.  Labels are typically used for
+/// differentiating the context of when an where a metric are emitted.
 ///
 /// For example, in a web service, you might wish to label metrics with the user ID responsible for
-/// the request currently being processed, or the request path being processed.  If a codepath
-/// branched internally -- for example, an optimized path and a fallback path -- you may wish to
-/// add a label that tracks which codepath was taken.
+/// the request currently being processed, or the request path being processed.  Another example may
+/// be that if you were running a piece o code that was turned on or off by a feature toggle, you may
+/// wish to include a label in metrics to indicate whether or not they were using the feature toggle.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Label(pub(crate) SharedString, pub(crate) SharedString);
 
@@ -55,7 +55,7 @@ where
     }
 }
 
-/// A value that can be converted to [`Label`]s.
+/// A value that can be converted to a vector of [`Label`]s.
 pub trait IntoLabels {
     /// Consumes this value, turning it into a vector of [`Label`]s.
     fn into_labels(self) -> Vec<Label>;

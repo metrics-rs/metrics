@@ -9,8 +9,8 @@ use core::{
 
 /// Inner representation of [`Key`].
 ///
-/// While [`Key`] is the type that users will interact with via [`crate::Recorder`], [`KeyData`] is
-/// responsible for the actual storage of the name and label data.
+/// While [`Key`] is the type that users will interact with via [`Recorder`][crate::Recorder`,
+/// [`KeyData`] is responsible for the actual storage of the name and label data.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct KeyData {
     name: SharedString,
@@ -151,18 +151,18 @@ where
 /// reference to key data initialized elsewhere.
 ///
 /// This allows for flexibility in the ways that [`KeyData`] can be passed around and reused, which
-/// allus to enable performance optimizations in specific circumstances.
+/// allows us to enable performance optimizations in specific circumstances.
 #[derive(Debug, Clone)]
 pub enum Key {
     /// A statically borrowed [`KeyData`].
     ///
-    /// If you are capable of keeping a static [`KeyData`] around, this variant can
-    /// be used to reduce allocations and improve performance.
+    /// If you are capable of keeping a static [`KeyData`] around, this variant can be used to
+    /// reduce allocations and improve performance.
     Borrowed(&'static KeyData),
     /// An owned [`KeyData`].
     ///
-    /// Useful when you need to modify a borrowed [`KeyData`] in-flight, or when
-    /// there's no way to keep around a static [`KeyData`] reference.
+    /// Useful when you need to modify a borrowed [`KeyData`] in-flight, or when there's no way to
+    /// keep around a static [`KeyData`] reference.
     Owned(KeyData),
 }
 
@@ -186,7 +186,7 @@ impl Hash for Key {
 impl Key {
     /// Converts any kind of [`Key`] into an owned [`KeyData`].
     ///
-    /// Owned variant returned as is, borrowed variant is cloned.
+    /// If this key is owned, the value is returned as is, otherwise, the contents are cloned.
     pub fn into_owned(self) -> KeyData {
         match self {
             Self::Borrowed(val) => val.clone(),
