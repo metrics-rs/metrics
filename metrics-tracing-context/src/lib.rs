@@ -52,8 +52,8 @@
 //! the following labels:
 //! - `service=login_service`
 //! - `user=ferris`
-
 #![deny(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
 
 use metrics::{Key, KeyData, Label, Recorder, Unit};
 use metrics_util::layers::Layer;
@@ -65,7 +65,7 @@ mod tracing_integration;
 pub use label_filter::LabelFilter;
 pub use tracing_integration::{Labels, MetricsLayer, SpanExt};
 
-/// [`TracingContextLayer`] provides an implementation of a [`metrics::Layer`]
+/// [`TracingContextLayer`] provides an implementation of a [`Layer`][metrics_util::layers::Layer]
 /// for [`TracingContext`].
 pub struct TracingContextLayer<F> {
     label_filter: F,
@@ -101,8 +101,7 @@ where
     }
 }
 
-/// [`TracingContext`] is a [`metrics::Recorder`] that injects labels from the
-/// [`tracing::Span`]s.
+/// [`TracingContext`] is a [`metrics::Recorder`] that injects labels from [`tracing::Span`]s.
 pub struct TracingContext<R, F> {
     inner: R,
     label_filter: F,

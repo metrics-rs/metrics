@@ -1,5 +1,6 @@
 //! Records metrics in the Prometheus exposition format.
 #![deny(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
 use std::future::Future;
 
 use hyper::{
