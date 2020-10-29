@@ -1,4 +1,11 @@
+[build]
+  command = """
+  curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly --profile minimal \
+  && source $HOME/.cargo/env \
+  && RUSTDOCFLAGS=\"--cfg docsrs\" cargo +nightly doc --no-deps
+  """
+  publish = "target/doc"
+
 [[redirects]]
   from = "/"
-  to = "https://docs.rs/metrics"
-  status = 302
+  to = "/metrics"
