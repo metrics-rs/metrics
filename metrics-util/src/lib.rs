@@ -1,5 +1,6 @@
 //! Helper types and functions used within the metrics ecosystem.
 #![deny(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "std")]

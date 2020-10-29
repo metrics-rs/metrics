@@ -44,6 +44,8 @@
 //! ```
 //!
 //! [metrics]: https://docs.rs/metrics
+#![deny(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{self, Write};
 use std::net::SocketAddr;
