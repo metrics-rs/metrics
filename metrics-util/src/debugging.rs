@@ -75,7 +75,7 @@ pub struct Snapshotter {
     registry: Arc<Registry<DifferentiatedKey, Handle>>,
     metrics: Option<Arc<Mutex<IndexMap<DifferentiatedKey, ()>>>>,
     units: UnitMap,
-    descriptions: DescriptionMap,
+    descs: DescriptionMap,
 }
 
 impl Snapshotter {
@@ -115,27 +115,15 @@ impl Snapshotter {
                     metrics.clone()
                 };
 
-                for (dkey, _) in metrics.into_iter() {
-                    if let Some(handle) = handles.get(&dkey) {
-                        collect_metric(
-                            dkey,
-                            handle,
-                            &self.units,
-                            &self.descriptions,
-                            &mut snapshot,
-                        );
+                for (dk, _) in metrics.into_iter() {
+                    if let Some(h) = handles.get(&dk) {
+                        collect_metric(dk, h, &self.units, &self.descs, &mut snapshot);
                     }
                 }
             }
             None => {
-                for (dkey, handle) in handles.into_iter() {
-                    collect_metric(
-                        dkey,
-                        &handle,
-                        &self.units,
-                        &self.descriptions,
-                        &mut snapshot,
-                    );
+                for (dk, h) in handles.into_iter() {
+                    collect_metric(dk, &h, &self.units, &self.descs, &mut snapshot);
                 }
             }
         }
@@ -152,7 +140,7 @@ pub struct DebuggingRecorder {
     registry: Arc<Registry<DifferentiatedKey, Handle>>,
     metrics: Option<Arc<Mutex<IndexMap<DifferentiatedKey, ()>>>>,
     units: Arc<Mutex<HashMap<DifferentiatedKey, Unit>>>,
-    descriptions: Arc<Mutex<HashMap<DifferentiatedKey, &'static str>>>,
+    descs: Arc<Mutex<HashMap<DifferentiatedKey, &'static str>>>,
 }
 
 impl DebuggingRecorder {
@@ -177,7 +165,7 @@ impl DebuggingRecorder {
             registry: Arc::new(Registry::new()),
             metrics,
             units: Arc::new(Mutex::new(HashMap::new())),
-            descriptions: Arc::new(Mutex::new(HashMap::new())),
+            descs: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -187,7 +175,7 @@ impl DebuggingRecorder {
             registry: self.registry.clone(),
             metrics: self.metrics.clone(),
             units: self.units.clone(),
-            descriptions: self.descriptions.clone(),
+            descs: self.descs.clone(),
         }
     }
 
@@ -202,17 +190,17 @@ impl DebuggingRecorder {
         &self,
         rkey: DifferentiatedKey,
         unit: Option<Unit>,
-        description: Option<&'static str>,
+        desc: Option<&'static str>,
     ) {
         if let Some(unit) = unit {
             let mut units = self.units.lock().expect("units lock poisoned");
             let uentry = units.entry(rkey.clone()).or_insert_with(|| unit.clone());
             *uentry = unit;
         }
-        if let Some(description) = description {
-            let mut descriptions = self.descriptions.lock().expect("description lock poisoned");
-            let dentry = descriptions.entry(rkey).or_insert_with(|| description);
-            *dentry = description;
+        if let Some(desc) = desc {
+            let mut descs = self.descs.lock().expect("description lock poisoned");
+            let dentry = descs.entry(rkey).or_insert_with(|| desc);
+            *dentry = desc;
         }
     }
 
