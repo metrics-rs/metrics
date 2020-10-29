@@ -20,7 +20,7 @@ impl Visit for Labels {
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
-        let label = Label::new(field.name(), if value { "true" } else { "false " });
+        let label = Label::new(field.name(), if value { "true" } else { "false" });
         self.0.push(label);
     }
 

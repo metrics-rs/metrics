@@ -51,7 +51,11 @@ pub trait Recorder {
     fn record_histogram(&self, key: Key, value: u64);
 }
 
-struct NoopRecorder;
+/// A no-op recorder.
+///
+/// Used as the default recorder when one has not been installed yet.  Useful for acting as the root
+/// recorder when testing layers.
+pub struct NoopRecorder;
 
 impl Recorder for NoopRecorder {
     fn register_counter(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {
