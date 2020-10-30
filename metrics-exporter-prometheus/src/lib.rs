@@ -26,9 +26,6 @@ use tokio::{pin, runtime, select};
 type PrometheusRegistry = Registry<CompositeKey, Handle>;
 type HdrHistogram = hdrhistogram::Histogram<u64>;
 
-/// A type wrapper around the Inner struct of the Prometheus recorder.
-pub type PrometheusHandle = Arc<Inner>;
-
 /// Errors that could occur while installing a Prometheus recorder/exporter.
 #[derive(ThisError, Debug)]
 pub enum Error {
@@ -68,8 +65,7 @@ struct Snapshot {
     pub distributions: HashMap<String, HashMap<Vec<String>, Distribution>>,
 }
 
-/// Inner contains all of the data stored by the Prometheus Recorder.
-pub struct Inner {
+struct Inner {
     registry: PrometheusRegistry,
     distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
     quantiles: Vec<Quantile>,
@@ -79,7 +75,6 @@ pub struct Inner {
 }
 
 impl Inner {
-    /// Returns a reference to the [`PrometheusRegistry`] this struct uses.
     pub fn registry(&self) -> &PrometheusRegistry {
         &self.registry
     }
@@ -170,7 +165,6 @@ impl Inner {
         }
     }
 
-    /// Returns the metrics in Prometheus accepted String format.
     pub fn render(&self) -> String {
         let mut sorted_overrides = self
             .buckets_by_name
@@ -342,7 +336,9 @@ pub struct PrometheusRecorder {
 impl PrometheusRecorder {
     ///Returns a [`PrometheusHandle`] from the inner struct of this recorder.
     pub fn handle(&self) -> PrometheusHandle {
-        self.inner.clone()
+        PrometheusHandle {
+            inner: self.inner.clone(),
+        }
     }
 
     fn add_description_if_missing(&self, key: &Key, description: Option<&'static str>) {
@@ -352,6 +348,18 @@ impl PrometheusRecorder {
                 descriptions.insert(key.name().to_string(), description);
             }
         }
+    }
+}
+
+/// A wrapper around the Inner struct of the Prometheus recorder.
+pub struct PrometheusHandle {
+    inner: Arc<Inner>,
+}
+
+impl PrometheusHandle {
+    /// Returns the metrics in Prometheus accepted String format.
+    pub fn render(&self) -> String {
+        self.inner.render()
     }
 }
 
