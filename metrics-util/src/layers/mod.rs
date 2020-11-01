@@ -17,7 +17,12 @@
 //!
 //! impl<R> StairwayDeny<R> {
 //!     fn is_invalid_key(&self, key: &Key) -> bool {
-//!         key.name().contains("stairway") || key.name().contains("heaven")
+//!         for part in key.name().parts() {
+//!             if part.contains("stairway") || part.contains("heaven") {
+//!                 return true
+//!             }
+//!         }
+//!         false
 //!     }
 //! }
 //!
