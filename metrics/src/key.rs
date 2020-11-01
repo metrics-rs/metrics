@@ -157,6 +157,7 @@ impl fmt::Display for NameParts {
 /// [`KeyData`] is responsible for the actual storage of the name and label data.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct KeyData {
+    // TODO: once const slicing is possible on stable, we could likely use `beef` for both of these
     name_parts: Cow<'static, NameParts>,
     labels: Cow<'static, [Label]>,
 }
