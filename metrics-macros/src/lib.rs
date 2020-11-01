@@ -288,15 +288,17 @@ where
                 let labels_len = quote! { #labels_len };
 
                 quote! {
+                    static METRIC_NAME: metrics::NameParts = metrics::NameParts::from_static_name(#key);
                     static METRIC_LABELS: [metrics::Label; #labels_len] = [#(#labels),*];
                     static METRIC_KEY: metrics::KeyData =
-                        metrics::KeyData::from_static_parts(#key, &METRIC_LABELS);
+                        metrics::KeyData::from_static_parts(&METRIC_NAME, &METRIC_LABELS);
                 }
             }
             None => {
                 quote! {
+                    static METRIC_NAME: metrics::NameParts = metrics::NameParts::from_static_name(#key);
                     static METRIC_KEY: metrics::KeyData =
-                        metrics::KeyData::from_static_name(#key);
+                        metrics::KeyData::from_static_name(&METRIC_NAME);
                 }
             }
             _ => unreachable!("use_fast_path == true, but found expression-based labels"),

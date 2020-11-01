@@ -5,15 +5,15 @@ use metrics::{Key, Recorder, Unit};
 ///
 /// Keys will be prefixed in the format of `<prefix>.<remaining>`.
 pub struct Prefix<R> {
-    prefix: String,
+    prefix: &'static str,
     inner: R,
 }
 
 impl<R> Prefix<R> {
     fn prefix_key(&self, key: Key) -> Key {
-        key.into_owned()
-            .map_name(|old| format!("{}.{}", self.prefix, old))
-            .into()
+        let mut owned = key.into_owned();
+        owned.prepend_name(self.prefix);
+        owned.into()
     }
 }
 
@@ -52,12 +52,12 @@ impl<R: Recorder> Recorder for Prefix<R> {
 /// A layer for applying a prefix to every metric key.
 ///
 /// More information on the behavior of the layer can be found in [`Prefix`].
-pub struct PrefixLayer(String);
+pub struct PrefixLayer(&'static str);
 
 impl PrefixLayer {
     /// Creates a new `PrefixLayer` based on the given prefix.
     pub fn new<S: Into<String>>(prefix: S) -> PrefixLayer {
-        PrefixLayer(prefix.into())
+        PrefixLayer(Box::leak(prefix.into().into_boxed_str()))
     }
 }
 
@@ -66,7 +66,7 @@ impl<R> Layer<R> for PrefixLayer {
 
     fn layer(&self, inner: R) -> Self::Output {
         Prefix {
-            prefix: self.0.clone(),
+            prefix: self.0,
             inner,
         }
     }
@@ -115,7 +115,7 @@ mod tests {
         assert_eq!(after.len(), 3);
 
         for (i, (_kind, key, unit, desc, _value)) in after.iter().enumerate() {
-            assert!(key.name().starts_with("testing"));
+            assert!(key.name().to_string().starts_with("testing"));
             assert_eq!(&Some(ud[i].0.clone()), unit);
             assert_eq!(&Some(ud[i].1), desc);
         }

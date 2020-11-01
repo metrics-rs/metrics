@@ -7,13 +7,157 @@ use core::{
     slice::Iter,
 };
 
+/// Parts compromising a metric name.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum NameParts {
+    /// Optimized path for inline storage.
+    /// 
+    /// This variant will be used primarily when the metric name is not scoped, and has not been
+    /// modified via `append`/`prepend`.
+    Inline([Option<SharedString>; 2]),
+    /// Dynamic number of name parts.
+    /// 
+    /// If we do not have an open slot for appending/prepending, this variant will be used.
+    Dynamic(Vec<SharedString>),
+}
+
+impl NameParts {
+    /// Creates a [`NameParts`] from the given name.
+    pub fn from_name<N: Into<SharedString>>(name: N) -> Self {
+        NameParts::Inline([Some(name.into()), None])
+    }
+
+    /// Creates a [`NameParts`] from the given static name.
+    pub const fn from_static_name(name: &'static str) -> Self {
+        NameParts::Inline([Some(SharedString::const_str(name)), None])
+    }
+
+    /// Creates a [`NameParts`] from the given static name.
+    pub const fn from_static_names(first: &'static str, second: &'static str) -> Self {
+        NameParts::Inline([
+            Some(SharedString::const_str(first)),
+            Some(SharedString::const_str(second)),
+        ])
+    }
+
+    /// Appends a name part.
+    pub fn append<S: Into<SharedString>>(&mut self, part: S)  {
+        match *self {
+            NameParts::Inline(ref mut inner) => {
+                if inner[1].is_none() {
+                    // Open slot, so we can utilize it.
+                    inner[1] = Some(part.into());
+                } else {
+                    // Have to spill over.
+                    let mut parts = Vec::with_capacity(4);
+                    parts.push(inner[0].clone().unwrap());
+                    parts.push(inner[1].clone().unwrap());
+                    parts.push(part.into());
+                    *self = NameParts::Dynamic(parts);
+                }
+            },
+            NameParts::Dynamic(ref mut parts) => {
+                parts.push(part.into())
+            },
+        }
+    }
+
+    /// Prepends a name part.
+    pub fn prepend<S: Into<SharedString>>(&mut self, part: S) {
+        match *self {
+            NameParts::Inline(ref mut inner) => {
+                if inner[1].is_none() {
+                    // Open slot, so we can utilize it.
+                    inner[1] = inner[0].take();
+                    inner[0] = Some(part.into());
+                } else {
+                    // Have to spill over.
+                    let mut parts = Vec::with_capacity(4);
+                    parts.push(part.into());
+                    parts.push(inner[0].clone().unwrap());
+                    parts.push(inner[1].clone().unwrap());
+                    *self = NameParts::Dynamic(parts);
+                }
+            },
+            NameParts::Dynamic(ref mut parts) => {
+                parts.insert(0, part.into())
+            },
+        }
+    }
+
+    /// Gets a reference to the parts for this name.
+    pub fn parts(&self) -> PartsIter {
+        PartsIter::from(self)
+    }
+}
+
+enum PartsIterInner<'a> {
+    Inline(&'a [Option<SharedString>; 2]),
+    Dynamic(Iter<'a, SharedString>),
+}
+
+/// Name parts iterator.
+pub struct PartsIter<'a> {
+    idx: usize,
+    inner: PartsIterInner<'a>,
+}
+
+impl<'a> From<&'a NameParts> for PartsIter<'a> {
+    fn from(parts: &'a NameParts) -> Self {
+        let inner = match parts {
+            NameParts::Inline(inner) => PartsIterInner::Inline(inner),
+            NameParts::Dynamic(parts) => PartsIterInner::Dynamic(parts.iter()),
+        };
+        PartsIter { idx: 0, inner }
+    }
+}
+
+impl<'a> Iterator for PartsIter<'a> {
+    type Item = &'a SharedString;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.inner {
+            PartsIterInner::Inline(inner) => {
+                if self.idx > 1 { return None }
+                
+                let item = inner[self.idx].as_ref();
+                self.idx += 1;
+                item
+            },
+            PartsIterInner::Dynamic(ref mut iter) => iter.next(),
+        }
+    }
+}
+
+impl fmt::Display for NameParts {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            NameParts::Inline(inner) => if inner[1].is_none() {
+                write!(f, "{}", inner[0].as_ref().unwrap())
+            } else {
+                write!(f, "{}.{}", inner[0].as_ref().unwrap(), inner[1].as_ref().unwrap())
+            },
+            NameParts::Dynamic(parts) => {
+                for (i, s) in parts.iter().enumerate() {
+                    if i != parts.len() - 1 {
+                        write!(f, "{}.", s)?;
+                    } else {
+                        write!(f, "{}", s)?;
+                    }
+                }
+                Ok(())
+            },
+        }
+    }
+}
+
 /// Inner representation of [`Key`].
 ///
 /// While [`Key`] is the type that users will interact with via [`Recorder`][crate::Recorder`,
 /// [`KeyData`] is responsible for the actual storage of the name and label data.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct KeyData {
-    name: SharedString,
+    name_parts: Cow<'static, NameParts>,
     labels: Cow<'static, [Label]>,
 }
 
@@ -33,7 +177,7 @@ impl KeyData {
         L: IntoLabels,
     {
         Self {
-            name: name.into(),
+            name_parts: Cow::Owned(NameParts::from_name(name)),
             labels: labels.into_labels().into(),
         }
     }
@@ -41,9 +185,9 @@ impl KeyData {
     /// Creates a [`KeyData`] from a static name.
     ///
     /// This function is `const`, so it can be used in a static context.
-    pub const fn from_static_name(name: &'static str) -> Self {
+    pub const fn from_static_name(name_parts: &'static NameParts) -> Self {
         Self {
-            name: SharedString::const_str(name),
+            name_parts: Cow::Borrowed(name_parts),
             labels: Cow::Owned(Vec::new()),
         }
     }
@@ -51,16 +195,16 @@ impl KeyData {
     /// Creates a [`KeyData`] from a static name and static set of labels.
     ///
     /// This function is `const`, so it can be used in a static context.
-    pub const fn from_static_parts(name: &'static str, labels: &'static [Label]) -> Self {
+    pub const fn from_static_parts(name_parts: &'static NameParts, labels: &'static [Label]) -> Self {
         Self {
-            name: SharedString::const_str(name),
+            name_parts: Cow::Borrowed(name_parts),
             labels: Cow::Borrowed(labels),
         }
     }
 
-    /// Name of this key.
-    pub fn name(&self) -> &SharedString {
-        &self.name
+    /// Name parts of this key.
+    pub fn name(&self) -> &NameParts {
+        &self.name_parts
     }
 
     /// Labels of this key, if they exist.
@@ -68,21 +212,19 @@ impl KeyData {
         self.labels.iter()
     }
 
-    /// Map the name of this key to a new name, based on `f`.
-    ///
-    /// The value returned by `f` becomes the new name of the key.
-    pub fn map_name<F>(mut self, f: F) -> Self
-    where
-        F: Fn(SharedString) -> String,
-    {
-        let new_name = f(self.name);
-        self.name = new_name.into();
-        self
+    /// Appends a part to the name,
+    pub fn append_name<S: Into<SharedString>>(&mut self, part: S) {
+        self.name_parts.to_mut().append(part)
     }
 
-    /// Consumes this [`Key`], returning the name and any labels.
-    pub fn into_parts(self) -> (SharedString, Vec<Label>) {
-        (self.name, self.labels.into_owned())
+    /// Prepends a part to the name.
+    pub fn prepend_name<S: Into<SharedString>>(&mut self, part: S) {
+        self.name_parts.to_mut().prepend(part)
+    }
+
+    /// Consumes this [`Key`], returning the name parts and any labels.
+    pub fn into_parts(self) -> (NameParts, Vec<Label>) {
+        (self.name_parts.into_owned(), self.labels.into_owned())
     }
 
     /// Clones this [`Key`], and expands the existing set of labels.
@@ -91,12 +233,12 @@ impl KeyData {
             return self.clone();
         }
 
-        let name = self.name.clone();
+        let name_parts = self.name_parts.clone();
         let mut labels = self.labels.clone().into_owned();
         labels.extend(extra_labels);
 
         Self {
-            name,
+            name_parts,
             labels: labels.into(),
         }
     }
@@ -105,9 +247,9 @@ impl KeyData {
 impl fmt::Display for KeyData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.labels.is_empty() {
-            write!(f, "KeyData({})", self.name)
+            write!(f, "KeyData({})", self.name_parts)
         } else {
-            write!(f, "KeyData({}, [", self.name)?;
+            write!(f, "KeyData({}, [", self.name_parts)?;
             let mut first = true;
             for label in self.labels.as_ref() {
                 if first {
@@ -240,13 +382,14 @@ impl From<&'static KeyData> for Key {
 
 #[cfg(test)]
 mod tests {
-    use super::{Key, KeyData};
+    use super::{Key, KeyData, NameParts};
     use crate::Label;
     use std::collections::HashMap;
 
-    static BORROWED_BASIC: KeyData = KeyData::from_static_name("name");
+    static BORROWED_NAME: NameParts = NameParts::from_static_name("name");
+    static BORROWED_BASIC: KeyData = KeyData::from_static_name(&BORROWED_NAME);
     static LABELS: [Label; 1] = [Label::from_static_parts("key", "value")];
-    static BORROWED_LABELS: KeyData = KeyData::from_static_parts("name", &LABELS);
+    static BORROWED_LABELS: KeyData = KeyData::from_static_parts(&BORROWED_NAME, &LABELS);
 
     #[test]
     fn test_keydata_eq_and_hash() {
@@ -335,8 +478,11 @@ mod tests {
         let owned_a = KeyData::from_name("a");
         let owned_b = KeyData::from_name("b");
 
-        static STATIC_A: KeyData = KeyData::from_static_name("a");
-        static STATIC_B: KeyData = KeyData::from_static_name("b");
+
+        static A_NAME: NameParts = NameParts::from_static_name("a");
+        static STATIC_A: KeyData = KeyData::from_static_name(&A_NAME);
+        static B_NAME: NameParts = NameParts::from_static_name("b");
+        static STATIC_B: KeyData = KeyData::from_static_name(&B_NAME);
 
         assert_eq!(Key::Owned(owned_a.clone()), Key::Owned(owned_a.clone()));
         assert_eq!(Key::Owned(owned_b.clone()), Key::Owned(owned_b.clone()));

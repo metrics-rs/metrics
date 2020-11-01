@@ -26,6 +26,10 @@ harness = false
 name = "registry"
 harness = false
 
+[[bench]]
+name = "prefix"
+harness = false
+
 [dependencies]
 metrics = { version = "0.13.0-alpha.1", path = "../metrics", features = ["std"] }
 crossbeam-epoch = { version = "0.9", optional = true }
