@@ -28,7 +28,7 @@ thiserror = "1.0"
 
 # Optional
 hyper = { version = "0.13", default-features = false, features = ["tcp"], optional = true }
-tokio = { version = "0.2", features = ["rt-core", "tcp", "time", "macros"], optional = true }
+tokio = { version = "0.3", features = ["rt-core", "tcp", "time", "macros"], optional = true }
 
 [dev-dependencies]
 quanta = "0.6"
