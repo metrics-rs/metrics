@@ -334,7 +334,7 @@ pub struct PrometheusRecorder {
 }
 
 impl PrometheusRecorder {
-    ///Returns a [`PrometheusHandle`] from the inner struct of this recorder.
+    /// Gets a [`PrometheusHandle`] to this recorder.
     pub fn handle(&self) -> PrometheusHandle {
         PrometheusHandle {
             inner: self.inner.clone(),
@@ -351,7 +351,9 @@ impl PrometheusRecorder {
     }
 }
 
-/// A wrapper around the Inner struct of the Prometheus recorder.
+/// Handle to [`PrometheusRecorder`].
+///
+/// Useful for exposing a scrape endpoint on an existing HTTP/HTTPS server.
 pub struct PrometheusHandle {
     inner: Arc<Inner>,
 }
@@ -465,7 +467,6 @@ impl PrometheusBuilder {
 
     /// Builds the recorder and returns it.
     /// This function is only enabled when default features are not set.
-    #[cfg(not(feature = "tokio-exporter"))]
     pub fn build(self) -> Result<PrometheusRecorder, Error> {
         let inner = Arc::new(Inner {
             registry: Registry::new(),
@@ -488,7 +489,7 @@ impl PrometheusBuilder {
     /// recorders, or needs to schedule the exporter to run in a particular way, this method
     /// provides the flexibility to do so.
     #[cfg(feature = "tokio-exporter")]
-    pub fn build(
+    pub fn build_with_exporter(
         self,
     ) -> Result<
         (
