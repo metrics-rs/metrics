@@ -15,14 +15,20 @@ readme = "README.md"
 categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "prometheus"]
 
+[features]
+default = ["tokio-exporter"]
+tokio-exporter = ["hyper", "tokio"]
+
 [dependencies]
 metrics = { version = "0.13.0-alpha.1", path = "../metrics" }
-metrics-util = { version = "0.4.0-alpha.1", path = "../metrics-util"}
+metrics-util = { version = "0.4.0-alpha.1", path = "../metrics-util" }
 hdrhistogram = "7.1"
-hyper = { version = "0.13", default-features = false, features = ["tcp"] }
-tokio = { version = "0.2", features = ["rt-core", "tcp", "time", "macros"] }
 parking_lot = "0.11"
 thiserror = "1.0"
+
+# Optional
+hyper = { version = "0.13", default-features = false, features = ["tcp"], optional = true }
+tokio = { version = "0.2", features = ["rt-core", "tcp", "time", "macros"], optional = true }
 
 [dev-dependencies]
 quanta = "0.6"
