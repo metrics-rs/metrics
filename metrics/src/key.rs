@@ -9,7 +9,7 @@ use core::{
 
 /// Inner representation of [`Key`].
 ///
-/// While [`Key`] is the type that users will interact with via [`Recorder`][crate::Recorder`,
+/// While [`Key`] is the type that users will interact with via [`Recorder`][crate::Recorder],
 /// [`KeyData`] is responsible for the actual storage of the name and label data.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct KeyData {
