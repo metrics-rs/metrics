@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Benchmark, Criterion};
-use metrics::{Key, KeyData, Label, NameParts};
+use metrics::{Key, KeyData, Label, SharedString};
 use metrics_util::Registry;
 
 fn registry_benchmark(c: &mut Criterion) {
@@ -7,7 +7,7 @@ fn registry_benchmark(c: &mut Criterion) {
         "registry",
         Benchmark::new("cached op (basic)", |b| {
             let registry: Registry<Key, ()> = Registry::new();
-            static KEY_NAME: NameParts = NameParts::from_static_name("simple_key");
+            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("simple_key")];
             static KEY_DATA: KeyData = KeyData::from_static_name(&KEY_NAME);
 
             b.iter(|| {
@@ -17,7 +17,7 @@ fn registry_benchmark(c: &mut Criterion) {
         })
         .with_function("cached op (labels)", |b| {
             let registry: Registry<Key, ()> = Registry::new();
-            static KEY_NAME: NameParts = NameParts::from_static_name("simple_key");
+            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("simple_key")];
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("type", "http")];
             static KEY_DATA: KeyData = KeyData::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
@@ -64,18 +64,18 @@ fn registry_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let key = "simple_key";
                 let labels = vec![Label::new("type", "http")];
-                KeyData::from_parts(key, labels)
+                KeyData::from_owned_parts(key, labels)
             })
         })
         .with_function("const key data overhead (basic)", |b| {
             b.iter(|| {
-                static KEY_NAME: NameParts = NameParts::from_static_name("simple_key");
+                static KEY_NAME: [SharedString; 1] = [SharedString::const_str("simple_key")];
                 KeyData::from_static_name(&KEY_NAME)
             })
         })
         .with_function("const key data overhead (labels)", |b| {
             b.iter(|| {
-                static KEY_NAME: NameParts = NameParts::from_static_name("simple_key");
+                static KEY_NAME: [SharedString; 1] = [SharedString::const_str("simple_key")];
                 static LABELS: [Label; 1] = [Label::from_static_parts("type", "http")];
                 KeyData::from_static_parts(&KEY_NAME, &LABELS)
             })
@@ -90,16 +90,16 @@ fn registry_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let key = "simple_key";
                 let labels = vec![Label::new("type", "http")];
-                Key::Owned(KeyData::from_parts(key, labels))
+                Key::Owned(KeyData::from_owned_parts(key, labels))
             })
         })
         .with_function("cached key overhead (basic)", |b| {
-            static KEY_NAME: NameParts = NameParts::from_static_name("simple_key");
+            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("simple_key")];
             static KEY_DATA: KeyData = KeyData::from_static_name(&KEY_NAME);
             b.iter(|| Key::Borrowed(&KEY_DATA))
         })
         .with_function("cached key overhead (labels)", |b| {
-            static KEY_NAME: NameParts = NameParts::from_static_name("simple_key");
+            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("simple_key")];
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("type", "http")];
             static KEY_DATA: KeyData = KeyData::from_static_parts(&KEY_NAME, &KEY_LABELS);
             b.iter(|| Key::Borrowed(&KEY_DATA))

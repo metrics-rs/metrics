@@ -1,19 +1,17 @@
 use crate::layers::Layer;
-use metrics::{Key, Recorder, Unit};
+use metrics::{Key, Recorder, SharedString, Unit};
 
 /// Applies a prefix to every metric key.
 ///
 /// Keys will be prefixed in the format of `<prefix>.<remaining>`.
 pub struct Prefix<R> {
-    prefix: &'static str,
+    prefix: SharedString,
     inner: R,
 }
 
 impl<R> Prefix<R> {
     fn prefix_key(&self, key: Key) -> Key {
-        let mut owned = key.into_owned();
-        owned.prepend_name(self.prefix);
-        owned.into()
+        key.into_owned().prepend_name(self.prefix.clone()).into()
     }
 }
 
@@ -66,7 +64,7 @@ impl<R> Layer<R> for PrefixLayer {
 
     fn layer(&self, inner: R) -> Self::Output {
         Prefix {
-            prefix: self.0,
+            prefix: self.0.into(),
             inner,
         }
     }

@@ -80,7 +80,7 @@ impl Generator {
 impl Drop for Generator {
     fn drop(&mut self) {
         info!(
-            "    sender latency: min: {:9} p50: {:9} p95: {:9} p99: {:9} p999: {:9} max: {:9}",
+            "    sender latency: min: {:8} p50: {:8} p95: {:8} p99: {:8} p999: {:8} max: {:8}",
             nanos_to_readable(self.hist.min()),
             nanos_to_readable(self.hist.value_at_percentile(50.0)),
             nanos_to_readable(self.hist.value_at_percentile(95.0)),
@@ -196,7 +196,7 @@ fn main() {
     info!("--------------------------------------------------------------------------------");
     info!(" ingested samples total: {}", total);
     info!(
-        "snapshot retrieval: min: {:9} p50: {:9} p95: {:9} p99: {:9} p999: {:9} max: {:9}",
+        "snapshot retrieval: min: {:8} p50: {:8} p95: {:8} p99: {:8} p999: {:8} max: {:8}",
         nanos_to_readable(snapshot_hist.min()),
         nanos_to_readable(snapshot_hist.value_at_percentile(50.0)),
         nanos_to_readable(snapshot_hist.value_at_percentile(95.0)),

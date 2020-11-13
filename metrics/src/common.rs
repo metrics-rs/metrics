@@ -1,7 +1,4 @@
-#[cfg(target_pointer_width = "64")]
-use beef::lean::Cow;
-#[cfg(not(target_pointer_width = "64"))]
-use beef::Cow;
+use crate::cow::Cow;
 
 /// An allocation-optimized string.
 ///
