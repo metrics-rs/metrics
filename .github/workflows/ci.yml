@@ -35,6 +35,23 @@ jobs:
           override: true
     - name: Run Tests
       run: cargo test
+  docs:
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -Dwarnings
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Rust Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          override: true
+          components: rust-docs
+    - name: Check docs
+      uses: actions-rs/cargo@v1
+      with:
+        command: doc
+        args: --workspace --no-deps
   bench:
     name: Bench ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -49,4 +66,7 @@ jobs:
           toolchain: 'stable'
           override: true
     - name: Run Benchmarks
-      run: cargo bench --all-features
+      uses: actions-rs/cargo@v1
+      with:
+        command: bench
+        args: --all-features
