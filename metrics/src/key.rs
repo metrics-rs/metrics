@@ -1,5 +1,5 @@
-use crate::{IntoLabels, Label, SharedString};
-use alloc::{borrow::Cow, string::String, vec::Vec};
+use crate::{cow::Cow, IntoLabels, Label, SharedString};
+use alloc::{string::String, vec::Vec};
 use core::{
     fmt,
     hash::{Hash, Hasher},
@@ -7,147 +7,81 @@ use core::{
     slice::Iter,
 };
 
+const NO_LABELS: [Label; 0] = [];
+
 /// Parts compromising a metric name.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum NameParts {
-    /// Optimized path for inline storage.
-    /// 
-    /// This variant will be used primarily when the metric name is not scoped, and has not been
-    /// modified via `append`/`prepend`.
-    Inline([Option<SharedString>; 2]),
-    /// Dynamic number of name parts.
-    /// 
-    /// If we do not have an open slot for appending/prepending, this variant will be used.
-    Dynamic(Vec<SharedString>),
-}
+pub struct NameParts(Cow<'static, [SharedString]>);
 
 impl NameParts {
     /// Creates a [`NameParts`] from the given name.
     pub fn from_name<N: Into<SharedString>>(name: N) -> Self {
-        NameParts::Inline([Some(name.into()), None])
+        NameParts(Cow::owned(vec![name.into()]))
     }
 
     /// Creates a [`NameParts`] from the given static name.
-    pub const fn from_static_name(name: &'static str) -> Self {
-        NameParts::Inline([Some(SharedString::const_str(name)), None])
-    }
-
-    /// Creates a [`NameParts`] from the given static name.
-    pub const fn from_static_names(first: &'static str, second: &'static str) -> Self {
-        NameParts::Inline([
-            Some(SharedString::const_str(first)),
-            Some(SharedString::const_str(second)),
-        ])
+    pub const fn from_static_names(names: &'static [SharedString]) -> Self {
+        NameParts(Cow::<'static, [SharedString]>::const_slice(names))
     }
 
     /// Appends a name part.
-    pub fn append<S: Into<SharedString>>(&mut self, part: S)  {
-        match *self {
-            NameParts::Inline(ref mut inner) => {
-                if inner[1].is_none() {
-                    // Open slot, so we can utilize it.
-                    inner[1] = Some(part.into());
-                } else {
-                    // Have to spill over.
-                    let mut parts = Vec::with_capacity(4);
-                    parts.push(inner[0].clone().unwrap());
-                    parts.push(inner[1].clone().unwrap());
-                    parts.push(part.into());
-                    *self = NameParts::Dynamic(parts);
-                }
-            },
-            NameParts::Dynamic(ref mut parts) => {
-                parts.push(part.into())
-            },
-        }
+    pub fn append<S: Into<SharedString>>(self, part: S) -> Self {
+        let mut parts = self.0.into_owned();
+        parts.push(part.into());
+        NameParts(Cow::owned(parts))
     }
 
     /// Prepends a name part.
-    pub fn prepend<S: Into<SharedString>>(&mut self, part: S) {
-        match *self {
-            NameParts::Inline(ref mut inner) => {
-                if inner[1].is_none() {
-                    // Open slot, so we can utilize it.
-                    inner[1] = inner[0].take();
-                    inner[0] = Some(part.into());
-                } else {
-                    // Have to spill over.
-                    let mut parts = Vec::with_capacity(4);
-                    parts.push(part.into());
-                    parts.push(inner[0].clone().unwrap());
-                    parts.push(inner[1].clone().unwrap());
-                    *self = NameParts::Dynamic(parts);
-                }
-            },
-            NameParts::Dynamic(ref mut parts) => {
-                parts.insert(0, part.into())
-            },
-        }
+    pub fn prepend<S: Into<SharedString>>(self, part: S) -> Self {
+        let mut parts = self.0.into_owned();
+        parts.insert(0, part.into());
+        NameParts(Cow::owned(parts))
     }
 
     /// Gets a reference to the parts for this name.
-    pub fn parts(&self) -> PartsIter {
-        PartsIter::from(self)
+    pub fn parts(&self) -> Iter<'_, SharedString> {
+        self.0.iter()
+    }
+
+    /// Renders the name parts as a dot-delimited string.
+    pub fn to_string(&self) -> String {
+        // This is suboptimal since we're allocating in a bunch of ways.
+        //
+        // Might be faster to figure out the string length and then allocate a single string with
+        // the required capacity, and write into it, potentially pooling them? Dunno, we should
+        // actually benchmark this. :P
+        self.0
+            .iter()
+            .map(|s| s.as_ref())
+            .collect::<Vec<_>>()
+            .join(".")
     }
 }
 
-enum PartsIterInner<'a> {
-    Inline(&'a [Option<SharedString>; 2]),
-    Dynamic(Iter<'a, SharedString>),
-}
-
-/// Name parts iterator.
-pub struct PartsIter<'a> {
-    idx: usize,
-    inner: PartsIterInner<'a>,
-}
-
-impl<'a> From<&'a NameParts> for PartsIter<'a> {
-    fn from(parts: &'a NameParts) -> Self {
-        let inner = match parts {
-            NameParts::Inline(inner) => PartsIterInner::Inline(inner),
-            NameParts::Dynamic(parts) => PartsIterInner::Dynamic(parts.iter()),
-        };
-        PartsIter { idx: 0, inner }
+impl From<String> for NameParts {
+    fn from(name: String) -> NameParts {
+        NameParts::from_name(name)
     }
 }
 
-impl<'a> Iterator for PartsIter<'a> {
-    type Item = &'a SharedString;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.inner {
-            PartsIterInner::Inline(inner) => {
-                if self.idx > 1 { return None }
-                
-                let item = inner[self.idx].as_ref();
-                self.idx += 1;
-                item
-            },
-            PartsIterInner::Dynamic(ref mut iter) => iter.next(),
-        }
+impl From<&'static str> for NameParts {
+    fn from(name: &'static str) -> NameParts {
+        NameParts::from_name(name)
     }
 }
 
 impl fmt::Display for NameParts {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            NameParts::Inline(inner) => if inner[1].is_none() {
-                write!(f, "{}", inner[0].as_ref().unwrap())
+        let mut first = true;
+        for s in self.parts() {
+            if !first {
+                write!(f, ".{}", s)?;
+                first = false;
             } else {
-                write!(f, "{}.{}", inner[0].as_ref().unwrap(), inner[1].as_ref().unwrap())
-            },
-            NameParts::Dynamic(parts) => {
-                for (i, s) in parts.iter().enumerate() {
-                    if i != parts.len() - 1 {
-                        write!(f, "{}.", s)?;
-                    } else {
-                        write!(f, "{}", s)?;
-                    }
-                }
-                Ok(())
-            },
+                write!(f, "{}", s)?;
+            }
         }
+        Ok(())
     }
 }
 
@@ -158,7 +92,7 @@ impl fmt::Display for NameParts {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct KeyData {
     // TODO: once const slicing is possible on stable, we could likely use `beef` for both of these
-    name_parts: Cow<'static, NameParts>,
+    name_parts: NameParts,
     labels: Cow<'static, [Label]>,
 }
 
@@ -168,38 +102,52 @@ impl KeyData {
     where
         N: Into<SharedString>,
     {
-        Self::from_parts(name, Vec::new())
+        Self {
+            name_parts: NameParts::from_name(name),
+            labels: Cow::owned(Vec::new()),
+        }
     }
 
-    /// Creates a [`KeyData`] from a name and vector of [`Label`]s.
-    pub fn from_parts<N, L>(name: N, labels: L) -> Self
+    /// Creates a [`KeyData`] from a name.
+    pub fn from_owned_parts<N, L>(name: N, labels: L) -> Self
     where
-        N: Into<SharedString>,
+        N: Into<NameParts>,
         L: IntoLabels,
     {
         Self {
-            name_parts: Cow::Owned(NameParts::from_name(name)),
-            labels: labels.into_labels().into(),
+            name_parts: name.into(),
+            labels: Cow::owned(labels.into_labels()),
+        }
+    }
+
+    /// Creates a [`KeyData`] from a name and vector of [`Label`]s.
+    pub fn from_hybrid_parts<L>(name_parts: &'static [SharedString], labels: L) -> Self
+    where
+        L: IntoLabels,
+    {
+        Self {
+            name_parts: NameParts::from_static_names(name_parts),
+            labels: Cow::owned(labels.into_labels()),
         }
     }
 
     /// Creates a [`KeyData`] from a static name.
     ///
     /// This function is `const`, so it can be used in a static context.
-    pub const fn from_static_name(name_parts: &'static NameParts) -> Self {
-        Self {
-            name_parts: Cow::Borrowed(name_parts),
-            labels: Cow::Owned(Vec::new()),
-        }
+    pub const fn from_static_name(name_parts: &'static [SharedString]) -> Self {
+        Self::from_static_parts(name_parts, &NO_LABELS)
     }
 
     /// Creates a [`KeyData`] from a static name and static set of labels.
     ///
     /// This function is `const`, so it can be used in a static context.
-    pub const fn from_static_parts(name_parts: &'static NameParts, labels: &'static [Label]) -> Self {
+    pub const fn from_static_parts(
+        name_parts: &'static [SharedString],
+        labels: &'static [Label],
+    ) -> Self {
         Self {
-            name_parts: Cow::Borrowed(name_parts),
-            labels: Cow::Borrowed(labels),
+            name_parts: NameParts::from_static_names(name_parts),
+            labels: Cow::<[Label]>::const_slice(labels),
         }
     }
 
@@ -214,18 +162,26 @@ impl KeyData {
     }
 
     /// Appends a part to the name,
-    pub fn append_name<S: Into<SharedString>>(&mut self, part: S) {
-        self.name_parts.to_mut().append(part)
+    pub fn append_name<S: Into<SharedString>>(self, part: S) -> Self {
+        let name_parts = self.name_parts.append(part);
+        Self {
+            name_parts,
+            labels: self.labels,
+        }
     }
 
     /// Prepends a part to the name.
-    pub fn prepend_name<S: Into<SharedString>>(&mut self, part: S) {
-        self.name_parts.to_mut().prepend(part)
+    pub fn prepend_name<S: Into<SharedString>>(self, part: S) -> Self {
+        let name_parts = self.name_parts.prepend(part);
+        Self {
+            name_parts,
+            labels: self.labels,
+        }
     }
 
     /// Consumes this [`Key`], returning the name parts and any labels.
     pub fn into_parts(self) -> (NameParts, Vec<Label>) {
-        (self.name_parts.into_owned(), self.labels.into_owned())
+        (self.name_parts.clone(), self.labels.into_owned())
     }
 
     /// Clones this [`Key`], and expands the existing set of labels.
@@ -283,7 +239,10 @@ where
     L: IntoLabels,
 {
     fn from(parts: (N, L)) -> Self {
-        Self::from_parts(parts.0, parts.1)
+        Self {
+            name_parts: NameParts::from_name(parts.0),
+            labels: Cow::owned(parts.1.into_labels()),
+        }
     }
 }
 
@@ -383,11 +342,12 @@ impl From<&'static KeyData> for Key {
 
 #[cfg(test)]
 mod tests {
-    use super::{Key, KeyData, NameParts};
-    use crate::Label;
+    use super::{Key, KeyData};
+    use crate::{Label, SharedString};
     use std::collections::HashMap;
 
-    static BORROWED_NAME: NameParts = NameParts::from_static_name("name");
+    static BORROWED_NAME: [SharedString; 1] = [SharedString::const_str("name")];
+    static FOOBAR_NAME: [SharedString; 1] = [SharedString::const_str("foobar")];
     static BORROWED_BASIC: KeyData = KeyData::from_static_name(&BORROWED_NAME);
     static LABELS: [Label; 1] = [Label::from_static_parts("key", "value")];
     static BORROWED_LABELS: KeyData = KeyData::from_static_parts(&BORROWED_NAME, &LABELS);
@@ -406,7 +366,7 @@ mod tests {
         assert_eq!(previous, Some(&42));
 
         let labels = LABELS.to_vec();
-        let owned_labels = KeyData::from_parts("name", labels);
+        let owned_labels = KeyData::from_hybrid_parts(&BORROWED_NAME, labels);
         assert_eq!(&owned_labels, &BORROWED_LABELS);
 
         let previous = keys.insert(owned_labels, 43);
@@ -431,7 +391,7 @@ mod tests {
         assert_eq!(previous, Some(&42));
 
         let labels = LABELS.to_vec();
-        let owned_labels = Key::from(KeyData::from_parts("name", labels));
+        let owned_labels = Key::from(KeyData::from_hybrid_parts(&BORROWED_NAME, labels));
         let borrowed_labels = Key::from(&BORROWED_LABELS);
         assert_eq!(owned_labels, borrowed_labels);
 
@@ -448,19 +408,19 @@ mod tests {
         let result1 = key1.to_string();
         assert_eq!(result1, "KeyData(foobar)");
 
-        let key2 = KeyData::from_parts("foobar", vec![Label::new("system", "http")]);
+        let key2 = KeyData::from_hybrid_parts(&FOOBAR_NAME, vec![Label::new("system", "http")]);
         let result2 = key2.to_string();
         assert_eq!(result2, "KeyData(foobar, [system = http])");
 
-        let key3 = KeyData::from_parts(
-            "foobar",
+        let key3 = KeyData::from_hybrid_parts(
+            &FOOBAR_NAME,
             vec![Label::new("system", "http"), Label::new("user", "joe")],
         );
         let result3 = key3.to_string();
         assert_eq!(result3, "KeyData(foobar, [system = http, user = joe])");
 
-        let key4 = KeyData::from_parts(
-            "foobar",
+        let key4 = KeyData::from_hybrid_parts(
+            &FOOBAR_NAME,
             vec![
                 Label::new("black", "black"),
                 Label::new("lives", "lives"),
@@ -479,10 +439,9 @@ mod tests {
         let owned_a = KeyData::from_name("a");
         let owned_b = KeyData::from_name("b");
 
-
-        static A_NAME: NameParts = NameParts::from_static_name("a");
+        static A_NAME: [SharedString; 1] = [SharedString::const_str("a")];
         static STATIC_A: KeyData = KeyData::from_static_name(&A_NAME);
-        static B_NAME: NameParts = NameParts::from_static_name("b");
+        static B_NAME: [SharedString; 1] = [SharedString::const_str("b")];
         static STATIC_B: KeyData = KeyData::from_static_name(&B_NAME);
 
         assert_eq!(Key::Owned(owned_a.clone()), Key::Owned(owned_a.clone()));
