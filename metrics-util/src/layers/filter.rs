@@ -13,7 +13,9 @@ pub struct Filter<R> {
 
 impl<R> Filter<R> {
     fn should_filter(&self, key: &Key) -> bool {
-        self.automaton.is_match(key.name().as_ref())
+        key.name()
+            .parts()
+            .any(|s| self.automaton.is_match(s.as_ref()))
     }
 }
 
@@ -75,11 +77,14 @@ impl FilterLayer {
     /// Creates a `FilterLayer` from an existing set of patterns.
     pub fn from_patterns<P, I>(patterns: P) -> Self
     where
-        P: Iterator<Item = I>,
+        P: IntoIterator<Item = I>,
         I: AsRef<str>,
     {
         FilterLayer {
-            patterns: patterns.map(|s| s.as_ref().to_string()).collect(),
+            patterns: patterns
+                .into_iter()
+                .map(|s| s.as_ref().to_string())
+                .collect(),
             case_insensitive: false,
             use_dfa: true,
         }
@@ -142,7 +147,7 @@ mod tests {
         let patterns = &["tokio", "bb8"];
         let recorder = DebuggingRecorder::new();
         let snapshotter = recorder.snapshotter();
-        let filter = FilterLayer::from_patterns(patterns.iter());
+        let filter = FilterLayer::from_patterns(patterns);
         let layered = filter.layer(recorder);
 
         let before = snapshotter.snapshot();
@@ -186,7 +191,10 @@ mod tests {
         assert_eq!(after.len(), 2);
 
         for (_kind, key, unit, desc, _value) in after {
-            assert!(!key.name().contains("tokio") && !key.name().contains("bb8"));
+            assert!(
+                !key.name().to_string().contains("tokio")
+                    && !key.name().to_string().contains("bb8")
+            );
             // We cheat here since we're not comparing one-to-one with the source data,
             // but we know which metrics are going to make it through so we can hard code.
             assert_eq!(Some(Unit::Bytes), unit);
@@ -217,8 +225,8 @@ mod tests {
 
         for (_kind, key, _unit, _desc, _value) in &after {
             assert!(
-                !key.name().to_lowercase().contains("tokio")
-                    && !key.name().to_lowercase().contains("bb8")
+                !key.name().to_string().to_lowercase().contains("tokio")
+                    && !key.name().to_string().to_lowercase().contains("bb8")
             );
         }
     }
