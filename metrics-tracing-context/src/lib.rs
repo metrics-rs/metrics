@@ -126,7 +126,7 @@ where
     fn enhance_key(&self, key: Key) -> Key {
         let (name, mut labels) = key.into_owned().into_parts();
         self.enhance_labels(&mut labels);
-        KeyData::from_owned_parts(name, labels).into()
+        KeyData::from_parts(name, labels).into()
     }
 }
 

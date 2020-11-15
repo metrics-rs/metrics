@@ -367,10 +367,10 @@ fn key_to_quoted(labels: Option<Labels>) -> proc_macro2::TokenStream {
                     .into_iter()
                     .map(|(key, val)| quote! { metrics::Label::new(#key, #val) });
                 quote! {
-                    metrics::KeyData::from_hybrid_parts(&METRIC_NAME, vec![#(#labels),*])
+                    metrics::KeyData::from_parts(&METRIC_NAME[..], vec![#(#labels),*])
                 }
             }
-            Labels::Existing(e) => quote! { metrics::KeyData::from_hybrid_parts(&METRIC_NAME, #e) },
+            Labels::Existing(e) => quote! { metrics::KeyData::from_parts(&METRIC_NAME[..], #e) },
         },
     }
 }

@@ -64,7 +64,7 @@ fn registry_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let key = "simple_key";
                 let labels = vec![Label::new("type", "http")];
-                KeyData::from_owned_parts(key, labels)
+                KeyData::from_parts(key, labels)
             })
         })
         .with_function("const key data overhead (basic)", |b| {
@@ -90,7 +90,7 @@ fn registry_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let key = "simple_key";
                 let labels = vec![Label::new("type", "http")];
-                Key::Owned(KeyData::from_owned_parts(key, labels))
+                Key::Owned(KeyData::from_parts(key, labels))
             })
         })
         .with_function("cached key overhead (basic)", |b| {
