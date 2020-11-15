@@ -45,16 +45,20 @@ impl NameParts {
 
     /// Renders the name parts as a dot-delimited string.
     pub fn to_string(&self) -> String {
-        // This is suboptimal since we're allocating in a bunch of ways.
-        //
-        // Might be faster to figure out the string length and then allocate a single string with
-        // the required capacity, and write into it, potentially pooling them? Dunno, we should
-        // actually benchmark this. :P
-        self.0
-            .iter()
-            .map(|s| s.as_ref())
-            .collect::<Vec<_>>()
-            .join(".")
+        // It's faster to allocate the string by hand instead of collecting the parts and joining
+        // them, or deferring to Dsiplay::to_string, or anything else.  This may change in the
+        // future, or benefit from some sort of string pooling, but otherwise, this seemingly
+        // suboptimal approach -- oh no, a single allocation! :P -- works pretty well overall.
+        let mut first = false;
+        let mut s = String::with_capacity(16);
+        for p in self.0.iter() {
+            if first {
+                s.push_str(".");
+                first = false;
+            }
+            s.push_str(p.as_ref());
+        }
+        s
     }
 }
 
@@ -72,15 +76,8 @@ impl From<&'static str> for NameParts {
 
 impl fmt::Display for NameParts {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut first = true;
-        for s in self.parts() {
-            if !first {
-                write!(f, ".{}", s)?;
-                first = false;
-            } else {
-                write!(f, "{}", s)?;
-            }
-        }
+        let s = self.to_string();
+        f.write_str(s.as_str())?;
         Ok(())
     }
 }

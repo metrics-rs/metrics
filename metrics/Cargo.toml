@@ -27,6 +27,10 @@ bench = false
 name = "macros"
 harness = false
 
+[[bench]]
+name = "key"
+harness = false
+
 [dependencies]
 beef = "0.4"
 metrics-macros = { version = "0.1.0-alpha.1", path = "../metrics-macros" }
