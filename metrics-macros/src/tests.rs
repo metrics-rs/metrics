@@ -167,7 +167,7 @@ fn test_get_expanded_callsite_fast_path_dynamic_labels() {
         "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "recorder . myop_mytype (metrics :: Key :: Owned (",
-        "metrics :: KeyData :: from_hybrid_parts (& METRIC_NAME , vec ! [metrics :: Label :: new (\"key1\" , & value1)])",
+        "metrics :: KeyData :: from_parts (& METRIC_NAME [..] , vec ! [metrics :: Label :: new (\"key1\" , & value1)])",
         ") , 1) ; ",
         "} ",
         "}",
@@ -192,7 +192,7 @@ fn test_get_expanded_callsite_regular_path() {
         "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "recorder . myop_mytype (",
-        "metrics :: Key :: Owned (metrics :: KeyData :: from_hybrid_parts (& METRIC_NAME , mylabels)) , ",
+        "metrics :: Key :: Owned (metrics :: KeyData :: from_parts (& METRIC_NAME [..] , mylabels)) , ",
         "1",
         ") ; ",
         "} }",
@@ -213,7 +213,7 @@ fn test_key_to_quoted_existing_labels() {
     let stream = key_to_quoted(Some(Labels::Existing(Expr::Path(
         parse_quote! { mylabels },
     ))));
-    let expected = "metrics :: KeyData :: from_hybrid_parts (& METRIC_NAME , mylabels)";
+    let expected = "metrics :: KeyData :: from_parts (& METRIC_NAME [..] , mylabels)";
     assert_eq!(stream.to_string(), expected);
 }
 
@@ -226,7 +226,7 @@ fn test_key_to_quoted_inline_labels() {
         (parse_quote! {"mylabel2"}, parse_quote! { "mylabel2" }),
     ])));
     let expected = concat!(
-        "metrics :: KeyData :: from_hybrid_parts (& METRIC_NAME , vec ! [",
+        "metrics :: KeyData :: from_parts (& METRIC_NAME [..] , vec ! [",
         "metrics :: Label :: new (\"mylabel1\" , mylabel1) , ",
         "metrics :: Label :: new (\"mylabel2\" , \"mylabel2\")",
         "])"
@@ -237,6 +237,6 @@ fn test_key_to_quoted_inline_labels() {
 #[test]
 fn test_key_to_quoted_inline_labels_empty() {
     let stream = key_to_quoted(Some(Labels::Inline(vec![])));
-    let expected = concat!("metrics :: KeyData :: from_hybrid_parts (& METRIC_NAME , vec ! [])");
+    let expected = concat!("metrics :: KeyData :: from_parts (& METRIC_NAME [..] , vec ! [])");
     assert_eq!(stream.to_string(), expected);
 }

@@ -74,6 +74,12 @@ impl From<&'static str> for NameParts {
     }
 }
 
+impl From<&'static [SharedString]> for NameParts {
+    fn from(names: &'static [SharedString]) -> NameParts {
+        NameParts::from_static_names(names)
+    }
+}
+
 impl fmt::Display for NameParts {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self.to_string();
@@ -105,25 +111,14 @@ impl KeyData {
         }
     }
 
-    /// Creates a [`KeyData`] from a name.
-    pub fn from_owned_parts<N, L>(name: N, labels: L) -> Self
+    /// Creates a [`KeyData`] from a name and set of labels.
+    pub fn from_parts<N, L>(name: N, labels: L) -> Self
     where
         N: Into<NameParts>,
         L: IntoLabels,
     {
         Self {
             name_parts: name.into(),
-            labels: Cow::owned(labels.into_labels()),
-        }
-    }
-
-    /// Creates a [`KeyData`] from a name and vector of [`Label`]s.
-    pub fn from_hybrid_parts<L>(name_parts: &'static [SharedString], labels: L) -> Self
-    where
-        L: IntoLabels,
-    {
-        Self {
-            name_parts: NameParts::from_static_names(name_parts),
             labels: Cow::owned(labels.into_labels()),
         }
     }
@@ -363,7 +358,7 @@ mod tests {
         assert_eq!(previous, Some(&42));
 
         let labels = LABELS.to_vec();
-        let owned_labels = KeyData::from_hybrid_parts(&BORROWED_NAME, labels);
+        let owned_labels = KeyData::from_parts(&BORROWED_NAME[..], labels);
         assert_eq!(&owned_labels, &BORROWED_LABELS);
 
         let previous = keys.insert(owned_labels, 43);
@@ -388,7 +383,7 @@ mod tests {
         assert_eq!(previous, Some(&42));
 
         let labels = LABELS.to_vec();
-        let owned_labels = Key::from(KeyData::from_hybrid_parts(&BORROWED_NAME, labels));
+        let owned_labels = Key::from(KeyData::from_parts(&BORROWED_NAME[..], labels));
         let borrowed_labels = Key::from(&BORROWED_LABELS);
         assert_eq!(owned_labels, borrowed_labels);
 
@@ -405,19 +400,19 @@ mod tests {
         let result1 = key1.to_string();
         assert_eq!(result1, "KeyData(foobar)");
 
-        let key2 = KeyData::from_hybrid_parts(&FOOBAR_NAME, vec![Label::new("system", "http")]);
+        let key2 = KeyData::from_parts(&FOOBAR_NAME[..], vec![Label::new("system", "http")]);
         let result2 = key2.to_string();
         assert_eq!(result2, "KeyData(foobar, [system = http])");
 
-        let key3 = KeyData::from_hybrid_parts(
-            &FOOBAR_NAME,
+        let key3 = KeyData::from_parts(
+            &FOOBAR_NAME[..],
             vec![Label::new("system", "http"), Label::new("user", "joe")],
         );
         let result3 = key3.to_string();
         assert_eq!(result3, "KeyData(foobar, [system = http, user = joe])");
 
-        let key4 = KeyData::from_hybrid_parts(
-            &FOOBAR_NAME,
+        let key4 = KeyData::from_parts(
+            &FOOBAR_NAME[..],
             vec![
                 Label::new("black", "black"),
                 Label::new("lives", "lives"),
