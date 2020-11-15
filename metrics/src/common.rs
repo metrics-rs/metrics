@@ -5,6 +5,9 @@ use crate::cow::Cow;
 /// We specify `SharedString` to attempt to get the best of both worlds: flexibility to provide a
 /// static or dynamic (owned) string, while retaining the performance benefits of being able to
 /// take ownership of owned strings and borrows of completely static strings.
+///
+/// `SharedString` can be converted to from either `&'static str` or `String`, with a method,
+/// `const_str`, from constructing `SharedString` from `&'static str` in a `const` fashion.
 pub type SharedString = Cow<'static, str>;
 
 /// Units for a given metric.
