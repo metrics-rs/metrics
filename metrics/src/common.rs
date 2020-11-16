@@ -1,13 +1,13 @@
-#[cfg(target_pointer_width = "64")]
-use beef::lean::Cow;
-#[cfg(not(target_pointer_width = "64"))]
-use beef::Cow;
+use crate::cow::Cow;
 
 /// An allocation-optimized string.
 ///
 /// We specify `SharedString` to attempt to get the best of both worlds: flexibility to provide a
 /// static or dynamic (owned) string, while retaining the performance benefits of being able to
 /// take ownership of owned strings and borrows of completely static strings.
+///
+/// `SharedString` can be converted to from either `&'static str` or `String`, with a method,
+/// `const_str`, from constructing `SharedString` from `&'static str` in a `const` fashion.
 pub type SharedString = Cow<'static, str>;
 
 /// Units for a given metric.

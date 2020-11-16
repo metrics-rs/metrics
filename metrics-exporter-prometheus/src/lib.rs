@@ -345,7 +345,7 @@ impl PrometheusRecorder {
     fn add_description_if_missing(&self, key: &Key, description: Option<&'static str>) {
         if let Some(description) = description {
             let mut descriptions = self.inner.descriptions.write();
-            if !descriptions.contains_key(key.name().as_ref()) {
+            if !descriptions.contains_key(key.name().to_string().as_str()) {
                 descriptions.insert(key.name().to_string(), description);
             }
         }
@@ -596,7 +596,11 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
     let name = key.name();
     let labels = key.labels();
     let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';
-    let name = name.replace(sanitize, "_");
+    let name = name
+        .parts()
+        .map(|s| s.replace(sanitize, "_"))
+        .collect::<Vec<_>>()
+        .join("_");
     let labels = labels
         .into_iter()
         .map(|label| {

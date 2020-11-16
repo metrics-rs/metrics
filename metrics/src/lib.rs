@@ -223,6 +223,8 @@ use proc_macro_hack::proc_macro_hack;
 mod common;
 pub use self::common::*;
 
+mod cow;
+
 mod key;
 pub use self::key::*;
 
