@@ -224,13 +224,13 @@ pub fn histogram(input: TokenStream) -> TokenStream {
 
 fn get_expanded_registration(
     metric_type: &str,
-    key: LitStr,
+    name: LitStr,
     unit: Option<Expr>,
     description: Option<LitStr>,
     labels: Option<Labels>,
 ) -> proc_macro2::TokenStream {
     let register_ident = format_ident!("register_{}", metric_type);
-    let key = key_to_quoted(key, labels);
+    let key = key_to_quoted(labels);
 
     let unit = match unit {
         Some(e) => quote! { Some(#e) },
@@ -244,6 +244,7 @@ fn get_expanded_registration(
 
     quote! {
         {
+            static METRIC_NAME: [metrics::SharedString; 1] = [metrics::SharedString::const_str(#name)];
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
                 // Registrations are fairly rare, don't attempt to cache here
@@ -257,7 +258,7 @@ fn get_expanded_registration(
 fn get_expanded_callsite<V>(
     metric_type: &str,
     op_type: &str,
-    key: LitStr,
+    name: LitStr,
     labels: Option<Labels>,
     op_values: V,
 ) -> proc_macro2::TokenStream
@@ -288,15 +289,17 @@ where
                 let labels_len = quote! { #labels_len };
 
                 quote! {
+                    static METRIC_NAME: [metrics::SharedString; 1] = [metrics::SharedString::const_str(#name)];
                     static METRIC_LABELS: [metrics::Label; #labels_len] = [#(#labels),*];
                     static METRIC_KEY: metrics::KeyData =
-                        metrics::KeyData::from_static_parts(#key, &METRIC_LABELS);
+                        metrics::KeyData::from_static_parts(&METRIC_NAME, &METRIC_LABELS);
                 }
             }
             None => {
                 quote! {
+                    static METRIC_NAME: [metrics::SharedString; 1] = [metrics::SharedString::const_str(#name)];
                     static METRIC_KEY: metrics::KeyData =
-                        metrics::KeyData::from_static_name(#key);
+                        metrics::KeyData::from_static_name(&METRIC_NAME);
                 }
             }
             _ => unreachable!("use_fast_path == true, but found expression-based labels"),
@@ -314,9 +317,11 @@ where
         }
     } else {
         // We're on the slow path, so we allocate, womp.
-        let key = key_to_quoted(key, labels);
+        let key = key_to_quoted(labels);
         quote! {
             {
+                static METRIC_NAME: [metrics::SharedString; 1] = [metrics::SharedString::const_str(#name)];
+
                 // Only do this work if there's a recorder installed.
                 if let Some(recorder) = metrics::try_recorder() {
                     recorder.#op_ident(metrics::Key::Owned(#key), #op_values);
@@ -353,17 +358,19 @@ fn read_key(input: &mut ParseStream) -> Result<LitStr> {
     Ok(key)
 }
 
-fn key_to_quoted(name: LitStr, labels: Option<Labels>) -> proc_macro2::TokenStream {
+fn key_to_quoted(labels: Option<Labels>) -> proc_macro2::TokenStream {
     match labels {
-        None => quote! { metrics::KeyData::from_name(#name) },
+        None => quote! { metrics::KeyData::from_static_name(&METRIC_NAME) },
         Some(labels) => match labels {
             Labels::Inline(pairs) => {
                 let labels = pairs
                     .into_iter()
                     .map(|(key, val)| quote! { metrics::Label::new(#key, #val) });
-                quote! { metrics::KeyData::from_parts(#name, vec![#(#labels),*]) }
+                quote! {
+                    metrics::KeyData::from_parts(&METRIC_NAME[..], vec![#(#labels),*])
+                }
             }
-            Labels::Existing(e) => quote! { metrics::KeyData::from_parts(#name, #e) },
+            Labels::Existing(e) => quote! { metrics::KeyData::from_parts(&METRIC_NAME[..], #e) },
         },
     }
 }

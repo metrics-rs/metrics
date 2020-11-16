@@ -101,7 +101,7 @@ where
     }
 }
 
-/// [`TracingContext`] is a [`metrics::Recorder`] that injects labels from [`tracing::Span`]s.
+/// [`TracingContext`] is a [`metrics::Recorder`] that injects labels from[`tracing::Span`]s.
 pub struct TracingContext<R, F> {
     inner: R,
     label_filter: F,

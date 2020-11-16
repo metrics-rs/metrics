@@ -1,5 +1,5 @@
-use crate::{IntoLabels, Label, SharedString};
-use alloc::{borrow::Cow, string::String, vec::Vec};
+use crate::{cow::Cow, IntoLabels, Label, SharedString};
+use alloc::{string::String, vec::Vec};
 use core::{
     fmt,
     hash::{Hash, Hasher},
@@ -7,13 +7,95 @@ use core::{
     slice::Iter,
 };
 
+const NO_LABELS: [Label; 0] = [];
+
+/// Parts compromising a metric name.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct NameParts(Cow<'static, [SharedString]>);
+
+impl NameParts {
+    /// Creates a [`NameParts`] from the given name.
+    pub fn from_name<N: Into<SharedString>>(name: N) -> Self {
+        NameParts(Cow::owned(vec![name.into()]))
+    }
+
+    /// Creates a [`NameParts`] from the given static name.
+    pub const fn from_static_names(names: &'static [SharedString]) -> Self {
+        NameParts(Cow::<'static, [SharedString]>::const_slice(names))
+    }
+
+    /// Appends a name part.
+    pub fn append<S: Into<SharedString>>(self, part: S) -> Self {
+        let mut parts = self.0.into_owned();
+        parts.push(part.into());
+        NameParts(Cow::owned(parts))
+    }
+
+    /// Prepends a name part.
+    pub fn prepend<S: Into<SharedString>>(self, part: S) -> Self {
+        let mut parts = self.0.into_owned();
+        parts.insert(0, part.into());
+        NameParts(Cow::owned(parts))
+    }
+
+    /// Gets a reference to the parts for this name.
+    pub fn parts(&self) -> Iter<'_, SharedString> {
+        self.0.iter()
+    }
+
+    /// Renders the name parts as a dot-delimited string.
+    pub fn to_string(&self) -> String {
+        // It's faster to allocate the string by hand instead of collecting the parts and joining
+        // them, or deferring to Dsiplay::to_string, or anything else.  This may change in the
+        // future, or benefit from some sort of string pooling, but otherwise, this seemingly
+        // suboptimal approach -- oh no, a single allocation! :P -- works pretty well overall.
+        let mut first = false;
+        let mut s = String::with_capacity(16);
+        for p in self.0.iter() {
+            if first {
+                s.push_str(".");
+                first = false;
+            }
+            s.push_str(p.as_ref());
+        }
+        s
+    }
+}
+
+impl From<String> for NameParts {
+    fn from(name: String) -> NameParts {
+        NameParts::from_name(name)
+    }
+}
+
+impl From<&'static str> for NameParts {
+    fn from(name: &'static str) -> NameParts {
+        NameParts::from_name(name)
+    }
+}
+
+impl From<&'static [SharedString]> for NameParts {
+    fn from(names: &'static [SharedString]) -> NameParts {
+        NameParts::from_static_names(names)
+    }
+}
+
+impl fmt::Display for NameParts {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = self.to_string();
+        f.write_str(s.as_str())?;
+        Ok(())
+    }
+}
+
 /// Inner representation of [`Key`].
 ///
 /// While [`Key`] is the type that users will interact with via [`Recorder`][crate::Recorder],
 /// [`KeyData`] is responsible for the actual storage of the name and label data.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct KeyData {
-    name: SharedString,
+    // TODO: once const slicing is possible on stable, we could likely use `beef` for both of these
+    name_parts: NameParts,
     labels: Cow<'static, [Label]>,
 }
 
@@ -23,44 +105,47 @@ impl KeyData {
     where
         N: Into<SharedString>,
     {
-        Self::from_parts(name, Vec::new())
+        Self {
+            name_parts: NameParts::from_name(name),
+            labels: Cow::owned(Vec::new()),
+        }
     }
 
-    /// Creates a [`KeyData`] from a name and vector of [`Label`]s.
+    /// Creates a [`KeyData`] from a name and set of labels.
     pub fn from_parts<N, L>(name: N, labels: L) -> Self
     where
-        N: Into<SharedString>,
+        N: Into<NameParts>,
         L: IntoLabels,
     {
         Self {
-            name: name.into(),
-            labels: labels.into_labels().into(),
+            name_parts: name.into(),
+            labels: Cow::owned(labels.into_labels()),
         }
     }
 
     /// Creates a [`KeyData`] from a static name.
     ///
     /// This function is `const`, so it can be used in a static context.
-    pub const fn from_static_name(name: &'static str) -> Self {
-        Self {
-            name: SharedString::const_str(name),
-            labels: Cow::Owned(Vec::new()),
-        }
+    pub const fn from_static_name(name_parts: &'static [SharedString]) -> Self {
+        Self::from_static_parts(name_parts, &NO_LABELS)
     }
 
     /// Creates a [`KeyData`] from a static name and static set of labels.
     ///
     /// This function is `const`, so it can be used in a static context.
-    pub const fn from_static_parts(name: &'static str, labels: &'static [Label]) -> Self {
+    pub const fn from_static_parts(
+        name_parts: &'static [SharedString],
+        labels: &'static [Label],
+    ) -> Self {
         Self {
-            name: SharedString::const_str(name),
-            labels: Cow::Borrowed(labels),
+            name_parts: NameParts::from_static_names(name_parts),
+            labels: Cow::<[Label]>::const_slice(labels),
         }
     }
 
-    /// Name of this key.
-    pub fn name(&self) -> &SharedString {
-        &self.name
+    /// Name parts of this key.
+    pub fn name(&self) -> &NameParts {
+        &self.name_parts
     }
 
     /// Labels of this key, if they exist.
@@ -68,21 +153,27 @@ impl KeyData {
         self.labels.iter()
     }
 
-    /// Map the name of this key to a new name, based on `f`.
-    ///
-    /// The value returned by `f` becomes the new name of the key.
-    pub fn map_name<F>(mut self, f: F) -> Self
-    where
-        F: Fn(SharedString) -> String,
-    {
-        let new_name = f(self.name);
-        self.name = new_name.into();
-        self
+    /// Appends a part to the name,
+    pub fn append_name<S: Into<SharedString>>(self, part: S) -> Self {
+        let name_parts = self.name_parts.append(part);
+        Self {
+            name_parts,
+            labels: self.labels,
+        }
     }
 
-    /// Consumes this [`Key`], returning the name and any labels.
-    pub fn into_parts(self) -> (SharedString, Vec<Label>) {
-        (self.name, self.labels.into_owned())
+    /// Prepends a part to the name.
+    pub fn prepend_name<S: Into<SharedString>>(self, part: S) -> Self {
+        let name_parts = self.name_parts.prepend(part);
+        Self {
+            name_parts,
+            labels: self.labels,
+        }
+    }
+
+    /// Consumes this [`Key`], returning the name parts and any labels.
+    pub fn into_parts(self) -> (NameParts, Vec<Label>) {
+        (self.name_parts.clone(), self.labels.into_owned())
     }
 
     /// Clones this [`Key`], and expands the existing set of labels.
@@ -91,12 +182,12 @@ impl KeyData {
             return self.clone();
         }
 
-        let name = self.name.clone();
+        let name_parts = self.name_parts.clone();
         let mut labels = self.labels.clone().into_owned();
         labels.extend(extra_labels);
 
         Self {
-            name,
+            name_parts,
             labels: labels.into(),
         }
     }
@@ -105,9 +196,9 @@ impl KeyData {
 impl fmt::Display for KeyData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.labels.is_empty() {
-            write!(f, "KeyData({})", self.name)
+            write!(f, "KeyData({})", self.name_parts)
         } else {
-            write!(f, "KeyData({}, [", self.name)?;
+            write!(f, "KeyData({}, [", self.name_parts)?;
             let mut first = true;
             for label in self.labels.as_ref() {
                 if first {
@@ -140,7 +231,10 @@ where
     L: IntoLabels,
 {
     fn from(parts: (N, L)) -> Self {
-        Self::from_parts(parts.0, parts.1)
+        Self {
+            name_parts: NameParts::from_name(parts.0),
+            labels: Cow::owned(parts.1.into_labels()),
+        }
     }
 }
 
@@ -241,12 +335,14 @@ impl From<&'static KeyData> for Key {
 #[cfg(test)]
 mod tests {
     use super::{Key, KeyData};
-    use crate::Label;
+    use crate::{Label, SharedString};
     use std::collections::HashMap;
 
-    static BORROWED_BASIC: KeyData = KeyData::from_static_name("name");
+    static BORROWED_NAME: [SharedString; 1] = [SharedString::const_str("name")];
+    static FOOBAR_NAME: [SharedString; 1] = [SharedString::const_str("foobar")];
+    static BORROWED_BASIC: KeyData = KeyData::from_static_name(&BORROWED_NAME);
     static LABELS: [Label; 1] = [Label::from_static_parts("key", "value")];
-    static BORROWED_LABELS: KeyData = KeyData::from_static_parts("name", &LABELS);
+    static BORROWED_LABELS: KeyData = KeyData::from_static_parts(&BORROWED_NAME, &LABELS);
 
     #[test]
     fn test_keydata_eq_and_hash() {
@@ -262,7 +358,7 @@ mod tests {
         assert_eq!(previous, Some(&42));
 
         let labels = LABELS.to_vec();
-        let owned_labels = KeyData::from_parts("name", labels);
+        let owned_labels = KeyData::from_parts(&BORROWED_NAME[..], labels);
         assert_eq!(&owned_labels, &BORROWED_LABELS);
 
         let previous = keys.insert(owned_labels, 43);
@@ -287,7 +383,7 @@ mod tests {
         assert_eq!(previous, Some(&42));
 
         let labels = LABELS.to_vec();
-        let owned_labels = Key::from(KeyData::from_parts("name", labels));
+        let owned_labels = Key::from(KeyData::from_parts(&BORROWED_NAME[..], labels));
         let borrowed_labels = Key::from(&BORROWED_LABELS);
         assert_eq!(owned_labels, borrowed_labels);
 
@@ -304,19 +400,19 @@ mod tests {
         let result1 = key1.to_string();
         assert_eq!(result1, "KeyData(foobar)");
 
-        let key2 = KeyData::from_parts("foobar", vec![Label::new("system", "http")]);
+        let key2 = KeyData::from_parts(&FOOBAR_NAME[..], vec![Label::new("system", "http")]);
         let result2 = key2.to_string();
         assert_eq!(result2, "KeyData(foobar, [system = http])");
 
         let key3 = KeyData::from_parts(
-            "foobar",
+            &FOOBAR_NAME[..],
             vec![Label::new("system", "http"), Label::new("user", "joe")],
         );
         let result3 = key3.to_string();
         assert_eq!(result3, "KeyData(foobar, [system = http, user = joe])");
 
         let key4 = KeyData::from_parts(
-            "foobar",
+            &FOOBAR_NAME[..],
             vec![
                 Label::new("black", "black"),
                 Label::new("lives", "lives"),
@@ -335,8 +431,10 @@ mod tests {
         let owned_a = KeyData::from_name("a");
         let owned_b = KeyData::from_name("b");
 
-        static STATIC_A: KeyData = KeyData::from_static_name("a");
-        static STATIC_B: KeyData = KeyData::from_static_name("b");
+        static A_NAME: [SharedString; 1] = [SharedString::const_str("a")];
+        static STATIC_A: KeyData = KeyData::from_static_name(&A_NAME);
+        static B_NAME: [SharedString; 1] = [SharedString::const_str("b")];
+        static STATIC_B: KeyData = KeyData::from_static_name(&B_NAME);
 
         assert_eq!(Key::Owned(owned_a.clone()), Key::Owned(owned_a.clone()));
         assert_eq!(Key::Owned(owned_b.clone()), Key::Owned(owned_b.clone()));
