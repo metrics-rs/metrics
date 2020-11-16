@@ -16,61 +16,57 @@ pub type SharedString = Cow<'static, str>;
 /// downstream systems natively support defining units and so they can be specified during registration.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Unit {
-    // Dimensionless measurements.
     /// Count.
     Count,
     /// Percentage.
     Percent,
-    // Time measurements.
     /// Seconds.
+    ///
+    /// One second is equal to 1000 milliseconds.
     Seconds,
     /// Milliseconds.
+    ///
+    /// One millisecond is equal to 1000 microseconds.
     Milliseconds,
     /// Microseconds.
+    ///
+    /// One microsecond is equal to 1000 nanoseconds.
     Microseconds,
     /// Nanoseconds.
     Nanoseconds,
-
-    // Data measurement.
-    /// Terabytes.
-    Terabytes,
-    /// Gigabytes.
-    Gigabytes,
-    /// Megabytes.
-    Megabytes,
-    /// Kilobytes.
-    Kilobytes,
+    /// Tebibytes.
+    ///
+    /// One tebibyte is equal to 1024 gigibytes.
+    Tebibytes,
+    /// Gigibytes.
+    ///
+    /// One gigibyte is equal to 1024 mebibytes.
+    Gigibytes,
+    /// Mebibytes.
+    ///
+    /// One mebibyte is equal to 1024 kibibytes.
+    Mebibytes,
+    /// Kibibytes.
+    ///
+    /// One kibibyte is equal to 1024 bytes.
+    Kibibytes,
     /// Bytes.
     Bytes,
-    /// Terabits.
-    Terabits,
-    /// Gigabits.
-    Gigabits,
-    /// Megabits.
-    Megabits,
-    /// Kilobits.
-    Kilobits,
-    /// Bits.
-    Bits,
-
-    // Rate measurements.
-    /// Terabytes per second.
-    TerabytesPerSecond,
-    /// Gigabytes per second.
-    GigabytesPerSecond,
-    /// Megabytes per second.
-    MegabytesPerSecond,
-    /// Kilobytes per second.
-    KilobytesPerSecond,
-    /// Bytes per second.
-    BytesPerSecond,
     /// Terabits per second.
+    ///
+    /// One terabit is equal to 1000 gigabits.
     TerabitsPerSecond,
     /// Gigabits per second.
+    ///
+    /// One gigabit is equal to 1000 megabits.
     GigabitsPerSecond,
     /// Megabits per second.
+    ///
+    /// One megabit is equal to 1000 kilobits.
     MegabitsPerSecond,
     /// Kilobits per second.
+    ///
+    /// One kilobit is equal to 1000 bits.
     KilobitsPerSecond,
     /// Bits per second.
     BitsPerSecond,
@@ -88,21 +84,11 @@ impl Unit {
             Unit::Milliseconds => "milliseconds",
             Unit::Microseconds => "microseconds",
             Unit::Nanoseconds => "nanoseconds",
-            Unit::Terabytes => "terabytes",
-            Unit::Gigabytes => "gigabytes",
-            Unit::Megabytes => "megabytes",
-            Unit::Kilobytes => "kilobytes",
+            Unit::Tebibytes => "tebibytes",
+            Unit::Gigibytes => "gigibytes",
+            Unit::Mebibytes => "mebibytes",
+            Unit::Kibibytes => "kibibytes",
             Unit::Bytes => "bytes",
-            Unit::Terabits => "terabits",
-            Unit::Gigabits => "gigabits",
-            Unit::Megabits => "megabits",
-            Unit::Kilobits => "kilobits",
-            Unit::Bits => "bits",
-            Unit::TerabytesPerSecond => "terabytes_per_second",
-            Unit::GigabytesPerSecond => "gigabytes_per_second",
-            Unit::MegabytesPerSecond => "megabytes_per_second",
-            Unit::KilobytesPerSecond => "kilobytes_per_second",
-            Unit::BytesPerSecond => "bytes_per_second",
             Unit::TerabitsPerSecond => "terabits_per_second",
             Unit::GigabitsPerSecond => "gigabits_per_second",
             Unit::MegabitsPerSecond => "megabits_per_second",
@@ -126,25 +112,15 @@ impl Unit {
             Unit::Milliseconds => "ms",
             Unit::Microseconds => "us",
             Unit::Nanoseconds => "ns",
-            Unit::Terabytes => "TB",
-            Unit::Gigabytes => "Gb",
-            Unit::Megabytes => "MB",
-            Unit::Kilobytes => "KB",
+            Unit::Tebibytes => "TiB",
+            Unit::Gigibytes => "GiB",
+            Unit::Mebibytes => "MiB",
+            Unit::Kibibytes => "KiB",
             Unit::Bytes => "B",
-            Unit::Terabits => "Tb",
-            Unit::Gigabits => "Gb",
-            Unit::Megabits => "Mb",
-            Unit::Kilobits => "Kb",
-            Unit::Bits => "b",
-            Unit::TerabytesPerSecond => "TBps",
-            Unit::GigabytesPerSecond => "GBps",
-            Unit::MegabytesPerSecond => "MBps",
-            Unit::KilobytesPerSecond => "KBps",
-            Unit::BytesPerSecond => "Bps",
             Unit::TerabitsPerSecond => "Tbps",
             Unit::GigabitsPerSecond => "Gbps",
             Unit::MegabitsPerSecond => "Mbps",
-            Unit::KilobitsPerSecond => "Kbps",
+            Unit::KilobitsPerSecond => "kbps",
             Unit::BitsPerSecond => "bps",
             Unit::CountPerSecond => "/s",
         }
@@ -161,21 +137,11 @@ impl Unit {
             "milliseconds" => Some(Unit::Milliseconds),
             "microseconds" => Some(Unit::Microseconds),
             "nanoseconds" => Some(Unit::Nanoseconds),
-            "terabytes" => Some(Unit::Terabytes),
-            "gigabytes" => Some(Unit::Gigabytes),
-            "megabytes" => Some(Unit::Megabytes),
-            "kilobytes" => Some(Unit::Kilobytes),
+            "tebibytes" => Some(Unit::Tebibytes),
+            "gigibytes" => Some(Unit::Gigibytes),
+            "mebibytes" => Some(Unit::Mebibytes),
+            "kibibytes" => Some(Unit::Kibibytes),
             "bytes" => Some(Unit::Bytes),
-            "terabits" => Some(Unit::Terabits),
-            "gigabits" => Some(Unit::Gigabits),
-            "megabits" => Some(Unit::Megabits),
-            "kilobits" => Some(Unit::Kilobits),
-            "bits" => Some(Unit::Bits),
-            "terabytes_per_second" => Some(Unit::TerabytesPerSecond),
-            "gigabytes_per_second" => Some(Unit::GigabytesPerSecond),
-            "megabytes_per_second" => Some(Unit::MegabytesPerSecond),
-            "kilobytes_per_second" => Some(Unit::KilobytesPerSecond),
-            "bytes_per_second" => Some(Unit::BytesPerSecond),
             "terabits_per_second" => Some(Unit::TerabitsPerSecond),
             "gigabits_per_second" => Some(Unit::GigabitsPerSecond),
             "megabits_per_second" => Some(Unit::MegabitsPerSecond),
@@ -197,21 +163,11 @@ impl Unit {
     /// Whether or not this unit relates to the measurement of data.
     pub fn is_data_based(&self) -> bool {
         match self {
-            Unit::Terabytes
-            | Unit::Gigabytes
-            | Unit::Megabytes
-            | Unit::Kilobytes
+            Unit::Tebibytes
+            | Unit::Gigibytes
+            | Unit::Mebibytes
+            | Unit::Kibibytes
             | Unit::Bytes
-            | Unit::Terabits
-            | Unit::Gigabits
-            | Unit::Megabits
-            | Unit::Kilobits
-            | Unit::Bits
-            | Unit::TerabytesPerSecond
-            | Unit::GigabytesPerSecond
-            | Unit::MegabytesPerSecond
-            | Unit::KilobytesPerSecond
-            | Unit::BytesPerSecond
             | Unit::TerabitsPerSecond
             | Unit::GigabitsPerSecond
             | Unit::MegabitsPerSecond
@@ -224,13 +180,8 @@ impl Unit {
     /// Whether or not this unit relates to the measurement of data rates.
     pub fn is_data_rate_based(&self) -> bool {
         match self {
-            Unit::TerabytesPerSecond
-            | Unit::GigabytesPerSecond
-            | Unit::MegabytesPerSecond
-            | Unit::KilobytesPerSecond
-            | Unit::BytesPerSecond
-            | Unit::TerabitsPerSecond
-            | Unit::Gigabits
+            Unit::TerabitsPerSecond
+            | Unit::GigabitsPerSecond
             | Unit::MegabitsPerSecond
             | Unit::KilobitsPerSecond
             | Unit::BitsPerSecond => true,
@@ -264,4 +215,38 @@ impl IntoU64 for core::time::Duration {
 #[doc(hidden)]
 pub fn __into_u64<V: IntoU64>(value: V) -> u64 {
     value.into_u64()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Unit;
+
+    #[test]
+    fn test_unit_conversions() {
+        let all_variants = vec![
+            Unit::Count,
+            Unit::Percent,
+            Unit::Seconds,
+            Unit::Milliseconds,
+            Unit::Microseconds,
+            Unit::Nanoseconds,
+            Unit::Tebibytes,
+            Unit::Gigibytes,
+            Unit::Mebibytes,
+            Unit::Kibibytes,
+            Unit::Bytes,
+            Unit::TerabitsPerSecond,
+            Unit::GigabitsPerSecond,
+            Unit::MegabitsPerSecond,
+            Unit::KilobitsPerSecond,
+            Unit::BitsPerSecond,
+            Unit::CountPerSecond,
+        ];
+
+        for variant in all_variants {
+            let s = variant.as_str();
+            let parsed = Unit::from_str(s);
+            assert_eq!(Some(variant), parsed);
+        }
+    }
 }
