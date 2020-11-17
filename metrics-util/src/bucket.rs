@@ -5,14 +5,19 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-const BLOCK_SIZE: usize = 512;
+#[cfg(target_pointer_width = "16")]
+const BLOCK_SIZE: usize = 16;
+#[cfg(target_pointer_width = "32")]
+const BLOCK_SIZE: usize = 32;
+#[cfg(target_pointer_width = "64")]
+const BLOCK_SIZE: usize = 64;
 
 /// Discrete chunk of values with atomic read/write access.
 struct Block<T> {
     // Write index.
     write: AtomicUsize,
 
-    // Read index.
+    // Read bitmap.
     read: AtomicUsize,
 
     // The individual slots.
@@ -35,7 +40,7 @@ impl<T> Block<T> {
 
     /// Gets the current length of this block.
     pub fn len(&self) -> usize {
-        self.read.load(Ordering::Acquire)
+        self.read.load(Ordering::Acquire).trailing_ones() as usize
     }
 
     /// Gets a slice of the data written to this block.
@@ -71,7 +76,7 @@ impl<T> Block<T> {
         }
 
         // Scoot our read index forward.
-        self.read.fetch_add(1, Ordering::AcqRel);
+        self.read.fetch_or(1 << index, Ordering::AcqRel);
 
         Ok(())
     }
@@ -324,6 +329,7 @@ mod tests {
 
         let result = block.push(42);
         assert!(result.is_ok());
+        assert_eq!(block.len(), 1);
 
         let data = block.data();
         assert_eq!(data.len(), 1);
