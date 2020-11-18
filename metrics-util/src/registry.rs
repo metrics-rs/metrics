@@ -1,6 +1,34 @@
-use core::hash::Hash;
+use core::{
+    hash::Hash,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 use dashmap::DashMap;
 use std::collections::HashMap;
+
+#[derive(Debug)]
+struct Generational<H>(AtomicUsize, H);
+
+impl<H: Clone> Generational<H> {
+    pub fn new(h: H) -> Generational<H> {
+        Generational(AtomicUsize::new(0), h)
+    }
+
+    pub fn increment_generation(&self) {
+        self.0.fetch_add(1, Ordering::Release);
+    }
+
+    pub fn get_generation(&self) -> usize {
+        self.0.load(Ordering::Acquire)
+    }
+
+    pub fn get_inner(&self) -> &H {
+        &self.1
+    }
+
+    pub fn to_owned(&self) -> (usize, H) {
+        (self.get_generation(), self.get_inner().clone())
+    }
+}
 
 /// A high-performance metric registry.
 ///
@@ -14,17 +42,20 @@ use std::collections::HashMap;
 /// update the actual metric value(s) as needed.  `Handle`, from this crate, is a solid default
 /// choice.
 ///
-/// `Registry` handles deduplicating metrics, and will return the `Identifier` for an existing
-/// metric if a caller attempts to reregister it.
+/// As well, handles have an associated generation counter which is incremented any time an entry is
+/// operated on.  This generation is returned with the handle when querying the registry, and can be
+/// used in order to delete a handle from the registry, allowing callers to prune old/stale handles
+/// over time.
 ///
 /// `Registry` is optimized for reads.
 pub struct Registry<K, H> {
-    map: DashMap<K, H>,
+    map: DashMap<K, Generational<H>>,
 }
 
 impl<K, H> Registry<K, H>
 where
-    K: Eq + Hash + Clone,
+    K: Eq + Hash + Clone + 'static,
+    H: Clone + 'static,
 {
     /// Creates a new `Registry`.
     pub fn new() -> Self {
@@ -44,23 +75,34 @@ where
         I: FnOnce() -> H,
         O: FnOnce(&H) -> V,
     {
-        let valref = self.map.entry(key).or_insert_with(init);
-        op(valref.value())
+        let valref = self.map.entry(key).or_insert_with(|| {
+            let value = init();
+            Generational::new(value)
+        });
+        let value = valref.value();
+        let result = op(value.get_inner());
+        value.increment_generation();
+        result
     }
-}
 
-impl<K, H> Registry<K, H>
-where
-    K: Eq + Hash + Clone + 'static,
-    H: Clone + 'static,
-{
+    /// Deletes a handle from the registry.
+    ///
+    /// The generation of a given key is passed along when querying the registry via
+    /// [`get_handles`].  If the generation given here does not match the current generation, then
+    /// the handle will not be removed.
+    pub fn delete(&self, key: &K, generation: usize) -> bool {
+        self.map
+            .remove_if(key, |_, g| g.get_generation() == generation)
+            .is_some()
+    }
+
     /// Gets a map of all present handles, mapped by key.
     ///
     /// Handles must implement `Clone`.  This map is a point-in-time snapshot of the registry.
-    pub fn get_handles(&self) -> HashMap<K, H> {
+    pub fn get_handles(&self) -> HashMap<K, (usize, H)> {
         self.map
             .iter()
-            .map(|item| (item.key().clone(), item.value().clone()))
+            .map(|item| (item.key().clone(), item.value().to_owned()))
             .collect()
     }
 }

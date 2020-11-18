@@ -11,6 +11,7 @@ fn main() {
 
     let builder = PrometheusBuilder::new();
     builder
+        .idle_timeout(Some(Duration::from_secs(10)))
         .install()
         .expect("failed to install Prometheus recorder");
 
@@ -31,6 +32,8 @@ fn main() {
 
     let mut clock = Clock::new();
     let mut last = None;
+
+    increment!("idle_metric");
 
     // Loop over and over, pretending to do some work.
     loop {

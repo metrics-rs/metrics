@@ -12,13 +12,16 @@ use metrics::{Key, Recorder, SetRecorderError, Unit};
 use metrics_util::{
     parse_quantiles, CompositeKey, Handle, Histogram, MetricKind, Quantile, Registry,
 };
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
+use quanta::{Clock, Instant};
 use std::io;
 use std::iter::FromIterator;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::ops::DerefMut;
 use std::sync::Arc;
 #[cfg(feature = "tokio-exporter")]
 use std::thread;
+use std::time::Duration;
 use std::{collections::HashMap, time::SystemTime};
 use thiserror::Error as ThisError;
 #[cfg(feature = "tokio-exporter")]
@@ -66,8 +69,10 @@ struct Snapshot {
     pub distributions: HashMap<String, HashMap<Vec<String>, Distribution>>,
 }
 
-struct Inner {
+pub(crate) struct Inner {
     registry: PrometheusRegistry,
+    recency: Mutex<(Clock, HashMap<CompositeKey, (usize, Instant)>)>,
+    idle_timeout: Option<Duration>,
     distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
     quantiles: Vec<Quantile>,
     buckets: Vec<u64>,
@@ -80,9 +85,44 @@ impl Inner {
         &self.registry
     }
 
+    fn should_store(
+        &self,
+        key: &CompositeKey,
+        current_gen: usize,
+        clock: &mut Clock,
+        recency: &mut HashMap<CompositeKey, (usize, Instant)>,
+    ) -> bool {
+        if let Some(idle_timeout) = self.idle_timeout {
+            let now = clock.now();
+            if let Some((last_gen, last_update)) = recency.get_mut(&key) {
+                // If the value is the same as the latest value we have internally, and
+                // we're over the idle timeout period, then remove it and continue.
+                if *last_gen == current_gen {
+                    if (now - *last_update) > idle_timeout {
+                        // If the delete returns false, that means that our generation counter is
+                        // out-of-date, and that the metric has been updated since, so we don't
+                        // actually want to delete it yet.
+                        if self.registry.delete(&key, current_gen) {
+                            return false;
+                        }
+                    }
+                } else {
+                    // Value has changed, so mark it such.
+                    *last_update = now;
+                }
+            } else {
+                recency.insert(key.clone(), (current_gen, now));
+            }
+        }
+
+        true
+    }
+
     fn get_recent_metrics(&self) -> Snapshot {
         let metrics = self.registry.get_handles();
 
+        let mut rg = self.recency.lock();
+        let (clock, recency) = rg.deref_mut();
         let mut counters = HashMap::new();
         let mut gauges = HashMap::new();
 
@@ -93,64 +133,76 @@ impl Inner {
             .unwrap_or_else(|| vec![]);
         sorted_overrides.sort_by(|(a, _), (b, _)| b.len().cmp(&a.len()));
 
-        for (key, handle) in metrics.into_iter() {
-            let (kind, key) = key.into_parts();
-            let (name, labels) = key_to_parts(key);
-
-            match kind {
+        for (key, (gen, handle)) in metrics.into_iter() {
+            match key.kind() {
                 MetricKind::Counter => {
-                    let entry = counters
-                        .entry(name)
-                        .or_insert_with(|| HashMap::new())
-                        .entry(labels)
-                        .or_insert(0);
-
-                    *entry = handle.read_counter();
+                    let value = handle.read_counter();
+                    if self.should_store(&key, gen, clock, recency) {
+                        let (_, key) = key.into_parts();
+                        let (name, labels) = key_to_parts(key);
+                        let entry = counters
+                            .entry(name)
+                            .or_insert_with(|| HashMap::new())
+                            .entry(labels)
+                            .or_insert(0);
+                        *entry = value;
+                    }
                 }
                 MetricKind::Gauge => {
-                    let entry = gauges
-                        .entry(name)
-                        .or_insert_with(|| HashMap::new())
-                        .entry(labels)
-                        .or_insert(0.0);
-
-                    *entry = handle.read_gauge();
+                    let value = handle.read_gauge();
+                    if self.should_store(&key, gen, clock, recency) {
+                        let (_, key) = key.into_parts();
+                        let (name, labels) = key_to_parts(key);
+                        let entry = gauges
+                            .entry(name)
+                            .or_insert_with(|| HashMap::new())
+                            .entry(labels)
+                            .or_insert(0.0);
+                        *entry = value;
+                    }
                 }
                 MetricKind::Histogram => {
-                    let buckets = sorted_overrides
-                        .iter()
-                        .find(|(k, _)| name.ends_with(*k))
-                        .map(|(_, buckets)| *buckets)
-                        .unwrap_or(&self.buckets);
+                    if self.should_store(&key, gen, clock, recency) {
+                        let (_, key) = key.into_parts();
+                        let (name, labels) = key_to_parts(key);
 
-                    let mut wg = self.distributions.write();
-                    let entry = wg
-                        .entry(name.clone())
-                        .or_insert_with(|| HashMap::new())
-                        .entry(labels)
-                        .or_insert_with(|| match buckets.is_empty() {
-                            false => {
-                                let histogram = Histogram::new(buckets)
-                                    .expect("failed to create histogram with buckets defined");
-                                Distribution::Histogram(histogram)
-                            }
-                            true => {
-                                let summary =
-                                    HdrHistogram::new(3).expect("failed to create histogram");
-                                Distribution::Summary(summary, 0)
-                            }
-                        });
+                        let buckets = sorted_overrides
+                            .iter()
+                            .find(|(k, _)| name.ends_with(*k))
+                            .map(|(_, buckets)| *buckets)
+                            .unwrap_or(&self.buckets);
 
-                    match entry {
-                        Distribution::Histogram(histogram) => handle
-                            .read_histogram_with_clear(|samples| histogram.record_many(samples)),
-                        Distribution::Summary(summary, sum) => {
-                            handle.read_histogram_with_clear(|samples| {
-                                for sample in samples {
-                                    let _ = summary.record(*sample);
-                                    *sum += *sample;
+                        let mut wg = self.distributions.write();
+                        let entry = wg
+                            .entry(name.clone())
+                            .or_insert_with(|| HashMap::new())
+                            .entry(labels)
+                            .or_insert_with(|| match buckets.is_empty() {
+                                false => {
+                                    let histogram = Histogram::new(buckets)
+                                        .expect("failed to create histogram with buckets defined");
+                                    Distribution::Histogram(histogram)
                                 }
-                            })
+                                true => {
+                                    let summary =
+                                        HdrHistogram::new(3).expect("failed to create histogram");
+                                    Distribution::Summary(summary, 0)
+                                }
+                            });
+
+                        match entry {
+                            Distribution::Histogram(histogram) => {
+                                handle.read_histogram_with_clear(|samples| {
+                                    histogram.record_many(samples)
+                                })
+                            }
+                            Distribution::Summary(summary, sum) => handle
+                                .read_histogram_with_clear(|samples| {
+                                    for sample in samples {
+                                        let _ = summary.record(*sample);
+                                        *sum += *sample;
+                                    }
+                                }),
                         }
                     }
                 }
@@ -371,6 +423,7 @@ pub struct PrometheusBuilder {
     listen_address: SocketAddr,
     quantiles: Vec<Quantile>,
     buckets: Vec<u64>,
+    idle_timeout: Option<Duration>,
     buckets_by_name: Option<HashMap<String, Vec<u64>>>,
 }
 
@@ -383,6 +436,7 @@ impl PrometheusBuilder {
             listen_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9000),
             quantiles,
             buckets: vec![],
+            idle_timeout: None,
             buckets_by_name: None,
         }
     }
@@ -419,6 +473,17 @@ impl PrometheusBuilder {
     /// histograms will be rendered as true Prometheus histograms, instead of summaries.
     pub fn set_buckets(mut self, values: &[u64]) -> Self {
         self.buckets = values.to_vec();
+        self
+    }
+
+    /// Sets the idle timeout for metrics.
+    ///
+    /// If a metric hasn't been updated within this timeout, it will be removed from the registry
+    /// and in turn removed from the normal scrape output until the metric is emitted again.  This
+    /// behavior is driven by requests to generate rendered output, and so metrics will not be
+    /// removed unless a request has been made recently enough to prune the idle metrics.
+    pub fn idle_timeout(mut self, timeout: Option<Duration>) -> Self {
+        self.idle_timeout = timeout;
         self
     }
 
@@ -470,8 +535,14 @@ impl PrometheusBuilder {
     /// Builds the recorder and returns it.
     /// This function is only enabled when default features are not set.
     pub fn build(self) -> Result<PrometheusRecorder, Error> {
+        self.build_with_clock(Clock::new())
+    }
+
+    pub(crate) fn build_with_clock(self, clock: Clock) -> Result<PrometheusRecorder, Error> {
         let inner = Arc::new(Inner {
             registry: Registry::new(),
+            recency: Mutex::new((clock, HashMap::new())),
+            idle_timeout: self.idle_timeout,
             distributions: RwLock::new(HashMap::new()),
             quantiles: self.quantiles.clone(),
             buckets: self.buckets.clone(),
@@ -496,12 +567,14 @@ impl PrometheusBuilder {
     ) -> Result<
         (
             PrometheusRecorder,
-            impl Future<Output = Result<(), HyperError>> + Send + Sync + 'static,
+            impl Future<Output = Result<(), HyperError>> + Send + 'static,
         ),
         Error,
     > {
         let inner = Arc::new(Inner {
             registry: Registry::new(),
+            recency: Mutex::new((Clock::new(), HashMap::new())),
+            idle_timeout: self.idle_timeout,
             distributions: RwLock::new(HashMap::new()),
             quantiles: self.quantiles.clone(),
             buckets: self.buckets.clone(),
@@ -593,15 +666,10 @@ impl Recorder for PrometheusRecorder {
 }
 
 fn key_to_parts(key: Key) -> (String, Vec<String>) {
-    let name = key.name();
-    let labels = key.labels();
     let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';
-    let name = name
-        .parts()
-        .map(|s| s.replace(sanitize, "_"))
-        .collect::<Vec<_>>()
-        .join("_");
-    let labels = labels
+    let name = key.name().to_string().replace(sanitize, "_");
+    let labels = key
+        .labels()
         .into_iter()
         .map(|label| {
             let k = label.key();
