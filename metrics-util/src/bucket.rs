@@ -38,6 +38,17 @@ impl<T> Block<T> {
         }
     }
 
+    // Gets the length of the previous block, if it exists.
+    pub(crate) fn prev_len(&self, guard: &Guard) -> usize {
+        let tail = self.prev.load(Ordering::Acquire, guard);
+        if tail.is_null() {
+            return 0;
+        }
+
+        let tail_block = unsafe { tail.deref() };
+        tail_block.len()
+    }
+
     /// Gets the current length of this block.
     pub fn len(&self) -> usize {
         self.read.load(Ordering::Acquire).trailing_ones() as usize
@@ -121,6 +132,18 @@ impl<T> AtomicBucket<T> {
         AtomicBucket {
             tail: Atomic::null(),
         }
+    }
+
+    /// Checks whether or not this bucket is empty.
+    pub fn is_empty(&self) -> bool {
+        let guard = &epoch_pin();
+        let tail = self.tail.load(Ordering::Acquire, guard);
+        if tail.is_null() {
+            return true;
+        }
+
+        let tail_block = unsafe { tail.deref() };
+        tail_block.len() == 0 && tail_block.prev_len(&guard) == 0
     }
 
     /// Pushes an element into the bucket.
@@ -520,5 +543,24 @@ mod tests {
 
         let snapshot = bucket.data();
         assert_eq!(snapshot.len(), 0);
+    }
+
+    #[test]
+    fn test_bucket_len_and_prev_len() {
+        let bucket = AtomicBucket::new();
+        assert!(bucket.is_empty());
+
+        let snapshot = bucket.data();
+        assert_eq!(snapshot.len(), 0);
+
+        // Just making sure that `is_empty` holds as we go from
+        // the first block, to the second block, to exercise the
+        // `Block::prev_len` codepath.
+        let mut i = 0;
+        while i < BLOCK_SIZE * 2 {
+            bucket.push(i);
+            assert!(!bucket.is_empty());
+            i += 1;
+        }
     }
 }

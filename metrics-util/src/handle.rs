@@ -107,6 +107,16 @@ impl Handle {
         }
     }
 
+    /// Reads this handle as a histogram, and whether or not it's empty.
+    ///
+    /// Panics if this handle is not a histogram.
+    pub fn read_histogram_is_empty(&self) -> bool {
+        match self {
+            Handle::Histogram(bucket) => bucket.is_empty(),
+            _ => panic!("tried to read as histogram"),
+        }
+    }
+
     /// Reads this handle as a histogram incrementally into a closure, and clears the histogram.
     ///
     /// The closure `f` passed in is invoked multiple times with slices of values present in the

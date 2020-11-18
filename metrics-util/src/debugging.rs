@@ -116,13 +116,13 @@ impl Snapshotter {
                 };
 
                 for (dk, _) in metrics.into_iter() {
-                    if let Some(h) = handles.get(&dk) {
+                    if let Some((_, h)) = handles.get(&dk) {
                         collect_metric(dk, h, &self.units, &self.descs, &mut snapshot);
                     }
                 }
             }
             None => {
-                for (dk, h) in handles.into_iter() {
+                for (dk, (_, h)) in handles.into_iter() {
                     collect_metric(dk, &h, &self.units, &self.descs, &mut snapshot);
                 }
             }

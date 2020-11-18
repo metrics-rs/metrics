@@ -25,6 +25,7 @@ metrics-util = { version = "0.4.0-alpha.1", path = "../metrics-util" }
 hdrhistogram = "7.1"
 parking_lot = "0.11"
 thiserror = "1.0"
+quanta = "0.6"
 
 # Optional
 hyper = { version = "0.13", default-features = false, features = ["tcp"], optional = true }
