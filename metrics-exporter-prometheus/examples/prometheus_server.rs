@@ -1,8 +1,8 @@
 use std::thread;
 use std::time::Duration;
 
-use metrics::{histogram, increment, register_counter, register_histogram};
-use metrics_exporter_prometheus::PrometheusBuilder;
+use metrics::{gauge, histogram, increment, register_counter, register_histogram};
+use metrics_exporter_prometheus::{MetricType, PrometheusBuilder};
 
 use quanta::Clock;
 
@@ -11,7 +11,10 @@ fn main() {
 
     let builder = PrometheusBuilder::new();
     builder
-        .idle_timeout(Some(Duration::from_secs(10)))
+        .idle_timeout(
+            Some(Duration::from_secs(10)),
+            MetricType::COUNTER | MetricType::HISTOGRAM,
+        )
         .install()
         .expect("failed to install Prometheus recorder");
 
@@ -34,6 +37,7 @@ fn main() {
     let mut last = None;
 
     increment!("idle_metric");
+    gauge!("testing", 42.0);
 
     // Loop over and over, pretending to do some work.
     loop {
