@@ -17,6 +17,7 @@ use quanta::{Clock, Instant};
 use std::io;
 use std::iter::FromIterator;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::ops::BitOr;
 use std::ops::DerefMut;
 use std::sync::Arc;
 #[cfg(feature = "tokio-exporter")]
@@ -29,6 +30,42 @@ use tokio::{pin, runtime, select};
 
 type PrometheusRegistry = Registry<CompositeKey, Handle>;
 type HdrHistogram = hdrhistogram::Histogram<u64>;
+
+/// Metric type.
+///
+/// Used for configuring which metrics should be culled when idle timeouts are configured.
+#[derive(Debug, PartialEq)]
+pub struct MetricType(u8);
+
+impl MetricType {
+    /// No metrics will be eligible for culling.
+    pub const NONE: MetricType = MetricType(0);
+
+    /// Counters will be eligible for culling.
+    pub const COUNTER: MetricType = MetricType(1);
+
+    /// Gauges will be eligible for culling.
+    pub const GAUGE: MetricType = MetricType(2);
+
+    /// Histograms will be eligible for culling.
+    pub const HISTOGRAM: MetricType = MetricType(4);
+
+    /// All metrics will be eligible for culling.
+    #[allow(dead_code)]
+    pub const ALL: MetricType = MetricType(7);
+
+    pub(crate) fn has(&self, other: MetricType) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl BitOr for MetricType {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0 | rhs.0)
+    }
+}
 
 /// Errors that could occur while installing a Prometheus recorder/exporter.
 #[derive(ThisError, Debug)]
@@ -71,6 +108,7 @@ struct Snapshot {
 
 pub(crate) struct Inner {
     registry: PrometheusRegistry,
+    recency_mask: MetricType,
     recency: Mutex<(Clock, HashMap<CompositeKey, (usize, Instant)>)>,
     idle_timeout: Option<Duration>,
     distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
@@ -137,72 +175,82 @@ impl Inner {
             match key.kind() {
                 MetricKind::Counter => {
                     let value = handle.read_counter();
-                    if self.should_store(&key, gen, clock, recency) {
-                        let (_, key) = key.into_parts();
-                        let (name, labels) = key_to_parts(key);
-                        let entry = counters
-                            .entry(name)
-                            .or_insert_with(|| HashMap::new())
-                            .entry(labels)
-                            .or_insert(0);
-                        *entry = value;
+                    if self.recency_mask.has(MetricType::COUNTER) {
+                        if !self.should_store(&key, gen, clock, recency) {
+                            continue;
+                        }
                     }
+
+                    let (_, key) = key.into_parts();
+                    let (name, labels) = key_to_parts(key);
+                    let entry = counters
+                        .entry(name)
+                        .or_insert_with(|| HashMap::new())
+                        .entry(labels)
+                        .or_insert(0);
+                    *entry = value;
                 }
                 MetricKind::Gauge => {
                     let value = handle.read_gauge();
-                    if self.should_store(&key, gen, clock, recency) {
-                        let (_, key) = key.into_parts();
-                        let (name, labels) = key_to_parts(key);
-                        let entry = gauges
-                            .entry(name)
-                            .or_insert_with(|| HashMap::new())
-                            .entry(labels)
-                            .or_insert(0.0);
-                        *entry = value;
+                    if self.recency_mask.has(MetricType::GAUGE) {
+                        if !self.should_store(&key, gen, clock, recency) {
+                            continue;
+                        }
                     }
+
+                    let (_, key) = key.into_parts();
+                    let (name, labels) = key_to_parts(key);
+                    let entry = gauges
+                        .entry(name)
+                        .or_insert_with(|| HashMap::new())
+                        .entry(labels)
+                        .or_insert(0.0);
+                    *entry = value;
                 }
                 MetricKind::Histogram => {
-                    if self.should_store(&key, gen, clock, recency) {
-                        let (_, key) = key.into_parts();
-                        let (name, labels) = key_to_parts(key);
+                    if self.recency_mask.has(MetricType::HISTOGRAM) {
+                        if !self.should_store(&key, gen, clock, recency) {
+                            continue;
+                        }
+                    }
 
-                        let buckets = sorted_overrides
-                            .iter()
-                            .find(|(k, _)| name.ends_with(*k))
-                            .map(|(_, buckets)| *buckets)
-                            .unwrap_or(&self.buckets);
+                    let (_, key) = key.into_parts();
+                    let (name, labels) = key_to_parts(key);
 
-                        let mut wg = self.distributions.write();
-                        let entry = wg
-                            .entry(name.clone())
-                            .or_insert_with(|| HashMap::new())
-                            .entry(labels)
-                            .or_insert_with(|| match buckets.is_empty() {
-                                false => {
-                                    let histogram = Histogram::new(buckets)
-                                        .expect("failed to create histogram with buckets defined");
-                                    Distribution::Histogram(histogram)
-                                }
-                                true => {
-                                    let summary =
-                                        HdrHistogram::new(3).expect("failed to create histogram");
-                                    Distribution::Summary(summary, 0)
-                                }
-                            });
+                    let buckets = sorted_overrides
+                        .iter()
+                        .find(|(k, _)| name.ends_with(*k))
+                        .map(|(_, buckets)| *buckets)
+                        .unwrap_or(&self.buckets);
 
-                        match entry {
-                            Distribution::Histogram(histogram) => {
-                                handle.read_histogram_with_clear(|samples| {
-                                    histogram.record_many(samples)
-                                })
+                    let mut wg = self.distributions.write();
+                    let entry = wg
+                        .entry(name.clone())
+                        .or_insert_with(|| HashMap::new())
+                        .entry(labels)
+                        .or_insert_with(|| match buckets.is_empty() {
+                            false => {
+                                let histogram = Histogram::new(buckets)
+                                    .expect("failed to create histogram with buckets defined");
+                                Distribution::Histogram(histogram)
                             }
-                            Distribution::Summary(summary, sum) => handle
-                                .read_histogram_with_clear(|samples| {
-                                    for sample in samples {
-                                        let _ = summary.record(*sample);
-                                        *sum += *sample;
-                                    }
-                                }),
+                            true => {
+                                let summary =
+                                    HdrHistogram::new(3).expect("failed to create histogram");
+                                Distribution::Summary(summary, 0)
+                            }
+                        });
+
+                    match entry {
+                        Distribution::Histogram(histogram) => handle
+                            .read_histogram_with_clear(|samples| histogram.record_many(samples)),
+                        Distribution::Summary(summary, sum) => {
+                            handle.read_histogram_with_clear(|samples| {
+                                for sample in samples {
+                                    let _ = summary.record(*sample);
+                                    *sum += *sample;
+                                }
+                            })
                         }
                     }
                 }
@@ -424,6 +472,7 @@ pub struct PrometheusBuilder {
     quantiles: Vec<Quantile>,
     buckets: Vec<u64>,
     idle_timeout: Option<Duration>,
+    recency_mask: MetricType,
     buckets_by_name: Option<HashMap<String, Vec<u64>>>,
 }
 
@@ -437,6 +486,7 @@ impl PrometheusBuilder {
             quantiles,
             buckets: vec![],
             idle_timeout: None,
+            recency_mask: MetricType::NONE,
             buckets_by_name: None,
         }
     }
@@ -482,8 +532,27 @@ impl PrometheusBuilder {
     /// and in turn removed from the normal scrape output until the metric is emitted again.  This
     /// behavior is driven by requests to generate rendered output, and so metrics will not be
     /// removed unless a request has been made recently enough to prune the idle metrics.
-    pub fn idle_timeout(mut self, timeout: Option<Duration>) -> Self {
+    ///
+    /// Further, the metric type "mask" configures which metrics will be considered by the idle
+    /// timeout.  If the type of a metric being considered for idle timeout is not of a type
+    /// represented by the mask, it will not be affected, even if it would have othered been removed
+    /// for exceeding the idle timeout.
+    ///
+    /// [`MetricType`] can be combined in a bitflags-style approach using the bitwise OR operator,
+    /// as such:
+    /// ```rust
+    /// # use metrics_exporter_prometheus::MetricType;
+    /// # fn main() {
+    /// let mask = MetricType::COUNTER | MetricType::HISTOGRAM;
+    /// # }
+    /// ```
+    pub fn idle_timeout(mut self, timeout: Option<Duration>, mask: MetricType) -> Self {
         self.idle_timeout = timeout;
+        self.recency_mask = if self.idle_timeout.is_none() {
+            MetricType::NONE
+        } else {
+            mask
+        };
         self
     }
 
@@ -543,6 +612,7 @@ impl PrometheusBuilder {
             registry: Registry::new(),
             recency: Mutex::new((clock, HashMap::new())),
             idle_timeout: self.idle_timeout,
+            recency_mask: self.recency_mask,
             distributions: RwLock::new(HashMap::new()),
             quantiles: self.quantiles.clone(),
             buckets: self.buckets.clone(),
@@ -575,6 +645,7 @@ impl PrometheusBuilder {
             registry: Registry::new(),
             recency: Mutex::new((Clock::new(), HashMap::new())),
             idle_timeout: self.idle_timeout,
+            recency_mask: self.recency_mask,
             distributions: RwLock::new(HashMap::new()),
             quantiles: self.quantiles.clone(),
             buckets: self.buckets.clone(),
