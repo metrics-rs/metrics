@@ -443,12 +443,14 @@ impl PrometheusBuilder {
     /// installing the recorder as the global recorder.
     #[cfg(feature = "tokio-exporter")]
     pub fn install(self) -> Result<(), Error> {
-        let mut runtime = runtime::Builder::new()
-            .basic_scheduler()
+        let runtime = runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
 
-        let (recorder, exporter) = runtime.enter(|| self.build_with_exporter())?;
+        let (recorder, exporter) = {
+            let _guard = runtime.enter();
+            self.build_with_exporter()
+        }?;
         metrics::set_boxed_recorder(Box::new(recorder))?;
 
         thread::Builder::new()

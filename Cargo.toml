@@ -9,3 +9,7 @@ members = [
   "metrics-tracing-context",
 ]
 exclude = ["metrics-observer"]
+
+[patch.crates-io]
+hyper = { git = "https://github.com/hyperium/hyper/", rev = "ed2b22a7f66899d338691552fbcb6c0f2f4e06b9" }
+

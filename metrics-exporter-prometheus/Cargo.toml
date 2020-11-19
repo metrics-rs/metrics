@@ -27,8 +27,8 @@ parking_lot = "0.11"
 thiserror = "1.0"
 
 # Optional
-hyper = { version = "0.13", default-features = false, features = ["tcp"], optional = true }
-tokio = { version = "0.2", features = ["rt-core", "tcp", "time", "macros"], optional = true }
+hyper = { version = "0.14.0-dev", default-features = false, features = ["tcp", "server", "http1", "http2"], optional = true }
+tokio = { version = "0.3", features = ["rt", "net", "time", "macros"], optional = true }
 
 [dev-dependencies]
 quanta = "0.6"
