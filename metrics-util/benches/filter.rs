@@ -1,8 +1,17 @@
-use criterion::{criterion_group, criterion_main, Benchmark, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
+
+#[cfg(feature = "layer-filter")]
+use criterion::Benchmark;
+
+#[cfg(feature = "layer-filter")]
 use metrics::{Key, KeyData, Label, NoopRecorder, Recorder, SharedString};
+
+#[cfg(feature = "layer-filter")]
 use metrics_util::layers::{FilterLayer, Layer};
 
+#[allow(unused_variables)]
 fn layer_benchmark(c: &mut Criterion) {
+    #[cfg(feature = "layer-filter")]
     c.bench(
         "filter",
         Benchmark::new("match", |b| {

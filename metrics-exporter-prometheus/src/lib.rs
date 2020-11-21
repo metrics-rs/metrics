@@ -14,6 +14,7 @@ use metrics_util::{
 };
 use parking_lot::{Mutex, RwLock};
 use quanta::{Clock, Instant};
+use std::collections::HashMap;
 use std::io;
 use std::iter::FromIterator;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -23,7 +24,6 @@ use std::sync::Arc;
 #[cfg(feature = "tokio-exporter")]
 use std::thread;
 use std::time::Duration;
-use std::{collections::HashMap, time::SystemTime};
 use thiserror::Error as ThisError;
 #[cfg(feature = "tokio-exporter")]
 use tokio::{pin, runtime, select};
@@ -280,16 +280,7 @@ impl Inner {
             mut distributions,
         } = self.get_recent_metrics();
 
-        let ts = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-
-        let mut output = format!(
-            "# metrics snapshot (ts={}) (prometheus exposition format)\n",
-            ts
-        );
-
+        let mut output = String::new();
         let descriptions = self.descriptions.read();
 
         for (name, mut by_labels) in counters.drain() {
@@ -767,4 +758,102 @@ fn render_labeled_name(name: &str, labels: &[String]) -> String {
         output.push_str("}");
     }
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MetricType, PrometheusBuilder};
+    use metrics::{Key, KeyData, Recorder};
+    use quanta::Clock;
+    use std::time::Duration;
+
+    #[test]
+    fn test_creation() {
+        let recorder = PrometheusBuilder::new().build();
+        assert!(recorder.is_ok());
+    }
+
+    #[test]
+    fn test_render() {
+        let recorder = PrometheusBuilder::new()
+            .build()
+            .expect("failed to create PrometheusRecorder");
+
+        let key = Key::from(KeyData::from_name("basic_counter"));
+        recorder.increment_counter(key, 42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected_counter = "# TYPE basic_counter counter\nbasic_counter 42\n\n";
+
+        assert_eq!(rendered, expected_counter);
+
+        let key = Key::from(KeyData::from_name("basic_gauge"));
+        recorder.update_gauge(key, -3.14);
+        let rendered = handle.render();
+        let expected_gauge = format!(
+            "{}# TYPE basic_gauge gauge\nbasic_gauge -3.14\n\n",
+            expected_counter
+        );
+
+        assert_eq!(rendered, expected_gauge);
+
+        let key = Key::from(KeyData::from_name("basic_histogram"));
+        recorder.record_histogram(key, 12);
+        let rendered = handle.render();
+
+        let histogram_data = concat!(
+            "# TYPE basic_histogram summary\n",
+            "basic_histogram{quantile=\"0\"} 12\n",
+            "basic_histogram{quantile=\"0.5\"} 12\n",
+            "basic_histogram{quantile=\"0.9\"} 12\n",
+            "basic_histogram{quantile=\"0.95\"} 12\n",
+            "basic_histogram{quantile=\"0.99\"} 12\n",
+            "basic_histogram{quantile=\"0.999\"} 12\n",
+            "basic_histogram{quantile=\"1\"} 12\n",
+            "basic_histogram_sum 12\n",
+            "basic_histogram_count 1\n",
+            "\n"
+        );
+        let expected_histogram = format!("{}{}", expected_gauge, histogram_data);
+
+        assert_eq!(rendered, expected_histogram);
+    }
+
+    #[test]
+    fn test_idle_timeout() {
+        let (clock, mock) = Clock::mock();
+
+        let recorder = PrometheusBuilder::new()
+            .idle_timeout(Some(Duration::from_secs(10)), MetricType::COUNTER)
+            .build_with_clock(clock)
+            .expect("failed to create PrometheusRecorder");
+
+        let key = Key::from(KeyData::from_name("basic_counter"));
+        recorder.increment_counter(key, 42);
+
+        let key = Key::from(KeyData::from_name("basic_gauge"));
+        recorder.update_gauge(key, -3.14);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# TYPE basic_counter counter\n",
+            "basic_counter 42\n\n",
+            "# TYPE basic_gauge gauge\n",
+            "basic_gauge -3.14\n\n",
+        );
+
+        assert_eq!(rendered, expected);
+
+        mock.increment(Duration::from_secs(9));
+        let rendered = handle.render();
+        assert_eq!(rendered, expected);
+
+        mock.increment(Duration::from_secs(2));
+        let rendered = handle.render();
+
+        let expected = "# TYPE basic_gauge gauge\nbasic_gauge -3.14\n\n";
+        assert_eq!(rendered, expected);
+    }
 }
