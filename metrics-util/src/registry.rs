@@ -56,6 +56,7 @@ impl<H: Clone> Generational<H> {
 /// over time.
 ///
 /// `Registry` is optimized for reads.
+#[derive(Debug)]
 pub struct Registry<K, H>
 where
     K: Eq + Hash + Clone + 'static,

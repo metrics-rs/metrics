@@ -16,11 +16,8 @@ use std::ops::BitOr;
 /// let mask = MetricKind::COUNTER | MetricKind::HISTOGRAM;
 ///
 /// // And check to see if the kinds we have matches our mask:
-/// let some_kind = MetricKind::GAUGE;
-/// let another_kind = MetricKind::COUNTER;
-///
-/// assert!(!mask.contains(&some_kind));
-/// assert!(mask.contains(&another_kind));
+/// assert!(!mask.contains(MetricKind::GAUGE));
+/// assert!(mask.contains(MetricKind::COUNTER));
 ///
 /// // There's even two handy versions to avoid extra typing:
 /// let none_mask = MetricKind::NONE;

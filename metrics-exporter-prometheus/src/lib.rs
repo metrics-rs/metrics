@@ -4,6 +4,8 @@
 mod common;
 pub use self::common::Matcher;
 
+mod distribution;
+
 mod builder;
 pub use self::builder::PrometheusBuilder;
 
