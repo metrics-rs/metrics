@@ -7,7 +7,7 @@ use std::ops::BitOr;
 ///
 /// In order to use for defining multiple metric kinds, can be used in a bitmask fashion, as this
 /// type implements bitwise OR support, and checking for inclusion of a specific kind within another
-/// kind value can be checked via [`contains`]:
+/// kind value can be checked via [`contains`](MetricKind::contains):
 ///
 /// ```rust
 /// # use metrics_util::MetricKind;
