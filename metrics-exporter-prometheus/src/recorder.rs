@@ -1,19 +1,15 @@
 use std::sync::Arc;
-use std::time::Duration;
-use std::{collections::HashMap, iter::FromIterator, ops::DerefMut};
+use std::{collections::HashMap, iter::FromIterator};
 
-use crate::common::{Distribution, Matcher, MetricType, Snapshot};
+use crate::common::{Distribution, Matcher, Snapshot};
 
 use metrics::{Key, Recorder, Unit};
-use metrics_util::{CompositeKey, Generation, Handle, MetricKind, Quantile, Registry};
-use parking_lot::{Mutex, RwLock};
-use quanta::{Clock, Instant};
+use metrics_util::{CompositeKey, Handle, MetricKind, Quantile, Recency, Registry};
+use parking_lot::RwLock;
 
 pub(crate) struct Inner {
     pub registry: Registry<CompositeKey, Handle>,
-    pub recency_mask: MetricType,
-    pub recency: Mutex<(Clock, HashMap<CompositeKey, (Generation, Instant)>)>,
-    pub idle_timeout: Option<Duration>,
+    pub recency: Recency<CompositeKey>,
     pub distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
     pub quantiles: Vec<Quantile>,
     pub buckets: Vec<u64>,
@@ -26,44 +22,9 @@ impl Inner {
         &self.registry
     }
 
-    fn should_store(
-        &self,
-        key: &CompositeKey,
-        current_gen: Generation,
-        clock: &mut Clock,
-        recency: &mut HashMap<CompositeKey, (Generation, Instant)>,
-    ) -> bool {
-        if let Some(idle_timeout) = self.idle_timeout {
-            let now = clock.now();
-            if let Some((last_gen, last_update)) = recency.get_mut(&key) {
-                // If the value is the same as the latest value we have internally, and
-                // we're over the idle timeout period, then remove it and continue.
-                if *last_gen == current_gen {
-                    if (now - *last_update) > idle_timeout {
-                        // If the delete returns false, that means that our generation counter is
-                        // out-of-date, and that the metric has been updated since, so we don't
-                        // actually want to delete it yet.
-                        if self.registry.delete(&key, current_gen) {
-                            return false;
-                        }
-                    }
-                } else {
-                    // Value has changed, so mark it such.
-                    *last_update = now;
-                }
-            } else {
-                recency.insert(key.clone(), (current_gen, now));
-            }
-        }
-
-        true
-    }
-
     fn get_recent_metrics(&self) -> Snapshot {
         let metrics = self.registry.get_handles();
 
-        let mut rg = self.recency.lock();
-        let (clock, recency) = rg.deref_mut();
         let mut counters = HashMap::new();
         let mut gauges = HashMap::new();
 
@@ -75,82 +36,75 @@ impl Inner {
         sorted_overrides.sort();
 
         for (key, (gen, handle)) in metrics.into_iter() {
-            match key.kind() {
-                MetricKind::Counter => {
-                    let value = handle.read_counter();
-                    if self.recency_mask.has(MetricType::COUNTER) {
-                        if !self.should_store(&key, gen, clock, recency) {
-                            continue;
-                        }
-                    }
+            let kind = key.kind();
 
-                    let (_, key) = key.into_parts();
-                    let (name, labels) = key_to_parts(key);
-                    let entry = counters
-                        .entry(name)
-                        .or_insert_with(|| HashMap::new())
-                        .entry(labels)
-                        .or_insert(0);
-                    *entry = value;
+            if kind == MetricKind::COUNTER {
+                let value = handle.read_counter();
+                if !self.recency.should_store(kind, &key, gen, self.registry()) {
+                    continue;
                 }
-                MetricKind::Gauge => {
-                    let value = handle.read_gauge();
-                    if self.recency_mask.has(MetricType::GAUGE) {
-                        if !self.should_store(&key, gen, clock, recency) {
-                            continue;
-                        }
-                    }
 
-                    let (_, key) = key.into_parts();
-                    let (name, labels) = key_to_parts(key);
-                    let entry = gauges
-                        .entry(name)
-                        .or_insert_with(|| HashMap::new())
-                        .entry(labels)
-                        .or_insert(0.0);
-                    *entry = value;
+                let (_, key) = key.into_parts();
+                let (name, labels) = key_to_parts(key);
+                let entry = counters
+                    .entry(name)
+                    .or_insert_with(|| HashMap::new())
+                    .entry(labels)
+                    .or_insert(0);
+                *entry = value;
+            } else if kind == MetricKind::GAUGE {
+                let value = handle.read_gauge();
+                if !self.recency.should_store(kind, &key, gen, self.registry()) {
+                    continue;
                 }
-                MetricKind::Histogram => {
-                    if self.recency_mask.has(MetricType::HISTOGRAM) {
-                        if !self.should_store(&key, gen, clock, recency) {
-                            continue;
+
+                let (_, key) = key.into_parts();
+                let (name, labels) = key_to_parts(key);
+                let entry = gauges
+                    .entry(name)
+                    .or_insert_with(|| HashMap::new())
+                    .entry(labels)
+                    .or_insert(0.0);
+                *entry = value;
+            } else if kind == MetricKind::HISTOGRAM {
+                if !self.recency.should_store(kind, &key, gen, self.registry()) {
+                    continue;
+                }
+
+                let (_, key) = key.into_parts();
+                let (name, labels) = key_to_parts(key);
+
+                let mut wg = self.distributions.write();
+                let entry = wg
+                    .entry(name.clone())
+                    .or_insert_with(|| HashMap::new())
+                    .entry(labels)
+                    .or_insert_with(|| {
+                        let buckets = sorted_overrides
+                            .iter()
+                            .find(|(k, _)| (*k).matches(name.as_str()))
+                            .map(|(_, buckets)| *buckets)
+                            .unwrap_or(&self.buckets);
+
+                        match buckets.is_empty() {
+                            false => Distribution::new_histogram(buckets)
+                                .expect("failed to create histogram distribution"),
+                            true => Distribution::new_summary()
+                                .expect("failed to create summary distribution"),
                         }
+                    });
+
+                match entry {
+                    Distribution::Histogram(histogram) => {
+                        handle.read_histogram_with_clear(|samples| histogram.record_many(samples))
                     }
-
-                    let (_, key) = key.into_parts();
-                    let (name, labels) = key_to_parts(key);
-
-                    let mut wg = self.distributions.write();
-                    let entry = wg
-                        .entry(name.clone())
-                        .or_insert_with(|| HashMap::new())
-                        .entry(labels)
-                        .or_insert_with(|| {
-                            let buckets = sorted_overrides
-                                .iter()
-                                .find(|(k, _)| (*k).matches(name.as_str()))
-                                .map(|(_, buckets)| *buckets)
-                                .unwrap_or(&self.buckets);
-
-                            match buckets.is_empty() {
-                                false => Distribution::new_histogram(buckets)
-                                    .expect("failed to create histogram distribution"),
-                                true => Distribution::new_summary()
-                                    .expect("failed to create summary distribution"),
+                    Distribution::Summary(summary, sum) => {
+                        handle.read_histogram_with_clear(|samples| {
+                            for sample in samples {
+                                let _ = summary.record(*sample);
+                                *sum += *sample;
                             }
-                        });
-
-                    match entry {
-                        Distribution::Histogram(histogram) => handle
-                            .read_histogram_with_clear(|samples| histogram.record_many(samples)),
-                        Distribution::Summary(summary, sum) => {
-                            handle.read_histogram_with_clear(|samples| {
-                                for sample in samples {
-                                    let _ = summary.record(*sample);
-                                    *sum += *sample;
-                                }
-                            })
-                        }
+                        })
                     }
                 }
             }
@@ -345,7 +299,7 @@ impl Recorder for PrometheusRecorder {
     fn register_counter(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Counter, key),
+            CompositeKey::new(MetricKind::COUNTER, key),
             |_| {},
             || Handle::counter(),
         );
@@ -354,7 +308,7 @@ impl Recorder for PrometheusRecorder {
     fn register_gauge(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Gauge, key),
+            CompositeKey::new(MetricKind::GAUGE, key),
             |_| {},
             || Handle::gauge(),
         );
@@ -363,7 +317,7 @@ impl Recorder for PrometheusRecorder {
     fn register_histogram(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Histogram, key),
+            CompositeKey::new(MetricKind::HISTOGRAM, key),
             |_| {},
             || Handle::histogram(),
         );
@@ -371,7 +325,7 @@ impl Recorder for PrometheusRecorder {
 
     fn increment_counter(&self, key: Key, value: u64) {
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Counter, key),
+            CompositeKey::new(MetricKind::COUNTER, key),
             |h| h.increment_counter(value),
             || Handle::counter(),
         );
@@ -379,7 +333,7 @@ impl Recorder for PrometheusRecorder {
 
     fn update_gauge(&self, key: Key, value: f64) {
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Gauge, key),
+            CompositeKey::new(MetricKind::GAUGE, key),
             |h| h.update_gauge(value),
             || Handle::gauge(),
         );
@@ -387,7 +341,7 @@ impl Recorder for PrometheusRecorder {
 
     fn record_histogram(&self, key: Key, value: u64) {
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Histogram, key),
+            CompositeKey::new(MetricKind::HISTOGRAM, key),
             |h| h.record_histogram(value),
             || Handle::histogram(),
         );
