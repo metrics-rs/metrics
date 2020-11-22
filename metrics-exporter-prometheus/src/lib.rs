@@ -10,7 +10,7 @@ use hyper::{
 };
 use metrics::{Key, Recorder, SetRecorderError, Unit};
 use metrics_util::{
-    parse_quantiles, CompositeKey, Handle, Histogram, MetricKind, Quantile, Registry,
+    parse_quantiles, CompositeKey, Handle, Histogram, MetricKind, Quantile, Registry, Generation
 };
 use parking_lot::{Mutex, RwLock};
 use quanta::{Clock, Instant};
@@ -134,7 +134,7 @@ struct Snapshot {
 pub(crate) struct Inner {
     registry: PrometheusRegistry,
     recency_mask: MetricType,
-    recency: Mutex<(Clock, HashMap<CompositeKey, (usize, Instant)>)>,
+    recency: Mutex<(Clock, HashMap<CompositeKey, (Generation, Instant)>)>,
     idle_timeout: Option<Duration>,
     distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
     quantiles: Vec<Quantile>,
@@ -151,9 +151,9 @@ impl Inner {
     fn should_store(
         &self,
         key: &CompositeKey,
-        current_gen: usize,
+        current_gen: Generation,
         clock: &mut Clock,
-        recency: &mut HashMap<CompositeKey, (usize, Instant)>,
+        recency: &mut HashMap<CompositeKey, (Generation, Instant)>,
     ) -> bool {
         if let Some(idle_timeout) = self.idle_timeout {
             let now = clock.now();
