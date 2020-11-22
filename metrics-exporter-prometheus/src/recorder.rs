@@ -1,19 +1,19 @@
+use std::collections::HashMap;
 use std::sync::Arc;
-use std::{collections::HashMap, iter::FromIterator};
 
-use crate::common::{Distribution, Matcher, Snapshot};
+use crate::common::Snapshot;
+use crate::distribution::{Distribution, DistributionBuilder};
 
 use metrics::{Key, Recorder, Unit};
-use metrics_util::{CompositeKey, Handle, MetricKind, Quantile, Recency, Registry};
+use metrics_util::{CompositeKey, Handle, MetricKind, Recency, Registry};
 use parking_lot::RwLock;
 
+#[derive(Debug)]
 pub(crate) struct Inner {
     pub registry: Registry<CompositeKey, Handle>,
     pub recency: Recency<CompositeKey>,
     pub distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
-    pub quantiles: Vec<Quantile>,
-    pub buckets: Vec<u64>,
-    pub buckets_by_name: Option<HashMap<Matcher, Vec<u64>>>,
+    pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, &'static str>>,
 }
 
@@ -27,13 +27,6 @@ impl Inner {
 
         let mut counters = HashMap::new();
         let mut gauges = HashMap::new();
-
-        let mut sorted_overrides = self
-            .buckets_by_name
-            .as_ref()
-            .map(|h| Vec::from_iter(h.iter()))
-            .unwrap_or_else(|| vec![]);
-        sorted_overrides.sort();
 
         for (key, (gen, handle)) in metrics.into_iter() {
             let kind = key.kind();
@@ -80,33 +73,12 @@ impl Inner {
                     .or_insert_with(|| HashMap::new())
                     .entry(labels)
                     .or_insert_with(|| {
-                        let buckets = sorted_overrides
-                            .iter()
-                            .find(|(k, _)| (*k).matches(name.as_str()))
-                            .map(|(_, buckets)| *buckets)
-                            .unwrap_or(&self.buckets);
-
-                        match buckets.is_empty() {
-                            false => Distribution::new_histogram(buckets)
-                                .expect("failed to create histogram distribution"),
-                            true => Distribution::new_summary()
-                                .expect("failed to create summary distribution"),
-                        }
+                        self.distribution_builder
+                            .get_distribution(name.as_str())
+                            .expect("failed to create distribution")
                     });
 
-                match entry {
-                    Distribution::Histogram(histogram) => {
-                        handle.read_histogram_with_clear(|samples| histogram.record_many(samples))
-                    }
-                    Distribution::Summary(summary, sum) => {
-                        handle.read_histogram_with_clear(|samples| {
-                            for sample in samples {
-                                let _ = summary.record(*sample);
-                                *sum += *sample;
-                            }
-                        })
-                    }
-                }
+                handle.read_histogram_with_clear(|samples| entry.record_samples(samples));
             }
         }
 
@@ -120,17 +92,10 @@ impl Inner {
     }
 
     pub fn render(&self) -> String {
-        let mut sorted_overrides = self
-            .buckets_by_name
-            .as_ref()
-            .map(|h| Vec::from_iter(h.iter()))
-            .unwrap_or_else(|| vec![]);
-        sorted_overrides.sort();
-
         let Snapshot {
             mut counters,
-            mut gauges,
             mut distributions,
+            mut gauges,
         } = self.get_recent_metrics();
 
         let mut output = String::new();
@@ -189,20 +154,15 @@ impl Inner {
                 output.push_str("\n");
             }
 
-            let has_buckets = sorted_overrides
-                .iter()
-                .any(|(k, _)| !self.buckets.is_empty() || (*k).matches(name.as_str()));
-
             output.push_str("# TYPE ");
             output.push_str(name.as_str());
             output.push_str(" ");
-            output.push_str(if has_buckets { "histogram" } else { "summary" });
-            output.push_str("\n");
 
             for (labels, distribution) in by_labels.drain() {
                 let (sum, count) = match distribution {
-                    Distribution::Summary(summary, sum) => {
-                        for quantile in &self.quantiles {
+                    Distribution::Summary(summary, quantiles, sum) => {
+                        output.push_str("summary\n");
+                        for quantile in quantiles.iter() {
                             let value = summary.value_at_quantile(quantile.value());
                             let mut labels = labels.clone();
                             labels.push(format!("quantile=\"{}\"", quantile.value()));
@@ -216,6 +176,7 @@ impl Inner {
                         (sum, summary.len())
                     }
                     Distribution::Histogram(histogram) => {
+                        output.push_str("histogram\n");
                         for (le, count) in histogram.buckets() {
                             let mut labels = labels.clone();
                             labels.push(format!("le=\"{}\"", le));
@@ -267,6 +228,7 @@ impl Inner {
 /// [`metrics::set_boxed_recorder`].
 ///
 ///
+#[derive(Debug)]
 pub struct PrometheusRecorder {
     inner: Arc<Inner>,
 }
@@ -289,9 +251,11 @@ impl PrometheusRecorder {
     }
 }
 
-impl From<Arc<Inner>> for PrometheusRecorder {
-    fn from(inner: Arc<Inner>) -> Self {
-        PrometheusRecorder { inner }
+impl From<Inner> for PrometheusRecorder {
+    fn from(inner: Inner) -> Self {
+        PrometheusRecorder {
+            inner: Arc::new(inner),
+        }
     }
 }
 
@@ -351,6 +315,7 @@ impl Recorder for PrometheusRecorder {
 /// Handle to [`PrometheusRecorder`].
 ///
 /// Useful for exposing a scrape endpoint on an existing HTTP/HTTPS server.
+#[derive(Debug, Clone)]
 pub struct PrometheusHandle {
     inner: Arc<Inner>,
 }

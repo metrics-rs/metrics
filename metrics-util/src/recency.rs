@@ -19,6 +19,7 @@ use quanta::{Clock, Instant};
 ///
 /// [`Recency`] is separate from [`Registry`](crate::Registry) specifically to avoid imposing any
 /// slowdowns when tracking recency does not matter, despite their otherwise tight coupling.
+#[derive(Debug)]
 pub struct Recency<K> {
     mask: MetricKind,
     inner: Mutex<(Clock, HashMap<K, (Generation, Instant)>)>,

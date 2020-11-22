@@ -11,7 +11,7 @@ use metrics::Key;
 /// different metric kinds tryin to use the same key, calling read or write methods
 /// that inevitably panic.  With `CompositeKey`, the kind can tied to the underlying
 /// handle, ensuring parity between the two.
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct CompositeKey(MetricKind, Key);
 
 impl CompositeKey {

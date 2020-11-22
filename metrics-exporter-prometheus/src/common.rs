@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 use std::io;
 
-use hdrhistogram::Histogram as HdrHistogram;
+use crate::distribution::Distribution;
+
 use hyper::Error as HyperError;
 use metrics::SetRecorderError;
-use metrics_util::Histogram;
 use thiserror::Error as ThisError;
 
 /// Matches a metric name in a specific way.
 ///
 /// Used for specifying overrides for buckets, allowing a default set of histogram buckets to be
 /// specified while adjusting the buckets that get used for specific metrics.
-#[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Matcher {
     /// Matches the entire metric name.
     Full(String),
@@ -33,7 +33,7 @@ impl Matcher {
 }
 
 /// Errors that could occur while installing a Prometheus recorder/exporter.
-#[derive(ThisError, Debug)]
+#[derive(Debug, ThisError)]
 pub enum InstallError {
     /// Creating the networking event loop did not succeed.
     #[error("failed to spawn Tokio runtime for endpoint: {0}")]
@@ -47,34 +47,6 @@ pub enum InstallError {
     /// Installing the recorder did not succeed.
     #[error("failed to install exporter as global recorder: {0}")]
     Recorder(#[from] SetRecorderError),
-}
-
-#[derive(Clone)]
-pub enum Distribution {
-    /// A Prometheus histogram.
-    ///
-    /// Exposes "bucketed" values to Prometheus, counting the number of samples
-    /// below a given threshold i.e. 100 requests faster than 20ms, 1000 requests
-    /// faster than 50ms, etc.
-    Histogram(Histogram),
-    /// A Prometheus summary.
-    ///
-    /// Computes and exposes value quantiles directly to Prometheus i.e. 50% of
-    /// requests were faster than 200ms, and 99% of requests were faster than
-    /// 1000ms, etc.
-    Summary(HdrHistogram<u64>, u64),
-}
-
-impl Distribution {
-    pub fn new_histogram(buckets: &[u64]) -> Option<Distribution> {
-        let hist = Histogram::new(buckets)?;
-        Some(Distribution::Histogram(hist))
-    }
-
-    pub fn new_summary() -> Option<Distribution> {
-        let hist = HdrHistogram::new(3).ok()?;
-        Some(Distribution::Summary(hist, 0))
-    }
 }
 
 pub struct Snapshot {

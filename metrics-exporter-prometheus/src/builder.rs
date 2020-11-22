@@ -1,12 +1,13 @@
+use std::collections::HashMap;
 #[cfg(feature = "tokio-exporter")]
 use std::future::Future;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[cfg(feature = "tokio-exporter")]
 use std::thread;
 use std::time::Duration;
-use std::{collections::HashMap, sync::Arc};
 
 use crate::common::{InstallError, Matcher};
+use crate::distribution::DistributionBuilder;
 use crate::recorder::{Inner, PrometheusRecorder};
 
 #[cfg(feature = "tokio-exporter")]
@@ -24,10 +25,10 @@ use tokio::{pin, runtime, select};
 pub struct PrometheusBuilder {
     listen_address: SocketAddr,
     quantiles: Vec<Quantile>,
-    buckets: Vec<u64>,
+    buckets: Option<Vec<u64>>,
+    bucket_overrides: Option<HashMap<Matcher, Vec<u64>>>,
     idle_timeout: Option<Duration>,
     recency_mask: MetricKind,
-    buckets_by_name: Option<HashMap<Matcher, Vec<u64>>>,
 }
 
 impl PrometheusBuilder {
@@ -38,10 +39,10 @@ impl PrometheusBuilder {
         Self {
             listen_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9000),
             quantiles,
-            buckets: vec![],
+            buckets: None,
+            bucket_overrides: None,
             idle_timeout: None,
             recency_mask: MetricKind::NONE,
-            buckets_by_name: None,
         }
     }
 
@@ -76,7 +77,25 @@ impl PrometheusBuilder {
     /// Buckets values represent the higher bound of each buckets.  If buckets are set, then all
     /// histograms will be rendered as true Prometheus histograms, instead of summaries.
     pub fn set_buckets(mut self, values: &[u64]) -> Self {
-        self.buckets = values.to_vec();
+        self.buckets = Some(values.to_vec());
+        self
+    }
+
+    /// Sets the bucket for a specific pattern.
+    ///
+    /// The match pattern can be a full match (equality), prefix match, or suffix match.  The
+    /// matchers are applied in that order if two or more matchers would apply to a single metric.
+    /// That is to say, if a full match and a prefix match applied to a metric, the full match would
+    /// win, and if a prefix match and a suffix match applied to a metric, the prefix match would win.
+    ///
+    /// Buckets values represent the higher bound of each buckets.  If buckets are set, then any
+    /// histograms that match will be rendered as true Prometheus histograms, instead of summaries.
+    ///
+    /// This option changes the observer's output of histogram-type metric into summaries.
+    /// It only affects matching metrics if set_buckets was not used.
+    pub fn set_buckets_for_metric(mut self, matcher: Matcher, values: &[u64]) -> Self {
+        let buckets = self.bucket_overrides.get_or_insert_with(|| HashMap::new());
+        buckets.insert(matcher, values.to_vec());
         self
     }
 
@@ -101,24 +120,6 @@ impl PrometheusBuilder {
         } else {
             mask
         };
-        self
-    }
-
-    /// Sets the bucket for a specific pattern.
-    ///
-    /// The match pattern can be a full match (equality), prefix match, or suffix match.  The
-    /// matchers are applied in that order if two or more matchers would apply to a single metric.
-    /// That is to say, if a full match and a prefix match applied to a metric, the full match would
-    /// win, and if a prefix match and a suffix match applied to a metric, the prefix match would win.
-    ///
-    /// Buckets values represent the higher bound of each buckets.  If buckets are set, then any
-    /// histograms that match will be rendered as true Prometheus histograms, instead of summaries.
-    ///
-    /// This option changes the observer's output of histogram-type metric into summaries.
-    /// It only affects matching metrics if set_buckets was not used.
-    pub fn set_buckets_for_metric(mut self, matcher: Matcher, values: &[u64]) -> Self {
-        let buckets = self.buckets_by_name.get_or_insert_with(|| HashMap::new());
-        buckets.insert(matcher, values.to_vec());
         self
     }
 
@@ -153,23 +154,24 @@ impl PrometheusBuilder {
     }
 
     /// Builds the recorder and returns it.
-    /// This function is only enabled when default features are not set.
-    pub fn build(self) -> Result<PrometheusRecorder, InstallError> {
+    pub fn build(self) -> PrometheusRecorder {
         self.build_with_clock(Clock::new())
     }
 
-    pub(crate) fn build_with_clock(self, clock: Clock) -> Result<PrometheusRecorder, InstallError> {
-        let inner = Arc::new(Inner {
+    pub(crate) fn build_with_clock(self, clock: Clock) -> PrometheusRecorder {
+        let inner = Inner {
             registry: Registry::new(),
             recency: Recency::new(clock, self.recency_mask, self.idle_timeout),
             distributions: RwLock::new(HashMap::new()),
-            quantiles: self.quantiles.clone(),
-            buckets: self.buckets.clone(),
-            buckets_by_name: self.buckets_by_name,
+            distribution_builder: DistributionBuilder::new(
+                self.quantiles,
+                self.buckets,
+                self.bucket_overrides,
+            ),
             descriptions: RwLock::new(HashMap::new()),
-        });
+        };
 
-        Ok(PrometheusRecorder::from(inner))
+        PrometheusRecorder::from(inner)
     }
 
     /// Builds the recorder and exporter and returns them both.
@@ -188,31 +190,22 @@ impl PrometheusBuilder {
         ),
         InstallError,
     > {
-        let inner = Arc::new(Inner {
-            registry: Registry::new(),
-            recency: Recency::new(Clock::new(), self.recency_mask, self.idle_timeout),
-            distributions: RwLock::new(HashMap::new()),
-            quantiles: self.quantiles.clone(),
-            buckets: self.buckets.clone(),
-            buckets_by_name: self.buckets_by_name.clone(),
-            descriptions: RwLock::new(HashMap::new()),
-        });
-
-        let recorder = PrometheusRecorder::from(inner.clone());
-
         let address = self.listen_address;
+        let recorder = self.build();
+        let handle = recorder.handle();
+
         let server = Server::try_bind(&address)?;
 
         let exporter = async move {
             let make_svc = make_service_fn(move |_| {
-                let inner = inner.clone();
+                let handle = handle.clone();
 
                 async move {
                     Ok::<_, HyperError>(service_fn(move |_| {
-                        let inner = inner.clone();
+                        let handle = handle.clone();
 
                         async move {
-                            let output = inner.render();
+                            let output = handle.render();
                             Ok::<_, HyperError>(Response::new(Body::from(output)))
                         }
                     }))
@@ -236,16 +229,8 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn test_creation() {
-        let recorder = PrometheusBuilder::new().build();
-        assert!(recorder.is_ok());
-    }
-
-    #[test]
     fn test_render() {
-        let recorder = PrometheusBuilder::new()
-            .build()
-            .expect("failed to create PrometheusRecorder");
+        let recorder = PrometheusBuilder::new().build();
 
         let key = Key::from(KeyData::from_name("basic_counter"));
         recorder.increment_counter(key, 42);
@@ -306,8 +291,7 @@ mod tests {
             )
             .set_buckets_for_metric(Matcher::Suffix("foo".to_owned()), &SUFFIX_VALUES[..])
             .set_buckets(&DEFAULT_VALUES[..])
-            .build()
-            .expect("failed to create PrometheusRecorder");
+            .build();
 
         let full_key = Key::from(KeyData::from_name("metrics_testing_foo"));
         recorder.record_histogram(full_key, FULL_VALUES[0]);
@@ -376,8 +360,7 @@ mod tests {
 
         let recorder = PrometheusBuilder::new()
             .idle_timeout(MetricKind::COUNTER, Some(Duration::from_secs(10)))
-            .build_with_clock(clock)
-            .expect("failed to create PrometheusRecorder");
+            .build_with_clock(clock);
 
         let key = Key::from(KeyData::from_name("basic_counter"));
         recorder.increment_counter(key, 42);

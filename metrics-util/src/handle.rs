@@ -7,7 +7,7 @@ use std::sync::{atomic::Ordering, Arc};
 ///
 /// Provides fast, thread-safe access and storage for the three supported metric types: counters,
 /// gauges, and histograms.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Handle {
     /// A counter.
     Counter(Arc<AtomicU64>),
