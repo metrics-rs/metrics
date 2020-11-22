@@ -56,7 +56,11 @@ impl<H: Clone> Generational<H> {
 /// over time.
 ///
 /// `Registry` is optimized for reads.
-pub struct Registry<K, H> {
+pub struct Registry<K, H>
+where
+    K: Eq + Hash + Clone + 'static,
+    H: Clone + 'static,
+{
     map: DashMap<K, Generational<H>>,
 }
 

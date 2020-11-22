@@ -6,7 +6,7 @@ use std::thread;
 use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 
-use crate::common::{InstallError, Matcher, MetricType};
+use crate::common::{InstallError, Matcher};
 use crate::recorder::{Inner, PrometheusRecorder};
 
 #[cfg(feature = "tokio-exporter")]
@@ -14,8 +14,8 @@ use hyper::{
     service::{make_service_fn, service_fn},
     {Body, Error as HyperError, Response, Server},
 };
-use metrics_util::{parse_quantiles, Quantile, Registry};
-use parking_lot::{Mutex, RwLock};
+use metrics_util::{parse_quantiles, MetricKind, Quantile, Recency, Registry};
+use parking_lot::RwLock;
 use quanta::Clock;
 #[cfg(feature = "tokio-exporter")]
 use tokio::{pin, runtime, select};
@@ -26,7 +26,7 @@ pub struct PrometheusBuilder {
     quantiles: Vec<Quantile>,
     buckets: Vec<u64>,
     idle_timeout: Option<Duration>,
-    recency_mask: MetricType,
+    recency_mask: MetricKind,
     buckets_by_name: Option<HashMap<Matcher, Vec<u64>>>,
 }
 
@@ -40,7 +40,7 @@ impl PrometheusBuilder {
             quantiles,
             buckets: vec![],
             idle_timeout: None,
-            recency_mask: MetricType::NONE,
+            recency_mask: MetricKind::NONE,
             buckets_by_name: None,
         }
     }
@@ -92,18 +92,12 @@ impl PrometheusBuilder {
     /// represented by the mask, it will not be affected, even if it would have othered been removed
     /// for exceeding the idle timeout.
     ///
-    /// [`MetricType`] can be combined in a bitflags-style approach using the bitwise OR operator,
-    /// as such:
-    /// ```rust
-    /// # use metrics_exporter_prometheus::MetricType;
-    /// # fn main() {
-    /// let mask = MetricType::COUNTER | MetricType::HISTOGRAM;
-    /// # }
-    /// ```
-    pub fn idle_timeout(mut self, timeout: Option<Duration>, mask: MetricType) -> Self {
+    /// Refer to the documentation for [`MetricKind`](metrics_util::MetricKind) for more information
+    /// on defining a metric kind mask.
+    pub fn idle_timeout(mut self, mask: MetricKind, timeout: Option<Duration>) -> Self {
         self.idle_timeout = timeout;
         self.recency_mask = if self.idle_timeout.is_none() {
-            MetricType::NONE
+            MetricKind::NONE
         } else {
             mask
         };
@@ -167,9 +161,7 @@ impl PrometheusBuilder {
     pub(crate) fn build_with_clock(self, clock: Clock) -> Result<PrometheusRecorder, InstallError> {
         let inner = Arc::new(Inner {
             registry: Registry::new(),
-            recency: Mutex::new((clock, HashMap::new())),
-            idle_timeout: self.idle_timeout,
-            recency_mask: self.recency_mask,
+            recency: Recency::new(clock, self.recency_mask, self.idle_timeout),
             distributions: RwLock::new(HashMap::new()),
             quantiles: self.quantiles.clone(),
             buckets: self.buckets.clone(),
@@ -198,9 +190,7 @@ impl PrometheusBuilder {
     > {
         let inner = Arc::new(Inner {
             registry: Registry::new(),
-            recency: Mutex::new((Clock::new(), HashMap::new())),
-            idle_timeout: self.idle_timeout,
-            recency_mask: self.recency_mask,
+            recency: Recency::new(Clock::new(), self.recency_mask, self.idle_timeout),
             distributions: RwLock::new(HashMap::new()),
             quantiles: self.quantiles.clone(),
             buckets: self.buckets.clone(),
@@ -233,5 +223,187 @@ impl PrometheusBuilder {
         };
 
         Ok((recorder, exporter))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Matcher, PrometheusBuilder};
+    use metrics::{Key, KeyData, Recorder};
+    use metrics_util::MetricKind;
+
+    use quanta::Clock;
+    use std::time::Duration;
+
+    #[test]
+    fn test_creation() {
+        let recorder = PrometheusBuilder::new().build();
+        assert!(recorder.is_ok());
+    }
+
+    #[test]
+    fn test_render() {
+        let recorder = PrometheusBuilder::new()
+            .build()
+            .expect("failed to create PrometheusRecorder");
+
+        let key = Key::from(KeyData::from_name("basic_counter"));
+        recorder.increment_counter(key, 42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected_counter = "# TYPE basic_counter counter\nbasic_counter 42\n\n";
+
+        assert_eq!(rendered, expected_counter);
+
+        let key = Key::from(KeyData::from_name("basic_gauge"));
+        recorder.update_gauge(key, -3.14);
+        let rendered = handle.render();
+        let expected_gauge = format!(
+            "{}# TYPE basic_gauge gauge\nbasic_gauge -3.14\n\n",
+            expected_counter
+        );
+
+        assert_eq!(rendered, expected_gauge);
+
+        let key = Key::from(KeyData::from_name("basic_histogram"));
+        recorder.record_histogram(key, 12);
+        let rendered = handle.render();
+
+        let histogram_data = concat!(
+            "# TYPE basic_histogram summary\n",
+            "basic_histogram{quantile=\"0\"} 12\n",
+            "basic_histogram{quantile=\"0.5\"} 12\n",
+            "basic_histogram{quantile=\"0.9\"} 12\n",
+            "basic_histogram{quantile=\"0.95\"} 12\n",
+            "basic_histogram{quantile=\"0.99\"} 12\n",
+            "basic_histogram{quantile=\"0.999\"} 12\n",
+            "basic_histogram{quantile=\"1\"} 12\n",
+            "basic_histogram_sum 12\n",
+            "basic_histogram_count 1\n",
+            "\n"
+        );
+        let expected_histogram = format!("{}{}", expected_gauge, histogram_data);
+
+        assert_eq!(rendered, expected_histogram);
+    }
+
+    #[test]
+    fn test_buckets() {
+        const DEFAULT_VALUES: [u64; 3] = [10, 100, 1000];
+        const PREFIX_VALUES: [u64; 3] = [15, 105, 1005];
+        const SUFFIX_VALUES: [u64; 3] = [20, 110, 1010];
+        const FULL_VALUES: [u64; 3] = [25, 115, 1015];
+
+        let recorder = PrometheusBuilder::new()
+            .set_buckets_for_metric(
+                Matcher::Full("metrics_testing_foo".to_owned()),
+                &FULL_VALUES[..],
+            )
+            .set_buckets_for_metric(
+                Matcher::Prefix("metrics_testing".to_owned()),
+                &PREFIX_VALUES[..],
+            )
+            .set_buckets_for_metric(Matcher::Suffix("foo".to_owned()), &SUFFIX_VALUES[..])
+            .set_buckets(&DEFAULT_VALUES[..])
+            .build()
+            .expect("failed to create PrometheusRecorder");
+
+        let full_key = Key::from(KeyData::from_name("metrics_testing_foo"));
+        recorder.record_histogram(full_key, FULL_VALUES[0]);
+
+        let prefix_key = Key::from(KeyData::from_name("metrics_testing_bar"));
+        recorder.record_histogram(prefix_key, PREFIX_VALUES[1]);
+
+        let suffix_key = Key::from(KeyData::from_name("metrics_testin_foo"));
+        recorder.record_histogram(suffix_key, SUFFIX_VALUES[2]);
+
+        let default_key = Key::from(KeyData::from_name("metrics_wee"));
+        recorder.record_histogram(default_key, DEFAULT_VALUES[2] + 1);
+
+        let full_data = concat!(
+            "# TYPE metrics_testing_foo histogram\n",
+            "metrics_testing_foo_bucket{le=\"25\"} 1\n",
+            "metrics_testing_foo_bucket{le=\"115\"} 1\n",
+            "metrics_testing_foo_bucket{le=\"1015\"} 1\n",
+            "metrics_testing_foo_bucket{le=\"+Inf\"} 1\n",
+            "metrics_testing_foo_sum 25\n",
+            "metrics_testing_foo_count 1\n",
+        );
+
+        let prefix_data = concat!(
+            "# TYPE metrics_testing_bar histogram\n",
+            "metrics_testing_bar_bucket{le=\"15\"} 0\n",
+            "metrics_testing_bar_bucket{le=\"105\"} 1\n",
+            "metrics_testing_bar_bucket{le=\"1005\"} 1\n",
+            "metrics_testing_bar_bucket{le=\"+Inf\"} 1\n",
+            "metrics_testing_bar_sum 105\n",
+            "metrics_testing_bar_count 1\n",
+        );
+
+        let suffix_data = concat!(
+            "# TYPE metrics_testin_foo histogram\n",
+            "metrics_testin_foo_bucket{le=\"20\"} 0\n",
+            "metrics_testin_foo_bucket{le=\"110\"} 0\n",
+            "metrics_testin_foo_bucket{le=\"1010\"} 1\n",
+            "metrics_testin_foo_bucket{le=\"+Inf\"} 1\n",
+            "metrics_testin_foo_sum 1010\n",
+            "metrics_testin_foo_count 1\n",
+        );
+
+        let default_data = concat!(
+            "# TYPE metrics_wee histogram\n",
+            "metrics_wee_bucket{le=\"10\"} 0\n",
+            "metrics_wee_bucket{le=\"100\"} 0\n",
+            "metrics_wee_bucket{le=\"1000\"} 0\n",
+            "metrics_wee_bucket{le=\"+Inf\"} 1\n",
+            "metrics_wee_sum 1001\n",
+            "metrics_wee_count 1\n",
+        );
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+
+        assert!(rendered.contains(full_data));
+        assert!(rendered.contains(prefix_data));
+        assert!(rendered.contains(suffix_data));
+        assert!(rendered.contains(default_data));
+    }
+
+    #[test]
+    fn test_idle_timeout() {
+        let (clock, mock) = Clock::mock();
+
+        let recorder = PrometheusBuilder::new()
+            .idle_timeout(MetricKind::COUNTER, Some(Duration::from_secs(10)))
+            .build_with_clock(clock)
+            .expect("failed to create PrometheusRecorder");
+
+        let key = Key::from(KeyData::from_name("basic_counter"));
+        recorder.increment_counter(key, 42);
+
+        let key = Key::from(KeyData::from_name("basic_gauge"));
+        recorder.update_gauge(key, -3.14);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# TYPE basic_counter counter\n",
+            "basic_counter 42\n\n",
+            "# TYPE basic_gauge gauge\n",
+            "basic_gauge -3.14\n\n",
+        );
+
+        assert_eq!(rendered, expected);
+
+        mock.increment(Duration::from_secs(9));
+        let rendered = handle.render();
+        assert_eq!(rendered, expected);
+
+        mock.increment(Duration::from_secs(2));
+        let rendered = handle.render();
+
+        let expected = "# TYPE basic_gauge gauge\nbasic_gauge -3.14\n\n";
+        assert_eq!(rendered, expected);
     }
 }

@@ -1,48 +1,11 @@
 use std::collections::HashMap;
 use std::io;
-use std::ops::BitOr;
 
 use hdrhistogram::Histogram as HdrHistogram;
 use hyper::Error as HyperError;
 use metrics::SetRecorderError;
 use metrics_util::Histogram;
 use thiserror::Error as ThisError;
-
-// Metric type.
-///
-/// Used for configuring which metrics should be culled when idle timeouts are configured.
-#[derive(Debug, PartialEq)]
-pub struct MetricType(u8);
-
-impl MetricType {
-    /// No metrics will be eligible for culling.
-    pub const NONE: MetricType = MetricType(0);
-
-    /// Counters will be eligible for culling.
-    pub const COUNTER: MetricType = MetricType(1);
-
-    /// Gauges will be eligible for culling.
-    pub const GAUGE: MetricType = MetricType(2);
-
-    /// Histograms will be eligible for culling.
-    pub const HISTOGRAM: MetricType = MetricType(4);
-
-    /// All metrics will be eligible for culling.
-    #[allow(dead_code)]
-    pub const ALL: MetricType = MetricType(7);
-
-    pub(crate) fn has(&self, other: MetricType) -> bool {
-        self.0 & other.0 != 0
-    }
-}
-
-impl BitOr for MetricType {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Self(self.0 | rhs.0)
-    }
-}
 
 /// Matches a metric name in a specific way.
 ///

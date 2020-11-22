@@ -43,6 +43,8 @@ atomic-shim = { version = "0.1", optional = true }
 aho-corasick = { version = "0.7", optional = true }
 dashmap = { version = "3", optional = true }
 indexmap = { version = "1.6", optional = true }
+parking_lot = { version = "0.11", optional = true }
+quanta = { version = "0.6", optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
@@ -52,5 +54,5 @@ rand_distr = "0.3"
 
 [features]
 default = ["std"]
-std = ["arc-swap", "atomic-shim", "crossbeam-epoch", "dashmap", "indexmap"]
+std = ["arc-swap", "atomic-shim", "crossbeam-epoch", "dashmap", "indexmap", "parking_lot", "quanta"]
 layer-filter = ["aho-corasick"]
