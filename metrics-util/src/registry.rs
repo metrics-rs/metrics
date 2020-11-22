@@ -88,7 +88,7 @@ where
     /// Deletes a handle from the registry.
     ///
     /// The generation of a given key is passed along when querying the registry via
-    /// [`get_handles`](Register::get_handles).  If the generation given here does not match the
+    /// [`get_handles`](Registry::get_handles).  If the generation given here does not match the
     /// current generation, then the handle will not be removed.
     pub fn delete(&self, key: &K, generation: usize) -> bool {
         self.map
