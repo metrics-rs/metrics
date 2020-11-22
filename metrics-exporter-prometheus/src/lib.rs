@@ -67,6 +67,31 @@ impl BitOr for MetricType {
     }
 }
 
+/// Matches a metric name in a specific way.
+///
+/// Used for specifying overrides for buckets, allowing a default set of histogram buckets to be
+/// specified while adjusting the buckets that get used for specific metrics.
+#[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub enum Matcher {
+    /// Matches the entire metric name.
+    Full(String),
+    /// Matches the beginning of the metric name.
+    Prefix(String),
+    /// Matches the end of the metric name.
+    Suffix(String),
+}
+
+impl Matcher {
+    /// Checks if the given key matches this matcher.
+    pub fn matches(&self, key: &str) -> bool {
+        match self {
+            Matcher::Prefix(prefix) => key.starts_with(prefix),
+            Matcher::Suffix(suffix) => key.ends_with(suffix),
+            Matcher::Full(full) => key == full,
+        }
+    }
+}
+
 /// Errors that could occur while installing a Prometheus recorder/exporter.
 #[derive(ThisError, Debug)]
 pub enum Error {
@@ -114,7 +139,7 @@ pub(crate) struct Inner {
     distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
     quantiles: Vec<Quantile>,
     buckets: Vec<u64>,
-    buckets_by_name: Option<HashMap<String, Vec<u64>>>,
+    buckets_by_name: Option<HashMap<Matcher, Vec<u64>>>,
     descriptions: RwLock<HashMap<String, &'static str>>,
 }
 
@@ -169,7 +194,7 @@ impl Inner {
             .as_ref()
             .map(|h| Vec::from_iter(h.iter()))
             .unwrap_or_else(|| vec![]);
-        sorted_overrides.sort_by(|(a, _), (b, _)| b.len().cmp(&a.len()));
+        sorted_overrides.sort();
 
         for (key, (gen, handle)) in metrics.into_iter() {
             match key.kind() {
@@ -219,7 +244,7 @@ impl Inner {
 
                     let buckets = sorted_overrides
                         .iter()
-                        .find(|(k, _)| name.ends_with(*k))
+                        .find(|(k, _)| (*k).matches(name.as_str()))
                         .map(|(_, buckets)| *buckets)
                         .unwrap_or(&self.buckets);
 
@@ -272,7 +297,7 @@ impl Inner {
             .as_ref()
             .map(|h| Vec::from_iter(h.iter()))
             .unwrap_or_else(|| vec![]);
-        sorted_overrides.sort_by(|(a, _), (b, _)| b.len().cmp(&a.len()));
+        sorted_overrides.sort();
 
         let Snapshot {
             mut counters,
@@ -327,13 +352,6 @@ impl Inner {
             output.push_str("\n");
         }
 
-        let mut sorted_overrides = self
-            .buckets_by_name
-            .as_ref()
-            .map(|h| Vec::from_iter(h.iter()))
-            .unwrap_or_else(|| vec![]);
-        sorted_overrides.sort_by(|(a, _), (b, _)| b.len().cmp(&a.len()));
-
         for (name, mut by_labels) in distributions.drain() {
             if let Some(desc) = descriptions.get(name.as_str()) {
                 output.push_str("# HELP ");
@@ -345,7 +363,7 @@ impl Inner {
 
             let has_buckets = sorted_overrides
                 .iter()
-                .any(|(k, _)| !self.buckets.is_empty() || name.ends_with(*k));
+                .any(|(k, _)| !self.buckets.is_empty() || (*k).matches(name.as_str()));
 
             output.push_str("# TYPE ");
             output.push_str(name.as_str());
@@ -464,7 +482,7 @@ pub struct PrometheusBuilder {
     buckets: Vec<u64>,
     idle_timeout: Option<Duration>,
     recency_mask: MetricType,
-    buckets_by_name: Option<HashMap<String, Vec<u64>>>,
+    buckets_by_name: Option<HashMap<Matcher, Vec<u64>>>,
 }
 
 impl PrometheusBuilder {
@@ -547,18 +565,21 @@ impl PrometheusBuilder {
         self
     }
 
-    /// Sets the buckets for a specific metric, overidding the default.
+    /// Sets the bucket for a specific pattern.
     ///
-    /// The match is suffix-based, and the longest match found will be used.
+    /// The match pattern can be a full match (equality), prefix match, or suffix match.  The
+    /// matchers are applied in that order if two or more matchers would apply to a single metric.
+    /// That is to say, if a full match and a prefix match applied to a metric, the full match would
+    /// win, and if a prefix match and a suffix match applied to a metric, the prefix match would win.
     ///
     /// Buckets values represent the higher bound of each buckets.  If buckets are set, then any
     /// histograms that match will be rendered as true Prometheus histograms, instead of summaries.
     ///
     /// This option changes the observer's output of histogram-type metric into summaries.
     /// It only affects matching metrics if set_buckets was not used.
-    pub fn set_buckets_for_metric(mut self, name: &str, values: &[u64]) -> Self {
+    pub fn set_buckets_for_metric(mut self, matcher: Matcher, values: &[u64]) -> Self {
         let buckets = self.buckets_by_name.get_or_insert_with(|| HashMap::new());
-        buckets.insert(name.to_owned(), values.to_vec());
+        buckets.insert(matcher, values.to_vec());
         self
     }
 
@@ -762,7 +783,7 @@ fn render_labeled_name(name: &str, labels: &[String]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{MetricType, PrometheusBuilder};
+    use super::{Matcher, MetricType, PrometheusBuilder};
     use metrics::{Key, KeyData, Recorder};
     use quanta::Clock;
     use std::time::Duration;
@@ -818,6 +839,88 @@ mod tests {
         let expected_histogram = format!("{}{}", expected_gauge, histogram_data);
 
         assert_eq!(rendered, expected_histogram);
+    }
+
+    #[test]
+    fn test_buckets() {
+        const DEFAULT_VALUES: [u64; 3] = [10, 100, 1000];
+        const PREFIX_VALUES: [u64; 3] = [15, 105, 1005];
+        const SUFFIX_VALUES: [u64; 3] = [20, 110, 1010];
+        const FULL_VALUES: [u64; 3] = [25, 115, 1015];
+
+        let recorder = PrometheusBuilder::new()
+            .set_buckets_for_metric(
+                Matcher::Full("metrics_testing_foo".to_owned()),
+                &FULL_VALUES[..],
+            )
+            .set_buckets_for_metric(
+                Matcher::Prefix("metrics_testing".to_owned()),
+                &PREFIX_VALUES[..],
+            )
+            .set_buckets_for_metric(Matcher::Suffix("foo".to_owned()), &SUFFIX_VALUES[..])
+            .set_buckets(&DEFAULT_VALUES[..])
+            .build()
+            .expect("failed to create PrometheusRecorder");
+
+        let full_key = Key::from(KeyData::from_name("metrics_testing_foo"));
+        recorder.record_histogram(full_key, FULL_VALUES[0]);
+
+        let prefix_key = Key::from(KeyData::from_name("metrics_testing_bar"));
+        recorder.record_histogram(prefix_key, PREFIX_VALUES[1]);
+
+        let suffix_key = Key::from(KeyData::from_name("metrics_testin_foo"));
+        recorder.record_histogram(suffix_key, SUFFIX_VALUES[2]);
+
+        let default_key = Key::from(KeyData::from_name("metrics_wee"));
+        recorder.record_histogram(default_key, DEFAULT_VALUES[2] + 1);
+
+        let full_data = concat!(
+            "# TYPE metrics_testing_foo histogram\n",
+            "metrics_testing_foo_bucket{le=\"25\"} 1\n",
+            "metrics_testing_foo_bucket{le=\"115\"} 1\n",
+            "metrics_testing_foo_bucket{le=\"1015\"} 1\n",
+            "metrics_testing_foo_bucket{le=\"+Inf\"} 1\n",
+            "metrics_testing_foo_sum 25\n",
+            "metrics_testing_foo_count 1\n",
+        );
+
+        let prefix_data = concat!(
+            "# TYPE metrics_testing_bar histogram\n",
+            "metrics_testing_bar_bucket{le=\"15\"} 0\n",
+            "metrics_testing_bar_bucket{le=\"105\"} 1\n",
+            "metrics_testing_bar_bucket{le=\"1005\"} 1\n",
+            "metrics_testing_bar_bucket{le=\"+Inf\"} 1\n",
+            "metrics_testing_bar_sum 105\n",
+            "metrics_testing_bar_count 1\n",
+        );
+
+        let suffix_data = concat!(
+            "# TYPE metrics_testin_foo histogram\n",
+            "metrics_testin_foo_bucket{le=\"20\"} 0\n",
+            "metrics_testin_foo_bucket{le=\"110\"} 0\n",
+            "metrics_testin_foo_bucket{le=\"1010\"} 1\n",
+            "metrics_testin_foo_bucket{le=\"+Inf\"} 1\n",
+            "metrics_testin_foo_sum 1010\n",
+            "metrics_testin_foo_count 1\n",
+        );
+
+        let default_data = concat!(
+            "# TYPE metrics_wee histogram\n",
+            "metrics_wee_bucket{le=\"10\"} 0\n",
+            "metrics_wee_bucket{le=\"100\"} 0\n",
+            "metrics_wee_bucket{le=\"1000\"} 0\n",
+            "metrics_wee_bucket{le=\"+Inf\"} 1\n",
+            "metrics_wee_sum 1001\n",
+            "metrics_wee_count 1\n",
+        );
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+
+        assert!(rendered.contains(full_data));
+        assert!(rendered.contains(prefix_data));
+        assert!(rendered.contains(suffix_data));
+        assert!(rendered.contains(default_data));
     }
 
     #[test]
