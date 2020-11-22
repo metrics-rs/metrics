@@ -8,24 +8,24 @@ use std::ops::BitOr;
 /// In order to use for defining multiple metric kinds, can be used in a bitmask fashion, as this
 /// type implements bitwise OR support, and checking for inclusion of a specific kind within another
 /// kind value can be checked via [`contains`]:
-/// 
+///
 /// ```rust
 /// # use metrics_util::MetricKind;
 /// # fn main() {
 /// // Let's only match counters and histograms:
 /// let mask = MetricKind::COUNTER | MetricKind::HISTOGRAM;
-/// 
+///
 /// // And check to see if the kinds we have matches our mask:
 /// let some_kind = MetricKind::GAUGE;
 /// let another_kind = MetricKind::COUNTER;
-/// 
+///
 /// assert!(!mask.contains(&some_kind));
 /// assert!(mask.contains(&another_kind));
-/// 
+///
 /// // There's even two handy versions to avoid extra typing:
 /// let none_mask = MetricKind::NONE;
 /// let all_mask = MetricKind::ALL;
-/// 
+///
 /// assert!(!none_mask.contains(MetricKind::COUNTER));
 /// assert!(!none_mask.contains(MetricKind::GAUGE));
 /// assert!(!none_mask.contains(MetricKind::HISTOGRAM));

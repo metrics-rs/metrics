@@ -1,5 +1,5 @@
-use std::{collections::HashMap, ops::DerefMut, hash::Hash};
 use std::time::Duration;
+use std::{collections::HashMap, hash::Hash, ops::DerefMut};
 
 use crate::{Generation, MetricKind, Registry};
 
@@ -7,16 +7,16 @@ use parking_lot::Mutex;
 use quanta::{Clock, Instant};
 
 /// Tracks recency of metric updates by their registry generation and time.
-/// 
+///
 /// In many cases, a user may have a long-running process where metrics are stored over time using
 /// labels that change for some particular reason, leaving behind versions of that metric with
 /// labels that are no longer relevant to the current process state.  This can lead to cases where
 /// metrics that no longer matter are still present in rendered output, leading to bloat and confusion.
-/// 
+///
 /// When coupled with [`Registry`](crate::Registry), [`Recency`] can be used to track when the last
 /// update to a metric has occurred for the purposes of removing idle metrics from the registry.  In
 /// addition, it will remove the value from the registry itself to reduce the aforementioned bloat.
-/// 
+///
 /// [`Recency`] is separate from [`Registry`](crate::Registry) specifically to avoid imposing any
 /// slowdowns when tracking recency does not matter, despite their otherwise tight coupling.
 pub struct Recency<K> {
@@ -27,11 +27,11 @@ pub struct Recency<K> {
 
 impl<K> Recency<K> {
     /// Creates a new [`Recency`].
-    /// 
+    ///
     /// If `idle_timeout` is `None`, no recency checking will occur.  `mask` controls which metrics
     /// are covered by the recency logic.  For example, if `mask` only contains counters and
     /// histograms, then gauges will not be considered for recency, and thus will never be deleted.
-    /// 
+    ///
     /// Refer to the documentation for [`MetricKind`](crate::MetricKind) for more information on
     /// defining a metric kind mask.
     pub fn new(clock: Clock, mask: MetricKind, idle_timeout: Option<Duration>) -> Recency<K> {
@@ -43,20 +43,26 @@ impl<K> Recency<K> {
     }
 
     /// Checks if the given key should be stored, based on its known recency.
-    /// 
+    ///
     /// `kind` will be used to see if the given metric kind is subject to recency tracking for this
     /// instance.  `generation` should be obtained from the the same reference to `registry` that
     /// been given.
-    /// 
+    ///
     /// If the given key has been updated recently enough, and should continue to be stored, this
     /// method will return `true` and will update the last update time internally.  If the given key
     /// has not been updated recently enough, the key will be removed from the given registry if the
     /// given generation also matches.
-    /// 
+    ///
     /// If the generation does not match, this indicates that the key was updated between querying
     /// it from the registry and calling this method, and this method will return `true` in those
     /// cases, and `false` for all remaining cases.
-    pub fn should_store<H>(&self, kind: MetricKind, key: &K, gen: Generation, registry: &Registry<K, H>) -> bool
+    pub fn should_store<H>(
+        &self,
+        kind: MetricKind,
+        key: &K,
+        gen: Generation,
+        registry: &Registry<K, H>,
+    ) -> bool
     where
         K: Eq + Hash + Clone + 'static,
         H: Clone + 'static,
