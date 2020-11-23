@@ -103,116 +103,85 @@ impl Inner {
 
         for (name, mut by_labels) in counters.drain() {
             if let Some(desc) = descriptions.get(name.as_str()) {
-                output.push_str("# HELP ");
-                output.push_str(name.as_str());
-                output.push_str(" ");
-                output.push_str(desc);
-                output.push_str("\n");
+                write_help_line(&mut output, name.as_str(), desc);
             }
 
-            output.push_str("# TYPE ");
-            output.push_str(name.as_str());
-            output.push_str(" counter\n");
+            write_type_line(&mut output, name.as_str(), "counter");
             for (labels, value) in by_labels.drain() {
-                let full_name = render_labeled_name(&name, &labels);
-                output.push_str(full_name.as_str());
-                output.push_str(" ");
-                output.push_str(value.to_string().as_str());
-                output.push_str("\n");
+                write_metric_line::<&str, u64>(&mut output, &name, None, &labels, None, value);
             }
             output.push_str("\n");
         }
 
         for (name, mut by_labels) in gauges.drain() {
             if let Some(desc) = descriptions.get(name.as_str()) {
-                output.push_str("# HELP ");
-                output.push_str(name.as_str());
-                output.push_str(" ");
-                output.push_str(desc);
-                output.push_str("\n");
+                write_help_line(&mut output, name.as_str(), desc);
             }
 
-            output.push_str("# TYPE ");
-            output.push_str(name.as_str());
-            output.push_str(" gauge\n");
+            write_type_line(&mut output, name.as_str(), "gauge");
             for (labels, value) in by_labels.drain() {
-                let full_name = render_labeled_name(&name, &labels);
-                output.push_str(full_name.as_str());
-                output.push_str(" ");
-                output.push_str(value.to_string().as_str());
-                output.push_str("\n");
+                write_metric_line::<&str, f64>(&mut output, &name, None, &labels, None, value);
             }
             output.push_str("\n");
         }
 
         for (name, mut by_labels) in distributions.drain() {
             if let Some(desc) = descriptions.get(name.as_str()) {
-                output.push_str("# HELP ");
-                output.push_str(name.as_str());
-                output.push_str(" ");
-                output.push_str(desc);
-                output.push_str("\n");
+                write_help_line(&mut output, name.as_str(), desc);
             }
-
-            output.push_str("# TYPE ");
-            output.push_str(name.as_str());
-            output.push_str(" ");
 
             for (labels, distribution) in by_labels.drain() {
                 let (sum, count) = match distribution {
                     Distribution::Summary(summary, quantiles, sum) => {
-                        output.push_str("summary\n");
+                        write_type_line(&mut output, name.as_str(), "summary");
                         for quantile in quantiles.iter() {
                             let value = summary.value_at_quantile(quantile.value());
-                            let mut labels = labels.clone();
-                            labels.push(format!("quantile=\"{}\"", quantile.value()));
-                            let full_name = render_labeled_name(&name, &labels);
-                            output.push_str(full_name.as_str());
-                            output.push_str(" ");
-                            output.push_str(value.to_string().as_str());
-                            output.push_str("\n");
+                            write_metric_line(
+                                &mut output,
+                                &name,
+                                None,
+                                &labels,
+                                Some(("quantile", quantile.value())),
+                                value,
+                            );
                         }
 
                         (sum, summary.len())
                     }
                     Distribution::Histogram(histogram) => {
-                        output.push_str("histogram\n");
+                        write_type_line(&mut output, name.as_str(), "histogram");
                         for (le, count) in histogram.buckets() {
-                            let mut labels = labels.clone();
-                            labels.push(format!("le=\"{}\"", le));
-                            let bucket_name = format!("{}_bucket", name);
-                            let full_name = render_labeled_name(&bucket_name, &labels);
-                            output.push_str(full_name.as_str());
-                            output.push_str(" ");
-                            output.push_str(count.to_string().as_str());
-                            output.push_str("\n");
+                            write_metric_line(
+                                &mut output,
+                                &name,
+                                Some("bucket"),
+                                &labels,
+                                Some(("le", le)),
+                                count,
+                            );
                         }
-
-                        let mut labels = labels.clone();
-                        labels.push("le=\"+Inf\"".to_owned());
-                        let bucket_name = format!("{}_bucket", name);
-                        let full_name = render_labeled_name(&bucket_name, &labels);
-                        output.push_str(full_name.as_str());
-                        output.push_str(" ");
-                        output.push_str(histogram.count().to_string().as_str());
-                        output.push_str("\n");
+                        write_metric_line(
+                            &mut output,
+                            &name,
+                            Some("bucket"),
+                            &labels,
+                            Some(("le", "+Inf")),
+                            histogram.count(),
+                        );
 
                         (histogram.sum(), histogram.count())
                     }
                 };
 
-                let sum_name = format!("{}_sum", name);
-                let full_sum_name = render_labeled_name(&sum_name, &labels);
-                output.push_str(full_sum_name.as_str());
-                output.push_str(" ");
-                output.push_str(sum.to_string().as_str());
-                output.push_str("\n");
-                let count_name = format!("{}_count", name);
-                let full_count_name = render_labeled_name(&count_name, &labels);
-                output.push_str(full_count_name.as_str());
-                output.push_str(" ");
-                output.push_str(count.to_string().as_str());
-                output.push_str("\n");
+                write_metric_line::<&str, u64>(&mut output, &name, Some("sum"), &labels, None, sum);
+                write_metric_line::<&str, u64>(
+                    &mut output,
+                    &name,
+                    Some("count"),
+                    &labels,
+                    None,
+                    count,
+                );
             }
 
             output.push_str("\n");
@@ -349,13 +318,66 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
     (name, labels)
 }
 
-fn render_labeled_name(name: &str, labels: &[String]) -> String {
-    let mut output = name.to_string();
-    if !labels.is_empty() {
-        let joined = labels.join(",");
-        output.push_str("{");
-        output.push_str(&joined);
-        output.push_str("}");
+fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
+    buffer.push_str("# HELP ");
+    buffer.push_str(name);
+    buffer.push_str(" ");
+    buffer.push_str(desc);
+    buffer.push_str("\n");
+}
+
+fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
+    buffer.push_str("# TYPE ");
+    buffer.push_str(name);
+    buffer.push_str(" ");
+    buffer.push_str(metric_type);
+    buffer.push_str("\n");
+}
+
+fn write_metric_line<T, T2>(
+    buffer: &mut String,
+    name: &str,
+    suffix: Option<&'static str>,
+    labels: &[String],
+    additional_label: Option<(&'static str, T)>,
+    value: T2,
+) where
+    T: std::fmt::Display,
+    T2: std::fmt::Display,
+{
+    buffer.push_str(name);
+    if let Some(suffix) = suffix {
+        buffer.push_str("_");
+        buffer.push_str(suffix)
     }
-    output
+
+    if !labels.is_empty() || additional_label.is_some() {
+        buffer.push_str("{");
+
+        let mut first = true;
+        for label in labels {
+            if first {
+                first = false;
+            } else {
+                buffer.push_str(",");
+            }
+            buffer.push_str(label);
+        }
+
+        if let Some((name, value)) = additional_label {
+            if !first {
+                buffer.push_str(",");
+            }
+            buffer.push_str(name);
+            buffer.push_str("=\"");
+            buffer.push_str(value.to_string().as_str());
+            buffer.push_str("\"");
+        }
+
+        buffer.push_str("}");
+    }
+
+    buffer.push_str(" ");
+    buffer.push_str(value.to_string().as_str());
+    buffer.push_str("\n");
 }
