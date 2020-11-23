@@ -11,7 +11,7 @@ use quanta::{Clock, Instant};
 /// In many cases, a user may have a long-running process where metrics are stored over time using
 /// labels that change for some particular reason, leaving behind versions of that metric with
 /// labels that are no longer relevant to the current process state.  This can lead to cases where
-/// metrics that no longer matter are still present in rendered output, leading to bloat and confusion.
+/// metrics that no longer matter are still present in rendered output, adding bloat.
 ///
 /// When coupled with [`Registry`](crate::Registry), [`Recency`] can be used to track when the last
 /// update to a metric has occurred for the purposes of removing idle metrics from the registry.  In
@@ -32,6 +32,12 @@ impl<K> Recency<K> {
     /// If `idle_timeout` is `None`, no recency checking will occur.  `mask` controls which metrics
     /// are covered by the recency logic.  For example, if `mask` only contains counters and
     /// histograms, then gauges will not be considered for recency, and thus will never be deleted.
+    ///
+    /// If `idle_timeout` is not `None`, then metrics which have not been updated within the given
+    /// duration will be subject to deletion when checked.  Specifically, the deletions done by this
+    /// object only happen when the object is "driven" by calling
+    /// [`should_store`](Recency::should_store), and so handles will not necessarily be deleted
+    /// immediately after execeeding their idle timeout.
     ///
     /// Refer to the documentation for [`MetricKind`](crate::MetricKind) for more information on
     /// defining a metric kind mask.
