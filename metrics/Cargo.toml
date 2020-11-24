@@ -32,10 +32,8 @@ name = "key"
 harness = false
 
 [dependencies]
-beef = "0.4"
-metrics-macros = { version = "0.1.0-alpha.1", path = "../metrics-macros" }
+metrics-macros = { version = "0.1.0-alpha.5", path = "../metrics-macros" }
 proc-macro-hack = "0.5"
-sharded-slab = "0.1"
 
 [dev-dependencies]
 log = "0.4"

@@ -7,7 +7,7 @@ use std::sync::{atomic::Ordering, Arc};
 ///
 /// Provides fast, thread-safe access and storage for the three supported metric types: counters,
 /// gauges, and histograms.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Handle {
     /// A counter.
     Counter(Arc<AtomicU64>),
@@ -103,6 +103,16 @@ impl Handle {
     pub fn read_histogram(&self) -> Vec<u64> {
         match self {
             Handle::Histogram(bucket) => bucket.data(),
+            _ => panic!("tried to read as histogram"),
+        }
+    }
+
+    /// Reads this handle as a histogram, and whether or not it's empty.
+    ///
+    /// Panics if this handle is not a histogram.
+    pub fn read_histogram_is_empty(&self) -> bool {
+        match self {
+            Handle::Histogram(bucket) => bucket.is_empty(),
             _ => panic!("tried to read as histogram"),
         }
     }
