@@ -51,7 +51,7 @@ fn test_basic_functionality() {
     assert_eq!(
         snapshot,
         vec![(
-            MetricKind::Counter,
+            MetricKind::COUNTER,
             KeyData::from_parts(
                 "login_attempts",
                 vec![
@@ -94,7 +94,7 @@ fn test_macro_forms() {
         snapshot,
         vec![
             (
-                MetricKind::Counter,
+                MetricKind::COUNTER,
                 KeyData::from_parts(
                     "login_attempts_no_labels",
                     vec![
@@ -108,7 +108,7 @@ fn test_macro_forms() {
                 DebugValue::Counter(1),
             ),
             (
-                MetricKind::Counter,
+                MetricKind::COUNTER,
                 KeyData::from_parts(
                     "login_attempts_static_labels",
                     vec![
@@ -123,7 +123,7 @@ fn test_macro_forms() {
                 DebugValue::Counter(1),
             ),
             (
-                MetricKind::Counter,
+                MetricKind::COUNTER,
                 KeyData::from_parts(
                     "login_attempts_dynamic_labels",
                     vec![
@@ -138,7 +138,7 @@ fn test_macro_forms() {
                 DebugValue::Counter(1),
             ),
             (
-                MetricKind::Counter,
+                MetricKind::COUNTER,
                 KeyData::from_parts(
                     "login_attempts_static_and_dynamic_labels",
                     vec![
@@ -171,7 +171,7 @@ fn test_no_labels() {
     assert_eq!(
         snapshot,
         vec![(
-            MetricKind::Counter,
+            MetricKind::COUNTER,
             KeyData::from_name("login_attempts").into(),
             None,
             None,
@@ -223,7 +223,7 @@ fn test_multiple_paths_to_the_same_callsite() {
         snapshot,
         vec![
             (
-                MetricKind::Counter,
+                MetricKind::COUNTER,
                 KeyData::from_parts(
                     "my_counter",
                     vec![
@@ -238,7 +238,7 @@ fn test_multiple_paths_to_the_same_callsite() {
                 DebugValue::Counter(1),
             ),
             (
-                MetricKind::Counter,
+                MetricKind::COUNTER,
                 KeyData::from_parts(
                     "my_counter",
                     vec![
@@ -294,7 +294,7 @@ fn test_nested_spans() {
     assert_eq!(
         snapshot,
         vec![(
-            MetricKind::Counter,
+            MetricKind::COUNTER,
             KeyData::from_parts(
                 "my_counter",
                 vec![
@@ -339,7 +339,7 @@ fn test_label_filtering() {
     assert_eq!(
         snapshot,
         vec![(
-            MetricKind::Counter,
+            MetricKind::COUNTER,
             KeyData::from_parts(
                 "login_attempts",
                 vec![
