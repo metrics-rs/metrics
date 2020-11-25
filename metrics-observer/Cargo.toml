@@ -3,6 +3,7 @@ name = "metrics-observer"
 version = "0.1.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
+publish = false
 
 license = "MIT"
 
