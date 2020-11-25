@@ -3,9 +3,8 @@ members = [
   "metrics",
   "metrics-macros",
   "metrics-util",
-  "metrics-benchmark",
   "metrics-exporter-tcp",
   "metrics-exporter-prometheus",
   "metrics-tracing-context",
 ]
-exclude = ["metrics-observer"]
+exclude = ["metrics-benchmark","metrics-observer"]
