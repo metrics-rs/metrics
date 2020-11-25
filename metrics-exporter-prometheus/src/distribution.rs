@@ -85,4 +85,20 @@ impl DistributionBuilder {
 
         Distribution::new_summary(self.quantiles.clone())
     }
+
+    pub fn get_distribution_type(&self, name: &str) -> &str {
+        if self.buckets.is_some() {
+            return "histogram";
+        }
+
+        if let Some(ref overrides) = self.bucket_overrides {
+            for (matcher, _) in overrides.iter() {
+                if matcher.matches(name) {
+                    return "histogram";
+                }
+            }
+        }
+
+        "summary"
+    }
 }

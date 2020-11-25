@@ -130,10 +130,13 @@ impl Inner {
                 write_help_line(&mut output, name.as_str(), desc);
             }
 
+            let distribution_type = self
+                .distribution_builder
+                .get_distribution_type(name.as_str());
+            write_type_line(&mut output, name.as_str(), distribution_type);
             for (labels, distribution) in by_labels.drain() {
                 let (sum, count) = match distribution {
                     Distribution::Summary(summary, quantiles, sum) => {
-                        write_type_line(&mut output, name.as_str(), "summary");
                         for quantile in quantiles.iter() {
                             let value = summary.value_at_quantile(quantile.value());
                             write_metric_line(
@@ -149,7 +152,6 @@ impl Inner {
                         (sum, summary.len())
                     }
                     Distribution::Histogram(histogram) => {
-                        write_type_line(&mut output, name.as_str(), "histogram");
                         for (le, count) in histogram.buckets() {
                             write_metric_line(
                                 &mut output,
