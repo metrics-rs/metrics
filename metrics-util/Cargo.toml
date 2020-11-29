@@ -38,6 +38,7 @@ harness = false
 metrics = { version = "0.13.0-alpha.8", path = "../metrics", features = ["std"] }
 crossbeam-epoch = { version = "0.9", optional = true }
 crossbeam-utils = { version = "0.8", default-features = false }
+crossbeam-queue = "0.3"
 atomic-shim = { version = "0.1", optional = true }
 aho-corasick = { version = "0.7", optional = true }
 dashmap = { version = "3", optional = true }
