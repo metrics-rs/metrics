@@ -38,8 +38,21 @@ lazy_static! {
 fn bucket_benchmark(c: &mut Criterion) {
     c.bench(
         "bucket",
-        Benchmark::new("write", |b| {
+        Benchmark::new("write (empty freelist)", |b| {
             let bucket = AtomicBucket::new();
+
+            b.iter(|| {
+                for value in RANDOM_INTS.iter() {
+                    bucket.push(value);
+                }
+            })
+        })
+        .with_function("write (warmed up)", |b| {
+            let bucket = AtomicBucket::new();
+            for value in RANDOM_INTS.iter().cycle().take(10_000_000) {
+                bucket.push(value);
+            }
+            bucket.clear();
 
             b.iter(|| {
                 for value in RANDOM_INTS.iter() {

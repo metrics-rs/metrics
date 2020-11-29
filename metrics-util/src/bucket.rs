@@ -1,7 +1,9 @@
 use crossbeam_epoch::{pin as epoch_pin, Atomic, Guard, Owned, Shared};
+use crossbeam_queue::SegQueue;
 use std::{
     cell::UnsafeCell,
     mem, slice,
+    sync::Arc,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -91,6 +93,19 @@ impl<T> Block<T> {
 
         Ok(())
     }
+
+    pub(crate) fn consume(self) -> Block<T> {
+        self.write.store(0, Ordering::Release);
+        self.read.store(0, Ordering::Release);
+
+        // Consumption _only_ occurs when clearing a bucket, so the caller is expected
+        // to have grabbed the pointer to the previous block, if it exists, before doing so, which
+        // is why we simply blast it away here.
+        self.prev.store(Shared::null(), Ordering::Release);
+
+        // Ignore the values for now because we know they're just integer primitives.
+        self
+    }
 }
 
 unsafe impl<T> Send for Block<T> {}
@@ -98,13 +113,12 @@ unsafe impl<T> Sync for Block<T> {}
 
 impl<T> Drop for Block<T> {
     fn drop(&mut self) {
+        // When dropping, we might be the only thing pointing to `prev`, holding it around, so we
+        // need to trigger a deferred destroyed if that is the case to ensure cleanup.
         let guard = &epoch_pin();
         let prev = self.prev.swap(Shared::null(), Ordering::AcqRel, guard);
         if !prev.is_null() {
-            unsafe {
-                guard.defer_destroy(prev);
-            }
-            guard.flush();
+            unsafe { guard.defer_destroy(prev); }
         }
     }
 }
@@ -124,6 +138,7 @@ impl<T> Drop for Block<T> {
 #[derive(Debug)]
 pub struct AtomicBucket<T> {
     tail: Atomic<Block<T>>,
+    free_list: Arc<SegQueue<Block<T>>>,
 }
 
 impl<T> AtomicBucket<T> {
@@ -131,7 +146,12 @@ impl<T> AtomicBucket<T> {
     pub fn new() -> Self {
         AtomicBucket {
             tail: Atomic::null(),
+            free_list: Arc::new(SegQueue::new()),
         }
+    }
+
+    fn get_block(&self) -> Block<T> {
+        self.free_list.pop().unwrap_or_else(|| Block::new())
     }
 
     /// Checks whether or not this bucket is empty.
@@ -157,14 +177,18 @@ impl<T> AtomicBucket<T> {
                 // No blocks at all yet.  We need to create one.
                 match self.tail.compare_and_set(
                     Shared::null(),
-                    Owned::new(Block::new()),
+                    Owned::new(self.get_block()),
                     Ordering::AcqRel,
                     guard,
                 ) {
                     // We won the race to install the new block.
                     Ok(ptr) => tail = ptr,
                     // Somebody else beat us, so just update our pointer.
-                    Err(e) => tail = e.current,
+                    Err(e) => {
+                        let block = *e.new.into_box();
+                        self.free_list.push(block);
+                        tail = e.current;
+                    }
                 }
             }
 
@@ -178,7 +202,7 @@ impl<T> AtomicBucket<T> {
                 Err(value) => {
                     match self.tail.compare_and_set(
                         tail,
-                        Owned::new(Block::new()),
+                        Owned::new(self.get_block()),
                         Ordering::AcqRel,
                         guard,
                     ) {
@@ -200,7 +224,9 @@ impl<T> AtomicBucket<T> {
                             }
                         }
                         // Somebody else installed the block before us, so let's just start over.
-                        Err(_) => {
+                        Err(e) => {
+                            let block = *e.new.into_box();
+                            self.free_list.push(block);
                             original = value;
                             continue;
                         }
@@ -304,19 +330,24 @@ impl<T> AtomicBucket<T> {
                 let data = block.data();
                 f(data);
 
-                // Load the next block.
-                block_ptr = block.prev.load(Ordering::Acquire, guard);
-            }
+                // Load the next block and take the shared reference to the current.
+                let old_block_ptr = mem::replace(&mut block_ptr, block.prev.load(Ordering::Acquire, guard));
 
-            // Now that we're done read the blocks, trigger a destroy on the tail.
-            //
-            // This will cascade backwards through the internal `prev` pointed, destroying all
-            // blocks associated with this tail.
-            unsafe {
-                guard.defer_destroy(tail);
+                // Ensure the current block gets reaped back to the free list.
+                let fl = self.free_list.clone();
+                unsafe {
+                    guard.defer_unchecked(move || {
+                        // Block is now free of any references by callers, so we can consume it.
+                        let old_block = *old_block_ptr.into_owned().into_box();
+                        let clean_block = old_block.consume();
+                        fl.push(clean_block);
+                    });
+                }
             }
-            guard.flush();
         }
+
+        // Attempt to run some of the deferred clean up work.
+        guard.flush();
     }
 }
 
@@ -324,6 +355,7 @@ impl<T> Default for AtomicBucket<T> {
     fn default() -> Self {
         Self {
             tail: Atomic::null(),
+            free_list: Arc::new(SegQueue::new()),
         }
     }
 }

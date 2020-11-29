@@ -43,10 +43,6 @@ impl Generator {
         loop {
             counter += 1;
 
-            if self.done.load(Ordering::Relaxed) {
-                break;
-            }
-
             self.gauge += 1;
 
             let t1 = clock.now();
@@ -69,6 +65,10 @@ impl Generator {
                     // We also increment our global counter for the sample rate here.
                     self.rate_counter
                         .fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
+
+                    if self.done.load(Ordering::Relaxed) {
+                        break;
+                    }
                 }
             }
 
