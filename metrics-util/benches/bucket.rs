@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Benchmark, Criterion, Throughput};
+use criterion::{BatchSize, Benchmark, Criterion, Throughput, criterion_group, criterion_main};
 use lazy_static::lazy_static;
 use metrics_util::AtomicBucket;
 
@@ -48,17 +48,22 @@ fn bucket_benchmark(c: &mut Criterion) {
             })
         })
         .with_function("write (warmed up)", |b| {
-            let bucket = AtomicBucket::new();
-            for value in RANDOM_INTS.iter().cycle().take(10_000_000) {
-                bucket.push(value);
-            }
-            bucket.clear();
-
-            b.iter(|| {
-                for value in RANDOM_INTS.iter() {
-                    bucket.push(value);
-                }
-            })
+            b.iter_batched_ref(
+                || {
+                    let bucket = AtomicBucket::new();
+                    for value in RANDOM_INTS.iter() {
+                        bucket.push(*value);
+                    }
+                    bucket.clear();
+                    bucket
+                },
+                |bucket| {
+                    for value in RANDOM_INTS.iter() {
+                        bucket.push(*value);
+                    }
+                },
+                BatchSize::LargeInput,
+            )
         })
         .throughput(Throughput::Elements(RANDOM_INTS.len() as u64)),
     );
