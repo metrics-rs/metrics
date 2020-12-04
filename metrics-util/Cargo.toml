@@ -37,8 +37,7 @@ harness = false
 [dependencies]
 metrics = { version = "0.13.0-alpha.8", path = "../metrics", features = ["std"] }
 crossbeam-epoch = { version = "0.9", optional = true }
-crossbeam-utils = { version = "0.8", default-features = false }
-crossbeam-queue = "0.3"
+crossbeam-utils = { version = "0.8", default-features = false, optional = true }
 atomic-shim = { version = "0.1", optional = true }
 aho-corasick = { version = "0.7", optional = true }
 dashmap = { version = "3", optional = true }
@@ -56,8 +55,9 @@ hdrhistogram = "7.0"
 tracing = "0.1"
 tracing-appender = "0.1"
 tracing-subscriber = { version = "0.2", default-features = false, features = ["fmt", "ansi"] }
+crossbeam-queue = "0.3"
 
 [features]
 default = ["std"]
-std = ["atomic-shim", "crossbeam-epoch", "dashmap", "indexmap", "parking_lot", "quanta"]
+std = ["atomic-shim", "crossbeam-epoch", "crossbeam-utils", "dashmap", "indexmap", "parking_lot", "quanta"]
 layer-filter = ["aho-corasick"]
