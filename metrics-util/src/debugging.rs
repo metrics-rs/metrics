@@ -93,10 +93,7 @@ impl Snapshotter {
                 } else if kind == MetricKind::GAUGE {
                     DebugValue::Gauge(handle.read_gauge())
                 } else {
-                    let mut total = 0;
-                    handle.read_histogram_with_clear(|samples| total += samples.len() as u64);
-                    DebugValue::Histogram(vec![total])
-                    //DebugValue::Histogram(handle.read_histogram())
+                    DebugValue::Histogram(handle.read_histogram())
                 }
             };
             snapshot.push((kind, key, unit, desc, value));
