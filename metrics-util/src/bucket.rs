@@ -114,7 +114,7 @@ unsafe impl<T> Sync for Block<T> {}
 /// written 10 elements to the bucket, you would expect to see the values in this order when iterating:
 ///
 /// [6 7 8 9] [2 3 4 5] [0 1]
-/// 
+///
 /// Block sizes are dependent on the target architecture, where each block can hold N items, and N
 /// is the number of bits in the target architecture's pointer width.
 #[derive(Debug)]
@@ -231,12 +231,20 @@ impl<T> AtomicBucket<T> {
         F: FnMut(&[T]),
     {
         let guard = &epoch_pin();
+        let backoff = Backoff::new();
 
         // While we have a valid block -- either `tail` or the next block as we keep reading -- we
         // load the data from each block and process it by calling `f`.
         let mut block_ptr = self.tail.load(Ordering::Acquire, guard);
         while !block_ptr.is_null() {
             let block = unsafe { block_ptr.deref() };
+
+            // We wait for the block to be quiesced to ensure we get any in-flight writes, and
+            // snoozing specifically yields the reading thread to ensure things are given a
+            // chance to complete.
+            while !block.is_quiesced() {
+                backoff.snooze();
+            }
 
             // Read the data out of the block.
             let data = block.data();
