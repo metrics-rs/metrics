@@ -26,7 +26,7 @@ struct Block<T> {
     // The individual slots.
     slots: [UnsafeCell<T>; BLOCK_SIZE],
 
-    // The "next" block to iterate, aka the block that came befor this one.
+    // The "next" block to iterate, aka the block that came before this one.
     next: Atomic<Block<T>>,
 }
 
