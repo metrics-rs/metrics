@@ -15,7 +15,7 @@ prost = "0.6"
 prost-types = "0.6"
 tui = "0.12"
 termion = "1.5"
-hdrhistogram = "7.1"
+hdrhistogram = "7.2"
 evmap = "10.0"
 chrono = "0.4"
 metrics = { version = "0.13.0-alpha.8", path = "../metrics" }

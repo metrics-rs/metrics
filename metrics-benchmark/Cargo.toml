@@ -9,7 +9,7 @@ publish = false
 log = "0.4"
 env_logger = "0.8"
 getopts = "0.2"
-hdrhistogram = "7.0"
+hdrhistogram = "7.2"
 quanta = "0.6"
 atomic-shim = "0.1"
 metrics = { version = "0.13.0-alpha.8", path = "../metrics" }
