@@ -1,4 +1,4 @@
-use crossbeam_epoch::{pin as epoch_pin, Atomic, Guard, Owned, Shared};
+use crossbeam_epoch::{pin as epoch_pin, unprotected, Atomic, Guard, Owned, Shared};
 use crossbeam_utils::Backoff;
 use std::{
     cell::UnsafeCell,
@@ -14,7 +14,6 @@ const BLOCK_SIZE: usize = 32;
 #[cfg(target_pointer_width = "64")]
 const BLOCK_SIZE: usize = 64;
 
-#[derive(Debug)]
 /// Discrete chunk of values with atomic read/write access.
 struct Block<T> {
     // Write index.
@@ -99,6 +98,20 @@ impl<T> Block<T> {
 
 unsafe impl<T> Send for Block<T> {}
 unsafe impl<T> Sync for Block<T> {}
+
+impl<T> std::fmt::Debug for Block<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let has_next = unsafe { !self.next.load(Ordering::Acquire, &unprotected()).is_null() };
+        f.debug_struct("Block")
+            .field("type", &std::any::type_name::<T>())
+            .field("block_size", &BLOCK_SIZE)
+            .field("write", &self.write.load(Ordering::Acquire))
+            .field("read", &self.read.load(Ordering::Acquire))
+            .field("len", &self.len())
+            .field("has_next", &has_next)
+            .finish()
+    }
+}
 
 /// A lock-free bucket with snapshot capabilities.
 ///
