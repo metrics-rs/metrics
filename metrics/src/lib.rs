@@ -10,8 +10,8 @@
 //! ## Emission
 //! Metrics are emitted by utilizing the registration or emission macros.  There is a macro for
 //! registering and emitting each fundamental metric type:
-//! - [`register_counter!`], [`increment!`], and [`counter!`] for counters
-//! - [`register_gauge!`] and [`gauge!`] for gauges
+//! - [`register_counter!`], [`counter!`], and [`increment_counter!`] for counters
+//! - [`register_gauge!`], [`gauge!`], [`increment_gauge!`], and [`decrement_gauge!`] for gauges
 //! - [`register_histogram!`] and [`histogram!`] for histograms
 //!
 //! In order to register or emit a metric, you need a way to record these events, which is where
