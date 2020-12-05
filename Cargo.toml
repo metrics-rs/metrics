@@ -6,5 +6,6 @@ members = [
   "metrics-exporter-tcp",
   "metrics-exporter-prometheus",
   "metrics-tracing-context",
+  "metrics-observer",
+  "metrics-benchmark",
 ]
-exclude = ["metrics-benchmark","metrics-observer"]

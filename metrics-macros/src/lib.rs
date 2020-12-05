@@ -180,7 +180,7 @@ pub fn register_histogram(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn increment(input: TokenStream) -> TokenStream {
+pub fn increment_counter(input: TokenStream) -> TokenStream {
     let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
 
     let op_value = quote! { 1 };
@@ -200,6 +200,32 @@ pub fn counter(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
+pub fn increment_gauge(input: TokenStream) -> TokenStream {
+    let WithExpression {
+        key,
+        op_value,
+        labels,
+    } = parse_macro_input!(input as WithExpression);
+
+    let gauge_value = quote! { metrics::GaugeValue::Increment(#op_value) };
+
+    get_expanded_callsite("gauge", "update", key, labels, gauge_value).into()
+}
+
+#[proc_macro]
+pub fn decrement_gauge(input: TokenStream) -> TokenStream {
+    let WithExpression {
+        key,
+        op_value,
+        labels,
+    } = parse_macro_input!(input as WithExpression);
+
+    let gauge_value = quote! { metrics::GaugeValue::Decrement(#op_value) };
+
+    get_expanded_callsite("gauge", "update", key, labels, gauge_value).into()
+}
+
+#[proc_macro]
 pub fn gauge(input: TokenStream) -> TokenStream {
     let WithExpression {
         key,
@@ -207,7 +233,9 @@ pub fn gauge(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite("gauge", "update", key, labels, op_value).into()
+    let gauge_value = quote! { metrics::GaugeValue::Absolute(#op_value) };
+
+    get_expanded_callsite("gauge", "update", key, labels, gauge_value).into()
 }
 
 #[proc_macro]

@@ -222,7 +222,7 @@ impl PrometheusBuilder {
 #[cfg(test)]
 mod tests {
     use super::{Matcher, PrometheusBuilder};
-    use metrics::{Key, KeyData, Label, Recorder};
+    use metrics::{GaugeValue, Key, KeyData, Label, Recorder};
     use metrics_util::MetricKind;
 
     use quanta::Clock;
@@ -243,7 +243,7 @@ mod tests {
 
         let labels = vec![Label::new("wutang", "forever")];
         let key = Key::from(KeyData::from_parts("basic_gauge", labels));
-        recorder.update_gauge(key, -3.14);
+        recorder.update_gauge(key, GaugeValue::Absolute(-3.14));
         let rendered = handle.render();
         let expected_gauge = format!(
             "{}# TYPE basic_gauge gauge\nbasic_gauge{{wutang=\"forever\"}} -3.14\n\n",
@@ -367,7 +367,7 @@ mod tests {
         recorder.increment_counter(key, 42);
 
         let key = Key::from(KeyData::from_name("basic_gauge"));
-        recorder.update_gauge(key, -3.14);
+        recorder.update_gauge(key, GaugeValue::Absolute(-3.14));
 
         let handle = recorder.handle();
         let rendered = handle.render();

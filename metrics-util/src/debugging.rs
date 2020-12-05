@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use crate::{handle::Handle, kind::MetricKind, registry::Registry};
 
 use indexmap::IndexMap;
-use metrics::{Key, Recorder, Unit};
+use metrics::{GaugeValue, Key, Recorder, Unit};
 
 type UnitMap = Arc<Mutex<HashMap<DifferentiatedKey, Unit>>>;
 type DescriptionMap = Arc<Mutex<HashMap<DifferentiatedKey, &'static str>>>;
@@ -233,7 +233,7 @@ impl Recorder for DebuggingRecorder {
         )
     }
 
-    fn update_gauge(&self, key: Key, value: f64) {
+    fn update_gauge(&self, key: Key, value: GaugeValue) {
         let rkey = DifferentiatedKey(MetricKind::GAUGE, key);
         self.register_metric(rkey.clone());
         self.registry.op(

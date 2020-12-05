@@ -8,13 +8,12 @@ use termion::input::TermRead;
 
 pub struct InputEvents {
     rx: Receiver<Key>,
-    handle: thread::JoinHandle<()>,
 }
 
 impl InputEvents {
     pub fn new() -> InputEvents {
         let (tx, rx) = bounded(1);
-        let handle = thread::spawn(move || {
+        thread::spawn(move || {
             let stdin = io::stdin();
             for evt in stdin.keys() {
                 if let Ok(key) = evt {
@@ -27,7 +26,7 @@ impl InputEvents {
             }
         });
 
-        InputEvents { rx, handle }
+        InputEvents { rx }
     }
 
     pub fn next(&mut self) -> Result<Option<Key>, RecvTimeoutError> {
