@@ -268,7 +268,7 @@ pub use self::recorder::*;
 /// // And all combined:
 /// register_counter!("some_metric_name", Unit::Bytes, "number of woopsy daisies", "service" => "http");
 ///
-/// /// We can also pass labels by giving a vector or slice of key/value pairs.  In this scenario,
+/// // We can also pass labels by giving a vector or slice of key/value pairs.  In this scenario,
 /// // a unit or description can still be passed in their respective positions:
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
