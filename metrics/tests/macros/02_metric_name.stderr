@@ -3,5 +3,3 @@ error: metric name must match ^[a-zA-Z][a-zA-Z0-9_:.]*$
   |
 8 |     counter!("abc$def");
   |              ^^^^^^^^^
-  |
-  = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)

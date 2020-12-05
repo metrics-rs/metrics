@@ -218,8 +218,6 @@
 
 extern crate alloc;
 
-use proc_macro_hack::proc_macro_hack;
-
 mod common;
 pub use self::common::*;
 
@@ -275,7 +273,6 @@ pub use self::recorder::*;
 /// register_counter!("some_metric_name", &labels);
 /// # }
 /// ```
-#[proc_macro_hack]
 pub use metrics_macros::register_counter;
 
 /// Registers a gauge.
@@ -319,7 +316,6 @@ pub use metrics_macros::register_counter;
 /// register_gauge!("some_metric_name", &labels);
 /// # }
 /// ```
-#[proc_macro_hack]
 pub use metrics_macros::register_gauge;
 
 /// Records a histogram.
@@ -363,7 +359,6 @@ pub use metrics_macros::register_gauge;
 /// register_histogram!("some_metric_name", &labels);
 /// # }
 /// ```
-#[proc_macro_hack]
 pub use metrics_macros::register_histogram;
 
 /// Increments a counter by one.
@@ -387,7 +382,6 @@ pub use metrics_macros::register_histogram;
 /// increment!("some_metric_name", &labels);
 /// # }
 /// ```
-#[proc_macro_hack]
 pub use metrics_macros::increment;
 
 /// Increments a counter.
@@ -411,7 +405,6 @@ pub use metrics_macros::increment;
 /// counter!("some_metric_name", 12, &labels);
 /// # }
 /// ```
-#[proc_macro_hack]
 pub use metrics_macros::counter;
 
 /// Updates a gauge.
@@ -435,7 +428,6 @@ pub use metrics_macros::counter;
 /// gauge!("some_metric_name", 42.42, &labels);
 /// # }
 /// ```
-#[proc_macro_hack]
 pub use metrics_macros::gauge;
 
 /// Records a histogram.
@@ -472,5 +464,4 @@ pub use metrics_macros::gauge;
 /// histogram!("some_metric_name", 1337, &labels);
 /// # }
 /// ```
-#[proc_macro_hack]
 pub use metrics_macros::histogram;

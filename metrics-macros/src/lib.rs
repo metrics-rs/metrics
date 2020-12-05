@@ -3,7 +3,6 @@ extern crate proc_macro;
 use self::proc_macro::TokenStream;
 
 use lazy_static::lazy_static;
-use proc_macro_hack::proc_macro_hack;
 use quote::{format_ident, quote, ToTokens};
 use regex::Regex;
 use syn::parse::discouraged::Speculative;
@@ -144,7 +143,7 @@ impl Parse for Registration {
     }
 }
 
-#[proc_macro_hack]
+#[proc_macro]
 pub fn register_counter(input: TokenStream) -> TokenStream {
     let Registration {
         key,
@@ -156,7 +155,7 @@ pub fn register_counter(input: TokenStream) -> TokenStream {
     get_expanded_registration("counter", key, unit, description, labels).into()
 }
 
-#[proc_macro_hack]
+#[proc_macro]
 pub fn register_gauge(input: TokenStream) -> TokenStream {
     let Registration {
         key,
@@ -168,7 +167,7 @@ pub fn register_gauge(input: TokenStream) -> TokenStream {
     get_expanded_registration("gauge", key, unit, description, labels).into()
 }
 
-#[proc_macro_hack]
+#[proc_macro]
 pub fn register_histogram(input: TokenStream) -> TokenStream {
     let Registration {
         key,
@@ -180,7 +179,7 @@ pub fn register_histogram(input: TokenStream) -> TokenStream {
     get_expanded_registration("histogram", key, unit, description, labels).into()
 }
 
-#[proc_macro_hack]
+#[proc_macro]
 pub fn increment(input: TokenStream) -> TokenStream {
     let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
 
@@ -189,7 +188,7 @@ pub fn increment(input: TokenStream) -> TokenStream {
     get_expanded_callsite("counter", "increment", key, labels, op_value).into()
 }
 
-#[proc_macro_hack]
+#[proc_macro]
 pub fn counter(input: TokenStream) -> TokenStream {
     let WithExpression {
         key,
@@ -200,7 +199,7 @@ pub fn counter(input: TokenStream) -> TokenStream {
     get_expanded_callsite("counter", "increment", key, labels, op_value).into()
 }
 
-#[proc_macro_hack]
+#[proc_macro]
 pub fn gauge(input: TokenStream) -> TokenStream {
     let WithExpression {
         key,
@@ -211,7 +210,7 @@ pub fn gauge(input: TokenStream) -> TokenStream {
     get_expanded_callsite("gauge", "update", key, labels, op_value).into()
 }
 
-#[proc_macro_hack]
+#[proc_macro]
 pub fn histogram(input: TokenStream) -> TokenStream {
     let WithExpression {
         key,
