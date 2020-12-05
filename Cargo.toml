@@ -9,3 +9,4 @@ members = [
   "metrics-observer",
   "metrics-benchmark",
 ]
+exclude = ["metrics-observer"]
