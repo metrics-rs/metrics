@@ -1,6 +1,7 @@
 use crate::AtomicBucket;
 
 use atomic_shim::AtomicU64;
+use metrics::GaugeValue;
 use std::sync::{atomic::Ordering, Arc};
 
 /// Basic metric handle.
@@ -56,10 +57,15 @@ impl Handle {
     /// Updates this handle as a gauge.
     ///
     /// Panics if this handle is not a gauge.
-    pub fn update_gauge(&self, value: f64) {
-        let unsigned = value.to_bits();
+    pub fn update_gauge(&self, value: GaugeValue) {
         match self {
-            Handle::Gauge(gauge) => gauge.store(unsigned, Ordering::SeqCst),
+            Handle::Gauge(gauge) => {
+                let _ = gauge.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |curr| {
+                    let input = f64::from_bits(curr);
+                    let output = value.update_value(input);
+                    Some(output.to_bits())
+                });
+            }
             _ => panic!("tried to update as gauge"),
         }
     }

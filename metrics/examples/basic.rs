@@ -6,8 +6,8 @@
 //! We demonstrate the various permutations of values that can be passed in the macro calls, all of
 //! which are documented in detail for the respective macro.
 use metrics::{
-    counter, gauge, histogram, increment, register_counter, register_gauge, register_histogram,
-    Key, Recorder, Unit,
+    counter, decrement_gauge, gauge, histogram, increment_counter, increment_gauge,
+    register_counter, register_gauge, register_histogram, GaugeValue, Key, Recorder, Unit,
 };
 
 #[derive(Default)]
@@ -39,8 +39,8 @@ impl Recorder for PrintRecorder {
         println!("(counter) got value {} for key {}", value, key);
     }
 
-    fn update_gauge(&self, key: Key, value: f64) {
-        println!("(gauge) got value {} for key {}", value, key);
+    fn update_gauge(&self, key: Key, value: GaugeValue) {
+        println!("(gauge) got value {:?} for key {}", value, key);
     }
 
     fn record_histogram(&self, key: Key, value: u64) {
@@ -73,10 +73,10 @@ fn main() {
     register_histogram!("unused_histogram", Unit::Seconds, "unused histo", "service" => "middleware");
 
     // All the supported permutations of `increment!`:
-    increment!("requests_processed");
-    increment!("requests_processed", "request_type" => "admin");
-    increment!("requests_processed", "request_type" => "admin", "server" => server_name.clone());
-    increment!("requests_processed", common_labels);
+    increment_counter!("requests_processed");
+    increment_counter!("requests_processed", "request_type" => "admin");
+    increment_counter!("requests_processed", "request_type" => "admin", "server" => server_name.clone());
+    increment_counter!("requests_processed", common_labels);
 
     // All the supported permutations of `counter!`:
     counter!("bytes_sent", 64);
@@ -84,11 +84,19 @@ fn main() {
     counter!("bytes_sent", 64, "listener" => "frontend", "server" => server_name.clone());
     counter!("bytes_sent", 64, common_labels);
 
-    // All the supported permutations of `gauge!`:
+    // All the supported permutations of `gauge!` and its increment/decrement versions:
     gauge!("connection_count", 300.0);
     gauge!("connection_count", 300.0, "listener" => "frontend");
     gauge!("connection_count", 300.0, "listener" => "frontend", "server" => server_name.clone());
     gauge!("connection_count", 300.0, common_labels);
+    increment_gauge!("connection_count", 300.0);
+    increment_gauge!("connection_count", 300.0, "listener" => "frontend");
+    increment_gauge!("connection_count", 300.0, "listener" => "frontend", "server" => server_name.clone());
+    increment_gauge!("connection_count", 300.0, common_labels);
+    decrement_gauge!("connection_count", 300.0);
+    decrement_gauge!("connection_count", 300.0, "listener" => "frontend");
+    decrement_gauge!("connection_count", 300.0, "listener" => "frontend", "server" => server_name.clone());
+    decrement_gauge!("connection_count", 300.0, common_labels);
 
     // All the supported permutations of `histogram!`:
     histogram!("svc.execution_time", 70);

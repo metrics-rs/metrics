@@ -94,7 +94,7 @@
 //!
 //! ```rust
 //! use log::info;
-//! use metrics::{Key, Recorder, Unit};
+//! use metrics::{GaugeValue, Key, Recorder, Unit};
 //! use metrics::SetRecorderError;
 //!
 //! struct LogRecorder;
@@ -110,8 +110,8 @@
 //!         info!("counter '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn update_gauge(&self, key: Key, value: f64) {
-//!         info!("gauge '{}' -> {}", key, value);
+//!     fn update_gauge(&self, key: Key, value: GaugeValue) {
+//!         info!("gauge '{}' -> {:?}", key, value);
 //!     }
 //!
 //!     fn record_histogram(&self, key: Key, value: u64) {
@@ -368,21 +368,21 @@ pub use metrics_macros::register_histogram;
 ///
 /// # Example
 /// ```
-/// # use metrics::increment;
+/// # use metrics::increment_counter;
 /// # fn main() {
 /// // A basic increment:
-/// increment!("some_metric_name");
+/// increment_counter!("some_metric_name");
 ///
 /// // Specifying labels:
-/// increment!("some_metric_name", "service" => "http");
+/// increment_counter!("some_metric_name", "service" => "http");
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs:
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
-/// increment!("some_metric_name", &labels);
+/// increment_counter!("some_metric_name", &labels);
 /// # }
 /// ```
-pub use metrics_macros::increment;
+pub use metrics_macros::increment_counter;
 
 /// Increments a counter.
 ///
@@ -429,6 +429,52 @@ pub use metrics_macros::counter;
 /// # }
 /// ```
 pub use metrics_macros::gauge;
+
+/// Increments a gauge.
+///
+/// Gauges represent a single value that can go up or down over time, and always starts out with an
+/// initial value of zero.
+///
+/// # Example
+/// ```
+/// # use metrics::increment_gauge;
+/// # fn main() {
+/// // A basic gauge:
+/// increment_gauge!("some_metric_name", 42.2222);
+///
+/// // Specifying labels:
+/// increment_gauge!("some_metric_name", 66.6666, "service" => "http");
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// increment_gauge!("some_metric_name", 42.42, &labels);
+/// # }
+/// ```
+pub use metrics_macros::increment_gauge;
+
+/// Decrements a gauge.
+///
+/// Gauges represent a single value that can go up or down over time, and always starts out with an
+/// initial value of zero.
+///
+/// # Example
+/// ```
+/// # use metrics::decrement_gauge;
+/// # fn main() {
+/// // A basic gauge:
+/// decrement_gauge!("some_metric_name", 42.2222);
+///
+/// // Specifying labels:
+/// decrement_gauge!("some_metric_name", 66.6666, "service" => "http");
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// decrement_gauge!("some_metric_name", 42.42, &labels);
+/// # }
+/// ```
+pub use metrics_macros::decrement_gauge;
 
 /// Records a histogram.
 ///

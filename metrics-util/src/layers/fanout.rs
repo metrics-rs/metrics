@@ -1,4 +1,4 @@
-use metrics::{Key, Recorder, Unit};
+use metrics::{GaugeValue, Key, Recorder, Unit};
 
 /// Fans out metrics to multiple recorders.
 pub struct Fanout {
@@ -30,9 +30,9 @@ impl Recorder for Fanout {
         }
     }
 
-    fn update_gauge(&self, key: Key, value: f64) {
+    fn update_gauge(&self, key: Key, value: GaugeValue) {
         for recorder in &self.recorders {
-            recorder.update_gauge(key.clone(), value);
+            recorder.update_gauge(key.clone(), value.clone());
         }
     }
 
@@ -73,7 +73,7 @@ impl FanoutBuilder {
 mod tests {
     use super::FanoutBuilder;
     use crate::debugging::DebuggingRecorder;
-    use metrics::{Key, Recorder, Unit};
+    use metrics::{GaugeValue, Key, Recorder, Unit};
 
     #[test]
     fn test_basic_functionality() {
@@ -104,7 +104,10 @@ mod tests {
             Some(ud[1].1),
         );
         fanout.increment_counter(Key::Owned("tokio.loops".into()), 47);
-        fanout.update_gauge(Key::Owned("hyper.sent_bytes".into()), 12.0);
+        fanout.update_gauge(
+            Key::Owned("hyper.sent_bytes".into()),
+            GaugeValue::Absolute(12.0),
+        );
 
         let after1 = snapshotter1.snapshot();
         let after2 = snapshotter2.snapshot();
