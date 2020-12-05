@@ -1,6 +1,8 @@
-use crossbeam_epoch::{pin as epoch_pin, Atomic, Guard, Owned, Shared};
+use crossbeam_epoch::{pin as epoch_pin, unprotected, Atomic, Guard, Owned, Shared};
+use crossbeam_utils::Backoff;
 use std::{
     cell::UnsafeCell,
+    cmp::min,
     mem, slice,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -23,8 +25,8 @@ struct Block<T> {
     // The individual slots.
     slots: [UnsafeCell<T>; BLOCK_SIZE],
 
-    // The next block before this one.
-    prev: Atomic<Block<T>>,
+    // The "next" block to iterate, aka the block that came before this one.
+    next: Atomic<Block<T>>,
 }
 
 impl<T> Block<T> {
@@ -34,13 +36,13 @@ impl<T> Block<T> {
             write: AtomicUsize::new(0),
             read: AtomicUsize::new(0),
             slots: unsafe { mem::zeroed() },
-            prev: Atomic::null(),
+            next: Atomic::null(),
         }
     }
 
-    // Gets the length of the previous block, if it exists.
-    pub(crate) fn prev_len(&self, guard: &Guard) -> usize {
-        let tail = self.prev.load(Ordering::Acquire, guard);
+    // Gets the length of the next block, if it exists.
+    pub(crate) fn next_len(&self, guard: &Guard) -> usize {
+        let tail = self.next.load(Ordering::Acquire, guard);
         if tail.is_null() {
             return 0;
         }
@@ -54,22 +56,23 @@ impl<T> Block<T> {
         self.read.load(Ordering::Acquire).trailing_ones() as usize
     }
 
+    // Whether or not this block is currently quieseced i.e. no in-flight writes.
+    pub fn is_quiesced(&self) -> bool {
+        let len = self.len();
+        if len == BLOCK_SIZE {
+            return true;
+        }
+
+        // We have to clamp self.write since multiple threads might race on filling the last block,
+        // so the value could actually exceed BLOCK_SIZE.
+        min(self.write.load(Ordering::Acquire), BLOCK_SIZE) == len
+    }
+
     /// Gets a slice of the data written to this block.
     pub fn data(&self) -> &[T] {
         let len = self.len();
         let head = self.slots[0].get();
         unsafe { slice::from_raw_parts(head as *const T, len) }
-    }
-
-    /// Links this block to the previous block in the bucket.
-    pub fn set_prev(&self, prev: Shared<Block<T>>, guard: &Guard) {
-        match self
-            .prev
-            .compare_and_set(Shared::null(), prev, Ordering::AcqRel, guard)
-        {
-            Ok(_) => {}
-            Err(_) => unreachable!(),
-        }
     }
 
     /// Pushes a value into this block.
@@ -96,31 +99,37 @@ impl<T> Block<T> {
 unsafe impl<T> Send for Block<T> {}
 unsafe impl<T> Sync for Block<T> {}
 
-impl<T> Drop for Block<T> {
-    fn drop(&mut self) {
-        let guard = &epoch_pin();
-        let prev = self.prev.swap(Shared::null(), Ordering::AcqRel, guard);
-        if !prev.is_null() {
-            unsafe {
-                guard.defer_destroy(prev);
-            }
-            guard.flush();
-        }
+impl<T> std::fmt::Debug for Block<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let has_next = unsafe { !self.next.load(Ordering::Acquire, &unprotected()).is_null() };
+        f.debug_struct("Block")
+            .field("type", &std::any::type_name::<T>())
+            .field("block_size", &BLOCK_SIZE)
+            .field("write", &self.write.load(Ordering::Acquire))
+            .field("read", &self.read.load(Ordering::Acquire))
+            .field("len", &self.len())
+            .field("has_next", &has_next)
+            .finish()
     }
 }
 
-/// An atomic bucket with snapshot capabilities.
+/// A lock-free bucket with snapshot capabilities.
 ///
 /// This bucket is implemented as a singly-linked list of blocks, where each block is a small
 /// buffer that can hold a handful of elements.  There is no limit to how many elements can be in
 /// the bucket at a time.  Blocks are dynamically allocated as elements are pushed into the bucket.
 ///
 /// Unlike a queue, buckets cannot be drained element by element: callers must iterate the whole
-/// structure.  Reading the bucket happens in reverse, to allow writers to make forward progress
-/// without affecting the iteration of the previously-written values.
+/// structure.  Reading the bucket happens in a quasi-reverse fashion, to allow writers to make
+/// forward progress without affecting the iteration of the previously written values.
 ///
-/// The bucket can be cleared while a concurrent snapshot is taking place, and will not affect the
-/// reader.
+/// For example, in a scenario where an internal block can hold 4 elements, and the caller has
+/// written 10 elements to the bucket, you would expect to see the values in this order when iterating:
+///
+/// [6 7 8 9] [2 3 4 5] [0 1]
+///
+/// Block sizes are dependent on the target architecture, where each block can hold N items, and N
+/// is the number of bits in the target architecture's pointer width.
 #[derive(Debug)]
 pub struct AtomicBucket<T> {
     tail: Atomic<Block<T>>,
@@ -142,16 +151,18 @@ impl<T> AtomicBucket<T> {
             return true;
         }
 
+        // We have to check the next block of our tail in case the current tail is simply a fresh
+        // block that has not been written to yet.
         let tail_block = unsafe { tail.deref() };
-        tail_block.len() == 0 && tail_block.prev_len(&guard) == 0
+        tail_block.len() == 0 && tail_block.next_len(&guard) == 0
     }
 
     /// Pushes an element into the bucket.
     pub fn push(&self, value: T) {
         let mut original = value;
+        let guard = &epoch_pin();
         loop {
             // Load the tail block, or install a new one.
-            let guard = &epoch_pin();
             let mut tail = self.tail.load(Ordering::Acquire, guard);
             if tail.is_null() {
                 // No blocks at all yet.  We need to create one.
@@ -183,10 +194,10 @@ impl<T> AtomicBucket<T> {
                         guard,
                     ) {
                         // We managed to install the block, so we need to link this new block to
-                        // the previous block.
+                        // the nextious block.
                         Ok(ptr) => {
                             let new_tail = unsafe { ptr.deref() };
-                            new_tail.set_prev(tail, guard);
+                            new_tail.next.store(tail, Ordering::Release);
 
                             // Now push into our new block.
                             match new_tail.push(value) {
@@ -200,10 +211,7 @@ impl<T> AtomicBucket<T> {
                             }
                         }
                         // Somebody else installed the block before us, so let's just start over.
-                        Err(_) => {
-                            original = value;
-                            continue;
-                        }
+                        Err(_) => original = value,
                     }
                 }
             }
@@ -236,6 +244,7 @@ impl<T> AtomicBucket<T> {
         F: FnMut(&[T]),
     {
         let guard = &epoch_pin();
+        let backoff = Backoff::new();
 
         // While we have a valid block -- either `tail` or the next block as we keep reading -- we
         // load the data from each block and process it by calling `f`.
@@ -243,12 +252,19 @@ impl<T> AtomicBucket<T> {
         while !block_ptr.is_null() {
             let block = unsafe { block_ptr.deref() };
 
+            // We wait for the block to be quiesced to ensure we get any in-flight writes, and
+            // snoozing specifically yields the reading thread to ensure things are given a
+            // chance to complete.
+            while !block.is_quiesced() {
+                backoff.snooze();
+            }
+
             // Read the data out of the block.
             let data = block.data();
             f(data);
 
             // Load the next block.
-            block_ptr = block.prev.load(Ordering::Acquire, guard);
+            block_ptr = block.next.load(Ordering::Acquire, guard);
         }
     }
 
@@ -269,7 +285,7 @@ impl<T> AtomicBucket<T> {
     /// will not necessarily occur during or immediately preceding this method.
     ///
     /// This method is useful for accumulating values and then observing them, in a way that allows
-    /// the caller to avoid visiting the same values again the next time
+    /// the caller to avoid visiting the same values again the next time.
     ///
     /// This method allows a pattern of observing values before they're cleared, with a clear
     /// demarcation. A similar pattern used in the wild would be to have some data structure, like
@@ -287,34 +303,51 @@ impl<T> AtomicBucket<T> {
         // still be in process of writing to the tail node, or reading the data, but new callers
         // will see it as empty until another write proceeds.
         let guard = &epoch_pin();
-        let tail = self.tail.load(Ordering::Acquire, guard);
-        if !tail.is_null()
+        let mut block_ptr = self.tail.load(Ordering::Acquire, guard);
+        if !block_ptr.is_null()
             && self
                 .tail
-                .compare_and_set(tail, Shared::null(), Ordering::SeqCst, guard)
+                .compare_and_set(block_ptr, Shared::null(), Ordering::SeqCst, guard)
                 .is_ok()
         {
+            let mut freeable_blocks = Vec::new();
+            let backoff = Backoff::new();
+
             // While we have a valid block -- either `tail` or the next block as we keep reading -- we
             // load the data from each block and process it by calling `f`.
-            let mut block_ptr = tail;
             while !block_ptr.is_null() {
                 let block = unsafe { block_ptr.deref() };
+
+                // We wait for the block to be quiesced to ensure we get any in-flight writes, and
+                // snoozing specifically yields the reading thread to ensure things are given a
+                // chance to complete.
+                while !block.is_quiesced() {
+                    backoff.snooze();
+                }
 
                 // Read the data out of the block.
                 let data = block.data();
                 f(data);
 
-                // Load the next block.
-                block_ptr = block.prev.load(Ordering::Acquire, guard);
+                // Load the next block and take the shared reference to the current.
+                let old_block_ptr =
+                    mem::replace(&mut block_ptr, block.next.load(Ordering::Acquire, guard));
+                freeable_blocks.push(old_block_ptr);
             }
 
-            // Now that we're done read the blocks, trigger a destroy on the tail.
-            //
-            // This will cascade backwards through the internal `prev` pointed, destroying all
-            // blocks associated with this tail.
+            // Once a block has been read, it is now detached from the bucket and no longer
+            // required, so we enqueue a deferred operation to block it as soon as all threads are
+            // unpinned, which reclaims the memory.
             unsafe {
-                guard.defer_destroy(tail);
+                guard.defer_unchecked(move || {
+                    for block in freeable_blocks {
+                        drop(block.into_owned());
+                    }
+                });
             }
+
+            // This asks the global collector to attempt to drive execution of deferred operations a
+            // little sooner than it may have done so otherwise.
             guard.flush();
         }
     }
@@ -546,7 +579,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bucket_len_and_prev_len() {
+    fn test_bucket_len_and_next_len() {
         let bucket = AtomicBucket::new();
         assert!(bucket.is_empty());
 
@@ -555,7 +588,7 @@ mod tests {
 
         // Just making sure that `is_empty` holds as we go from
         // the first block, to the second block, to exercise the
-        // `Block::prev_len` codepath.
+        // `Block::next_len` codepath.
         let mut i = 0;
         while i < BLOCK_SIZE * 2 {
             bucket.push(i);
