@@ -18,7 +18,7 @@ jobs:
           override: true
           components: rustfmt, clippy
     - name: Check Formatting
-      run: cargo fmt --all -- --check
+      run: cargo fmt --all --exclude="metrics-observer"-- --check
   test:
     name: Test ${{ matrix.rust_version }}/${{ matrix.os }}
     runs-on: ${{ matrix.os }}
