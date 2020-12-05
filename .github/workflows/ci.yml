@@ -69,4 +69,4 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: bench
-        args: --all-features
+        args: --all-features --workspace --exclude="metrics-observer"
