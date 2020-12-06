@@ -10,6 +10,28 @@ use crate::cow::Cow;
 /// `const_str`, from constructing `SharedString` from `&'static str` in a `const` fashion.
 pub type SharedString = Cow<'static, str>;
 
+/// Value of a gauge operation.
+#[derive(Clone, Debug)]
+pub enum GaugeValue {
+    /// Sets the value of the gauge to this value.
+    Absolute(f64),
+    /// Increments the value of the gauge by this much.
+    Increment(f64),
+    /// Decrements the value of the gauge by this much.
+    Decrement(f64),
+}
+
+impl GaugeValue {
+    /// Updates an input value based on this gauge value.
+    pub fn update_value(&self, input: f64) -> f64 {
+        match self {
+            GaugeValue::Absolute(val) => *val,
+            GaugeValue::Increment(val) => input + val,
+            GaugeValue::Decrement(val) => input - val,
+        }
+    }
+}
+
 /// Units for a given metric.
 ///
 /// While metrics do not necessarily need to be tied to a particular unit to be recorded, some

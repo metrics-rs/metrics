@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::common::Snapshot;
 use crate::distribution::{Distribution, DistributionBuilder};
 
-use metrics::{Key, Recorder, Unit};
+use metrics::{GaugeValue, Key, Recorder, Unit};
 use metrics_util::{CompositeKey, Handle, MetricKind, Recency, Registry};
 use parking_lot::RwLock;
 
@@ -266,7 +266,7 @@ impl Recorder for PrometheusRecorder {
         );
     }
 
-    fn update_gauge(&self, key: Key, value: f64) {
+    fn update_gauge(&self, key: Key, value: GaugeValue) {
         self.inner.registry().op(
             CompositeKey::new(MetricKind::GAUGE, key),
             |h| h.update_gauge(value),
