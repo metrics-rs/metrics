@@ -34,7 +34,7 @@ jobs:
           toolchain: ${{ matrix.rust_version }}
           override: true
     - name: Run Tests
-      run: cargo test --workspace --exclude="metrics-observer"
+      run: cargo test --workspace --exclude=metrics-observer
   docs:
     runs-on: ubuntu-latest
     env:
@@ -69,4 +69,4 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: bench
-        args: --all-features --workspace --exclude="metrics-observer"
+        args: --all-features --workspace --exclude=metrics-observer
