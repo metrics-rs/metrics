@@ -8,7 +8,7 @@
 //! Here's an example of a layer that filters out all metrics that start with a specific string:
 //!
 //! ```rust
-//! # use metrics::{Key, Recorder, Unit};
+//! # use metrics::{GaugeValue, Key, Recorder, Unit};
 //! # use metrics_util::DebuggingRecorder;
 //! # use metrics_util::layers::{Layer, Stack, PrefixLayer};
 //! // A simple layer that denies any metrics that have "stairway" or "heaven" in their name.
@@ -55,7 +55,7 @@
 //!        self.0.increment_counter(key, value);
 //!    }
 //!
-//!    fn update_gauge(&self, key: Key, value: f64) {
+//!    fn update_gauge(&self, key: Key, value: GaugeValue) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
@@ -107,7 +107,7 @@
 //!     .expect("failed to install stack");
 //! # }
 //! ```
-use metrics::{Key, Recorder, Unit};
+use metrics::{GaugeValue, Key, Recorder, Unit};
 
 #[cfg(feature = "std")]
 use metrics::SetRecorderError;
@@ -176,7 +176,7 @@ impl<R: Recorder> Recorder for Stack<R> {
         self.inner.increment_counter(key, value);
     }
 
-    fn update_gauge(&self, key: Key, value: f64) {
+    fn update_gauge(&self, key: Key, value: GaugeValue) {
         self.inner.update_gauge(key, value);
     }
 

@@ -40,7 +40,6 @@ pub struct Client {
     state: Arc<Mutex<ClientState>>,
     metrics: Arc<RwLock<HashMap<CompositeKey, MetricData>>>,
     metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<Unit>, Option<String>)>>>,
-    handle: thread::JoinHandle<()>,
 }
 
 impl Client {
@@ -48,7 +47,7 @@ impl Client {
         let state = Arc::new(Mutex::new(ClientState::Disconnected(None)));
         let metrics = Arc::new(RwLock::new(HashMap::new()));
         let metadata = Arc::new(RwLock::new(HashMap::new()));
-        let handle = {
+        {
             let state = state.clone();
             let metrics = metrics.clone();
             let metadata = metadata.clone();
@@ -62,7 +61,6 @@ impl Client {
             state,
             metrics,
             metadata,
-            handle,
         }
     }
 
@@ -199,9 +197,9 @@ impl Runner {
                                     let metric_type = MetricType::from_i32(metadata.metric_type)
                                         .expect("unknown metric type over wire");
                                     let metric_type = match metric_type {
-                                        MetricType::Counter => MetricKind::Counter,
-                                        MetricType::Gauge => MetricKind::Gauge,
-                                        MetricType::Histogram => MetricKind::Histogram,
+                                        MetricType::Counter => MetricKind::COUNTER,
+                                        MetricType::Gauge => MetricKind::GAUGE,
+                                        MetricType::Histogram => MetricKind::HISTOGRAM,
                                     };
                                     let key = (metric_type, metadata.name);
                                     let mut mmap = self
@@ -233,7 +231,7 @@ impl Runner {
                                     match metric.value.expect("no metric value") {
                                         proto::metric::Value::Counter(value) => {
                                             let key = CompositeKey::new(
-                                                MetricKind::Counter,
+                                                MetricKind::COUNTER,
                                                 key_data.into(),
                                             );
                                             let mut metrics = self.metrics.write().unwrap();
@@ -246,7 +244,7 @@ impl Runner {
                                         }
                                         proto::metric::Value::Gauge(value) => {
                                             let key = CompositeKey::new(
-                                                MetricKind::Gauge,
+                                                MetricKind::GAUGE,
                                                 key_data.into(),
                                             );
                                             let mut metrics = self.metrics.write().unwrap();
@@ -254,12 +252,23 @@ impl Runner {
                                                 .entry(key)
                                                 .or_insert_with(|| MetricData::Gauge(0.0));
                                             if let MetricData::Gauge(inner) = gauge {
-                                                *inner = value.value;
+                                                match value.value {
+                                                    Some(proto::gauge::Value::Absolute(val)) => {
+                                                        *inner = val
+                                                    }
+                                                    Some(proto::gauge::Value::Increment(val)) => {
+                                                        *inner += val
+                                                    }
+                                                    Some(proto::gauge::Value::Decrement(val)) => {
+                                                        *inner -= val
+                                                    }
+                                                    None => {}
+                                                }
                                             }
                                         }
                                         proto::metric::Value::Histogram(value) => {
                                             let key = CompositeKey::new(
-                                                MetricKind::Histogram,
+                                                MetricKind::HISTOGRAM,
                                                 key_data.into(),
                                             );
                                             let mut metrics = self.metrics.write().unwrap();

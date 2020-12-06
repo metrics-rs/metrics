@@ -58,7 +58,7 @@ use std::time::SystemTime;
 
 use bytes::Bytes;
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
-use metrics::{Key, Recorder, SetRecorderError, Unit};
+use metrics::{GaugeValue, Key, Recorder, SetRecorderError, Unit};
 use mio::{
     net::{TcpListener, TcpStream},
     Events, Interest, Poll, Token, Waker,
@@ -79,7 +79,7 @@ use self::proto::metadata::MetricType;
 
 enum MetricValue {
     Counter(u64),
-    Gauge(f64),
+    Gauge(GaugeValue),
     Histogram(u64),
 }
 
@@ -198,7 +198,7 @@ impl TcpBuilder {
     ///
     /// This setting allows trading off responsiveness for throughput, where a smaller buffer
     /// size will ensure that metrics are pushed to clients sooner, versus a larger buffer
-    /// size that allows us to push more at a time.alloc
+    /// size that allows us to push more at a time.
     ///
     /// As well, the larger the buffer, the more messages a client can temporarily hold.
     /// Clients have a circular buffer implementation so if their buffers are full, metrics
@@ -287,7 +287,7 @@ impl Recorder for TcpRecorder {
         self.push_metric(key, MetricValue::Counter(value));
     }
 
-    fn update_gauge(&self, key: Key, value: f64) {
+    fn update_gauge(&self, key: Key, value: GaugeValue) {
         self.push_metric(key, MetricValue::Gauge(value));
     }
 
@@ -567,7 +567,17 @@ fn convert_metric_to_protobuf_encoded(key: Key, value: MetricValue) -> Result<By
         .collect::<BTreeMap<_, _>>();
     let mvalue = match value {
         MetricValue::Counter(cv) => proto::metric::Value::Counter(proto::Counter { value: cv }),
-        MetricValue::Gauge(gv) => proto::metric::Value::Gauge(proto::Gauge { value: gv }),
+        MetricValue::Gauge(gv) => match gv {
+            GaugeValue::Absolute(val) => proto::metric::Value::Gauge(proto::Gauge {
+                value: Some(proto::gauge::Value::Absolute(val)),
+            }),
+            GaugeValue::Increment(val) => proto::metric::Value::Gauge(proto::Gauge {
+                value: Some(proto::gauge::Value::Increment(val)),
+            }),
+            GaugeValue::Decrement(val) => proto::metric::Value::Gauge(proto::Gauge {
+                value: Some(proto::gauge::Value::Decrement(val)),
+            }),
+        },
         MetricValue::Histogram(hv) => {
             proto::metric::Value::Histogram(proto::Histogram { value: hv })
         }

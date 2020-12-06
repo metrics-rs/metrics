@@ -1,11 +1,15 @@
 use std::thread;
 use std::time::Duration;
 
-use metrics::{gauge, histogram, increment, register_counter, register_histogram};
+use metrics::{
+    decrement_gauge, gauge, histogram, increment_counter, increment_gauge, register_counter,
+    register_histogram,
+};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use metrics_util::MetricKind;
 
 use quanta::Clock;
+use rand::{thread_rng, Rng};
 
 fn main() {
     tracing_subscriber::fmt::init();
@@ -37,16 +41,23 @@ fn main() {
     let mut clock = Clock::new();
     let mut last = None;
 
-    increment!("idle_metric");
+    increment_counter!("idle_metric");
     gauge!("testing", 42.0);
 
     // Loop over and over, pretending to do some work.
     loop {
-        increment!("tcp_server_loops", "system" => "foo");
+        increment_counter!("tcp_server_loops", "system" => "foo");
 
         if let Some(t) = last {
             let delta: Duration = clock.now() - t;
             histogram!("tcp_server_loop_delta_ns", delta, "system" => "foo");
+        }
+
+        let increment_gauge = thread_rng().gen_bool(0.75);
+        if increment_gauge {
+            increment_gauge!("lucky_iterations", 1.0);
+        } else {
+            decrement_gauge!("lucky_iterations", 1.0);
         }
 
         last = Some(clock.now());

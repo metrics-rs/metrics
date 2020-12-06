@@ -36,7 +36,11 @@ message Counter {
 }
 
 message Gauge {
-  double value = 1;
+  oneof value {
+    double absolute = 1;
+    double increment = 2;
+    double decrement = 3;
+  }
 }
 
 message Histogram {
