@@ -229,7 +229,7 @@ fn f64_data_to_displayable(value: f64, unit: Unit) -> String {
         unit_idx = unit_idx_max;
     }
     let scaled = value / delimiter.powi(exponent as i32);
-    
+
     let unit = units[unit_idx as usize];
     format!("{:.2} {}", scaled, unit)
 }
