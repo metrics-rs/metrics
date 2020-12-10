@@ -221,7 +221,7 @@ fn f64_data_to_displayable(value: f64, unit: Unit) -> String {
         Unit::Tebibytes => 4,
         _ => 0,
     };
-   
+
     let mut exponent = (value.ln() / delimiter.ln()).floor() as u32;
     let mut unit_idx = exponent + offset;
     if unit_idx > unit_idx_max {
