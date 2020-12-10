@@ -212,31 +212,31 @@ impl Unit {
     }
 }
 
-/// An object which can be converted into a `u64` representation.
+/// An object which can be converted into a `f64` representation.
 ///
 /// This trait provides a mechanism for existing types, which have a natural representation
-/// as an unsigned 64-bit integer, to be transparently passed in when recording a histogram.
-pub trait IntoU64 {
-    /// Converts this object to its `u64` representation.
-    fn into_u64(self) -> u64;
+/// as a 64-bit floating-point number, to be transparently passed in when recording a histogram.
+pub trait IntoF64 {
+    /// Converts this object to its `f64` representation.
+    fn into_f64(self) -> f64;
 }
 
-impl IntoU64 for u64 {
-    fn into_u64(self) -> u64 {
+impl IntoF64 for f64 {
+    fn into_f64(self) -> f64 {
         self
     }
 }
 
-impl IntoU64 for core::time::Duration {
-    fn into_u64(self) -> u64 {
-        self.as_nanos() as u64
+impl IntoF64 for core::time::Duration {
+    fn into_f64(self) -> f64 {
+        self.as_secs_f64()
     }
 }
 
 /// Helper method to allow monomorphization of values passed to the `histogram!` macro.
 #[doc(hidden)]
-pub fn __into_u64<V: IntoU64>(value: V) -> u64 {
-    value.into_u64()
+pub fn __into_f64<V: IntoF64>(value: V) -> f64 {
+    value.into_f64()
 }
 
 #[cfg(test)]

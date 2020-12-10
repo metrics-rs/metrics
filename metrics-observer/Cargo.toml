@@ -15,9 +15,8 @@ prost = "0.6"
 prost-types = "0.6"
 tui = "0.13"
 termion = "1.5"
-hdrhistogram = "7.2"
-evmap = "10.0"
 chrono = "0.4"
+sketches-ddsketch = "0.1"
 metrics = { version = "0.13.0-alpha.8", path = "../metrics" }
 metrics-util = { version = "0.4.0-alpha.6", path = "../metrics-util" }
 

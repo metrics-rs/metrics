@@ -17,7 +17,7 @@ pub enum Handle {
     Gauge(Arc<AtomicU64>),
 
     /// A histogram.
-    Histogram(Arc<AtomicBucket<u64>>),
+    Histogram(Arc<AtomicBucket<f64>>),
 }
 
 impl Handle {
@@ -73,7 +73,7 @@ impl Handle {
     /// Records to this handle as a histogram.
     ///
     /// Panics if this handle is not a histogram.
-    pub fn record_histogram(&self, value: u64) {
+    pub fn record_histogram(&self, value: f64) {
         match self {
             Handle::Histogram(bucket) => bucket.push(value),
             _ => panic!("tried to record as histogram"),
@@ -106,7 +106,7 @@ impl Handle {
     /// Reads this handle as a histogram.
     ///
     /// Panics if this handle is not a histogram.
-    pub fn read_histogram(&self) -> Vec<u64> {
+    pub fn read_histogram(&self) -> Vec<f64> {
         match self {
             Handle::Histogram(bucket) => bucket.data(),
             _ => panic!("tried to read as histogram"),
@@ -131,7 +131,7 @@ impl Handle {
     /// Panics if this handle is not a histogram.
     pub fn read_histogram_with_clear<F>(&self, f: F)
     where
-        F: FnMut(&[u64]),
+        F: FnMut(&[f64]),
     {
         match self {
             Handle::Histogram(bucket) => bucket.clear_with(f),

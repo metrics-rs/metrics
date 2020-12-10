@@ -36,7 +36,7 @@ impl Recorder for Fanout {
         }
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: Key, value: f64) {
         for recorder in &self.recorders {
             recorder.record_histogram(key.clone(), value);
         }

@@ -157,7 +157,7 @@ where
         self.inner.update_gauge(key, value);
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: Key, value: f64) {
         let key = self.enhance_key(key);
         self.inner.record_histogram(key, value);
     }
