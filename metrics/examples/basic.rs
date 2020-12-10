@@ -43,7 +43,7 @@ impl Recorder for PrintRecorder {
         println!("(gauge) got value {:?} for key {}", value, key);
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: Key, value: f64) {
         println!("(histogram) got value {} for key {}", value, key);
     }
 }
@@ -99,8 +99,8 @@ fn main() {
     decrement_gauge!("connection_count", 300.0, common_labels);
 
     // All the supported permutations of `histogram!`:
-    histogram!("svc.execution_time", 70);
-    histogram!("svc.execution_time", 70, "type" => "users");
-    histogram!("svc.execution_time", 70, "type" => "users", "server" => server_name.clone());
-    histogram!("svc.execution_time", 70, common_labels);
+    histogram!("svc.execution_time", 70.0);
+    histogram!("svc.execution_time", 70.0, "type" => "users");
+    histogram!("svc.execution_time", 70.0, "type" => "users", "server" => server_name.clone());
+    histogram!("svc.execution_time", 70.0, common_labels);
 }

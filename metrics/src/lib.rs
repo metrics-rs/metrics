@@ -114,7 +114,7 @@
 //!         info!("gauge '{}' -> {:?}", key, value);
 //!     }
 //!
-//!     fn record_histogram(&self, key: Key, value: u64) {
+//!     fn record_histogram(&self, key: Key, value: f64) {
 //!         info!("histogram '{}' -> {}", key, value);
 //!     }
 //! }
@@ -482,12 +482,13 @@ pub use metrics_macros::decrement_gauge;
 /// initial values.
 ///
 /// # Implicit conversions
-/// Histograms are represented as `u64` values, but often come from another source, such as a time
-/// measurement.  By default, `histogram!` will accept a `u64` directly or a
-/// [`Duration`](std::time::Duration), which uses the nanoseconds total as the converted value.
+/// Histograms are represented as `f64` values, but often come from another source, such as a time
+/// measurement.  By default, `histogram!` will accept a `f64` directly or a
+/// [`Duration`](std::time::Duration), which uses the floating-point number of seconds represents by
+/// the duration.
 ///
 /// External libraries and applications can create their own conversions by implementing the
-/// [`IntoU64`] trait for their types, which is required for the value being passed to `histogram!`.
+/// [`IntoF64`] trait for their types, which is required for the value being passed to `histogram!`.
 ///
 /// # Example
 /// ```
@@ -495,19 +496,19 @@ pub use metrics_macros::decrement_gauge;
 /// # use std::time::Duration;
 /// # fn main() {
 /// // A basic histogram:
-/// histogram!("some_metric_name", 34);
+/// histogram!("some_metric_name", 34.3);
 ///
 /// // An implicit conversion from `Duration`:
 /// let d = Duration::from_millis(17);
 /// histogram!("some_metric_name", d);
 ///
 /// // Specifying labels:
-/// histogram!("some_metric_name", 38, "service" => "http");
+/// histogram!("some_metric_name", 38.0, "service" => "http");
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs:
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
-/// histogram!("some_metric_name", 1337, &labels);
+/// histogram!("some_metric_name", 1337.5, &labels);
 /// # }
 /// ```
 pub use metrics_macros::histogram;

@@ -80,7 +80,7 @@ use self::proto::metadata::MetricType;
 enum MetricValue {
     Counter(u64),
     Gauge(GaugeValue),
-    Histogram(u64),
+    Histogram(f64),
 }
 
 enum Event {
@@ -291,7 +291,7 @@ impl Recorder for TcpRecorder {
         self.push_metric(key, MetricValue::Gauge(value));
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: Key, value: f64) {
         self.push_metric(key, MetricValue::Histogram(value));
     }
 }

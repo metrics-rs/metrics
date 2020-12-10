@@ -10,16 +10,16 @@
 #[derive(Debug, Clone)]
 pub struct Histogram {
     count: u64,
-    bounds: Vec<u64>,
+    bounds: Vec<f64>,
     buckets: Vec<u64>,
-    sum: u64,
+    sum: f64,
 }
 
 impl Histogram {
     /// Creates a new `Histogram`.
     ///
     /// If `bounds` is empty, returns `None`.
-    pub fn new(bounds: &[u64]) -> Option<Histogram> {
+    pub fn new(bounds: &[f64]) -> Option<Histogram> {
         if bounds.len() == 0 {
             return None;
         }
@@ -33,12 +33,12 @@ impl Histogram {
             count: 0,
             bounds: Vec::from(bounds),
             buckets,
-            sum: 0,
+            sum: 0.0,
         })
     }
 
     /// Gets the sum of all samples.
-    pub fn sum(&self) -> u64 {
+    pub fn sum(&self) -> f64 {
         self.sum
     }
 
@@ -51,7 +51,7 @@ impl Histogram {
     ///
     /// Buckets are tuples, where the first element is the bucket limit itself, and the second
     /// element is the count of samples in that bucket.
-    pub fn buckets(&self) -> Vec<(u64, u64)> {
+    pub fn buckets(&self) -> Vec<(f64, u64)> {
         self.bounds
             .iter()
             .cloned()
@@ -60,7 +60,7 @@ impl Histogram {
     }
 
     /// Records a single sample.
-    pub fn record(&mut self, sample: u64) {
+    pub fn record(&mut self, sample: f64) {
         self.sum += sample;
         self.count += 1;
 
@@ -75,14 +75,14 @@ impl Histogram {
     /// Records multiple samples.
     pub fn record_many<'a, S>(&mut self, samples: S)
     where
-        S: IntoIterator<Item = &'a u64> + 'a,
+        S: IntoIterator<Item = &'a f64> + 'a,
     {
         let mut bucketed = Vec::with_capacity(self.buckets.len());
         for _ in 0..self.buckets.len() {
             bucketed.push(0);
         }
 
-        let mut sum = 0;
+        let mut sum = 0.0;
         let mut count = 0;
         for sample in samples.into_iter() {
             sum += *sample;
@@ -123,13 +123,13 @@ mod tests {
         let histogram = Histogram::new(&[]);
         assert!(histogram.is_none());
 
-        let buckets = &[10, 25, 100];
-        let values = vec![3, 2, 6, 12, 56, 82, 202, 100, 29];
+        let buckets = &[10.0, 25.0, 100.0];
+        let values = vec![3.0, 2.0, 6.0, 12.0, 56.0, 82.0, 202.0, 100.0, 29.0];
 
         let mut histogram = Histogram::new(buckets).expect("histogram should have been created");
 
         histogram.record_many(&values);
-        histogram.record(89);
+        histogram.record(89.0);
 
         let result = histogram.buckets();
         assert_eq!(result.len(), 3);
@@ -142,6 +142,6 @@ mod tests {
         assert_eq!(third, 9);
 
         assert_eq!(histogram.count(), values.len() as u64 + 1);
-        assert_eq!(histogram.sum(), 581);
+        assert_eq!(histogram.sum(), 581.0);
     }
 }
