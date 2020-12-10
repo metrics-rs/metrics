@@ -21,7 +21,7 @@ The status bar at the top will track the connection status, as well as list as t
 controls that can be used.  Here's a shot where the observer is disconnected from the target process
 and is waiting to retry its connection:
 
-![observer disconnected](/assets/disconnected.png)
+![observer disconnected](assets/disconnected.png)
 
 ### basic data display
 As metrics are emitted by the process, they'll be shipped to the observer and displayed.  As
@@ -39,7 +39,7 @@ where the `system` label is set to the value `foo`.
 
 Here's a simple example:
 
-![observer connected, histogram with same timebase for each percentile](/assets/connected-same-timebase.png)
+![observer connected, histogram with same timebase for each percentile](assets/connected-same-timebase.png)
 
 ### unit support
 If a given metric has its [units](https://docs.rs/metrics/*/metrics/enum.Unit.html) defined, then
@@ -58,4 +58,4 @@ full value in nanoseconds only.  This also applies for histograms using time-bas
 Here's an example where some metrics have a unit, and we have a histogram where percentiles have
 values across different timebases:
 
-![observer connected, histogram with percentiles in different timebases](/assets/connected-different-timebase.png)
+![observer connected, histogram with percentiles in different timebases](assets/connected-different-timebase.png)
