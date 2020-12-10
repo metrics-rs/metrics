@@ -58,6 +58,6 @@ tracing-subscriber = { version = "0.2", default-features = false, features = ["f
 crossbeam-queue = "0.3"
 
 [features]
-default = ["std"]
+default = ["std", "layer-filter"]
 std = ["atomic-shim", "crossbeam-epoch", "crossbeam-utils", "dashmap", "indexmap", "parking_lot", "quanta"]
 layer-filter = ["aho-corasick"]
