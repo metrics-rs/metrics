@@ -132,7 +132,7 @@ impl Unit {
             Unit::Percent => "%",
             Unit::Seconds => "s",
             Unit::Milliseconds => "ms",
-            Unit::Microseconds => "us",
+            Unit::Microseconds => "μs",
             Unit::Nanoseconds => "ns",
             Unit::Tebibytes => "TiB",
             Unit::Gigibytes => "GiB",
