@@ -176,6 +176,10 @@ fn u64_to_displayable(value: u64, unit: Option<Unit>) -> String {
         Some(inner) => inner,
     };
 
+    if unit.is_data_based() {
+        return u64_data_to_displayable(value, unit);
+    }
+
     if unit.is_time_based() {
         return u64_time_to_displayable(value, unit);
     }
@@ -190,12 +194,44 @@ fn f64_to_displayable(value: f64, unit: Option<Unit>) -> String {
         Some(inner) => inner,
     };
 
+    if unit.is_data_based() {
+        return f64_data_to_displayable(value, unit);
+    }
+
     if unit.is_time_based() {
         return f64_time_to_displayable(value, unit);
     }
 
     let label = unit.as_canonical_label();
-    format!("{}{}", value, label)
+    format!("{:.2}{}", value, label)
+}
+
+fn u64_data_to_displayable(value: u64, unit: Unit) -> String {
+    f64_data_to_displayable(value as f64, unit)
+}
+
+fn f64_data_to_displayable(value: f64, unit: Unit) -> String {
+    let delimiter = 1024_f64;
+    let units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
+    let unit_idx_max = units.len() as u32 - 1;
+    let offset = match unit {
+        Unit::Kibibytes => 1,
+        Unit::Mebibytes => 2,
+        Unit::Gigibytes => 3,
+        Unit::Tebibytes => 4,
+        _ => 0,
+    };
+   
+    let mut exponent = (value.ln() / delimiter.ln()).floor() as u32;
+    let mut unit_idx = exponent + offset;
+    if unit_idx > unit_idx_max {
+        exponent -= unit_idx - unit_idx_max;
+        unit_idx = unit_idx_max;
+    }
+    let scaled = value / delimiter.powi(exponent as i32);
+    
+    let unit = units[unit_idx as usize];
+    format!("{:.2} {}", scaled, unit)
 }
 
 fn u64_time_to_displayable(value: u64, unit: Unit) -> String {
