@@ -118,15 +118,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                         let max = value.max().expect("sketch shouldn't exist if no values");
                         let p50 = value
                             .quantile(0.5)
-                            .expect("quantile should not be invalid")
                             .expect("sketch shouldn't exist if no values");
                         let p99 = value
                             .quantile(0.99)
-                            .expect("quantile should not be invalid")
                             .expect("sketch shouldn't exist if no values");
                         let p999 = value
                             .quantile(0.999)
-                            .expect("quantile should not be invalid")
                             .expect("sketch shouldn't exist if no values");
 
                         format!(

@@ -137,10 +137,7 @@ impl Inner {
                 let (sum, count) = match distribution {
                     Distribution::Summary(summary, quantiles, sum) => {
                         for quantile in quantiles.iter() {
-                            let value = summary
-                                .quantile(quantile.value())
-                                .expect("quantile should not be invalid")
-                                .unwrap_or(0.0);
+                            let value = summary.quantile(quantile.value()).unwrap_or(0.0);
                             write_metric_line(
                                 &mut output,
                                 &name,

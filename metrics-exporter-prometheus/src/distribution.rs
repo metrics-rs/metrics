@@ -2,8 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::common::Matcher;
 
-use metrics_util::{Histogram, Quantile};
-use sketches_ddsketch::{Config, DDSketch};
+use metrics_util::{Histogram, Quantile, Summary};
 
 #[derive(Clone)]
 pub enum Distribution {
@@ -18,7 +17,7 @@ pub enum Distribution {
     /// Computes and exposes value quantiles directly to Prometheus i.e. 50% of
     /// requests were faster than 200ms, and 99% of requests were faster than
     /// 1000ms, etc.
-    Summary(DDSketch, Arc<Vec<Quantile>>, f64),
+    Summary(Summary, Arc<Vec<Quantile>>, f64),
 }
 
 impl Distribution {
@@ -28,9 +27,8 @@ impl Distribution {
     }
 
     pub fn new_summary(quantiles: Arc<Vec<Quantile>>) -> Option<Distribution> {
-        let config = Config::new(0.00001, 8192, 1.0e-9);
-        let sketch = DDSketch::new(config);
-        Some(Distribution::Summary(sketch, quantiles, 0.0))
+        let summary = Summary::with_defaults();
+        Some(Distribution::Summary(summary, quantiles, 0.0))
     }
 
     pub fn record_samples(&mut self, samples: &[f64]) {

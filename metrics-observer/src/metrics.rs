@@ -11,7 +11,7 @@ use prost::Message;
 use sketches_ddsketch::{Config, DDSketch};
 
 use metrics::{KeyData, Label, Unit};
-use metrics_util::{CompositeKey, MetricKind};
+use metrics_util::{CompositeKey, MetricKind, Summary};
 
 mod proto {
     include!(concat!(env!("OUT_DIR"), "/event.proto.rs"));
@@ -33,7 +33,7 @@ pub enum ClientState {
 pub enum MetricData {
     Counter(u64),
     Gauge(f64),
-    Histogram(DDSketch),
+    Histogram(Summary),
 }
 
 pub struct Client {
@@ -274,9 +274,8 @@ impl Runner {
                                             let mut metrics = self.metrics.write().unwrap();
                                             let histogram =
                                                 metrics.entry(key).or_insert_with(|| {
-                                                    let config = Config::defaults();
-                                                    let sketch = DDSketch::new(config);
-                                                    MetricData::Histogram(sketch)
+                                                    let summary = Summary::with_defaults();
+                                                    MetricData::Histogram(summary)
                                                 });
 
                                             if let MetricData::Histogram(inner) = histogram {
