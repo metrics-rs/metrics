@@ -1,6 +1,6 @@
 [package]
 name = "metrics-exporter-tcp"
-version = "0.1.0-alpha.7"
+version = "0.1.0-alpha.8"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
