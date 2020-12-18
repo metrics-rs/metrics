@@ -292,10 +292,10 @@ fn get_expanded_callsite<V>(
 where
     V: ToTokens,
 {
-    // We use a helper method for histogram values to coerce into u64, but otherwise,
+    // We use a helper method for histogram values to coerce into f64, but otherwise,
     // just pass through whatever the caller gave us.
     let op_values = if metric_type == "histogram" {
-        quote! { metrics::__into_u64(#op_values) }
+        quote! { metrics::__into_f64(#op_values) }
     } else {
         quote! { #op_values }
     };

@@ -41,7 +41,7 @@ impl<R: Recorder> Recorder for Prefix<R> {
         self.inner.update_gauge(new_key, value);
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: Key, value: f64) {
         let new_key = self.prefix_key(key);
         self.inner.record_histogram(new_key, value);
     }

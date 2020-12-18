@@ -35,6 +35,11 @@ pub use kind::MetricKind;
 mod histogram;
 pub use histogram::Histogram;
 
+#[cfg(feature = "std")]
+mod summary;
+#[cfg(feature = "std")]
+pub use summary::Summary;
+
 pub mod layers;
 
 #[cfg(feature = "std")]

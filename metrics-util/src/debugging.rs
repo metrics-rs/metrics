@@ -34,7 +34,7 @@ pub enum DebugValue {
     /// Gauge.
     Gauge(f64),
     /// Histogram.
-    Histogram(Vec<u64>),
+    Histogram(Vec<f64>),
 }
 
 // We don't care that much about total equality nuances here.
@@ -52,7 +52,7 @@ impl Hash for DebugValue {
                     0f64.to_ne_bytes().hash(state)
                 }
             }
-            Self::Histogram(val) => val.hash(state),
+            Self::Histogram(val) => val.iter().for_each(|f| f.to_bits().hash(state)),
         }
     }
 }
@@ -243,7 +243,7 @@ impl Recorder for DebuggingRecorder {
         )
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: Key, value: f64) {
         let rkey = DifferentiatedKey(MetricKind::HISTOGRAM, key);
         self.register_metric(rkey.clone());
         self.registry.op(

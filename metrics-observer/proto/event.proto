@@ -44,7 +44,7 @@ message Gauge {
 }
 
 message Histogram {
-  uint64 value = 1;
+  double value = 1;
 }
 
 message Event {
