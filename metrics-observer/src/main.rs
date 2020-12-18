@@ -114,8 +114,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                         format!("current: {}", f64_to_displayable(value, unit))
                     }
                     MetricData::Histogram(value) => {
-                        let min = value.min().expect("sketch shouldn't exist if no values");
-                        let max = value.max().expect("sketch shouldn't exist if no values");
+                        let min = value.min();
+                        let max = value.max();
                         let p50 = value
                             .quantile(0.5)
                             .expect("sketch shouldn't exist if no values");

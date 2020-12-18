@@ -47,6 +47,7 @@ quanta = { version = "0.6", optional = true }
 sketches-ddsketch = { version = "0.1", optional = true }
 
 [dev-dependencies]
+approx = "0.4"
 criterion = "0.3"
 lazy_static = "1.3"
 rand = { version = "0.7", features = ["small_rng"] }
@@ -63,6 +64,7 @@ tracing-appender = "0.1"
 tracing-subscriber = { version = "0.2", default-features = false, features = ["fmt", "ansi"] }
 crossbeam-queue = "0.3"
 ordered-float = "2.0"
+textplots = "0.5"
 
 [features]
 default = ["std", "layer-filter"]
