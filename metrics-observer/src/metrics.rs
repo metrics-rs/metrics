@@ -8,7 +8,6 @@ use std::time::Duration;
 
 use bytes::{BufMut, BytesMut};
 use prost::Message;
-use sketches_ddsketch::{Config, DDSketch};
 
 use metrics::{KeyData, Label, Unit};
 use metrics_util::{CompositeKey, MetricKind, Summary};
