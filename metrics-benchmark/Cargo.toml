@@ -1,6 +1,6 @@
 [package]
 name = "metrics-benchmark"
-version = "0.1.1-alpha.4"
+version = "0.1.1-alpha.5"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 publish = false
