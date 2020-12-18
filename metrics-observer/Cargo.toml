@@ -17,8 +17,8 @@ tui = "0.13"
 termion = "1.5"
 chrono = "0.4"
 sketches-ddsketch = "0.1"
-metrics = { version = "0.13.0-alpha.8", path = "../metrics" }
-metrics-util = { version = "0.4.0-alpha.6", path = "../metrics-util" }
+metrics = { version = "0.13.0-alpha.13", path = "../metrics" }
+metrics-util = { version = "0.4.0-alpha.10", path = "../metrics-util" }
 
 [build-dependencies]
 prost-build = "0.6"
