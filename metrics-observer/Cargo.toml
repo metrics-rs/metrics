@@ -1,6 +1,6 @@
 [package]
 name = "metrics-observer"
-version = "0.1.0"
+version = "0.1.1-alpha.1"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 publish = false
