@@ -62,7 +62,7 @@
 //!        self.0.update_gauge(key, value);
 //!    }
 //!
-//!    fn record_histogram(&self, key: Key, value: u64) {
+//!    fn record_histogram(&self, key: Key, value: f64) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
@@ -180,7 +180,7 @@ impl<R: Recorder> Recorder for Stack<R> {
         self.inner.update_gauge(key, value);
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: Key, value: f64) {
         self.inner.record_histogram(key, value);
     }
 }

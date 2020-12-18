@@ -116,17 +116,23 @@ fn main() -> Result<(), Box<dyn Error>> {
                     MetricData::Histogram(value) => {
                         let min = value.min();
                         let max = value.max();
-                        let p50 = value.value_at_quantile(0.5);
-                        let p99 = value.value_at_quantile(0.99);
-                        let p999 = value.value_at_quantile(0.999);
+                        let p50 = value
+                            .quantile(0.5)
+                            .expect("sketch shouldn't exist if no values");
+                        let p99 = value
+                            .quantile(0.99)
+                            .expect("sketch shouldn't exist if no values");
+                        let p999 = value
+                            .quantile(0.999)
+                            .expect("sketch shouldn't exist if no values");
 
                         format!(
                             "min: {} p50: {} p99: {} p999: {} max: {}",
-                            u64_to_displayable(min, unit.clone()),
-                            u64_to_displayable(p50, unit.clone()),
-                            u64_to_displayable(p99, unit.clone()),
-                            u64_to_displayable(p999, unit.clone()),
-                            u64_to_displayable(max, unit),
+                            f64_to_displayable(min, unit.clone()),
+                            f64_to_displayable(p50, unit.clone()),
+                            f64_to_displayable(p99, unit.clone()),
+                            f64_to_displayable(p999, unit.clone()),
+                            f64_to_displayable(max, unit),
                         )
                     }
                 };

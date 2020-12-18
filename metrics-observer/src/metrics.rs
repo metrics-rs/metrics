@@ -7,11 +7,10 @@ use std::thread;
 use std::time::Duration;
 
 use bytes::{BufMut, BytesMut};
-use hdrhistogram::Histogram;
 use prost::Message;
 
 use metrics::{KeyData, Label, Unit};
-use metrics_util::{CompositeKey, MetricKind};
+use metrics_util::{CompositeKey, MetricKind, Summary};
 
 mod proto {
     include!(concat!(env!("OUT_DIR"), "/event.proto.rs"));
@@ -33,7 +32,7 @@ pub enum ClientState {
 pub enum MetricData {
     Counter(u64),
     Gauge(f64),
-    Histogram(Histogram<u64>),
+    Histogram(Summary),
 }
 
 pub struct Client {
@@ -274,15 +273,12 @@ impl Runner {
                                             let mut metrics = self.metrics.write().unwrap();
                                             let histogram =
                                                 metrics.entry(key).or_insert_with(|| {
-                                                    let histogram = Histogram::new(3)
-                                                        .expect("failed to create histogram");
-                                                    MetricData::Histogram(histogram)
+                                                    let summary = Summary::with_defaults();
+                                                    MetricData::Histogram(summary)
                                                 });
 
                                             if let MetricData::Histogram(inner) = histogram {
-                                                inner
-                                                    .record(value.value)
-                                                    .expect("failed to record value to histogram");
+                                                inner.add(value.value);
                                             }
                                         }
                                     }

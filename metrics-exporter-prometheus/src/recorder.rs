@@ -8,7 +8,6 @@ use metrics::{GaugeValue, Key, Recorder, Unit};
 use metrics_util::{CompositeKey, Handle, MetricKind, Recency, Registry};
 use parking_lot::RwLock;
 
-#[derive(Debug)]
 pub(crate) struct Inner {
     pub registry: Registry<CompositeKey, Handle>,
     pub recency: Recency<CompositeKey>,
@@ -138,7 +137,7 @@ impl Inner {
                 let (sum, count) = match distribution {
                     Distribution::Summary(summary, quantiles, sum) => {
                         for quantile in quantiles.iter() {
-                            let value = summary.value_at_quantile(quantile.value());
+                            let value = summary.quantile(quantile.value()).unwrap_or(0.0);
                             write_metric_line(
                                 &mut output,
                                 &name,
@@ -149,7 +148,7 @@ impl Inner {
                             );
                         }
 
-                        (sum, summary.len())
+                        (sum, summary.count() as u64)
                     }
                     Distribution::Histogram(histogram) => {
                         for (le, count) in histogram.buckets() {
@@ -175,7 +174,7 @@ impl Inner {
                     }
                 };
 
-                write_metric_line::<&str, u64>(&mut output, &name, Some("sum"), &labels, None, sum);
+                write_metric_line::<&str, f64>(&mut output, &name, Some("sum"), &labels, None, sum);
                 write_metric_line::<&str, u64>(
                     &mut output,
                     &name,
@@ -199,7 +198,6 @@ impl Inner {
 /// [`metrics::set_boxed_recorder`].
 ///
 ///
-#[derive(Debug)]
 pub struct PrometheusRecorder {
     inner: Arc<Inner>,
 }
@@ -274,7 +272,7 @@ impl Recorder for PrometheusRecorder {
         );
     }
 
-    fn record_histogram(&self, key: Key, value: u64) {
+    fn record_histogram(&self, key: Key, value: f64) {
         self.inner.registry().op(
             CompositeKey::new(MetricKind::HISTOGRAM, key),
             |h| h.record_histogram(value),
@@ -286,7 +284,7 @@ impl Recorder for PrometheusRecorder {
 /// Handle to [`PrometheusRecorder`].
 ///
 /// Useful for exposing a scrape endpoint on an existing HTTP/HTTPS server.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PrometheusHandle {
     inner: Arc<Inner>,
 }

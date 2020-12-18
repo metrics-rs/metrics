@@ -25,8 +25,8 @@ use tokio::{pin, runtime, select};
 pub struct PrometheusBuilder {
     listen_address: SocketAddr,
     quantiles: Vec<Quantile>,
-    buckets: Option<Vec<u64>>,
-    bucket_overrides: Option<HashMap<Matcher, Vec<u64>>>,
+    buckets: Option<Vec<f64>>,
+    bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
     recency_mask: MetricKind,
 }
@@ -76,7 +76,7 @@ impl PrometheusBuilder {
     ///
     /// Buckets values represent the higher bound of each buckets.  If buckets are set, then all
     /// histograms will be rendered as true Prometheus histograms, instead of summaries.
-    pub fn set_buckets(mut self, values: &[u64]) -> Self {
+    pub fn set_buckets(mut self, values: &[f64]) -> Self {
         self.buckets = Some(values.to_vec());
         self
     }
@@ -93,7 +93,7 @@ impl PrometheusBuilder {
     ///
     /// This option changes the observer's output of histogram-type metric into summaries.
     /// It only affects matching metrics if set_buckets was not used.
-    pub fn set_buckets_for_metric(mut self, matcher: Matcher, values: &[u64]) -> Self {
+    pub fn set_buckets_for_metric(mut self, matcher: Matcher, values: &[f64]) -> Self {
         let buckets = self.bucket_overrides.get_or_insert_with(|| HashMap::new());
         buckets.insert(matcher, values.to_vec());
         self
@@ -253,7 +253,7 @@ mod tests {
         assert_eq!(rendered, expected_gauge);
 
         let key = Key::from(KeyData::from_name("basic_histogram"));
-        recorder.record_histogram(key, 12);
+        recorder.record_histogram(key, 12.0);
         let rendered = handle.render();
 
         let histogram_data = concat!(
@@ -276,10 +276,10 @@ mod tests {
 
     #[test]
     fn test_buckets() {
-        const DEFAULT_VALUES: [u64; 3] = [10, 100, 1000];
-        const PREFIX_VALUES: [u64; 3] = [15, 105, 1005];
-        const SUFFIX_VALUES: [u64; 3] = [20, 110, 1010];
-        const FULL_VALUES: [u64; 3] = [25, 115, 1015];
+        const DEFAULT_VALUES: [f64; 3] = [10.0, 100.0, 1000.0];
+        const PREFIX_VALUES: [f64; 3] = [15.0, 105.0, 1005.0];
+        const SUFFIX_VALUES: [f64; 3] = [20.0, 110.0, 1010.0];
+        const FULL_VALUES: [f64; 3] = [25.0, 115.0, 1015.0];
 
         let recorder = PrometheusBuilder::new()
             .set_buckets_for_metric(
@@ -304,7 +304,7 @@ mod tests {
         recorder.record_histogram(suffix_key, SUFFIX_VALUES[2]);
 
         let default_key = Key::from(KeyData::from_name("metrics_wee"));
-        recorder.record_histogram(default_key, DEFAULT_VALUES[2] + 1);
+        recorder.record_histogram(default_key, DEFAULT_VALUES[2] + 1.0);
 
         let full_data = concat!(
             "# TYPE metrics_testing_foo histogram\n",

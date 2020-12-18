@@ -2,10 +2,9 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::common::Matcher;
 
-use hdrhistogram::Histogram as HdrHistogram;
-use metrics_util::{Histogram, Quantile};
+use metrics_util::{Histogram, Quantile, Summary};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Distribution {
     /// A Prometheus histogram.
     ///
@@ -18,26 +17,26 @@ pub enum Distribution {
     /// Computes and exposes value quantiles directly to Prometheus i.e. 50% of
     /// requests were faster than 200ms, and 99% of requests were faster than
     /// 1000ms, etc.
-    Summary(HdrHistogram<u64>, Arc<Vec<Quantile>>, u64),
+    Summary(Summary, Arc<Vec<Quantile>>, f64),
 }
 
 impl Distribution {
-    pub fn new_histogram(buckets: &[u64]) -> Option<Distribution> {
+    pub fn new_histogram(buckets: &[f64]) -> Option<Distribution> {
         let hist = Histogram::new(buckets)?;
         Some(Distribution::Histogram(hist))
     }
 
     pub fn new_summary(quantiles: Arc<Vec<Quantile>>) -> Option<Distribution> {
-        let hist = HdrHistogram::new(3).ok()?;
-        Some(Distribution::Summary(hist, quantiles, 0))
+        let summary = Summary::with_defaults();
+        Some(Distribution::Summary(summary, quantiles, 0.0))
     }
 
-    pub fn record_samples(&mut self, samples: &[u64]) {
+    pub fn record_samples(&mut self, samples: &[f64]) {
         match self {
             Distribution::Histogram(hist) => hist.record_many(samples),
             Distribution::Summary(hist, _, sum) => {
                 for sample in samples {
-                    let _ = hist.record(*sample);
+                    hist.add(*sample);
                     *sum += *sample;
                 }
             }
@@ -49,22 +48,22 @@ impl Distribution {
 #[derive(Debug)]
 pub struct DistributionBuilder {
     quantiles: Arc<Vec<Quantile>>,
-    buckets: Option<Vec<u64>>,
-    bucket_overrides: Option<Vec<(Matcher, Vec<u64>)>>,
+    buckets: Option<Vec<f64>>,
+    bucket_overrides: Option<Vec<(Matcher, Vec<f64>)>>,
 }
 
 impl DistributionBuilder {
     pub fn new(
         quantiles: Vec<Quantile>,
-        buckets: Option<Vec<u64>>,
-        bucket_overrides: Option<HashMap<Matcher, Vec<u64>>>,
+        buckets: Option<Vec<f64>>,
+        bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     ) -> DistributionBuilder {
         DistributionBuilder {
             quantiles: Arc::new(quantiles),
             buckets,
             bucket_overrides: bucket_overrides.map(|entries| {
                 let mut matchers = entries.into_iter().collect::<Vec<_>>();
-                matchers.sort();
+                matchers.sort_by(|a, b| a.0.cmp(&b.0));
                 matchers
             }),
         }
