@@ -32,7 +32,7 @@ name = "key"
 harness = false
 
 [dependencies]
-metrics-macros = { version = "0.1.0-alpha.5", path = "../metrics-macros" }
+metrics-macros = { version = "0.1.0-alpha.9", path = "../metrics-macros" }
 proc-macro-hack = "0.5"
 
 [dev-dependencies]
