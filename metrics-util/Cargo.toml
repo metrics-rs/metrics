@@ -51,7 +51,7 @@ approx = "0.4"
 criterion = "0.3"
 lazy_static = "1.3"
 rand = { version = "0.7", features = ["small_rng"] }
-rand_distr = "0.3"
+rand_distr = "0.4"
 getopts = "0.2"
 hdrhistogram = "7.2"
 sketches-ddsketch = "0.1"
