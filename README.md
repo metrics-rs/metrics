@@ -48,7 +48,6 @@ If you're a library author, you'll only care about using [`metrics`][metrics] to
 Overall, this repository is home to the following crates:
 
 * [`metrics`][metrics]: A lightweight metrics facade, similar to [`log`][log].
-https://docs.rs/log).
 * [`metrics-macros`][metrics-macros]: Procedural macros that power `metrics`.
 * [`metrics-tracing-context`][metrics-tracing-context]: Allow capturing [`tracing`][tracing] span
   fields as metric labels.
