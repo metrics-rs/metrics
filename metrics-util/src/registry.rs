@@ -119,9 +119,38 @@ where
     where
         H: Clone,
     {
+        self.collect()
+    }
+
+    /// Collects all present key and associated generation/handle pairs
+    /// into the provided type `T`.
+    ///
+    /// Handles must implement `Clone`.
+    /// This collected result is a point-in-time snapshot of the registry.
+    pub fn collect<T>(&self) -> T
+    where
+        H: Clone,
+        T: std::iter::FromIterator<(K, (Generation, H))>,
+    {
+        self.map_collect(|key, generation, handle| (key.clone(), (generation, handle.clone())))
+    }
+
+    /// Maps and then collects all present key and associated generation/handle
+    /// pairs into the provided type `T`.
+    ///
+    /// This map is appied over the values from a point-in-time snapshot of
+    /// the registry.
+    pub fn map_collect<F, R, T>(&self, mut f: F) -> T
+    where
+        F: for<'a> FnMut(&'a K, Generation, &'a H) -> R,
+        T: std::iter::FromIterator<R>,
+    {
         self.map
             .iter()
-            .map(|item| (item.key().clone(), item.value().to_owned()))
+            .map(|item| {
+                let value = item.value();
+                f(item.key(), value.get_generation(), value.get_inner())
+            })
             .collect()
     }
 }
