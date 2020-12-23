@@ -16,7 +16,7 @@ pub struct Generation(usize);
 #[derive(Debug)]
 pub(crate) struct Generational<H>(AtomicUsize, H);
 
-impl<H: Clone> Generational<H> {
+impl<H> Generational<H> {
     pub fn new(h: H) -> Generational<H> {
         Generational(AtomicUsize::new(0), h)
     }
@@ -33,7 +33,10 @@ impl<H: Clone> Generational<H> {
         &self.1
     }
 
-    pub fn to_owned(&self) -> (Generation, H) {
+    pub fn to_owned(&self) -> (Generation, H)
+    where
+        H: Clone,
+    {
         (self.get_generation(), self.get_inner().clone())
     }
 }
@@ -60,7 +63,7 @@ impl<H: Clone> Generational<H> {
 pub struct Registry<K, H>
 where
     K: Eq + Hash + Clone + 'static,
-    H: Clone + 'static,
+    H: 'static,
 {
     map: DashMap<K, Generational<H>>,
 }
@@ -68,7 +71,7 @@ where
 impl<K, H> Registry<K, H>
 where
     K: Eq + Hash + Clone + 'static,
-    H: Clone + 'static,
+    H: 'static,
 {
     /// Creates a new `Registry`.
     pub fn new() -> Self {
@@ -112,7 +115,10 @@ where
     /// Gets a map of all present handles, mapped by key.
     ///
     /// Handles must implement `Clone`.  This map is a point-in-time snapshot of the registry.
-    pub fn get_handles(&self) -> HashMap<K, (Generation, H)> {
+    pub fn get_handles(&self) -> HashMap<K, (Generation, H)>
+    where
+        H: Clone,
+    {
         self.map
             .iter()
             .map(|item| (item.key().clone(), item.value().to_owned()))
