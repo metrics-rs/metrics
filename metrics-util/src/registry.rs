@@ -32,13 +32,6 @@ impl<H> Generational<H> {
     pub fn get_inner(&self) -> &H {
         &self.1
     }
-
-    pub fn to_owned(&self) -> (Generation, H)
-    where
-        H: Clone,
-    {
-        (self.get_generation(), self.get_inner().clone())
-    }
 }
 
 /// A high-performance metric registry.
