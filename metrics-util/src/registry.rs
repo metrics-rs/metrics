@@ -16,7 +16,7 @@ pub struct Generation(usize);
 #[derive(Debug)]
 pub(crate) struct Generational<H>(AtomicUsize, H);
 
-impl<H: Clone> Generational<H> {
+impl<H> Generational<H> {
     pub fn new(h: H) -> Generational<H> {
         Generational(AtomicUsize::new(0), h)
     }
@@ -31,10 +31,6 @@ impl<H: Clone> Generational<H> {
 
     pub fn get_inner(&self) -> &H {
         &self.1
-    }
-
-    pub fn to_owned(&self) -> (Generation, H) {
-        (self.get_generation(), self.get_inner().clone())
     }
 }
 
@@ -60,7 +56,7 @@ impl<H: Clone> Generational<H> {
 pub struct Registry<K, H>
 where
     K: Eq + Hash + Clone + 'static,
-    H: Clone + 'static,
+    H: 'static,
 {
     map: DashMap<K, Generational<H>>,
 }
@@ -68,7 +64,7 @@ where
 impl<K, H> Registry<K, H>
 where
     K: Eq + Hash + Clone + 'static,
-    H: Clone + 'static,
+    H: 'static,
 {
     /// Creates a new `Registry`.
     pub fn new() -> Self {
@@ -112,10 +108,42 @@ where
     /// Gets a map of all present handles, mapped by key.
     ///
     /// Handles must implement `Clone`.  This map is a point-in-time snapshot of the registry.
-    pub fn get_handles(&self) -> HashMap<K, (Generation, H)> {
+    pub fn get_handles(&self) -> HashMap<K, (Generation, H)>
+    where
+        H: Clone,
+    {
+        self.collect()
+    }
+
+    /// Collects all present key and associated generation/handle pairs
+    /// into the provided type `T`.
+    ///
+    /// Handles must implement `Clone`.
+    /// This collected result is a point-in-time snapshot of the registry.
+    pub fn collect<T>(&self) -> T
+    where
+        H: Clone,
+        T: std::iter::FromIterator<(K, (Generation, H))>,
+    {
+        self.map_collect(|key, generation, handle| (key.clone(), (generation, handle.clone())))
+    }
+
+    /// Maps and then collects all present key and associated generation/handle
+    /// pairs into the provided type `T`.
+    ///
+    /// This map is appied over the values from a point-in-time snapshot of
+    /// the registry.
+    pub fn map_collect<F, R, T>(&self, mut f: F) -> T
+    where
+        F: for<'a> FnMut(&'a K, Generation, &'a H) -> R,
+        T: std::iter::FromIterator<R>,
+    {
         self.map
             .iter()
-            .map(|item| (item.key().clone(), item.value().to_owned()))
+            .map(|item| {
+                let value = item.value();
+                f(item.key(), value.get_generation(), value.get_inner())
+            })
             .collect()
     }
 }
