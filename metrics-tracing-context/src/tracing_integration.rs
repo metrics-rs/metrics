@@ -110,12 +110,9 @@ where
                 .expect("registry should have a span for the current ID")
         };
 
-        let parents = span.parents();
-        for span in std::iter::once(span).chain(parents) {
-            let extensions = span.extensions();
-            if let Some(value) = extensions.get::<Labels>() {
-                f(value);
-            }
+        let extensions = span.extensions();
+        if let Some(value) = extensions.get::<Labels>() {
+            f(value);
         }
     }
 }
@@ -126,7 +123,19 @@ where
 {
     fn new_span(&self, attrs: &Attributes<'_>, id: &Id, cx: Context<'_, S>) {
         let span = cx.span(id).expect("span must already exist!");
-        let labels = Labels::from_attributes(attrs);
+
+        // Get labels for this span.
+        let mut labels = Labels::from_attributes(attrs);
+
+        // Add labels from the parent spans.
+        let parent_spans = span.parents();
+        for parent_span in parent_spans {
+            let extensions = parent_span.extensions();
+            if let Some(value) = extensions.get::<Labels>() {
+                labels.0.extend(value.0.iter().cloned());
+            }
+        }
+
         span.extensions_mut().insert(labels);
     }
 
