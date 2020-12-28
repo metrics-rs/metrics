@@ -19,7 +19,7 @@ keywords = ["metrics", "telemetry", "tcp"]
 metrics = { version = "0.13.0-alpha.13", path = "../metrics", features = ["std"] }
 bytes = "0.5"
 crossbeam-channel = "0.5"
-prost = "0.6"
+prost = "0.7"
 prost-types = "0.6"
 mio = { version = "0.7", features = ["os-poll", "tcp"] }
 tracing = "0.1"
