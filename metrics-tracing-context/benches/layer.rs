@@ -40,7 +40,7 @@ fn layer_benchmark(c: &mut Criterion) {
         })
     });
     group.bench_function("tracing layer only", |b| {
-        let subscriber = Registry::default().with(MetricsLayer::new());
+        let subscriber = Registry::default().with(MetricsLayer::all());
         let dispatcher = Dispatch::new(subscriber);
         with_default(&dispatcher, || {
             let user = "ferris";
@@ -79,7 +79,7 @@ fn layer_benchmark(c: &mut Criterion) {
         })
     });
     group.bench_function("full integration", |b| {
-        let subscriber = Registry::default().with(MetricsLayer::new());
+        let subscriber = Registry::default().with(MetricsLayer::all());
         let dispatcher = Dispatch::new(subscriber);
         with_default(&dispatcher, || {
             let user = "ferris";

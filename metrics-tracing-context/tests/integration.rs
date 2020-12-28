@@ -1,5 +1,5 @@
 use metrics::{counter, Key, KeyData, Label, SharedString};
-use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
+use metrics_tracing_context::{label_filter, LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::{
     layers::Layer, CompositeKey, DebugValue, DebuggingRecorder, MetricKind, Snapshotter,
 };
@@ -23,10 +23,6 @@ static MY_COUNTER: &'static [SharedString] = &[SharedString::const_str("my_count
 static USER_EMAIL: &'static [Label] = &[
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
-];
-static EMAIL_USER: &'static [Label] = &[
-    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
-    Label::from_static_parts("user", "ferris"),
 ];
 static SVC_USER_EMAIL: &'static [Label] = &[
     Label::from_static_parts("service", "login_service"),
@@ -62,18 +58,26 @@ static SAME_CALLSITE_PATH_2: &'static [Label] = &[
     Label::from_static_parts("path2_specific", "bar"),
     Label::from_static_parts("path2_specific_dynamic", "bar_dynamic"),
 ];
+static SVC_USER: &'static [Label] = &[
+    Label::from_static_parts("service", "login_service"),
+    Label::from_static_parts("user", "ferris"),
+];
 
 struct TestGuard {
     _test_mutex_guard: MutexGuard<'static, ()>,
     _tracing_guard: DefaultGuard,
 }
 
-fn setup<F>(layer: TracingContextLayer<F>) -> (TestGuard, Snapshotter)
+fn setup<MF, TF>(
+    layer: TracingContextLayer<MF>,
+    tracing_layer_labels_filter: TF,
+) -> (TestGuard, Snapshotter)
 where
-    F: LabelFilter + Clone + 'static,
+    MF: LabelFilter + Clone + 'static,
+    TF: LabelFilter + Send + Sync + 'static,
 {
     let test_mutex_guard = TEST_MUTEX.lock();
-    let subscriber = Registry::default().with(MetricsLayer::new());
+    let subscriber = Registry::default().with(MetricsLayer::new(tracing_layer_labels_filter));
     let tracing_guard = set_default(&Dispatch::new(subscriber));
 
     let recorder = DebuggingRecorder::new();
@@ -92,7 +96,7 @@ where
 
 #[test]
 fn test_basic_functionality() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let (_guard, snapshotter) = setup(TracingContextLayer::all(), label_filter::IncludeAll);
 
     let user = "ferris";
     let email = "ferris@rust-lang.org";
@@ -119,7 +123,7 @@ fn test_basic_functionality() {
 
 #[test]
 fn test_macro_forms() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let (_guard, snapshotter) = setup(TracingContextLayer::all(), label_filter::IncludeAll);
 
     let user = "ferris";
     let email = "ferris@rust-lang.org";
@@ -193,7 +197,7 @@ fn test_macro_forms() {
 
 #[test]
 fn test_no_labels() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let (_guard, snapshotter) = setup(TracingContextLayer::all(), label_filter::IncludeAll);
 
     let span = span!(Level::TRACE, "login");
     let _guard = span.enter();
@@ -218,7 +222,7 @@ fn test_no_labels() {
 
 #[test]
 fn test_multiple_paths_to_the_same_callsite() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let (_guard, snapshotter) = setup(TracingContextLayer::all(), label_filter::IncludeAll);
 
     let shared_fn = || {
         counter!("my_counter", 1);
@@ -282,7 +286,7 @@ fn test_multiple_paths_to_the_same_callsite() {
 
 #[test]
 fn test_nested_spans() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let (_guard, snapshotter) = setup(TracingContextLayer::all(), label_filter::IncludeAll);
 
     let inner = || {
         let inner_specific_dynamic = "foo_dynamic";
@@ -339,15 +343,15 @@ impl LabelFilter for OnlyUser {
 }
 
 #[test]
-fn test_label_filtering() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::new(OnlyUser));
+fn test_label_filtering_metrics_end() {
+    let (_guard, snapshotter) = setup(TracingContextLayer::new(OnlyUser), label_filter::IncludeAll);
 
     let user = "ferris";
     let email = "ferris@rust-lang.org";
-    let span = span!(Level::TRACE, "login", user, user.email_span = email);
+    let span = span!(Level::TRACE, "login", user, user.email = email);
     let _guard = span.enter();
 
-    counter!("login_attempts", 1, "user.email" => "ferris@rust-lang.org");
+    counter!("login_attempts", 1, "service" => "login_service");
 
     let snapshot = snapshotter.snapshot();
 
@@ -356,7 +360,34 @@ fn test_label_filtering() {
         vec![(
             CompositeKey::new(
                 MetricKind::Counter,
-                Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS, EMAIL_USER))
+                Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS, SVC_USER))
+            ),
+            None,
+            None,
+            DebugValue::Counter(1),
+        )]
+    )
+}
+
+#[test]
+fn test_label_filtering_tracing_end() {
+    let (_guard, snapshotter) = setup(TracingContextLayer::all(), OnlyUser);
+
+    let user = "ferris";
+    let email = "ferris@rust-lang.org";
+    let span = span!(Level::TRACE, "login", user, user.email = email);
+    let _guard = span.enter();
+
+    counter!("login_attempts", 1, "service" => "login_service");
+
+    let snapshot = snapshotter.snapshot();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS, SVC_USER))
             ),
             None,
             None,

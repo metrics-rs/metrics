@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use metrics_tracing_context::Labels;
+use metrics_tracing_context::{label_filter, Labels, LabelsVisitor};
 use smallvec::SmallVec;
 use tracing::Metadata;
 use tracing_core::{
@@ -21,6 +21,17 @@ static CALLSITE_METADATA: Metadata = metadata! {
     kind: Kind::SPAN,
 };
 
+fn make_labels() -> Labels {
+    Labels(SmallVec::with_capacity(BATCH_SIZE))
+}
+
+fn make_visitor(labels: &mut Labels) -> LabelsVisitor<'_, label_filter::IncludeAll> {
+    LabelsVisitor {
+        labels,
+        label_filter: &label_filter::IncludeAll,
+    }
+}
+
 fn visit_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("visit");
     group.bench_function("record_str", |b| {
@@ -30,9 +41,10 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(SmallVec::with_capacity(BATCH_SIZE)),
+            || make_labels(),
             |labels| {
-                labels.record_str(&field, "test test");
+                let mut visitor = make_visitor(labels);
+                visitor.record_str(&field, "test test");
             },
             BatchSize::NumIterations(BATCH_SIZE as u64),
         )
@@ -44,9 +56,10 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(SmallVec::with_capacity(BATCH_SIZE)),
+            || make_labels(),
             |labels| {
-                labels.record_bool(&field, true);
+                let mut visitor = make_visitor(labels);
+                visitor.record_bool(&field, true);
             },
             BatchSize::NumIterations(BATCH_SIZE as u64),
         )
@@ -58,9 +71,10 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(SmallVec::with_capacity(BATCH_SIZE)),
+            || make_labels(),
             |labels| {
-                labels.record_bool(&field, false);
+                let mut visitor = make_visitor(labels);
+                visitor.record_bool(&field, false);
             },
             BatchSize::NumIterations(BATCH_SIZE as u64),
         )
@@ -72,9 +86,10 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(SmallVec::with_capacity(BATCH_SIZE)),
+            || make_labels(),
             |labels| {
-                labels.record_i64(&field, -3423432);
+                let mut visitor = make_visitor(labels);
+                visitor.record_i64(&field, -3423432);
             },
             BatchSize::NumIterations(BATCH_SIZE as u64),
         )
@@ -86,9 +101,10 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(SmallVec::with_capacity(BATCH_SIZE)),
+            || make_labels(),
             |labels| {
-                labels.record_u64(&field, 3423432);
+                let mut visitor = make_visitor(labels);
+                visitor.record_u64(&field, 3423432);
             },
             BatchSize::NumIterations(BATCH_SIZE as u64),
         )
@@ -101,9 +117,10 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(SmallVec::with_capacity(BATCH_SIZE)),
+            || make_labels(),
             |labels| {
-                labels.record_debug(&field, &debug_struct);
+                let mut visitor = make_visitor(labels);
+                visitor.record_debug(&field, &debug_struct);
             },
             BatchSize::NumIterations(BATCH_SIZE as u64),
         )
@@ -115,9 +132,10 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(SmallVec::with_capacity(BATCH_SIZE)),
+            || make_labels(),
             |labels| {
-                labels.record_debug(&field, &true);
+                let mut visitor = make_visitor(labels);
+                visitor.record_debug(&field, &true);
             },
             BatchSize::NumIterations(BATCH_SIZE as u64),
         )
@@ -130,9 +148,10 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(SmallVec::with_capacity(BATCH_SIZE)),
+            || make_labels(),
             |labels| {
-                labels.record_debug(&field, &value);
+                let mut visitor = make_visitor(labels);
+                visitor.record_debug(&field, &value);
             },
             BatchSize::NumIterations(BATCH_SIZE as u64),
         )
@@ -145,9 +164,10 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(SmallVec::with_capacity(BATCH_SIZE)),
+            || make_labels(),
             |labels| {
-                labels.record_debug(&field, &value);
+                let mut visitor = make_visitor(labels);
+                visitor.record_debug(&field, &value);
             },
             BatchSize::NumIterations(BATCH_SIZE as u64),
         )

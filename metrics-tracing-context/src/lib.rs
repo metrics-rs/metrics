@@ -17,7 +17,7 @@
 //!
 //! // Prepare tracing.
 //! # let mysubscriber = Registry::default();
-//! let subscriber = mysubscriber.with(MetricsLayer::new());
+//! let subscriber = mysubscriber.with(MetricsLayer::all());
 //! tracing::subscriber::set_global_default(subscriber).unwrap();
 //!
 //! // Prepare metrics.
@@ -33,7 +33,7 @@
 //! # use tracing_subscriber::{layer::SubscriberExt, Registry};
 //! # use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
 //! # let mysubscriber = Registry::default();
-//! # let subscriber = mysubscriber.with(MetricsLayer::new());
+//! # let subscriber = mysubscriber.with(MetricsLayer::all());
 //! # tracing::subscriber::set_global_default(subscriber).unwrap();
 //! # let myrecorder = DebuggingRecorder::new();
 //! # let recorder = TracingContextLayer::all().layer(myrecorder);
@@ -63,7 +63,7 @@ pub mod label_filter;
 mod tracing_integration;
 
 pub use label_filter::LabelFilter;
-pub use tracing_integration::{Labels, MetricsLayer, SpanExt};
+pub use tracing_integration::{Labels, LabelsVisitor, MetricsLayer, SpanExt};
 
 /// [`TracingContextLayer`] provides an implementation of a [`Layer`][metrics_util::layers::Layer]
 /// for [`TracingContext`].
