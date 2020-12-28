@@ -1,6 +1,7 @@
 //! The code that integrates with the `tracing` crate.
 
 use metrics::Label;
+use smallvec::SmallVec;
 use std::{any::TypeId, marker::PhantomData};
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{field::Visit, Dispatch, Field, Subscriber};
@@ -11,7 +12,8 @@ use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 /// Hidden from documentation as there is no need for end users to ever touch this type, but it must
 /// be public in order to be pulled in by external benchmark code.
 #[doc(hidden)]
-pub struct Labels(pub Vec<Label>);
+pub struct Labels(pub Inner);
+type Inner = SmallVec<[Label; 16]>;
 
 impl Visit for Labels {
     fn record_str(&mut self, field: &Field, value: &str) {
@@ -49,15 +51,15 @@ impl Visit for Labels {
 
 impl Labels {
     fn from_attributes(attrs: &Attributes<'_>) -> Self {
-        let mut labels = Self(Vec::new()); // TODO: Vec::with_capacity?
+        let mut labels = Self(SmallVec::new()); // TODO: with_capacity?
         let record = Record::new(attrs.values());
         record.record(&mut labels);
         labels
     }
 }
 
-impl AsRef<Vec<Label>> for Labels {
-    fn as_ref(&self) -> &Vec<Label> {
+impl AsRef<Inner> for Labels {
+    fn as_ref(&self) -> &Inner {
         &self.0
     }
 }
@@ -67,7 +69,7 @@ pub struct WithContext {
 }
 
 impl WithContext {
-    pub fn with_labels<'a>(&self, dispatch: &'a Dispatch, id: &Id, f: &mut dyn FnMut(&Vec<Label>)) {
+    pub fn with_labels<'a>(&self, dispatch: &'a Dispatch, id: &Id, f: &mut dyn FnMut(&Inner)) {
         let mut ff = |labels: &Labels| f(labels.as_ref());
         (self.with_labels)(dispatch, id, &mut ff)
     }
@@ -151,13 +153,13 @@ pub trait SpanExt {
     /// Run the provided function with a read-only access to labels.
     fn with_labels<F>(&self, f: F)
     where
-        F: FnMut(&Vec<Label>);
+        F: FnMut(&Inner);
 }
 
 impl SpanExt for tracing::Span {
     fn with_labels<F>(&self, mut f: F)
     where
-        F: FnMut(&Vec<Label>),
+        F: FnMut(&Inner),
     {
         self.with_subscriber(|(id, subscriber)| {
             if let Some(ctx) = subscriber.downcast_ref::<WithContext>() {
