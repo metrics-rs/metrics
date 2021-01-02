@@ -37,7 +37,7 @@ fn main() {
 
         last = Some(clock.now());
 
-        let sleep_time = thread_rng().gen_range(250, 750);
+        let sleep_time = thread_rng().gen_range(250..750);
 
         thread::sleep(Duration::from_millis(sleep_time));
     }

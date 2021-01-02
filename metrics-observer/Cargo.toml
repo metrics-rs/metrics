@@ -9,17 +9,16 @@ license = "MIT"
 
 [dependencies]
 getopts = "0.2"
-bytes = "0.5"
+bytes = "1.0"
 crossbeam-channel = "0.5"
-prost = "0.6"
-prost-types = "0.6"
-tui = "0.13"
+prost = "0.7"
+prost-types = "0.7"
+tui = "0.14"
 termion = "1.5"
 chrono = "0.4"
-sketches-ddsketch = "0.1"
 metrics = { version = "0.13.0-alpha.13", path = "../metrics" }
 metrics-util = { version = "0.4.0-alpha.10", path = "../metrics-util" }
 
 [build-dependencies]
-prost-build = "0.6"
+prost-build = "0.7"
 built = "0.4"
