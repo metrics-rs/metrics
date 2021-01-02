@@ -131,7 +131,7 @@ fn run_producer(
             }
         }
 
-        let value = rand.gen_range(0, 1024);
+        let value = rand.gen_range(0..1024);
         queue.push(value);
 
         total_local += value;
