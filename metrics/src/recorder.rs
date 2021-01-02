@@ -112,13 +112,13 @@ where
     F: FnOnce() -> &'static dyn Recorder,
 {
     unsafe {
-        match STATE.compare_and_swap(UNINITIALIZED, INITIALIZING, Ordering::SeqCst) {
-            UNINITIALIZED => {
+        match STATE.compare_exchange(UNINITIALIZED, INITIALIZING, Ordering::SeqCst, Ordering::SeqCst) {
+            Ok(UNINITIALIZED) => {
                 RECORDER = make_recorder();
                 STATE.store(INITIALIZED, Ordering::SeqCst);
                 Ok(())
             }
-            INITIALIZING => {
+            Err(INITIALIZING) => {
                 while STATE.load(Ordering::SeqCst) == INITIALIZING {}
                 Err(SetRecorderError(()))
             }
