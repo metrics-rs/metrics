@@ -19,31 +19,26 @@
 [last-commit-badge]: https://img.shields.io/github/last-commit/metrics-rs/metrics
 [contributors-badge]: https://img.shields.io/github/contributors/metrics-rs/metrics
 
+# What's it all about?
 
-## code of conduct
+Running applications in production can be hard when you don't have insight into what the application is doing. We're lucky to have so many good system monitoring programs and services to show us how our servers are performing, but we still have to do the work of instrumenting our applications to gain deep insight into their behavior and performance.
 
-**NOTE**: All conversations and contributions to this project shall adhere to the [Code of Conduct][conduct].
+`metrics` makes it easy to instrument and get real-time insight into what's happening in your application. It provides a number of practical features that makes it easy for library and application authors to start collecting and exporting metrics from their codebase.
 
-# what's it all about?
-
-Running applications in production can be hard when you don't have insight into what the application is doing.  We're lucky to have so many good system monitoring programs and services to show us how our servers are performing, but we still have to do the work of instrumenting our applications to gain deep insight into their behavior and performance.
-
-`metrics` makes it easy to instrument your application to provide real-time insight into what's happening.  It provides a number of practical features that make it easy for library and application authors to start collecting and exporting metrics from their codebase.
-
-# why would I collect metrics?
+# Why would I collect metrics?
 
 Some of the most common scenarios for collecting metrics from an application:
 - see how many times a codepath was hit
 - track the time it takes for a piece of code to execute
 - expose internal counters and values in a standardized way
 
-Importantly, this works for both library authors and application authors.  If the libraries you use are instrumented, you unlock the power of being able to collect those metrics in your application for free, without any extra configuration.  Everyone wins, and learns more about their application performance at the end of the day.
+Importantly, this works for both library authors and application authors. If the libraries you use are instrumented, you unlock the power of being able to collect those metrics in your application for free, without any extra configuration. Everyone wins and learns more about their application performance at the end of the day.
 
-# project layout
+# Project layout
 
 The Metrics project provides a number of crates for both library and application authors.
 
-If you're a library author, you'll only care about using [`metrics`][metrics] to instrument your library.  If you're an application author, you'll likely also want to instrument your application, but you'll care about "exporters" as a means to take those metrics and ship them somewhere for analysis.
+If you're a library author, you'll only care about using [`metrics`][metrics] to instrument your library. If you're an application author, you'll likely also want to instrument your application, but you'll care about "exporters" as a means to take those metrics and ship them somewhere for analysis.
 
 Overall, this repository is home to the following crates:
 
@@ -56,11 +51,11 @@ Overall, this repository is home to the following crates:
   serving a Prometheus scrape endpoint.
 * [`metrics-util`][metrics-util]: Helper types/functions used by the `metrics` ecosystem.
 
-# contributing
+# Contributing
 
-We're always looking for users who have thoughts on how to make `metrics` better, or users with interesting use cases.  Of course, we're also happy to accept code contributions for outstanding feature requests! 😀
+We're always looking for users who have thoughts on how to make `metrics` better, or users with interesting use cases. Of course, we're also happy to accept code contributions for outstanding feature requests! 😀
 
-We'd love to chat about any of the above, or anything else, really!  You can find us over on [Discord](https://discord.gg/eTwKyY9).
+We'd love to chat about any of the above, or anything else, really! You can find us over on [Discord](https://discord.gg/eTwKyY9).
 
 [metrics]: https://github.com/metrics-rs/metrics/tree/main/metrics
 [metrics-macros]: https://github.com/metrics-rs/metrics/tree/main/metrics-macros
@@ -70,3 +65,5 @@ We'd love to chat about any of the above, or anything else, really!  You can fin
 [metrics-util]: https://github.com/metrics-rs/metrics/tree/main/metrics-util
 [log]: https://docs.rs/log
 [tracing]: https://tracing.rs
+
+**NOTE**: All conversations and contributions to this project shall adhere to the [Code of Conduct][conduct].
