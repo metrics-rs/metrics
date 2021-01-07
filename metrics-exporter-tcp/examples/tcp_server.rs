@@ -18,14 +18,14 @@ fn main() {
     let mut clock = Clock::new();
     let mut last = None;
 
-    register_histogram!("tcp_server_loop_delta_ns", Unit::Nanoseconds);
+    register_histogram!("tcp_server_loop_delta_secs", Unit::Seconds);
 
     loop {
         increment_counter!("tcp_server_loops", "system" => "foo");
 
         if let Some(t) = last {
             let delta: Duration = clock.now() - t;
-            histogram!("tcp_server_loop_delta_ns", delta, "system" => "foo");
+            histogram!("tcp_server_loop_delta_secs", delta, "system" => "foo");
         }
 
         let increment_gauge = thread_rng().gen_bool(0.75);
