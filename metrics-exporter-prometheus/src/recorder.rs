@@ -40,7 +40,7 @@ impl Inner {
                 let (name, labels) = key_to_parts(key);
                 let entry = counters
                     .entry(name)
-                    .or_insert_with(|| HashMap::new())
+                    .or_insert_with(HashMap::new)
                     .entry(labels)
                     .or_insert(0);
                 *entry = value;
@@ -54,7 +54,7 @@ impl Inner {
                 let (name, labels) = key_to_parts(key);
                 let entry = gauges
                     .entry(name)
-                    .or_insert_with(|| HashMap::new())
+                    .or_insert_with(HashMap::new)
                     .entry(labels)
                     .or_insert(0.0);
                 *entry = value;
@@ -69,7 +69,7 @@ impl Inner {
                 let mut wg = self.distributions.write();
                 let entry = wg
                     .entry(name.clone())
-                    .or_insert_with(|| HashMap::new())
+                    .or_insert_with(HashMap::new)
                     .entry(labels)
                     .or_insert_with(|| {
                         self.distribution_builder
@@ -109,7 +109,7 @@ impl Inner {
             for (labels, value) in by_labels.drain() {
                 write_metric_line::<&str, u64>(&mut output, &name, None, &labels, None, value);
             }
-            output.push_str("\n");
+            output.push('\n');
         }
 
         for (name, mut by_labels) in gauges.drain() {
@@ -121,7 +121,7 @@ impl Inner {
             for (labels, value) in by_labels.drain() {
                 write_metric_line::<&str, f64>(&mut output, &name, None, &labels, None, value);
             }
-            output.push_str("\n");
+            output.push('\n');
         }
 
         for (name, mut by_labels) in distributions.drain() {
@@ -185,7 +185,7 @@ impl Inner {
                 );
             }
 
-            output.push_str("\n");
+            output.push('\n');
         }
 
         output
@@ -234,7 +234,7 @@ impl Recorder for PrometheusRecorder {
         self.inner.registry().op(
             CompositeKey::new(MetricKind::COUNTER, key),
             |_| {},
-            || Handle::counter(),
+            Handle::counter,
         );
     }
 
@@ -243,7 +243,7 @@ impl Recorder for PrometheusRecorder {
         self.inner.registry().op(
             CompositeKey::new(MetricKind::GAUGE, key),
             |_| {},
-            || Handle::gauge(),
+            Handle::gauge,
         );
     }
 
@@ -252,7 +252,7 @@ impl Recorder for PrometheusRecorder {
         self.inner.registry().op(
             CompositeKey::new(MetricKind::HISTOGRAM, key),
             |_| {},
-            || Handle::histogram(),
+            Handle::histogram,
         );
     }
 
@@ -260,7 +260,7 @@ impl Recorder for PrometheusRecorder {
         self.inner.registry().op(
             CompositeKey::new(MetricKind::COUNTER, key),
             |h| h.increment_counter(value),
-            || Handle::counter(),
+            Handle::counter,
         );
     }
 
@@ -268,7 +268,7 @@ impl Recorder for PrometheusRecorder {
         self.inner.registry().op(
             CompositeKey::new(MetricKind::GAUGE, key),
             |h| h.update_gauge(value),
-            || Handle::gauge(),
+            Handle::gauge,
         );
     }
 
@@ -276,7 +276,7 @@ impl Recorder for PrometheusRecorder {
         self.inner.registry().op(
             CompositeKey::new(MetricKind::HISTOGRAM, key),
             |h| h.record_histogram(value),
-            || Handle::histogram(),
+            Handle::histogram,
         );
     }
 }
@@ -308,9 +308,9 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
             format!(
                 "{}=\"{}\"",
                 k,
-                v.replace("\\", "\\\\")
-                    .replace("\"", "\\\"")
-                    .replace("\n", "\\n")
+                v.replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('\n', "\\n")
             )
         })
         .collect();
@@ -321,17 +321,17 @@ fn key_to_parts(key: Key) -> (String, Vec<String>) {
 fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
     buffer.push_str("# HELP ");
     buffer.push_str(name);
-    buffer.push_str(" ");
+    buffer.push(' ');
     buffer.push_str(desc);
-    buffer.push_str("\n");
+    buffer.push('\n');
 }
 
 fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
     buffer.push_str("# TYPE ");
     buffer.push_str(name);
-    buffer.push_str(" ");
+    buffer.push(' ');
     buffer.push_str(metric_type);
-    buffer.push_str("\n");
+    buffer.push('\n');
 }
 
 fn write_metric_line<T, T2>(
@@ -347,37 +347,37 @@ fn write_metric_line<T, T2>(
 {
     buffer.push_str(name);
     if let Some(suffix) = suffix {
-        buffer.push_str("_");
+        buffer.push('_');
         buffer.push_str(suffix)
     }
 
     if !labels.is_empty() || additional_label.is_some() {
-        buffer.push_str("{");
+        buffer.push('{');
 
         let mut first = true;
         for label in labels {
             if first {
                 first = false;
             } else {
-                buffer.push_str(",");
+                buffer.push(',');
             }
             buffer.push_str(label);
         }
 
         if let Some((name, value)) = additional_label {
             if !first {
-                buffer.push_str(",");
+                buffer.push(',');
             }
             buffer.push_str(name);
             buffer.push_str("=\"");
             buffer.push_str(value.to_string().as_str());
-            buffer.push_str("\"");
+            buffer.push('"');
         }
 
-        buffer.push_str("}");
+        buffer.push('}');
     }
 
-    buffer.push_str(" ");
+    buffer.push(' ');
     buffer.push_str(value.to_string().as_str());
-    buffer.push_str("\n");
+    buffer.push('\n');
 }

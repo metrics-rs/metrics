@@ -95,7 +95,7 @@ impl PrometheusBuilder {
     /// This option changes the observer's output of histogram-type metric into summaries.
     /// It only affects matching metrics if set_buckets was not used.
     pub fn set_buckets_for_metric(mut self, matcher: Matcher, values: &[f64]) -> Self {
-        let buckets = self.bucket_overrides.get_or_insert_with(|| HashMap::new());
+        let buckets = self.bucket_overrides.get_or_insert_with(HashMap::new);
         buckets.insert(matcher, values.to_vec());
         self
     }
@@ -219,6 +219,12 @@ impl PrometheusBuilder {
         };
 
         Ok((recorder, exporter))
+    }
+}
+
+impl Default for PrometheusBuilder {
+    fn default() -> Self {
+        PrometheusBuilder::new()
     }
 }
 

@@ -46,15 +46,18 @@
 //! [metrics]: https://docs.rs/metrics
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
-use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{self, Write};
 use std::net::SocketAddr;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
+    Arc,
 };
 use std::thread;
 use std::time::SystemTime;
+use std::{
+    collections::{BTreeMap, HashMap, VecDeque},
+    sync::atomic::AtomicUsize,
+};
 
 use bytes::Bytes;
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
@@ -112,7 +115,7 @@ impl From<SetRecorderError> for Error {
 
 #[derive(Clone)]
 struct State {
-    client_count: Arc<Mutex<usize>>,
+    client_count: Arc<AtomicUsize>,
     should_send: Arc<AtomicBool>,
     waker: Arc<Waker>,
 }
@@ -120,33 +123,25 @@ struct State {
 impl State {
     pub fn from_waker(waker: Waker) -> State {
         State {
-            client_count: Arc::new(Mutex::new(0)),
+            client_count: Arc::new(AtomicUsize::new(0)),
             should_send: Arc::new(AtomicBool::new(false)),
             waker: Arc::new(waker),
         }
     }
 
     pub fn should_send(&self) -> bool {
-        self.should_send.load(Ordering::Relaxed)
+        self.should_send.load(Ordering::Acquire)
     }
 
     pub fn increment_clients(&self) {
-        // This is slightly overkill _but_ it means we can ensure no wrapping
-        // addition or subtraction, keeping our "if no clients, don't send" logic
-        // intact in the face of a logic mistake on our part.
-        let mut count = self.client_count.lock().unwrap();
-        *count = count.saturating_add(1);
-        self.should_send.store(true, Ordering::SeqCst);
+        self.client_count.fetch_add(1, Ordering::AcqRel);
+        self.should_send.store(true, Ordering::Release);
     }
 
     pub fn decrement_clients(&self) {
-        // This is slightly overkill _but_ it means we can ensure no wrapping
-        // addition or subtraction, keeping our "if no clients, don't send" logic
-        // intact in the face of a logic mistake on our part.
-        let mut count = self.client_count.lock().unwrap();
-        *count = count.saturating_sub(1);
-        if *count == 0 {
-            self.should_send.store(false, Ordering::SeqCst);
+        let count = self.client_count.fetch_sub(1, Ordering::AcqRel);
+        if count == 1 {
+            self.should_send.store(false, Ordering::Release);
         }
     }
 
@@ -245,6 +240,12 @@ impl TcpBuilder {
 
         thread::spawn(move || run_transport(poll, listener, rx, state, buffer_size));
         Ok(recorder)
+    }
+}
+
+impl Default for TcpBuilder {
+    fn default() -> Self {
+        TcpBuilder::new()
     }
 }
 
@@ -474,13 +475,8 @@ fn generate_metadata_messages(
 ) -> VecDeque<Bytes> {
     let mut bufs = VecDeque::new();
     for (key, (metric_type, unit, desc)) in metadata.iter() {
-        let msg = convert_metadata_to_protobuf_encoded(
-            key,
-            metric_type.clone(),
-            unit.clone(),
-            desc.clone(),
-        )
-        .expect("failed to encode metadata buffer");
+        let msg = convert_metadata_to_protobuf_encoded(key, *metric_type, unit.clone(), *desc)
+            .expect("failed to encode metadata buffer");
         bufs.push_back(msg);
     }
     bufs

@@ -212,7 +212,7 @@ impl Runner {
                                         .map(|u| match u {
                                             UnitMetadata::UnitValue(us) => us,
                                         })
-                                        .and_then(|s| Unit::from_str(s.as_str()));
+                                        .and_then(|s| Unit::from_string(s.as_str()));
                                     *dentry = metadata.description.map(|d| match d {
                                         DescriptionMetadata::DescriptionValue(ds) => ds,
                                     });

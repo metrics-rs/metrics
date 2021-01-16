@@ -20,14 +20,11 @@ impl Histogram {
     ///
     /// If `bounds` is empty, returns `None`.
     pub fn new(bounds: &[f64]) -> Option<Histogram> {
-        if bounds.len() == 0 {
+        if bounds.is_empty() {
             return None;
         }
 
-        let mut buckets = Vec::with_capacity(bounds.len());
-        for _ in bounds {
-            buckets.push(0);
-        }
+        let buckets = vec![0u64; bounds.len()];
 
         Some(Histogram {
             count: 0,
@@ -77,10 +74,7 @@ impl Histogram {
     where
         S: IntoIterator<Item = &'a f64> + 'a,
     {
-        let mut bucketed = Vec::with_capacity(self.buckets.len());
-        for _ in 0..self.buckets.len() {
-            bucketed.push(0);
-        }
+        let mut bucketed = vec![0u64; self.buckets.len()];
 
         let mut sum = 0.0;
         let mut count = 0;

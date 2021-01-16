@@ -148,6 +148,16 @@ where
     }
 }
 
+impl<K, H> Default for Registry<K, H>
+where
+    K: Eq + Hash + Clone + 'static,
+    H: 'static,
+{
+    fn default() -> Self {
+        Registry::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Generational, Registry};

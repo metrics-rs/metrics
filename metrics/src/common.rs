@@ -151,7 +151,7 @@ impl Unit {
     /// Converts the string representation of a unit back into `Unit` if possible.
     ///
     /// The value passed here should match the output of [`Unit::as_str`].
-    pub fn from_str(s: &str) -> Option<Unit> {
+    pub fn from_string(s: &str) -> Option<Unit> {
         match s {
             "count" => Some(Unit::Count),
             "percent" => Some(Unit::Percent),
@@ -176,39 +176,39 @@ impl Unit {
 
     /// Whether or not this unit relates to the measurement of time.
     pub fn is_time_based(&self) -> bool {
-        match self {
-            Unit::Seconds | Unit::Milliseconds | Unit::Microseconds | Unit::Nanoseconds => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Unit::Seconds | Unit::Milliseconds | Unit::Microseconds | Unit::Nanoseconds
+        )
     }
 
     /// Whether or not this unit relates to the measurement of data.
     pub fn is_data_based(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Unit::Tebibytes
-            | Unit::Gigibytes
-            | Unit::Mebibytes
-            | Unit::Kibibytes
-            | Unit::Bytes
-            | Unit::TerabitsPerSecond
-            | Unit::GigabitsPerSecond
-            | Unit::MegabitsPerSecond
-            | Unit::KilobitsPerSecond
-            | Unit::BitsPerSecond => true,
-            _ => false,
-        }
+                | Unit::Gigibytes
+                | Unit::Mebibytes
+                | Unit::Kibibytes
+                | Unit::Bytes
+                | Unit::TerabitsPerSecond
+                | Unit::GigabitsPerSecond
+                | Unit::MegabitsPerSecond
+                | Unit::KilobitsPerSecond
+                | Unit::BitsPerSecond
+        )
     }
 
     /// Whether or not this unit relates to the measurement of data rates.
     pub fn is_data_rate_based(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Unit::TerabitsPerSecond
-            | Unit::GigabitsPerSecond
-            | Unit::MegabitsPerSecond
-            | Unit::KilobitsPerSecond
-            | Unit::BitsPerSecond => true,
-            _ => false,
-        }
+                | Unit::GigabitsPerSecond
+                | Unit::MegabitsPerSecond
+                | Unit::KilobitsPerSecond
+                | Unit::BitsPerSecond
+        )
     }
 }
 
@@ -267,7 +267,7 @@ mod tests {
 
         for variant in all_variants {
             let s = variant.as_str();
-            let parsed = Unit::from_str(s);
+            let parsed = Unit::from_string(s);
             assert_eq!(Some(variant), parsed);
         }
     }
