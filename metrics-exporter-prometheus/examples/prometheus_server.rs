@@ -38,7 +38,7 @@ fn main() {
         "The time taken for iterations of the TCP server event loop."
     );
 
-    let mut clock = Clock::new();
+    let clock = Clock::new();
     let mut last = None;
 
     increment_counter!("idle_metric");

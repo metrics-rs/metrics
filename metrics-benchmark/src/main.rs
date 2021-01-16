@@ -38,7 +38,7 @@ impl Generator {
     }
 
     fn run(&mut self) {
-        let mut clock = Clock::new();
+        let clock = Clock::new();
         let mut counter = 0;
         loop {
             counter += 1;

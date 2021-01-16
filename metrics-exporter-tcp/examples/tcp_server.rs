@@ -15,7 +15,7 @@ fn main() {
     let builder = TcpBuilder::new();
     builder.install().expect("failed to install TCP recorder");
 
-    let mut clock = Clock::new();
+    let clock = Clock::new();
     let mut last = None;
 
     register_histogram!("tcp_server_loop_delta_secs", Unit::Seconds);

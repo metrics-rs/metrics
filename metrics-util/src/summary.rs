@@ -96,6 +96,10 @@ impl Summary {
     ///
     /// If the absolute value of `value` is smaller than given `min_value`, it will be added as a zero.
     pub fn add(&mut self, value: f64) {
+        if value.is_infinite() {
+            return;
+        }
+
         if value < self.min {
             self.min = value;
         }
@@ -138,7 +142,7 @@ impl Summary {
                 .quantile(nq)
                 .expect("quantile should be valid at this point")
                 .map(|v| -v)
-        } else if rank > ncount && rank < (ncount + zcount) {
+        } else if rank >= ncount && rank < (ncount + zcount) {
             // Quantile lands in the zero band.
             Some(0.0)
         } else {
@@ -187,6 +191,8 @@ impl Summary {
 #[cfg(test)]
 mod tests {
     use super::Summary;
+
+    use quickcheck_macros::quickcheck;
 
     // Need this, because without the relative_eq/abs_diff_eq imports, we get weird IDE errors.
     #[allow(unused_imports)]
@@ -315,5 +321,46 @@ mod tests {
 
             assert_relative_eq!(aval, sval, max_relative = distance);
         }
+    }
+
+    #[test]
+    fn test_zeroes() {
+        let mut summary = Summary::with_defaults();
+        summary.add(0.0);
+        assert_eq!(summary.quantile(0.5), Some(0.0));
+    }
+
+    #[test]
+    fn test_infinities() {
+        let mut summary = Summary::with_defaults();
+        summary.add(f64::INFINITY);
+        assert_eq!(summary.quantile(0.5), None);
+        summary.add(f64::NEG_INFINITY);
+        assert_eq!(summary.quantile(0.5), None);
+    }
+
+    #[quickcheck]
+    fn quantile_validity(inputs: Vec<f64>) -> bool {
+        let mut had_non_inf = false;
+
+        let mut summary = Summary::with_defaults();
+        for input in &inputs {
+            if !input.is_infinite() {
+                had_non_inf = true;
+            }
+            summary.add(*input);
+        }
+
+        let qs = &[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0];
+        for q in qs {
+            let result = summary.quantile(*q);
+            if had_non_inf {
+                assert!(result.is_some());
+            } else {
+                assert!(result.is_none());
+            }
+        }
+
+        true
     }
 }
