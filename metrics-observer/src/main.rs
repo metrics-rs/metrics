@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .borders(Borders::ALL);
 
             let text = vec![
-                client_state.into(),
+                client_state,
                 Spans::from(vec![
                     Span::styled("controls: ", Style::default().add_modifier(Modifier::BOLD)),
                     Span::raw("up/down = scroll, q = quit"),

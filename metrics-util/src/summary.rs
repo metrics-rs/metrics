@@ -69,7 +69,7 @@ impl Summary {
         let config = Config::new(alpha, max_buckets, min_value.abs());
 
         Summary {
-            negative: DDSketch::new(config.clone()),
+            negative: DDSketch::new(config),
             positive: DDSketch::new(config),
             min_value: min_value.abs(),
             zeroes: 0,

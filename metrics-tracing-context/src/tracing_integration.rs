@@ -137,6 +137,15 @@ where
     }
 }
 
+impl<S> Default for MetricsLayer<S>
+where
+    S: Subscriber + for<'span> LookupSpan<'span>,
+{
+    fn default() -> Self {
+        MetricsLayer::new()
+    }
+}
+
 /// An extention to the `tracing::Span`, enabling the access to labels.
 pub trait SpanExt {
     /// Run the provided function with a read-only access to labels.

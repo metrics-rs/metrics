@@ -42,24 +42,6 @@ impl NameParts {
     pub fn parts(&self) -> Iter<'_, SharedString> {
         self.0.iter()
     }
-
-    /// Renders the name parts as a dot-delimited string.
-    pub fn to_string(&self) -> String {
-        // It's faster to allocate the string by hand instead of collecting the parts and joining
-        // them, or deferring to Dsiplay::to_string, or anything else.  This may change in the
-        // future, or benefit from some sort of string pooling, but otherwise, this seemingly
-        // suboptimal approach -- oh no, a single allocation! :P -- works pretty well overall.
-        let mut first = false;
-        let mut s = String::with_capacity(16);
-        for p in self.0.iter() {
-            if first {
-                s.push_str(".");
-                first = false;
-            }
-            s.push_str(p.as_ref());
-        }
-        s
-    }
 }
 
 impl From<String> for NameParts {
@@ -82,7 +64,15 @@ impl From<&'static [SharedString]> for NameParts {
 
 impl fmt::Display for NameParts {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = self.to_string();
+        let mut first = false;
+        let mut s = String::with_capacity(16);
+        for p in self.0.iter() {
+            if first {
+                s.push('.');
+                first = false;
+            }
+            s.push_str(p.as_ref());
+        }
         f.write_str(s.as_str())?;
         Ok(())
     }
