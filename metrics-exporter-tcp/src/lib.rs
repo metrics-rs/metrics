@@ -166,7 +166,7 @@ impl TcpBuilder {
     /// Creates a new `TcpBuilder`.
     pub fn new() -> TcpBuilder {
         TcpBuilder {
-            listen_addr: ([127, 0, 0, 1], 5000).into(),
+            listen_addr: ([0, 0, 0, 0], 5000).into(),
             buffer_size: Some(1024),
         }
     }
@@ -176,7 +176,7 @@ impl TcpBuilder {
     /// The exporter will accept connections on this address and immediately begin forwarding
     /// metrics to the client.
     ///
-    /// Defaults to `127.0.0.1:5000`.
+    /// Defaults to `0.0.0.0:5000`.
     pub fn listen_address<A>(mut self, addr: A) -> TcpBuilder
     where
         A: Into<SocketAddr>,
