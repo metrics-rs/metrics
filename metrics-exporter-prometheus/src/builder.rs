@@ -38,7 +38,7 @@ impl PrometheusBuilder {
         let quantiles = parse_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0]);
 
         Self {
-            listen_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9000),
+            listen_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 9000),
             quantiles,
             buckets: None,
             bucket_overrides: None,
@@ -51,7 +51,7 @@ impl PrometheusBuilder {
     ///
     /// The HTTP listener that is spawned will respond to GET requests on any request path.
     ///
-    /// Defaults to `127.0.0.1:9000`.
+    /// Defaults to `0.0.0.0:9000`.
     pub fn listen_address(mut self, addr: impl Into<SocketAddr>) -> Self {
         self.listen_address = addr.into();
         self
