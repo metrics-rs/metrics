@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
+## [0.13.0] - 2021-01-22
 ### Added
 - Support for specifying the unit of a measurement during registration. ([#107](https://github.com/metrics-rs/metrics/pull/107))
 
