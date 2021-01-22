@@ -35,7 +35,7 @@ name = "filter"
 harness = false
 
 [dependencies]
-metrics = { version = "0.13.0", path = "../metrics", features = ["std"] }
+metrics = { version = "0.13", path = "../metrics", features = ["std"] }
 crossbeam-epoch = { version = "0.9", optional = true }
 crossbeam-utils = { version = "0.8", default-features = false, optional = true }
 atomic-shim = { version = "0.1", optional = true }
