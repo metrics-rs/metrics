@@ -6,7 +6,9 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::thread;
 use std::time::Duration;
 
-use crate::common::{InstallError, Matcher};
+#[cfg(feature = "tokio-exporter")]
+use crate::common::InstallError;
+use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;
 use crate::recorder::{Inner, PrometheusRecorder};
 
