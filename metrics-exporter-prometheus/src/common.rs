@@ -3,7 +3,6 @@ use std::io;
 
 use crate::distribution::Distribution;
 
-use hyper::Error as HyperError;
 use metrics::SetRecorderError;
 use thiserror::Error as ThisError;
 
@@ -42,7 +41,7 @@ pub enum InstallError {
     /// Binding/listening to the given address did not succeed.
     #[cfg(feature = "tokio-exporter")]
     #[error("failed to bind to given listen address: {0}")]
-    Hyper(#[from] HyperError),
+    Hyper(#[from] hyper::Error),
 
     /// Installing the recorder did not succeed.
     #[error("failed to install exporter as global recorder: {0}")]
