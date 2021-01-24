@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
+## [0.2.0] - 2021-01-23
 ### Changed
 - Switched from `MetricKind` for `MetricKindMask` for `PrometheusBuilder::idle_timeout`.
 
