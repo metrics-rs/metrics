@@ -120,7 +120,7 @@ mod tests {
             .enumerate()
             .collect::<Vec<_>>();
 
-        for (i, ((_, k1, u1, d1, v1), (_, k2, u2, d2, v2))) in after {
+        for (i, ((k1, u1, d1, v1), (k2, u2, d2, v2))) in after {
             assert_eq!(k1, k2);
             assert_eq!(u1, u2);
             assert_eq!(d1, d2);

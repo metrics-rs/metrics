@@ -29,55 +29,52 @@ impl Inner {
 
         for (key, (gen, handle)) in metrics.into_iter() {
             let kind = key.kind();
+            if !self.recency.should_store(kind, &key, gen, self.registry()) {
+                continue;
+            }
 
-            if kind == MetricKind::COUNTER {
-                let value = handle.read_counter();
-                if !self.recency.should_store(kind, &key, gen, self.registry()) {
-                    continue;
+            match kind {
+                MetricKind::Counter => {
+                    let value = handle.read_counter();
+
+                    let (_, key) = key.into_parts();
+                    let (name, labels) = key_to_parts(key);
+                    let entry = counters
+                        .entry(name)
+                        .or_insert_with(HashMap::new)
+                        .entry(labels)
+                        .or_insert(0);
+                    *entry = value;
                 }
+                MetricKind::Gauge => {
+                    let value = handle.read_gauge();
 
-                let (_, key) = key.into_parts();
-                let (name, labels) = key_to_parts(key);
-                let entry = counters
-                    .entry(name)
-                    .or_insert_with(HashMap::new)
-                    .entry(labels)
-                    .or_insert(0);
-                *entry = value;
-            } else if kind == MetricKind::GAUGE {
-                let value = handle.read_gauge();
-                if !self.recency.should_store(kind, &key, gen, self.registry()) {
-                    continue;
+                    let (_, key) = key.into_parts();
+                    let (name, labels) = key_to_parts(key);
+                    let entry = gauges
+                        .entry(name)
+                        .or_insert_with(HashMap::new)
+                        .entry(labels)
+                        .or_insert(0.0);
+                    *entry = value;
                 }
+                MetricKind::Histogram => {
+                    let (_, key) = key.into_parts();
+                    let (name, labels) = key_to_parts(key);
 
-                let (_, key) = key.into_parts();
-                let (name, labels) = key_to_parts(key);
-                let entry = gauges
-                    .entry(name)
-                    .or_insert_with(HashMap::new)
-                    .entry(labels)
-                    .or_insert(0.0);
-                *entry = value;
-            } else if kind == MetricKind::HISTOGRAM {
-                if !self.recency.should_store(kind, &key, gen, self.registry()) {
-                    continue;
+                    let mut wg = self.distributions.write();
+                    let entry = wg
+                        .entry(name.clone())
+                        .or_insert_with(HashMap::new)
+                        .entry(labels)
+                        .or_insert_with(|| {
+                            self.distribution_builder
+                                .get_distribution(name.as_str())
+                                .expect("failed to create distribution")
+                        });
+
+                    handle.read_histogram_with_clear(|samples| entry.record_samples(samples));
                 }
-
-                let (_, key) = key.into_parts();
-                let (name, labels) = key_to_parts(key);
-
-                let mut wg = self.distributions.write();
-                let entry = wg
-                    .entry(name.clone())
-                    .or_insert_with(HashMap::new)
-                    .entry(labels)
-                    .or_insert_with(|| {
-                        self.distribution_builder
-                            .get_distribution(name.as_str())
-                            .expect("failed to create distribution")
-                    });
-
-                handle.read_histogram_with_clear(|samples| entry.record_samples(samples));
             }
         }
 
@@ -232,7 +229,7 @@ impl Recorder for PrometheusRecorder {
     fn register_counter(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::COUNTER, key),
+            CompositeKey::new(MetricKind::Counter, key),
             |_| {},
             Handle::counter,
         );
@@ -241,7 +238,7 @@ impl Recorder for PrometheusRecorder {
     fn register_gauge(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::GAUGE, key),
+            CompositeKey::new(MetricKind::Gauge, key),
             |_| {},
             Handle::gauge,
         );
@@ -250,7 +247,7 @@ impl Recorder for PrometheusRecorder {
     fn register_histogram(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::HISTOGRAM, key),
+            CompositeKey::new(MetricKind::Histogram, key),
             |_| {},
             Handle::histogram,
         );
@@ -258,7 +255,7 @@ impl Recorder for PrometheusRecorder {
 
     fn increment_counter(&self, key: Key, value: u64) {
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::COUNTER, key),
+            CompositeKey::new(MetricKind::Counter, key),
             |h| h.increment_counter(value),
             Handle::counter,
         );
@@ -266,7 +263,7 @@ impl Recorder for PrometheusRecorder {
 
     fn update_gauge(&self, key: Key, value: GaugeValue) {
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::GAUGE, key),
+            CompositeKey::new(MetricKind::Gauge, key),
             |h| h.update_gauge(value),
             Handle::gauge,
         );
@@ -274,7 +271,7 @@ impl Recorder for PrometheusRecorder {
 
     fn record_histogram(&self, key: Key, value: f64) {
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::HISTOGRAM, key),
+            CompositeKey::new(MetricKind::Histogram, key),
             |h| h.record_histogram(value),
             Handle::histogram,
         );

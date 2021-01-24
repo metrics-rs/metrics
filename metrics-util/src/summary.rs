@@ -150,7 +150,7 @@ impl Summary {
             let pq = (rank - (ncount + zcount)) as f64 / pcount as f64;
             self.positive
                 .quantile(pq)
-                .expect("quntile should be valid at this point")
+                .expect("quantile should be valid at this point")
         }
     }
 
