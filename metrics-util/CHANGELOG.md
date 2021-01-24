@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
+## [0.5.0] - 2021-01-23
 ### Changed
 - `MetricKind` is now `MetricKindMask`, and `MetricKind` is used to define the source side i.e.
   `MetricKindMask` is used to match against `MetricKind`.

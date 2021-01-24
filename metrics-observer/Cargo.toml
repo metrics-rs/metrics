@@ -17,7 +17,7 @@ tui = "0.14"
 termion = "1.5"
 chrono = "0.4"
 metrics = { version = "0.13", path = "../metrics" }
-metrics-util = { version = "0.4", path = "../metrics-util" }
+metrics-util = { version = "^0.5", path = "../metrics-util" }
 
 [build-dependencies]
 prost-build = "0.7"
