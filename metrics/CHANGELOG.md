@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
+## [0.13.1] - 2021-01-23
 ### Added
 - Added conversion from `std::borrow::Cow<'static, str>` for `SharedString`.
 
