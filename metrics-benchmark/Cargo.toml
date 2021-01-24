@@ -13,4 +13,4 @@ hdrhistogram = "7.2"
 quanta = "0.7"
 atomic-shim = "0.1"
 metrics = { version = "0.13", path = "../metrics" }
-metrics-util = { version = "0.4", path = "../metrics-util" }
+metrics-util = { version = "^0.5", path = "../metrics-util" }
