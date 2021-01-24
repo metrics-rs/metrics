@@ -1,12 +1,63 @@
-use metrics::{counter, KeyData, Label};
+use metrics::{counter, Key, KeyData, Label, SharedString};
 use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
-use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
+use metrics_util::{
+    layers::Layer, CompositeKey, DebugValue, DebuggingRecorder, MetricKind, Snapshotter,
+};
 use parking_lot::{const_mutex, Mutex, MutexGuard};
 use tracing::dispatcher::{set_default, DefaultGuard, Dispatch};
 use tracing::{span, Level};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
 
 static TEST_MUTEX: Mutex<()> = const_mutex(());
+static LOGIN_ATTEMPTS: &'static [SharedString] = &[SharedString::const_str("login_attempts")];
+static LOGIN_ATTEMPTS_NONE: &'static [SharedString] =
+    &[SharedString::const_str("login_attempts_no_labels")];
+static LOGIN_ATTEMPTS_STATIC: &'static [SharedString] =
+    &[SharedString::const_str("login_attempts_static_labels")];
+static LOGIN_ATTEMPTS_DYNAMIC: &'static [SharedString] =
+    &[SharedString::const_str("login_attempts_dynamic_labels")];
+static LOGIN_ATTEMPTS_BOTH: &'static [SharedString] = &[SharedString::const_str(
+    "login_attempts_static_and_dynamic_labels",
+)];
+static MY_COUNTER: &'static [SharedString] = &[SharedString::const_str("my_counter")];
+static USER_EMAIL: &'static [Label] = &[
+    Label::from_static_parts("user", "ferris"),
+    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
+];
+static SVC_USER_EMAIL: &'static [Label] = &[
+    Label::from_static_parts("service", "login_service"),
+    Label::from_static_parts("user", "ferris"),
+    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
+];
+static NODE_USER_EMAIL: &'static [Label] = &[
+    Label::from_static_parts("node_name", "localhost"),
+    Label::from_static_parts("user", "ferris"),
+    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
+];
+static SVC_NODE_USER_EMAIL: &'static [Label] = &[
+    Label::from_static_parts("service", "login_service"),
+    Label::from_static_parts("node_name", "localhost"),
+    Label::from_static_parts("user", "ferris"),
+    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
+];
+static COMBINED_LABELS: &'static [Label] = &[
+    Label::from_static_parts("shared_field", "inner"),
+    Label::from_static_parts("inner_specific", "foo"),
+    Label::from_static_parts("inner_specific_dynamic", "foo_dynamic"),
+    Label::from_static_parts("shared_field", "outer"),
+    Label::from_static_parts("outer_specific", "bar"),
+    Label::from_static_parts("outer_specific_dynamic", "bar_dynamic"),
+];
+static SAME_CALLSITE_PATH_1: &'static [Label] = &[
+    Label::from_static_parts("shared_field", "path1"),
+    Label::from_static_parts("path1_specific", "foo"),
+    Label::from_static_parts("path1_specific_dynamic", "foo_dynamic"),
+];
+static SAME_CALLSITE_PATH_2: &'static [Label] = &[
+    Label::from_static_parts("shared_field", "path2"),
+    Label::from_static_parts("path1_specific", "bar"),
+    Label::from_static_parts("path1_specific_dynamic", "bar_dynamic"),
+];
 
 struct TestGuard {
     _test_mutex_guard: MutexGuard<'static, ()>,
@@ -51,16 +102,10 @@ fn test_basic_functionality() {
     assert_eq!(
         snapshot,
         vec![(
-            MetricKind::COUNTER,
-            KeyData::from_parts(
-                "login_attempts",
-                vec![
-                    Label::new("service", "login_service"),
-                    Label::new("user", "ferris"),
-                    Label::new("user.email", "ferris@rust-lang.org"),
-                ],
-            )
-            .into(),
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS, SVC_USER_EMAIL))
+            ),
             None,
             None,
             DebugValue::Counter(1),
@@ -94,61 +139,46 @@ fn test_macro_forms() {
         snapshot,
         vec![
             (
-                MetricKind::COUNTER,
-                KeyData::from_parts(
-                    "login_attempts_no_labels",
-                    vec![
-                        Label::new("user", "ferris"),
-                        Label::new("user.email", "ferris@rust-lang.org"),
-                    ],
-                )
-                .into(),
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS_NONE, USER_EMAIL))
+                ),
                 None,
                 None,
                 DebugValue::Counter(1),
             ),
             (
-                MetricKind::COUNTER,
-                KeyData::from_parts(
-                    "login_attempts_static_labels",
-                    vec![
-                        Label::new("service", "login_service"),
-                        Label::new("user", "ferris"),
-                        Label::new("user.email", "ferris@rust-lang.org"),
-                    ],
-                )
-                .into(),
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::Owned(KeyData::from_static_parts(
+                        LOGIN_ATTEMPTS_STATIC,
+                        SVC_USER_EMAIL
+                    )),
+                ),
                 None,
                 None,
                 DebugValue::Counter(1),
             ),
             (
-                MetricKind::COUNTER,
-                KeyData::from_parts(
-                    "login_attempts_dynamic_labels",
-                    vec![
-                        Label::new("node_name", "localhost"),
-                        Label::new("user", "ferris"),
-                        Label::new("user.email", "ferris@rust-lang.org"),
-                    ],
-                )
-                .into(),
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::Owned(KeyData::from_static_parts(
+                        LOGIN_ATTEMPTS_DYNAMIC,
+                        NODE_USER_EMAIL
+                    )),
+                ),
                 None,
                 None,
                 DebugValue::Counter(1),
             ),
             (
-                MetricKind::COUNTER,
-                KeyData::from_parts(
-                    "login_attempts_static_and_dynamic_labels",
-                    vec![
-                        Label::new("service", "login_service"),
-                        Label::new("node_name", "localhost"),
-                        Label::new("user", "ferris"),
-                        Label::new("user.email", "ferris@rust-lang.org"),
-                    ],
-                )
-                .into(),
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::Owned(KeyData::from_static_parts(
+                        LOGIN_ATTEMPTS_BOTH,
+                        SVC_NODE_USER_EMAIL
+                    )),
+                ),
                 None,
                 None,
                 DebugValue::Counter(1),
@@ -171,8 +201,10 @@ fn test_no_labels() {
     assert_eq!(
         snapshot,
         vec![(
-            MetricKind::COUNTER,
-            KeyData::from_name("login_attempts").into(),
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::Owned(KeyData::from_static_name(LOGIN_ATTEMPTS)),
+            ),
             None,
             None,
             DebugValue::Counter(1),
@@ -223,31 +255,19 @@ fn test_multiple_paths_to_the_same_callsite() {
         snapshot,
         vec![
             (
-                MetricKind::COUNTER,
-                KeyData::from_parts(
-                    "my_counter",
-                    vec![
-                        Label::new("shared_field", "path1"),
-                        Label::new("path1_specific", "foo"),
-                        Label::new("path1_specific_dynamic", "foo_dynamic"),
-                    ],
-                )
-                .into(),
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::Owned(KeyData::from_static_parts(MY_COUNTER, SAME_CALLSITE_PATH_1)),
+                ),
                 None,
                 None,
                 DebugValue::Counter(1),
             ),
             (
-                MetricKind::COUNTER,
-                KeyData::from_parts(
-                    "my_counter",
-                    vec![
-                        Label::new("shared_field", "path2"),
-                        Label::new("path2_specific", "bar"),
-                        Label::new("path2_specific_dynamic", "bar_dynamic"),
-                    ],
-                )
-                .into(),
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::Owned(KeyData::from_static_parts(MY_COUNTER, SAME_CALLSITE_PATH_2)),
+                ),
                 None,
                 None,
                 DebugValue::Counter(1),
@@ -294,24 +314,15 @@ fn test_nested_spans() {
     assert_eq!(
         snapshot,
         vec![(
-            MetricKind::COUNTER,
-            KeyData::from_parts(
-                "my_counter",
-                vec![
-                    Label::new("shared_field", "inner"),
-                    Label::new("inner_specific", "foo"),
-                    Label::new("inner_specific_dynamic", "foo_dynamic"),
-                    Label::new("shared_field", "outer"),
-                    Label::new("outer_specific", "bar"),
-                    Label::new("outer_specific_dynamic", "bar_dynamic"),
-                ],
-            )
-            .into(),
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::Owned(KeyData::from_static_parts(MY_COUNTER, COMBINED_LABELS))
+            ),
             None,
             None,
             DebugValue::Counter(1),
         )]
-    )
+    );
 }
 
 #[derive(Clone)]
@@ -329,25 +340,20 @@ fn test_label_filtering() {
 
     let user = "ferris";
     let email = "ferris@rust-lang.org";
-    let span = span!(Level::TRACE, "login", user, user.email = email);
+    let span = span!(Level::TRACE, "login", user, user.email_span = email);
     let _guard = span.enter();
 
-    counter!("login_attempts", 1, "service" => "login_service");
+    counter!("login_attempts", 1, "user.email" => "ferris@rust-lang.org");
 
     let snapshot = snapshotter.snapshot();
 
     assert_eq!(
         snapshot,
         vec![(
-            MetricKind::COUNTER,
-            KeyData::from_parts(
-                "login_attempts",
-                vec![
-                    Label::new("service", "login_service"),
-                    Label::new("user", "ferris"),
-                ],
-            )
-            .into(),
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS, USER_EMAIL))
+            ),
             None,
             None,
             DebugValue::Counter(1),

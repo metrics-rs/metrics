@@ -190,10 +190,10 @@ mod tests {
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);
 
-        for (_kind, key, unit, desc, _value) in after {
+        for (key, unit, desc, _value) in after {
             assert!(
-                !key.name().to_string().contains("tokio")
-                    && !key.name().to_string().contains("bb8")
+                !key.key().name().to_string().contains("tokio")
+                    && !key.key().name().to_string().contains("bb8")
             );
             // We cheat here since we're not comparing one-to-one with the source data,
             // but we know which metrics are going to make it through so we can hard code.
@@ -223,10 +223,14 @@ mod tests {
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);
 
-        for (_kind, key, _unit, _desc, _value) in &after {
+        for (key, _unit, _desc, _value) in &after {
             assert!(
-                !key.name().to_string().to_lowercase().contains("tokio")
-                    && !key.name().to_string().to_lowercase().contains("bb8")
+                !key.key()
+                    .name()
+                    .to_string()
+                    .to_lowercase()
+                    .contains("tokio")
+                    && !key.key().name().to_string().to_lowercase().contains("bb8")
             );
         }
     }

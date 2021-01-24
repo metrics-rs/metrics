@@ -1,7 +1,7 @@
 use std::time::Duration;
 use std::{collections::HashMap, hash::Hash, ops::DerefMut};
 
-use crate::{Generation, MetricKind, Registry};
+use crate::{kind::MetricKindMask, Generation, MetricKind, Registry};
 
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
@@ -21,7 +21,7 @@ use quanta::{Clock, Instant};
 /// slowdowns when tracking recency does not matter, despite their otherwise tight coupling.
 #[derive(Debug)]
 pub struct Recency<K> {
-    mask: MetricKind,
+    mask: MetricKindMask,
     inner: Mutex<(Clock, HashMap<K, (Generation, Instant)>)>,
     idle_timeout: Option<Duration>,
 }
@@ -39,9 +39,9 @@ impl<K> Recency<K> {
     /// [`should_store`](Recency::should_store), and so handles will not necessarily be deleted
     /// immediately after execeeding their idle timeout.
     ///
-    /// Refer to the documentation for [`MetricKind`](crate::MetricKind) for more information on
-    /// defining a metric kind mask.
-    pub fn new(clock: Clock, mask: MetricKind, idle_timeout: Option<Duration>) -> Recency<K> {
+    /// Refer to the documentation for [`MetricKindMask`](crate::MetricKindMask) for more
+    /// information on defining a metric kind mask.
+    pub fn new(clock: Clock, mask: MetricKindMask, idle_timeout: Option<Duration>) -> Recency<K> {
         Recency {
             mask,
             inner: Mutex::new((clock, HashMap::new())),
@@ -75,7 +75,7 @@ impl<K> Recency<K> {
         H: Clone + 'static,
     {
         if let Some(idle_timeout) = self.idle_timeout {
-            if self.mask.contains(kind) {
+            if self.mask.matches(kind) {
                 let mut guard = self.inner.lock();
                 let (clock, entries) = guard.deref_mut();
 

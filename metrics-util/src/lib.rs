@@ -30,7 +30,7 @@ mod key;
 pub use key::CompositeKey;
 
 mod kind;
-pub use kind::MetricKind;
+pub use kind::{MetricKind, MetricKindMask};
 
 mod histogram;
 pub use histogram::Histogram;

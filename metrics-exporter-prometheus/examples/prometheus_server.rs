@@ -6,7 +6,7 @@ use metrics::{
     register_histogram,
 };
 use metrics_exporter_prometheus::PrometheusBuilder;
-use metrics_util::MetricKind;
+use metrics_util::MetricKindMask;
 
 use quanta::Clock;
 use rand::{thread_rng, Rng};
@@ -17,7 +17,7 @@ fn main() {
     let builder = PrometheusBuilder::new();
     builder
         .idle_timeout(
-            MetricKind::COUNTER | MetricKind::HISTOGRAM,
+            MetricKindMask::COUNTER | MetricKindMask::HISTOGRAM,
             Some(Duration::from_secs(10)),
         )
         .install()

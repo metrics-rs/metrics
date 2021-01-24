@@ -112,8 +112,8 @@ mod tests {
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 3);
 
-        for (i, (_kind, key, unit, desc, _value)) in after.iter().enumerate() {
-            assert!(key.name().to_string().starts_with("testing"));
+        for (i, (key, unit, desc, _value)) in after.iter().enumerate() {
+            assert!(key.key().name().to_string().starts_with("testing"));
             assert_eq!(&Some(ud[i].0.clone()), unit);
             assert_eq!(&Some(ud[i].1), desc);
         }

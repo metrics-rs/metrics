@@ -18,7 +18,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     {Body, Error as HyperError, Response},
 };
-use metrics_util::{parse_quantiles, MetricKind, Quantile, Recency, Registry};
+use metrics_util::{parse_quantiles, MetricKindMask, Quantile, Recency, Registry};
 use parking_lot::RwLock;
 use quanta::Clock;
 #[cfg(feature = "tokio-exporter")]
@@ -31,7 +31,7 @@ pub struct PrometheusBuilder {
     buckets: Option<Vec<f64>>,
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
-    recency_mask: MetricKind,
+    recency_mask: MetricKindMask,
 }
 
 impl PrometheusBuilder {
@@ -45,7 +45,7 @@ impl PrometheusBuilder {
             buckets: None,
             bucket_overrides: None,
             idle_timeout: None,
-            recency_mask: MetricKind::NONE,
+            recency_mask: MetricKindMask::NONE,
         }
     }
 
@@ -109,17 +109,17 @@ impl PrometheusBuilder {
     /// behavior is driven by requests to generate rendered output, and so metrics will not be
     /// removed unless a request has been made recently enough to prune the idle metrics.
     ///
-    /// Further, the metric type "mask" configures which metrics will be considered by the idle
-    /// timeout.  If the type of a metric being considered for idle timeout is not of a type
+    /// Further, the metric kind "mask" configures which metrics will be considered by the idle
+    /// timeout.  If the kind of a metric being considered for idle timeout is not of a kind
     /// represented by the mask, it will not be affected, even if it would have othered been removed
     /// for exceeding the idle timeout.
     ///
-    /// Refer to the documentation for [`MetricKind`](metrics_util::MetricKind) for more information
-    /// on defining a metric kind mask.
-    pub fn idle_timeout(mut self, mask: MetricKind, timeout: Option<Duration>) -> Self {
+    /// Refer to the documentation for [`MetricKindMask`](metrics_util::MetricKindMask) for more
+    /// information on defining a metric kind mask.
+    pub fn idle_timeout(mut self, mask: MetricKindMask, timeout: Option<Duration>) -> Self {
         self.idle_timeout = timeout;
         self.recency_mask = if self.idle_timeout.is_none() {
-            MetricKind::NONE
+            MetricKindMask::NONE
         } else {
             mask
         };
@@ -234,7 +234,7 @@ impl Default for PrometheusBuilder {
 mod tests {
     use super::{Matcher, PrometheusBuilder};
     use metrics::{GaugeValue, Key, KeyData, Label, Recorder};
-    use metrics_util::MetricKind;
+    use metrics_util::MetricKindMask;
 
     use quanta::Clock;
     use std::time::Duration;
@@ -371,7 +371,7 @@ mod tests {
         let (clock, mock) = Clock::mock();
 
         let recorder = PrometheusBuilder::new()
-            .idle_timeout(MetricKind::COUNTER, Some(Duration::from_secs(10)))
+            .idle_timeout(MetricKindMask::COUNTER, Some(Duration::from_secs(10)))
             .build_with_clock(clock);
 
         let key = Key::from(KeyData::from_name("basic_counter"));

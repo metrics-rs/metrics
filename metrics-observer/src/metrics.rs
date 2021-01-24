@@ -195,12 +195,12 @@ impl Runner {
                                 Event::Metadata(metadata) => {
                                     let metric_type = MetricType::from_i32(metadata.metric_type)
                                         .expect("unknown metric type over wire");
-                                    let metric_type = match metric_type {
-                                        MetricType::Counter => MetricKind::COUNTER,
-                                        MetricType::Gauge => MetricKind::GAUGE,
-                                        MetricType::Histogram => MetricKind::HISTOGRAM,
+                                    let metric_kind = match metric_type {
+                                        MetricType::Counter => MetricKind::Counter,
+                                        MetricType::Gauge => MetricKind::Gauge,
+                                        MetricType::Histogram => MetricKind::Histogram,
                                     };
-                                    let key = (metric_type, metadata.name);
+                                    let key = (metric_kind, metadata.name);
                                     let mut mmap = self
                                         .metadata
                                         .write()
@@ -230,7 +230,7 @@ impl Runner {
                                     match metric.value.expect("no metric value") {
                                         proto::metric::Value::Counter(value) => {
                                             let key = CompositeKey::new(
-                                                MetricKind::COUNTER,
+                                                MetricKind::Counter,
                                                 key_data.into(),
                                             );
                                             let mut metrics = self.metrics.write().unwrap();
@@ -243,7 +243,7 @@ impl Runner {
                                         }
                                         proto::metric::Value::Gauge(value) => {
                                             let key = CompositeKey::new(
-                                                MetricKind::GAUGE,
+                                                MetricKind::Gauge,
                                                 key_data.into(),
                                             );
                                             let mut metrics = self.metrics.write().unwrap();
@@ -267,7 +267,7 @@ impl Runner {
                                         }
                                         proto::metric::Value::Histogram(value) => {
                                             let key = CompositeKey::new(
-                                                MetricKind::HISTOGRAM,
+                                                MetricKind::Histogram,
                                                 key_data.into(),
                                             );
                                             let mut metrics = self.metrics.write().unwrap();
