@@ -7,10 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+### Added
+- Added conversion from `std::borrow::Cow<'static, str>` for `SharedString`.
 
 ## [0.13.0] - 2021-01-22
 ### Added
-- Support for specifying the unit of a measurement during registration. ([#107](https://github.com/metrics-rs/metrics/pull/107))
+- New macros for registration: `register_counter!`, `register_gauge!`, `register_histogram!`.
+- New macros for emission: `histogram!`, `increment_counter!`, `increment_gauge!`,
+  `decrement_gauge!`.
+- Added unit support to describe the unit of a given metric.
+
+### Removed
+- Dropped the `timing!` and `value!` macros in favor of `histogram!`.
+
+### Changed
+- All macros are now procedural macros instead of declarative macros.
+- Gauges are now `f64` instead of `i64`.
+- Histograms are now `f64` instead of `u64`.
+- `Key` now split into `Key` and `KeyData` to better support constant expression metric keys via
+  macro callsites.
+- Significant overhaul of generated callsites via macros.
 
 ## [0.12.1] - 2019-11-21
 ### Changed

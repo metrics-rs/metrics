@@ -167,6 +167,16 @@ where
     }
 }
 
+impl From<std::borrow::Cow<'static, str>> for Cow<'_, str> {
+    #[inline]
+    fn from(s: std::borrow::Cow<'static, str>) -> Self {
+        match s {
+            std::borrow::Cow::Borrowed(bs) => Cow::borrowed(bs),
+            std::borrow::Cow::Owned(os) => Cow::owned(os),
+        }
+    }
+}
+
 impl From<String> for Cow<'_, str> {
     #[inline]
     fn from(s: String) -> Self {
