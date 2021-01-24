@@ -24,6 +24,10 @@ static USER_EMAIL: &'static [Label] = &[
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
 ];
+static EMAIL_USER: &'static [Label] = &[
+    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
+    Label::from_static_parts("user", "ferris"),
+];
 static SVC_USER_EMAIL: &'static [Label] = &[
     Label::from_static_parts("service", "login_service"),
     Label::from_static_parts("user", "ferris"),
@@ -55,8 +59,8 @@ static SAME_CALLSITE_PATH_1: &'static [Label] = &[
 ];
 static SAME_CALLSITE_PATH_2: &'static [Label] = &[
     Label::from_static_parts("shared_field", "path2"),
-    Label::from_static_parts("path1_specific", "bar"),
-    Label::from_static_parts("path1_specific_dynamic", "bar_dynamic"),
+    Label::from_static_parts("path2_specific", "bar"),
+    Label::from_static_parts("path2_specific_dynamic", "bar_dynamic"),
 ];
 
 struct TestGuard {
@@ -352,7 +356,7 @@ fn test_label_filtering() {
         vec![(
             CompositeKey::new(
                 MetricKind::Counter,
-                Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS, USER_EMAIL))
+                Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS, EMAIL_USER))
             ),
             None,
             None,
