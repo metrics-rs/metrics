@@ -299,13 +299,11 @@ fn key_to_parts(key: Key, defaults: &HashMap<String, String>) -> (String, Vec<St
     let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';
     let name = key.name().to_string().replace(sanitize, "_");
     let mut values = defaults.clone();
-    key
-        .labels()
-        .into_iter()
-        .for_each(|label| {
-            values.insert(label.key().into(), label.value().into());
-        });
-    let labels = values.iter()
+    key.labels().into_iter().for_each(|label| {
+        values.insert(label.key().into(), label.value().into());
+    });
+    let labels = values
+        .iter()
         .map(|(k, v)| {
             format!(
                 "{}=\"{}\"",
