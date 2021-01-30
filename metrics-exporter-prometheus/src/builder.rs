@@ -8,16 +8,16 @@ use std::time::Duration;
 
 #[cfg(feature = "tokio-exporter")]
 use hyper::{
-    {Body, Error as HyperError, Response},
     server::Server,
     service::{make_service_fn, service_fn},
+    {Body, Error as HyperError, Response},
 };
 use parking_lot::RwLock;
 use quanta::Clock;
 #[cfg(feature = "tokio-exporter")]
 use tokio::{pin, runtime, select};
 
-use metrics_util::{MetricKindMask, parse_quantiles, Quantile, Recency, Registry};
+use metrics_util::{parse_quantiles, MetricKindMask, Quantile, Recency, Registry};
 
 #[cfg(feature = "tokio-exporter")]
 use crate::common::InstallError;
@@ -138,9 +138,9 @@ impl PrometheusBuilder {
     /// If a individual metric reuses a key provided here, the local metric key/value pair will
     /// win out over the global one for that one call only.
     pub fn add_global_label<K, V>(mut self, key: K, value: V) -> Self
-        where
-            K: Into<String>,
-            V: Into<String>,
+    where
+        K: Into<String>,
+        V: Into<String>,
     {
         let labels = self.global_labels.get_or_insert_with(HashMap::new);
         labels.insert(key.into(), value.into());
@@ -213,7 +213,7 @@ impl PrometheusBuilder {
     ) -> Result<
         (
             PrometheusRecorder,
-            impl Future<Output=Result<(), HyperError>> + Send + 'static,
+            impl Future<Output = Result<(), HyperError>> + Send + 'static,
         ),
         InstallError,
     > {
@@ -292,17 +292,17 @@ mod tests {
         let rendered = handle.render();
 
         let histogram_data = concat!(
-        "# TYPE basic_histogram summary\n",
-        "basic_histogram{quantile=\"0\"} 12\n",
-        "basic_histogram{quantile=\"0.5\"} 12\n",
-        "basic_histogram{quantile=\"0.9\"} 12\n",
-        "basic_histogram{quantile=\"0.95\"} 12\n",
-        "basic_histogram{quantile=\"0.99\"} 12\n",
-        "basic_histogram{quantile=\"0.999\"} 12\n",
-        "basic_histogram{quantile=\"1\"} 12\n",
-        "basic_histogram_sum 12\n",
-        "basic_histogram_count 1\n",
-        "\n"
+            "# TYPE basic_histogram summary\n",
+            "basic_histogram{quantile=\"0\"} 12\n",
+            "basic_histogram{quantile=\"0.5\"} 12\n",
+            "basic_histogram{quantile=\"0.9\"} 12\n",
+            "basic_histogram{quantile=\"0.95\"} 12\n",
+            "basic_histogram{quantile=\"0.99\"} 12\n",
+            "basic_histogram{quantile=\"0.999\"} 12\n",
+            "basic_histogram{quantile=\"1\"} 12\n",
+            "basic_histogram_sum 12\n",
+            "basic_histogram_count 1\n",
+            "\n"
         );
         let expected_histogram = format!("{}{}", expected_gauge, histogram_data);
 
@@ -342,43 +342,43 @@ mod tests {
         recorder.record_histogram(default_key, DEFAULT_VALUES[2] + 1.0);
 
         let full_data = concat!(
-        "# TYPE metrics_testing_foo histogram\n",
-        "metrics_testing_foo_bucket{le=\"25\"} 1\n",
-        "metrics_testing_foo_bucket{le=\"115\"} 1\n",
-        "metrics_testing_foo_bucket{le=\"1015\"} 1\n",
-        "metrics_testing_foo_bucket{le=\"+Inf\"} 1\n",
-        "metrics_testing_foo_sum 25\n",
-        "metrics_testing_foo_count 1\n",
+            "# TYPE metrics_testing_foo histogram\n",
+            "metrics_testing_foo_bucket{le=\"25\"} 1\n",
+            "metrics_testing_foo_bucket{le=\"115\"} 1\n",
+            "metrics_testing_foo_bucket{le=\"1015\"} 1\n",
+            "metrics_testing_foo_bucket{le=\"+Inf\"} 1\n",
+            "metrics_testing_foo_sum 25\n",
+            "metrics_testing_foo_count 1\n",
         );
 
         let prefix_data = concat!(
-        "# TYPE metrics_testing_bar histogram\n",
-        "metrics_testing_bar_bucket{le=\"15\"} 0\n",
-        "metrics_testing_bar_bucket{le=\"105\"} 1\n",
-        "metrics_testing_bar_bucket{le=\"1005\"} 1\n",
-        "metrics_testing_bar_bucket{le=\"+Inf\"} 1\n",
-        "metrics_testing_bar_sum 105\n",
-        "metrics_testing_bar_count 1\n",
+            "# TYPE metrics_testing_bar histogram\n",
+            "metrics_testing_bar_bucket{le=\"15\"} 0\n",
+            "metrics_testing_bar_bucket{le=\"105\"} 1\n",
+            "metrics_testing_bar_bucket{le=\"1005\"} 1\n",
+            "metrics_testing_bar_bucket{le=\"+Inf\"} 1\n",
+            "metrics_testing_bar_sum 105\n",
+            "metrics_testing_bar_count 1\n",
         );
 
         let suffix_data = concat!(
-        "# TYPE metrics_testin_foo histogram\n",
-        "metrics_testin_foo_bucket{le=\"20\"} 0\n",
-        "metrics_testin_foo_bucket{le=\"110\"} 0\n",
-        "metrics_testin_foo_bucket{le=\"1010\"} 1\n",
-        "metrics_testin_foo_bucket{le=\"+Inf\"} 1\n",
-        "metrics_testin_foo_sum 1010\n",
-        "metrics_testin_foo_count 1\n",
+            "# TYPE metrics_testin_foo histogram\n",
+            "metrics_testin_foo_bucket{le=\"20\"} 0\n",
+            "metrics_testin_foo_bucket{le=\"110\"} 0\n",
+            "metrics_testin_foo_bucket{le=\"1010\"} 1\n",
+            "metrics_testin_foo_bucket{le=\"+Inf\"} 1\n",
+            "metrics_testin_foo_sum 1010\n",
+            "metrics_testin_foo_count 1\n",
         );
 
         let default_data = concat!(
-        "# TYPE metrics_wee histogram\n",
-        "metrics_wee_bucket{le=\"10\"} 0\n",
-        "metrics_wee_bucket{le=\"100\"} 0\n",
-        "metrics_wee_bucket{le=\"1000\"} 0\n",
-        "metrics_wee_bucket{le=\"+Inf\"} 1\n",
-        "metrics_wee_sum 1001\n",
-        "metrics_wee_count 1\n",
+            "# TYPE metrics_wee histogram\n",
+            "metrics_wee_bucket{le=\"10\"} 0\n",
+            "metrics_wee_bucket{le=\"100\"} 0\n",
+            "metrics_wee_bucket{le=\"1000\"} 0\n",
+            "metrics_wee_bucket{le=\"+Inf\"} 1\n",
+            "metrics_wee_sum 1001\n",
+            "metrics_wee_count 1\n",
         );
 
         let handle = recorder.handle();
@@ -407,10 +407,10 @@ mod tests {
         let handle = recorder.handle();
         let rendered = handle.render();
         let expected = concat!(
-        "# TYPE basic_counter counter\n",
-        "basic_counter 42\n\n",
-        "# TYPE basic_gauge gauge\n",
-        "basic_gauge -3.14\n\n",
+            "# TYPE basic_counter counter\n",
+            "basic_counter 42\n\n",
+            "# TYPE basic_gauge gauge\n",
+            "basic_gauge -3.14\n\n",
         );
 
         assert_eq!(rendered, expected);
@@ -448,8 +448,10 @@ mod tests {
             .add_global_label("foo", "foo")
             .build();
 
-        let key = Key::from(KeyData::from_name("overridden")
-            .with_extra_labels(vec![Label::new("foo", "overridden")]));
+        let key = Key::from(
+            KeyData::from_name("overridden")
+                .with_extra_labels(vec![Label::new("foo", "overridden")]),
+        );
         recorder.increment_counter(key, 1);
 
         let handle = recorder.handle();
