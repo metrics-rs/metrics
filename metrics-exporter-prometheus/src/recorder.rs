@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::common::Snapshot;
-use crate::distribution::{Distribution, DistributionBuilder};
+use parking_lot::RwLock;
 
 use metrics::{GaugeValue, Key, Recorder, Unit};
 use metrics_util::{CompositeKey, Handle, MetricKind, Recency, Registry};
-use parking_lot::RwLock;
+
+use crate::common::Snapshot;
+use crate::distribution::{Distribution, DistributionBuilder};
 
 pub(crate) struct Inner {
     pub registry: Registry<CompositeKey, Handle>,
@@ -14,6 +15,7 @@ pub(crate) struct Inner {
     pub distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, &'static str>>,
+    pub global_labels: HashMap<String, String>,
 }
 
 impl Inner {
@@ -38,7 +40,7 @@ impl Inner {
                     let value = handle.read_counter();
 
                     let (_, key) = key.into_parts();
-                    let (name, labels) = key_to_parts(key);
+                    let (name, labels) = key_to_parts(key, &self.global_labels);
                     let entry = counters
                         .entry(name)
                         .or_insert_with(HashMap::new)
@@ -50,7 +52,7 @@ impl Inner {
                     let value = handle.read_gauge();
 
                     let (_, key) = key.into_parts();
-                    let (name, labels) = key_to_parts(key);
+                    let (name, labels) = key_to_parts(key, &self.global_labels);
                     let entry = gauges
                         .entry(name)
                         .or_insert_with(HashMap::new)
@@ -60,7 +62,7 @@ impl Inner {
                 }
                 MetricKind::Histogram => {
                     let (_, key) = key.into_parts();
-                    let (name, labels) = key_to_parts(key);
+                    let (name, labels) = key_to_parts(key, &self.global_labels);
 
                     let mut wg = self.distributions.write();
                     let entry = wg
@@ -293,15 +295,18 @@ impl PrometheusHandle {
     }
 }
 
-fn key_to_parts(key: Key) -> (String, Vec<String>) {
+fn key_to_parts(key: Key, defaults: &HashMap<String, String>) -> (String, Vec<String>) {
     let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';
     let name = key.name().to_string().replace(sanitize, "_");
-    let labels = key
+    let mut values = defaults.clone();
+    key
         .labels()
         .into_iter()
-        .map(|label| {
-            let k = label.key();
-            let v = label.value();
+        .for_each(|label| {
+            values.insert(label.key().into(), label.value().into());
+        });
+    let labels = values.iter()
+        .map(|(k, v)| {
             format!(
                 "{}=\"{}\"",
                 k,

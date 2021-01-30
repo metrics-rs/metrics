@@ -7,22 +7,23 @@ use std::thread;
 use std::time::Duration;
 
 #[cfg(feature = "tokio-exporter")]
-use crate::common::InstallError;
-use crate::common::Matcher;
-use crate::distribution::DistributionBuilder;
-use crate::recorder::{Inner, PrometheusRecorder};
-
-#[cfg(feature = "tokio-exporter")]
 use hyper::{
+    {Body, Error as HyperError, Response},
     server::Server,
     service::{make_service_fn, service_fn},
-    {Body, Error as HyperError, Response},
 };
-use metrics_util::{parse_quantiles, MetricKindMask, Quantile, Recency, Registry};
 use parking_lot::RwLock;
 use quanta::Clock;
 #[cfg(feature = "tokio-exporter")]
 use tokio::{pin, runtime, select};
+
+use metrics_util::{MetricKindMask, parse_quantiles, Quantile, Recency, Registry};
+
+#[cfg(feature = "tokio-exporter")]
+use crate::common::InstallError;
+use crate::common::Matcher;
+use crate::distribution::DistributionBuilder;
+use crate::recorder::{Inner, PrometheusRecorder};
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
 pub struct PrometheusBuilder {
@@ -32,6 +33,7 @@ pub struct PrometheusBuilder {
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
     recency_mask: MetricKindMask,
+    global_labels: Option<HashMap<String, String>>,
 }
 
 impl PrometheusBuilder {
@@ -46,6 +48,7 @@ impl PrometheusBuilder {
             bucket_overrides: None,
             idle_timeout: None,
             recency_mask: MetricKindMask::NONE,
+            global_labels: None,
         }
     }
 
@@ -126,6 +129,20 @@ impl PrometheusBuilder {
         self
     }
 
+    /// Adds a label for all metrics recorded.
+    ///
+    /// If called, this provided label will be added to every single metric reported through this
+    /// registry. Repeated calls will add additional labels, duplicate keys will be silently
+    /// overwritten.
+    ///
+    /// If a individual metric reuses a key provided here, the local metric key/value pair will
+    /// win out over the global one for that one call only.
+    pub fn add_global_label(mut self, key: String, value: String) -> Self {
+        let labels = self.global_labels.get_or_insert_with(HashMap::new);
+        labels.insert(key, value);
+        self
+    }
+
     /// Builds the recorder and exporter and installs them globally.
     ///
     /// An error will be returned if there's an issue with creating the HTTP server or with
@@ -174,6 +191,7 @@ impl PrometheusBuilder {
                 self.bucket_overrides,
             ),
             descriptions: RwLock::new(HashMap::new()),
+            global_labels: self.global_labels.unwrap_or(HashMap::new()),
         };
 
         PrometheusRecorder::from(inner)
@@ -191,7 +209,7 @@ impl PrometheusBuilder {
     ) -> Result<
         (
             PrometheusRecorder,
-            impl Future<Output = Result<(), HyperError>> + Send + 'static,
+            impl Future<Output=Result<(), HyperError>> + Send + 'static,
         ),
         InstallError,
     > {
@@ -232,12 +250,14 @@ impl Default for PrometheusBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::{Matcher, PrometheusBuilder};
+    use std::time::Duration;
+
+    use quanta::Clock;
+
     use metrics::{GaugeValue, Key, KeyData, Label, Recorder};
     use metrics_util::MetricKindMask;
 
-    use quanta::Clock;
-    use std::time::Duration;
+    use super::{Matcher, PrometheusBuilder};
 
     #[test]
     fn test_render() {
@@ -268,17 +288,17 @@ mod tests {
         let rendered = handle.render();
 
         let histogram_data = concat!(
-            "# TYPE basic_histogram summary\n",
-            "basic_histogram{quantile=\"0\"} 12\n",
-            "basic_histogram{quantile=\"0.5\"} 12\n",
-            "basic_histogram{quantile=\"0.9\"} 12\n",
-            "basic_histogram{quantile=\"0.95\"} 12\n",
-            "basic_histogram{quantile=\"0.99\"} 12\n",
-            "basic_histogram{quantile=\"0.999\"} 12\n",
-            "basic_histogram{quantile=\"1\"} 12\n",
-            "basic_histogram_sum 12\n",
-            "basic_histogram_count 1\n",
-            "\n"
+        "# TYPE basic_histogram summary\n",
+        "basic_histogram{quantile=\"0\"} 12\n",
+        "basic_histogram{quantile=\"0.5\"} 12\n",
+        "basic_histogram{quantile=\"0.9\"} 12\n",
+        "basic_histogram{quantile=\"0.95\"} 12\n",
+        "basic_histogram{quantile=\"0.99\"} 12\n",
+        "basic_histogram{quantile=\"0.999\"} 12\n",
+        "basic_histogram{quantile=\"1\"} 12\n",
+        "basic_histogram_sum 12\n",
+        "basic_histogram_count 1\n",
+        "\n"
         );
         let expected_histogram = format!("{}{}", expected_gauge, histogram_data);
 
@@ -318,43 +338,43 @@ mod tests {
         recorder.record_histogram(default_key, DEFAULT_VALUES[2] + 1.0);
 
         let full_data = concat!(
-            "# TYPE metrics_testing_foo histogram\n",
-            "metrics_testing_foo_bucket{le=\"25\"} 1\n",
-            "metrics_testing_foo_bucket{le=\"115\"} 1\n",
-            "metrics_testing_foo_bucket{le=\"1015\"} 1\n",
-            "metrics_testing_foo_bucket{le=\"+Inf\"} 1\n",
-            "metrics_testing_foo_sum 25\n",
-            "metrics_testing_foo_count 1\n",
+        "# TYPE metrics_testing_foo histogram\n",
+        "metrics_testing_foo_bucket{le=\"25\"} 1\n",
+        "metrics_testing_foo_bucket{le=\"115\"} 1\n",
+        "metrics_testing_foo_bucket{le=\"1015\"} 1\n",
+        "metrics_testing_foo_bucket{le=\"+Inf\"} 1\n",
+        "metrics_testing_foo_sum 25\n",
+        "metrics_testing_foo_count 1\n",
         );
 
         let prefix_data = concat!(
-            "# TYPE metrics_testing_bar histogram\n",
-            "metrics_testing_bar_bucket{le=\"15\"} 0\n",
-            "metrics_testing_bar_bucket{le=\"105\"} 1\n",
-            "metrics_testing_bar_bucket{le=\"1005\"} 1\n",
-            "metrics_testing_bar_bucket{le=\"+Inf\"} 1\n",
-            "metrics_testing_bar_sum 105\n",
-            "metrics_testing_bar_count 1\n",
+        "# TYPE metrics_testing_bar histogram\n",
+        "metrics_testing_bar_bucket{le=\"15\"} 0\n",
+        "metrics_testing_bar_bucket{le=\"105\"} 1\n",
+        "metrics_testing_bar_bucket{le=\"1005\"} 1\n",
+        "metrics_testing_bar_bucket{le=\"+Inf\"} 1\n",
+        "metrics_testing_bar_sum 105\n",
+        "metrics_testing_bar_count 1\n",
         );
 
         let suffix_data = concat!(
-            "# TYPE metrics_testin_foo histogram\n",
-            "metrics_testin_foo_bucket{le=\"20\"} 0\n",
-            "metrics_testin_foo_bucket{le=\"110\"} 0\n",
-            "metrics_testin_foo_bucket{le=\"1010\"} 1\n",
-            "metrics_testin_foo_bucket{le=\"+Inf\"} 1\n",
-            "metrics_testin_foo_sum 1010\n",
-            "metrics_testin_foo_count 1\n",
+        "# TYPE metrics_testin_foo histogram\n",
+        "metrics_testin_foo_bucket{le=\"20\"} 0\n",
+        "metrics_testin_foo_bucket{le=\"110\"} 0\n",
+        "metrics_testin_foo_bucket{le=\"1010\"} 1\n",
+        "metrics_testin_foo_bucket{le=\"+Inf\"} 1\n",
+        "metrics_testin_foo_sum 1010\n",
+        "metrics_testin_foo_count 1\n",
         );
 
         let default_data = concat!(
-            "# TYPE metrics_wee histogram\n",
-            "metrics_wee_bucket{le=\"10\"} 0\n",
-            "metrics_wee_bucket{le=\"100\"} 0\n",
-            "metrics_wee_bucket{le=\"1000\"} 0\n",
-            "metrics_wee_bucket{le=\"+Inf\"} 1\n",
-            "metrics_wee_sum 1001\n",
-            "metrics_wee_count 1\n",
+        "# TYPE metrics_wee histogram\n",
+        "metrics_wee_bucket{le=\"10\"} 0\n",
+        "metrics_wee_bucket{le=\"100\"} 0\n",
+        "metrics_wee_bucket{le=\"1000\"} 0\n",
+        "metrics_wee_bucket{le=\"+Inf\"} 1\n",
+        "metrics_wee_sum 1001\n",
+        "metrics_wee_count 1\n",
         );
 
         let handle = recorder.handle();
@@ -383,10 +403,10 @@ mod tests {
         let handle = recorder.handle();
         let rendered = handle.render();
         let expected = concat!(
-            "# TYPE basic_counter counter\n",
-            "basic_counter 42\n\n",
-            "# TYPE basic_gauge gauge\n",
-            "basic_gauge -3.14\n\n",
+        "# TYPE basic_counter counter\n",
+        "basic_counter 42\n\n",
+        "# TYPE basic_gauge gauge\n",
+        "basic_gauge -3.14\n\n",
         );
 
         assert_eq!(rendered, expected);
@@ -400,5 +420,50 @@ mod tests {
 
         let expected = "# TYPE basic_gauge gauge\nbasic_gauge -3.14\n\n";
         assert_eq!(rendered, expected);
+    }
+
+    #[test]
+    pub fn test_global_labels() {
+        let recorder = PrometheusBuilder::new()
+            .add_global_label("foo".into(), "foo".into())
+            .add_global_label("foo".into(), "bar".into())
+            .add_global_label("bar".into(), "baz".into())
+            .build();
+        let key = Key::from(KeyData::from_name("basic_counter"));
+        recorder.increment_counter(key, 42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected_counter = "# TYPE basic_counter counter\nbasic_counter{foo=\"bar\",bar=\"baz\"} 42\n\n";
+
+        assert_eq!(rendered, expected_counter);
+
+        // let key = Key::from(KeyData::from_name("overridden")
+        //     .with_extra_labels(vec![Label::new("foo", "overridden")]));
+        // recorder.increment_counter(key, 1);
+        //
+        // let rendered = handle.render();
+        // let expected_counter = "# TYPE overridden counter\noverridden{foo=\"overridden\",bar=\"baz\"} 42\n\n";
+        //
+        // assert_eq!(rendered, expected_counter);
+    }
+
+    #[test]
+    pub fn test_global_labels_overrides() {
+        let recorder = PrometheusBuilder::new()
+            .add_global_label("foo".into(), "foo".into())
+            .add_global_label("foo".into(), "bar".into())
+            .add_global_label("bar".into(), "baz".into())
+            .build();
+
+        let key = Key::from(KeyData::from_name("overridden")
+            .with_extra_labels(vec![Label::new("foo", "overridden")]));
+        recorder.increment_counter(key, 1);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected_counter = "# TYPE overridden counter\noverridden{foo=\"overridden\",bar=\"baz\"} 1\n\n";
+
+        assert_eq!(rendered, expected_counter);
     }
 }
