@@ -431,33 +431,21 @@ mod tests {
         let recorder = PrometheusBuilder::new()
             .add_global_label("foo", "foo")
             .add_global_label("foo", "bar")
-            .add_global_label("bar", "baz")
             .build();
         let key = Key::from(KeyData::from_name("basic_counter"));
         recorder.increment_counter(key, 42);
 
         let handle = recorder.handle();
         let rendered = handle.render();
-        let expected_counter = "# TYPE basic_counter counter\nbasic_counter{foo=\"bar\",bar=\"baz\"} 42\n\n";
+        let expected_counter = "# TYPE basic_counter counter\nbasic_counter{foo=\"bar\"} 42\n\n";
 
         assert_eq!(rendered, expected_counter);
-
-        // let key = Key::from(KeyData::from_name("overridden")
-        //     .with_extra_labels(vec![Label::new("foo", "overridden")]));
-        // recorder.increment_counter(key, 1);
-        //
-        // let rendered = handle.render();
-        // let expected_counter = "# TYPE overridden counter\noverridden{foo=\"overridden\",bar=\"baz\"} 42\n\n";
-        //
-        // assert_eq!(rendered, expected_counter);
     }
 
     #[test]
     pub fn test_global_labels_overrides() {
         let recorder = PrometheusBuilder::new()
             .add_global_label("foo", "foo")
-            .add_global_label("foo", "bar")
-            .add_global_label("bar", "baz")
             .build();
 
         let key = Key::from(KeyData::from_name("overridden")
@@ -466,7 +454,7 @@ mod tests {
 
         let handle = recorder.handle();
         let rendered = handle.render();
-        let expected_counter = "# TYPE overridden counter\noverridden{foo=\"overridden\",bar=\"baz\"} 1\n\n";
+        let expected_counter = "# TYPE overridden counter\noverridden{foo=\"overridden\"} 1\n\n";
 
         assert_eq!(rendered, expected_counter);
     }
