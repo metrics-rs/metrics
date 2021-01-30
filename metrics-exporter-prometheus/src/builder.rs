@@ -137,9 +137,13 @@ impl PrometheusBuilder {
     ///
     /// If a individual metric reuses a key provided here, the local metric key/value pair will
     /// win out over the global one for that one call only.
-    pub fn add_global_label(mut self, key: String, value: String) -> Self {
+    pub fn add_global_label<K, V>(mut self, key: K, value: V) -> Self
+        where
+            K: Into<String>,
+            V: Into<String>,
+    {
         let labels = self.global_labels.get_or_insert_with(HashMap::new);
-        labels.insert(key, value);
+        labels.insert(key.into(), value.into());
         self
     }
 
@@ -425,9 +429,9 @@ mod tests {
     #[test]
     pub fn test_global_labels() {
         let recorder = PrometheusBuilder::new()
-            .add_global_label("foo".into(), "foo".into())
-            .add_global_label("foo".into(), "bar".into())
-            .add_global_label("bar".into(), "baz".into())
+            .add_global_label("foo", "foo")
+            .add_global_label("foo", "bar")
+            .add_global_label("bar", "baz")
             .build();
         let key = Key::from(KeyData::from_name("basic_counter"));
         recorder.increment_counter(key, 42);
@@ -451,9 +455,9 @@ mod tests {
     #[test]
     pub fn test_global_labels_overrides() {
         let recorder = PrometheusBuilder::new()
-            .add_global_label("foo".into(), "foo".into())
-            .add_global_label("foo".into(), "bar".into())
-            .add_global_label("bar".into(), "baz".into())
+            .add_global_label("foo", "foo")
+            .add_global_label("foo", "bar")
+            .add_global_label("bar", "baz")
             .build();
 
         let key = Key::from(KeyData::from_name("overridden")
