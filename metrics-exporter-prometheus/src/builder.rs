@@ -129,14 +129,11 @@ impl PrometheusBuilder {
         self
     }
 
-    /// Adds a label for all metrics recorded.
+    /// Adds a global label to this exporter.
     ///
-    /// If called, this provided label will be added to every single metric reported through this
-    /// registry. Repeated calls will add additional labels, duplicate keys will be silently
-    /// overwritten.
-    ///
-    /// If a individual metric reuses a key provided here, the local metric key/value pair will
-    /// win out over the global one for that one call only.
+    /// Global labels are applied to all metrics.  Labels defined on the metric key itself have precedence
+    /// over any global labels.  If this method is called multiple times, the latest value for a given label
+    /// key will be used.
     pub fn add_global_label<K, V>(mut self, key: K, value: V) -> Self
     where
         K: Into<String>,
