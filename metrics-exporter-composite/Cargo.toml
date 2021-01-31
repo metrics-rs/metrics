@@ -1,0 +1,28 @@
+[package]
+name = "metrics-exporter-composite"
+version = "0.0.1"
+authors = ["Ashton Kemerling <ashtonkemerling@protonmail.com>"]
+edition = "2018"
+
+license = "MIT"
+
+description = "Composite recorders to allow multiple metrics exporters to be used"
+homepage = "https://github.com/metrics-rs/metrics"
+repository = "https://github.com/metrics-rs/metrics"
+documentation = "https://docs.rs/metrics-exporter-prometheus"
+readme = "README.md"
+
+categories = ["development-tools::debugging"]
+keywords = ["metrics", "telemetry"]
+
+
+[dependencies]
+metrics = { version = "0.13", path = "../metrics" }
+metrics-util = { version = "^0.5", path = "../metrics-util" }
+
+
+[dev-dependencies]
+quanta = "0.7"
+tracing = "0.1"
+tracing-subscriber = "0.2"
+rand = "0.8"

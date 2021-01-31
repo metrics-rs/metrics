@@ -3,6 +3,7 @@ members = [
   "metrics",
   "metrics-macros",
   "metrics-util",
+  "metrics-exporter-composite",
   "metrics-exporter-tcp",
   "metrics-exporter-prometheus",
   "metrics-tracing-context",
