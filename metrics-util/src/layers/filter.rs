@@ -4,8 +4,7 @@ use metrics::{GaugeValue, Key, Recorder, Unit};
 
 /// Filters and discards metrics matching certain name patterns.
 ///
-/// Uses an Aho-Corasick automaton to efficiently match a metric key against multiple patterns at
-/// once.  Patterns are matched across the entire key i.e. they are matched as substrings.
+/// More information on the behavior of the layer can be found in [`FilterLayer`].
 pub struct Filter<R> {
     inner: R,
     automaton: AhoCorasick,
@@ -65,7 +64,17 @@ impl<R: Recorder> Recorder for Filter<R> {
 
 /// A layer for filtering and discarding metrics matching certain name patterns.
 ///
-/// More information on the behavior of the layer can be found in [`Filter`].
+/// Uses an [Aho-Corasick][ahocorasick] automaton to efficiently match a metric key against
+/// multiple patterns at once.  Patterns are matched across the entire key i.e. they are
+/// matched as substrings.
+///
+/// If a metric key matches any of the configured patterns, it will be skipped entirely.  This
+/// applies equally to metric registration and metric emission.
+///
+/// A number of options are exposed that control the underlying automaton, such as compilation to a
+/// DFA, or case sensitivity.
+///
+/// [ahocorasick]: https://en.wikipedia.org/wiki/Aho–Corasick_algorithm
 #[derive(Default)]
 pub struct FilterLayer {
     patterns: Vec<String>,
@@ -74,7 +83,7 @@ pub struct FilterLayer {
 }
 
 impl FilterLayer {
-    /// Creates a `FilterLayer` from an existing set of patterns.
+    /// Creates a [`FilterLayer`] from an existing set of patterns.
     pub fn from_patterns<P, I>(patterns: P) -> Self
     where
         P: IntoIterator<Item = I>,
@@ -109,10 +118,18 @@ impl FilterLayer {
 
     /// Sets whether or not to internally use a deterministic finite automaton.
     ///
-    /// Per the docs for the `aho-corasick` crate, enabling the DFA trades off space usage and build
-    /// time (at runtime, not compile time) in order to reduce the search time complexity.  Using
-    /// the DFA is beneficial when matching a small number of short patterns, which should be fairly
-    /// common when filtering metrics.
+    /// The main benefit to a DFA is that it can execute searches more quickly than a NFA (perhaps
+    /// 2-4 times as fast). The main drawback is that the DFA uses more space and can take much
+    /// longer to build.
+    ///
+    /// Enabling this option does not change the time complexity for constructing the underlying
+    /// Aho-Corasick automaton (which is O(p) where p is the total number of patterns being
+    /// compiled). Enabling this option does however reduce the time complexity of non-overlapping
+    /// searches from O(n + p) to O(n), where n is the length of the haystack.
+    ///
+    /// In general, it's a good idea to enable this if you're searching a small number of fairly
+    /// short patterns (~1000), or if you want the fastest possible search without regard to
+    /// compilation time or space usage.
     ///
     /// Defaults to `true`.
     pub fn use_dfa(&mut self, dfa: bool) -> &mut FilterLayer {

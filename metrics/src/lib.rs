@@ -7,6 +7,57 @@
 //! # Overview
 //! `metrics` exposes two main concepts: emitting a metric, and recording it.
 //!
+//! ## Metric types, or kinds
+//! This crate supports three fundamental metric types, or kinds: counters, gauges, and histograms.
+//!
+//! ### Counters
+//! A counter is a cumulative metric that represents a monotonically increasing value which can only
+//! be increased or be reset to zero on restart. For example, you might use a counter to
+//! represent the number of operations performed, or the number of errors that have occurred.
+//!
+//! Counters are unsigned 64-bit integers.
+//!
+//! If you have a value that goes up and down over time, consider using a gauge.
+//!
+//! ### Gauges
+//! A gauge is a metric that can go up and down, arbitrarily, over time.
+//!
+//! Gauges are typically used for measured, external values, such as temperature, throughput, or
+//! things like current memory usage.  Even if the value is monotonically increasing, but there is
+//! no way to store the delta in order to properly figure out how much to increment by, then a gauge
+//! might be a suitable choice.
+//!
+//! Gauges support two modes: incremental updates, or absolute updates.  This allows callers to use
+//! them for external measurements -- where no delta can be computed -- as well as internal measurements.
+//!
+//! Gauges are floating-point 64-bit numbers.
+//!
+//! ### Histograms
+//! A histogram stores an arbitrary number of observations of a specific measurement and provides
+//! statistical analysis over the observed values.  Typically, measurements such as request latency
+//! are recoreded with histograms: a specific action that is repeated over and over which can have a
+//! varying result each time.
+//!
+//! Histograms are used to explore the distribution of values, allowing a caller to understand the
+//! modalities of the distribution, such as whether or not all values are grouped close together, or
+//! spread evenly, or even whether or not there are multiple groupings or clusters.
+//!
+//! Colloquially, histograms are usually associated with percentiles, although by definition, they
+//! specifically deal with bucketed or binned values: how many values fell within 0-10, how many
+//! fell within 11-20, and so on and so forth.  Percentiles, commonly associated with "summaries",
+//! deal with understanding how much of a distribution falls below or at a particular percentage of
+//! that distribution: 50% of requests are slower than 500ms, 99% of requests are slower than
+//! 2450ms, and so on and so forth.
+//!
+//! While we use the term "histogram" in `metrics`, we enforce no particular usage of true
+//! histograms or summaries.  The choice of output is based entirely on the exporter being used to
+//! ship your metric data out of your application.  For example, if you're using
+//! [metrics-exporter-prometheus], Prometheus supports both histograms and summaries, and the
+//! exporter can be configured to output our "histogram" data as either.  Other exporters may choose
+//! to stick to using summaries, as is traditional, in order to generate percentile data.
+//!
+//! Histograms take floating-point 64-bit numbers.
+//!
 //! ## Emission
 //! Metrics are emitted by utilizing the registration or emission macros.  There is a macro for
 //! registering and emitting each fundamental metric type:
@@ -22,7 +73,7 @@
 //! exporters, which is how we refer to concrete implementations of [`Recorder`].  The trait defines
 //! what the exporters are doing -- recording -- but ultimately exporters are sending data from your
 //! application to somewhere else: whether it be a third-party service or logging via standard out.
-//! It's "exporting" the metric data somewhere else besides your application.
+//! It's "exporting" the metric data out of your application.
 //!
 //! Each metric type is usually reserved for a specific type of use case, whether it be tracking a
 //! single value or allowing the summation of multiple values, and the respective macros elaborate
@@ -40,6 +91,12 @@
 //! an incredibly very low overhead: an atomic load and comparison.  Libraries can safely instrument
 //! their code without fear of ruining baseline performance.
 //!
+//! By default, a "noop" recorder is present so that the macros can work even if no exporter has
+//! been installed.  This recorder has extremely low overhead -- a relaxed load and conditional --
+//! and so, practically speaking, the overhead when no exporter is installed is extremely low.  You
+//! can safely instrument applications knowing that you won't pay a heavy performance cost even if
+//! you're not shipping metrics.
+//!
 //! ### Examples
 //!
 //! ```rust
@@ -50,7 +107,7 @@
 //! pub fn process(query: &str) -> u64 {
 //!     let start = Instant::now();
 //!     let row_count = run_query(query);
-//!     let delta = Instant::now() - start;
+//!     let delta = start.elapsed();
 //!
 //!     histogram!("process.query_time", delta);
 //!     counter!("process.query_row_count", row_count);
@@ -66,8 +123,8 @@
 //! recorder so that metrics can actually be recorded and exported somewhere.
 //!
 //! Initialization of the global recorder isn't required for macros to function, but any metrics
-//! emitted before a global recorder is installed will not be recorded, so early initialization is
-//! recommended when possible.
+//! emitted before a global recorder is installed will not be recorded, so initialization and
+//! installation of an exporter should happen as early as possible in the application lifecycle.
 //!
 //! ### Warning
 //!
@@ -155,7 +212,7 @@
 //!
 //! It is an implementation detail if a recorder wishes to do an deeper equality check that ignores
 //! the order of labels, but practically speaking, metric emission, and thus labels, should be
-//! fixed in ordering in nearly all cases, and so it isn't typically a problem.
+//! fixed in ordering in nearly all cases, and so it typically is not a problem.
 //!
 //! ## Registration
 //!
@@ -179,7 +236,7 @@
 //!
 //! ## Emission
 //!
-//! Likewise, records must handle the emission of metrics as well.
+//! Likewise, recorders must handle the emission of metrics as well.
 //!
 //! Comparatively speaking, emission is not too different from registration: you have access to the
 //! same [`Key`] as well as the value being emitted.
@@ -192,6 +249,11 @@
 //! exporters that will want to get all of the current values in a batch, while clearing the bucket so
 //! that values aren't processed again, [AtomicBucket] provides a simple interface to do so, as well as
 //! optimized performance on both the insertion and read side.
+//!
+//! Combined together, exporter authors can use [`Handle`][Handle], also from the `metrics-util`
+//! crate, which provides a consolidated type for holding metric data.  These types, and many more
+//! from the `metrics-util` crate, form the basis of typical exporter behavior and have been exposed
+//! to help you quickly build a new exporter.
 //!
 //! ## Installing recorders
 //!
@@ -208,10 +270,14 @@
 //! should only be used on platforms which do not support atomic operations, such as embedded
 //! environments.
 //!
+//! As users of `metrics`, you'll typically see exporters provide methods to install themselves that
+//! hide the nitty gritty details.  These methods will usually be aptly named, such as `install`.
+//!
 //! [metrics-exporter-tcp]: https://docs.rs/metrics-exporter-tcp
 //! [metrics-exporter-prometheus]: https://docs.rs/metrics-exporter-prometheus
 //! [metrics-util]: https://docs.rs/metrics-util
-//! [AtomicBucket]: https://docs.rs/metrics-util/0.4.0-alpha.6/metrics_util/struct.AtomicBucket.html
+//! [AtomicBucket]: https://docs.rs/metrics-util/0.5.0/metrics_util/struct.AtomicBucket.html
+//! [Handle]: https://docs.rs/metrics-util/0.5.0/metrics_util/enum.Handle.html
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
