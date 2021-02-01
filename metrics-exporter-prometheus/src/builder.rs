@@ -7,22 +7,23 @@ use std::thread;
 use std::time::Duration;
 
 #[cfg(feature = "tokio-exporter")]
-use crate::common::InstallError;
-use crate::common::Matcher;
-use crate::distribution::DistributionBuilder;
-use crate::recorder::{Inner, PrometheusRecorder};
-
-#[cfg(feature = "tokio-exporter")]
 use hyper::{
     server::Server,
     service::{make_service_fn, service_fn},
     {Body, Error as HyperError, Response},
 };
-use metrics_util::{parse_quantiles, MetricKindMask, Quantile, Recency, Registry};
 use parking_lot::RwLock;
 use quanta::Clock;
 #[cfg(feature = "tokio-exporter")]
 use tokio::{pin, runtime, select};
+
+use metrics_util::{parse_quantiles, MetricKindMask, Quantile, Recency, Registry};
+
+#[cfg(feature = "tokio-exporter")]
+use crate::common::InstallError;
+use crate::common::Matcher;
+use crate::distribution::DistributionBuilder;
+use crate::recorder::{Inner, PrometheusRecorder};
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
 pub struct PrometheusBuilder {
@@ -32,6 +33,7 @@ pub struct PrometheusBuilder {
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
     recency_mask: MetricKindMask,
+    global_labels: Option<HashMap<String, String>>,
 }
 
 impl PrometheusBuilder {
@@ -46,6 +48,7 @@ impl PrometheusBuilder {
             bucket_overrides: None,
             idle_timeout: None,
             recency_mask: MetricKindMask::NONE,
+            global_labels: None,
         }
     }
 
@@ -126,6 +129,21 @@ impl PrometheusBuilder {
         self
     }
 
+    /// Adds a global label to this exporter.
+    ///
+    /// Global labels are applied to all metrics.  Labels defined on the metric key itself have precedence
+    /// over any global labels.  If this method is called multiple times, the latest value for a given label
+    /// key will be used.
+    pub fn add_global_label<K, V>(mut self, key: K, value: V) -> Self
+    where
+        K: Into<String>,
+        V: Into<String>,
+    {
+        let labels = self.global_labels.get_or_insert_with(HashMap::new);
+        labels.insert(key.into(), value.into());
+        self
+    }
+
     /// Builds the recorder and exporter and installs them globally.
     ///
     /// An error will be returned if there's an issue with creating the HTTP server or with
@@ -174,6 +192,7 @@ impl PrometheusBuilder {
                 self.bucket_overrides,
             ),
             descriptions: RwLock::new(HashMap::new()),
+            global_labels: self.global_labels.unwrap_or(HashMap::new()),
         };
 
         PrometheusRecorder::from(inner)
@@ -232,12 +251,14 @@ impl Default for PrometheusBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::{Matcher, PrometheusBuilder};
+    use std::time::Duration;
+
+    use quanta::Clock;
+
     use metrics::{GaugeValue, Key, KeyData, Label, Recorder};
     use metrics_util::MetricKindMask;
 
-    use quanta::Clock;
-    use std::time::Duration;
+    use super::{Matcher, PrometheusBuilder};
 
     #[test]
     fn test_render() {
@@ -400,5 +421,40 @@ mod tests {
 
         let expected = "# TYPE basic_gauge gauge\nbasic_gauge -3.14\n\n";
         assert_eq!(rendered, expected);
+    }
+
+    #[test]
+    pub fn test_global_labels() {
+        let recorder = PrometheusBuilder::new()
+            .add_global_label("foo", "foo")
+            .add_global_label("foo", "bar")
+            .build();
+        let key = Key::from(KeyData::from_name("basic_counter"));
+        recorder.increment_counter(key, 42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected_counter = "# TYPE basic_counter counter\nbasic_counter{foo=\"bar\"} 42\n\n";
+
+        assert_eq!(rendered, expected_counter);
+    }
+
+    #[test]
+    pub fn test_global_labels_overrides() {
+        let recorder = PrometheusBuilder::new()
+            .add_global_label("foo", "foo")
+            .build();
+
+        let key = Key::from(
+            KeyData::from_name("overridden")
+                .with_extra_labels(vec![Label::new("foo", "overridden")]),
+        );
+        recorder.increment_counter(key, 1);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected_counter = "# TYPE overridden counter\noverridden{foo=\"overridden\"} 1\n\n";
+
+        assert_eq!(rendered, expected_counter);
     }
 }
