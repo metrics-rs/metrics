@@ -49,24 +49,36 @@ Overall, this repository is home to the following crates:
 
 * [`metrics`][metrics]: A lightweight metrics facade, similar to [`log`][log].
 * [`metrics-macros`][metrics-macros]: Procedural macros that power `metrics`.
-* [`metrics-tracing-context`][metrics-tracing-context]: Allow capturing [`tracing`][tracing] span
-  fields as metric labels.
+* [`metrics-tracing-context`][metrics-tracing-context]: Allow capturing [`tracing`][tracing] span fields as metric
+  labels.
+* [`metrics-exporter-composite`][metrics-exporter-composite]: Enables the exporting of metrics to multiple destinations.
 * [`metrics-exporter-tcp`][metrics-exporter-tcp]: A `metrics`-compatible exporter for serving metrics over TCP.
-* [`metrics-exporter-prometheus`][metrics-exporter-prometheus]: A `metrics`-compatible exporter for
-  serving a Prometheus scrape endpoint.
+* [`metrics-exporter-prometheus`][metrics-exporter-prometheus]: A `metrics`-compatible exporter for serving a Prometheus
+  scrape endpoint.
 * [`metrics-util`][metrics-util]: Helper types/functions used by the `metrics` ecosystem.
 
 # contributing
 
-We're always looking for users who have thoughts on how to make `metrics` better, or users with interesting use cases.  Of course, we're also happy to accept code contributions for outstanding feature requests! 😀
+We're always looking for users who have thoughts on how to make `metrics` better, or users with interesting use cases.
+Of course, we're also happy to accept code contributions for outstanding feature requests! 😀
 
-We'd love to chat about any of the above, or anything else, really!  You can find us over on [Discord](https://discord.gg/eTwKyY9).
+We'd love to chat about any of the above, or anything else, really!  You can find us over
+on [Discord](https://discord.gg/eTwKyY9).
 
 [metrics]: https://github.com/metrics-rs/metrics/tree/main/metrics
+
 [metrics-macros]: https://github.com/metrics-rs/metrics/tree/main/metrics-macros
+
 [metrics-tracing-context]: https://github.com/metrics-rs/metrics/tree/main/metrics-tracing-context
+
+[metrics-exporter-composite]: https://github.com/metrics-rs/metrics/tree/main/metrics-exporter-composite
+
 [metrics-exporter-tcp]: https://github.com/metrics-rs/metrics/tree/main/metrics-exporter-tcp
+
 [metrics-exporter-prometheus]: https://github.com/metrics-rs/metrics/tree/main/metrics-exporter-prometheus
+
 [metrics-util]: https://github.com/metrics-rs/metrics/tree/main/metrics-util
+
 [log]: https://docs.rs/log
+
 [tracing]: https://tracing.rs
