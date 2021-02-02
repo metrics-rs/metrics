@@ -113,6 +113,17 @@ impl KeyData {
         }
     }
 
+    /// Creates a [`KeyData`] from a static name and non-static set of labels.
+    pub fn from_hybrid<L>(name_parts: &'static [SharedString], labels: L) -> Self
+    where
+        L: IntoLabels,
+    {
+        Self {
+            name_parts: NameParts::from_static_names(name_parts),
+            labels: Cow::owned(labels.into_labels()),
+        }
+    }
+
     /// Creates a [`KeyData`] from a static name.
     ///
     /// This function is `const`, so it can be used in a static context.

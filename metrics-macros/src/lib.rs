@@ -2,10 +2,9 @@ extern crate proc_macro;
 
 use self::proc_macro::TokenStream;
 
-use lazy_static::lazy_static;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
-use regex::Regex;
-use syn::parse::discouraged::Speculative;
+use syn::{Lit, parse::discouraged::Speculative};
 use syn::parse::{Error, Parse, ParseStream, Result};
 use syn::{parse_macro_input, Expr, LitStr, Token};
 
@@ -18,18 +17,18 @@ enum Labels {
 }
 
 struct WithoutExpression {
-    key: LitStr,
+    key: Expr,
     labels: Option<Labels>,
 }
 
 struct WithExpression {
-    key: LitStr,
+    key: Expr,
     op_value: Expr,
     labels: Option<Labels>,
 }
 
 struct Registration {
-    key: LitStr,
+    key: Expr,
     unit: Option<Expr>,
     description: Option<LitStr>,
     labels: Option<Labels>,
@@ -37,7 +36,7 @@ struct Registration {
 
 impl Parse for WithoutExpression {
     fn parse(mut input: ParseStream) -> Result<Self> {
-        let key = read_key(&mut input)?;
+        let key = input.parse::<Expr>()?;
         let labels = parse_labels(&mut input)?;
 
         Ok(WithoutExpression { key, labels })
@@ -46,7 +45,7 @@ impl Parse for WithoutExpression {
 
 impl Parse for WithExpression {
     fn parse(mut input: ParseStream) -> Result<Self> {
-        let key = read_key(&mut input)?;
+        let key = input.parse::<Expr>()?;
 
         input.parse::<Token![,]>()?;
         let op_value: Expr = input.parse()?;
@@ -63,7 +62,7 @@ impl Parse for WithExpression {
 
 impl Parse for Registration {
     fn parse(mut input: ParseStream) -> Result<Self> {
-        let key = read_key(&mut input)?;
+        let key = input.parse::<Expr>()?;
 
         // We accept three possible parameters: unit, description, and labels.
         //
@@ -251,13 +250,12 @@ pub fn histogram(input: TokenStream) -> TokenStream {
 
 fn get_expanded_registration(
     metric_type: &str,
-    name: LitStr,
+    name: Expr,
     unit: Option<Expr>,
     description: Option<LitStr>,
     labels: Option<Labels>,
-) -> proc_macro2::TokenStream {
+) -> TokenStream2 {
     let register_ident = format_ident!("register_{}", metric_type);
-    let key = key_to_quoted(labels);
 
     let unit = match unit {
         Some(e) => quote! { Some(#e) },
@@ -269,14 +267,14 @@ fn get_expanded_registration(
         None => quote! { None },
     };
 
+    let statics = generate_statics(&name, &labels);
+    let metric_key = generate_metric_key(&name, &labels);
     quote! {
         {
-            static METRIC_NAME: [metrics::SharedString; 1] = [metrics::SharedString::const_str(#name)];
+            #statics
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
-                // Registrations are fairly rare, don't attempt to cache here
-                // and just use an owned ref.
-                recorder.#register_ident(metrics::Key::Owned(#key), #unit, #description);
+                recorder.#register_ident(#metric_key, #unit, #description);
             }
         }
     }
@@ -285,10 +283,10 @@ fn get_expanded_registration(
 fn get_expanded_callsite<V>(
     metric_type: &str,
     op_type: &str,
-    name: LitStr,
+    name: Expr,
     labels: Option<Labels>,
     op_values: V,
-) -> proc_macro2::TokenStream
+) -> TokenStream2
 where
     V: ToTokens,
 {
@@ -301,104 +299,153 @@ where
     };
 
     let op_ident = format_ident!("{}_{}", op_type, metric_type);
+    let statics = generate_statics(&name, &labels);
+    let metric_key = generate_metric_key(&name, &labels);
+    quote! {
+        {
+            #statics
+            // Only do this work if there's a recorder installed.
+            if let Some(recorder) = metrics::try_recorder() {
+                recorder.#op_ident(#metric_key, #op_values);
+            }
+        }
+    }
+}
 
-    let use_fast_path = can_use_fast_path(&labels);
-    if use_fast_path {
-        // We're on the fast path here, so we'll build our key, statically cache it,
-        // and use a borrowed reference to it for this and future operations.
-        let statics = match labels {
-            Some(Labels::Inline(pairs)) => {
+fn name_is_fast_path(name: &Expr) -> bool {
+    match name {
+        Expr::Lit(lit) => match lit.lit {
+            Lit::Str(_) => true,
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn labels_are_fast_path(labels: &Labels) -> bool {
+    match labels {
+        Labels::Existing(_) => false,
+        Labels::Inline(pairs) => pairs.iter().all(|(_, v)| matches!(v, Expr::Lit(_))),
+    }
+}
+
+fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
+    // Create the static for the name, if possible.
+    let use_name_static = name_is_fast_path(name);
+    let name_static = if use_name_static {
+        quote! {
+            static METRIC_NAME: [metrics::SharedString; 1] = [metrics::SharedString::const_str(#name)];
+        }
+    } else {
+        quote! {}
+    };
+
+    // Create the static for the labels, if possible.
+    let has_labels = labels.is_some();
+    let use_labels_static = match labels.as_ref() {
+        Some(labels) => labels_are_fast_path(labels),
+        None => true,
+    };
+
+    let labels_static = match labels.as_ref() {
+        Some(labels) => if labels_are_fast_path(labels) {
+            if let Labels::Inline(pairs) = labels {
                 let labels = pairs
-                    .into_iter()
+                    .iter()
                     .map(|(key, val)| quote! { metrics::Label::from_static_parts(#key, #val) })
                     .collect::<Vec<_>>();
                 let labels_len = labels.len();
                 let labels_len = quote! { #labels_len };
 
                 quote! {
-                    static METRIC_NAME: [metrics::SharedString; 1] = [metrics::SharedString::const_str(#name)];
                     static METRIC_LABELS: [metrics::Label; #labels_len] = [#(#labels),*];
-                    static METRIC_KEY: metrics::KeyData =
-                        metrics::KeyData::from_static_parts(&METRIC_NAME, &METRIC_LABELS);
                 }
+            } else {
+                quote! {}
             }
-            None => {
-                quote! {
-                    static METRIC_NAME: [metrics::SharedString; 1] = [metrics::SharedString::const_str(#name)];
-                    static METRIC_KEY: metrics::KeyData =
-                        metrics::KeyData::from_static_name(&METRIC_NAME);
-                }
+        } else {
+            quote! {}
+        },
+        None => quote! {},
+    };
+
+    let key_static = if use_name_static && use_labels_static {
+        if has_labels {
+            quote! {
+                static METRIC_KEY: metrics::KeyData = metrics::KeyData::from_static_parts(&METRIC_NAME, &METRIC_LABELS);
             }
-            _ => unreachable!("use_fast_path == true, but found expression-based labels"),
-        };
-
-        quote! {
-            {
-                #statics
-
-                // Only do this work if there's a recorder installed.
-                if let Some(recorder) = metrics::try_recorder() {
-                    recorder.#op_ident(metrics::Key::Borrowed(&METRIC_KEY), #op_values);
-                }
+        } else {
+            quote!{
+                static METRIC_KEY: metrics::KeyData = metrics::KeyData::from_static_name(&METRIC_NAME);
             }
         }
     } else {
-        // We're on the slow path, so we allocate, womp.
-        let key = key_to_quoted(labels);
-        quote! {
-            {
-                static METRIC_NAME: [metrics::SharedString; 1] = [metrics::SharedString::const_str(#name)];
+        quote! {}
+    };
 
-                // Only do this work if there's a recorder installed.
-                if let Some(recorder) = metrics::try_recorder() {
-                    recorder.#op_ident(metrics::Key::Owned(#key), #op_values);
-                }
+    quote! {
+        #name_static
+        #labels_static
+        #key_static
+    }
+}
+
+fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
+    let use_name_static = name_is_fast_path(name);
+
+    let has_labels = labels.is_some();
+    let use_labels_static = match labels.as_ref() {
+        Some(labels) => labels_are_fast_path(labels),
+        None => true,
+    };
+
+    if use_name_static && use_labels_static {
+        // Key is entirely static, so we can simply reference our generated statics.  They will be
+        // inclusive of whether or not labels were specified.
+        quote! { metrics::Key::Borrowed(&METRIC_KEY) }
+    } else if use_name_static && !use_labels_static {
+        // The name is static, but we have labels which are not static.  Since `use_labels_static`
+        // cannot be false unless labels _are_ specified, we know this unwrap is safe.
+        let labels = labels.as_ref().unwrap();
+        let quoted_labels = labels_to_quoted(labels);
+        quote! {
+            metrics::Key::Owned(metrics::KeyData::from_hybrid(&METRIC_NAME, #quoted_labels))
+        }
+    } else if !use_name_static && !use_labels_static {
+        // The name is not static, and neither are the labels. Since `use_labels_static`
+        // cannot be false unless labels _are_ specified, we know this unwrap is safe.
+        let labels = labels.as_ref().unwrap();
+        let quoted_labels = labels_to_quoted(labels);
+        quote! {
+            metrics::Key::Owned(metrics::KeyData::from_parts(#name, #quoted_labels))
+        }
+    } else {
+        // The name is not static, but the labels are.  This could technically mean that there
+        // simply are no labels, so we have to discriminate in a slightly different way
+        // to figure out the correct key.
+        if has_labels {
+            let labels = labels.as_ref().unwrap();
+            let quoted_labels = labels_to_quoted(labels);
+            quote! {
+                metrics::Key::Owned(metrics::KeyData::from_parts(#name, #quoted_labels))
+            }
+        } else {
+            quote! {
+                metrics::Key::Owned(metrics::KeyData::from_name(#name))
             }
         }
     }
 }
 
-fn can_use_fast_path(labels: &Option<Labels>) -> bool {
+fn labels_to_quoted(labels: &Labels) -> proc_macro2::TokenStream {
     match labels {
-        None => true,
-        Some(labels) => match labels {
-            Labels::Existing(_) => false,
-            Labels::Inline(pairs) => pairs.iter().all(|(_, v)| matches!(v, Expr::Lit(_))),
-        },
-    }
-}
-
-fn read_key(input: &mut ParseStream) -> Result<LitStr> {
-    let key = input.parse::<LitStr>()?;
-    let inner = key.value();
-
-    lazy_static! {
-        static ref RE: Regex = Regex::new("^[a-zA-Z][a-zA-Z0-9_:\\.]*$").unwrap();
-    }
-    if !RE.is_match(&inner) {
-        return Err(Error::new(
-            key.span(),
-            "metric name must match ^[a-zA-Z][a-zA-Z0-9_:.]*$",
-        ));
-    }
-
-    Ok(key)
-}
-
-fn key_to_quoted(labels: Option<Labels>) -> proc_macro2::TokenStream {
-    match labels {
-        None => quote! { metrics::KeyData::from_static_name(&METRIC_NAME) },
-        Some(labels) => match labels {
-            Labels::Inline(pairs) => {
-                let labels = pairs
-                    .into_iter()
-                    .map(|(key, val)| quote! { metrics::Label::new(#key, #val) });
-                quote! {
-                    metrics::KeyData::from_parts(&METRIC_NAME[..], vec![#(#labels),*])
-                }
-            }
-            Labels::Existing(e) => quote! { metrics::KeyData::from_parts(&METRIC_NAME[..], #e) },
-        },
+        Labels::Inline(pairs) => {
+            let labels = pairs
+                .into_iter()
+                .map(|(key, val)| quote! { metrics::Label::new(#key, #val) });
+            quote! { vec![#(#labels),*] }
+        }
+        Labels::Existing(e) => quote! { #e },
     }
 }
 
