@@ -4,8 +4,8 @@ use self::proc_macro::TokenStream;
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
-use syn::{Lit, parse::discouraged::Speculative};
 use syn::parse::{Error, Parse, ParseStream, Result};
+use syn::{parse::discouraged::Speculative, Lit};
 use syn::{parse_macro_input, Expr, LitStr, Token};
 
 #[cfg(test)]
@@ -348,24 +348,26 @@ fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
     };
 
     let labels_static = match labels.as_ref() {
-        Some(labels) => if labels_are_fast_path(labels) {
-            if let Labels::Inline(pairs) = labels {
-                let labels = pairs
-                    .iter()
-                    .map(|(key, val)| quote! { metrics::Label::from_static_parts(#key, #val) })
-                    .collect::<Vec<_>>();
-                let labels_len = labels.len();
-                let labels_len = quote! { #labels_len };
+        Some(labels) => {
+            if labels_are_fast_path(labels) {
+                if let Labels::Inline(pairs) = labels {
+                    let labels = pairs
+                        .iter()
+                        .map(|(key, val)| quote! { metrics::Label::from_static_parts(#key, #val) })
+                        .collect::<Vec<_>>();
+                    let labels_len = labels.len();
+                    let labels_len = quote! { #labels_len };
 
-                quote! {
-                    static METRIC_LABELS: [metrics::Label; #labels_len] = [#(#labels),*];
+                    quote! {
+                        static METRIC_LABELS: [metrics::Label; #labels_len] = [#(#labels),*];
+                    }
+                } else {
+                    quote! {}
                 }
             } else {
                 quote! {}
             }
-        } else {
-            quote! {}
-        },
+        }
         None => quote! {},
     };
 
@@ -375,7 +377,7 @@ fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
                 static METRIC_KEY: metrics::KeyData = metrics::KeyData::from_static_parts(&METRIC_NAME, &METRIC_LABELS);
             }
         } else {
-            quote!{
+            quote! {
                 static METRIC_KEY: metrics::KeyData = metrics::KeyData::from_static_name(&METRIC_NAME);
             }
         }

@@ -193,9 +193,7 @@ fn test_get_expanded_callsite_static_name_existing_labels() {
 
 #[test]
 fn test_labels_to_quoted_existing_labels() {
-    let labels = Labels::Existing(Expr::Path(
-        parse_quote! { mylabels },
-    ));
+    let labels = Labels::Existing(Expr::Path(parse_quote! { mylabels }));
     let stream = labels_to_quoted(&labels);
     let expected = "mylabels";
     assert_eq!(stream.to_string(), expected);
