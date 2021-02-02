@@ -192,6 +192,96 @@ fn test_get_expanded_callsite_static_name_existing_labels() {
 }
 
 #[test]
+fn test_get_expanded_callsite_owned_name_no_labels() {
+    let stream = get_expanded_callsite(
+        "mytype",
+        "myop",
+        parse_quote! { String::from("owned") },
+        None,
+        quote! { 1 },
+    );
+
+    let expected = concat!(
+        "{ ",
+        "if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . myop_mytype (metrics :: Key :: Owned (metrics :: KeyData :: from_name (String :: from (\"owned\"))) , 1) ; ",
+        "} ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_expanded_callsite_owned_name_static_inline_labels() {
+    let labels = Labels::Inline(vec![(parse_quote! { "key1" }, parse_quote! { "value1" })]);
+    let stream = get_expanded_callsite(
+        "mytype",
+        "myop",
+        parse_quote! { String::from("owned") },
+        Some(labels),
+        quote! { 1 },
+    );
+
+    let expected = concat!(
+        "{ ",
+        "static METRIC_LABELS : [metrics :: Label ; 1usize] = [metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
+        "if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . myop_mytype (metrics :: Key :: Owned (metrics :: KeyData :: from_parts (String :: from (\"owned\") , & METRICS_LABELS)) , 1) ; ",
+        "} ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_expanded_callsite_owned_name_dynamic_inline_labels() {
+    let labels = Labels::Inline(vec![(parse_quote! { "key1" }, parse_quote! { &value1 })]);
+    let stream = get_expanded_callsite(
+        "mytype",
+        "myop",
+        parse_quote! { String::from("owned") },
+        Some(labels),
+        quote! { 1 },
+    );
+
+    let expected = concat!(
+        "{ ",
+        "if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . myop_mytype (metrics :: Key :: Owned (",
+        "metrics :: KeyData :: from_parts (String :: from (\"owned\") , vec ! [metrics :: Label :: new (\"key1\" , & value1)])",
+        ") , 1) ; ",
+        "} ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+/// If there are dynamic labels - generate a direct invocation.
+#[test]
+fn test_get_expanded_callsite_owned_name_existing_labels() {
+    let stream = get_expanded_callsite(
+        "mytype",
+        "myop",
+        parse_quote! { String::from("owned") },
+        Some(Labels::Existing(parse_quote! { mylabels })),
+        quote! { 1 },
+    );
+
+    let expected = concat!(
+        "{ ",
+        "if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . myop_mytype (metrics :: Key :: Owned (metrics :: KeyData :: from_parts (String :: from (\"owned\") , mylabels)) , 1) ; ",
+        "} ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
 fn test_labels_to_quoted_existing_labels() {
     let labels = Labels::Existing(Expr::Path(parse_quote! { mylabels }));
     let stream = labels_to_quoted(&labels);

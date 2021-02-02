@@ -426,10 +426,8 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
         // simply are no labels, so we have to discriminate in a slightly different way
         // to figure out the correct key.
         if has_labels {
-            let labels = labels.as_ref().unwrap();
-            let quoted_labels = labels_to_quoted(labels);
             quote! {
-                metrics::Key::Owned(metrics::KeyData::from_parts(#name, #quoted_labels))
+                metrics::Key::Owned(metrics::KeyData::from_parts(#name, & METRICS_LABELS))
             }
         } else {
             quote! {
