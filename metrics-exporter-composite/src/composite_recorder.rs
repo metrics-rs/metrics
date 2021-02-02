@@ -1,14 +1,20 @@
 use metrics::{GaugeValue, Key, Recorder, SetRecorderError, Unit};
 
+/// Builder for creating composite reporters.
 pub struct CompositeRecorderBuilder {
     inner: Vec<Box<dyn Recorder + 'static>>,
 }
 
+/// Composite Recorder. Accepts multiple recorders and will proxy all registrations and metric
+/// events to them.
+///
+/// Useful if you wish to emit metrics to two locations for a migration.
 pub struct CompositeRecorder {
     inner: Vec<Box<dyn Recorder + 'static>>,
 }
 
 impl CompositeRecorderBuilder {
+    /// Add a new recorder to the composite recorder.
     pub fn add_recorder<R>(mut self, recorder: R) -> Self
     where
         R: Recorder + 'static,
@@ -17,14 +23,17 @@ impl CompositeRecorderBuilder {
         self
     }
 
+    /// Create a new CompositeRecorderBuilder
     pub fn new() -> CompositeRecorderBuilder {
         CompositeRecorderBuilder { inner: Vec::new() }
     }
 
+    /// Constructs the CompositeBuilder. Useful if you wish to manually call metrics::install.
     pub fn build(self) -> CompositeRecorder {
         CompositeRecorder { inner: self.inner }
     }
 
+    /// Construct and install this recorder.
     pub fn install(self) -> Result<(), SetRecorderError> {
         let recorder = self.build();
         metrics::set_boxed_recorder(Box::new(recorder))
