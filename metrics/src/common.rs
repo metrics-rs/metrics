@@ -11,7 +11,7 @@ use crate::cow::Cow;
 pub type SharedString = Cow<'static, str>;
 
 /// Value of a gauge operation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum GaugeValue {
     /// Sets the value of the gauge to this value.
     Absolute(f64),
