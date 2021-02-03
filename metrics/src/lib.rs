@@ -196,14 +196,13 @@
 //! identifier, which we handle by using [`Key`].
 //!
 //! [`Key`] itself is a wrapper for [`KeyData`], which holds not only the name of a metric, but
-//! potentially holds labels for it as well.  The name of a metric must always be a literal string.
-//! The labels are a key/value pair, where both components are strings as well.
+//! potentially holds labels for it as well.  Metric name and labels consist entirely of string
+//! values.
 //!
 //! Internally, `metrics` uses a clone-on-write "smart pointer" for these values to optimize cases
 //! where the values are static strings, which can provide significant performance benefits.  These
 //! smart pointers can also hold owned `String` values, though, so users can mix and match static
-//! strings and owned strings for labels without issue. Metric names, as mentioned above, are always
-//! static strings.
+//! strings and owned strings without issue.
 //!
 //! Two [`Key`] objects can be checked for equality and considered to point to the same metric if
 //! they are equal.  Equality checks both the name of the key and the labels of a key.  Labels are
@@ -307,6 +306,10 @@ pub use self::recorder::*;
 /// recorder does anything with the description is implementation defined.  Labels can also be
 /// specified when registering a metric.
 ///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
 /// # Example
 /// ```
 /// # use metrics::register_counter;
@@ -349,6 +352,10 @@ pub use metrics_macros::register_counter;
 /// Metrics can be registered with an optional unit and description.  Whether or not the installed
 /// recorder does anything with the description is implementation defined.  Labels can also be
 /// specified when registering a metric.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
 ///
 /// # Example
 /// ```
@@ -393,6 +400,10 @@ pub use metrics_macros::register_gauge;
 /// recorder does anything with the description is implementation defined.  Labels can also be
 /// specified when registering a metric.
 ///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
 /// # Example
 /// ```
 /// # use metrics::register_histogram;
@@ -432,6 +443,10 @@ pub use metrics_macros::register_histogram;
 /// Counters represent a single monotonic value, which means the value can only be incremented, not
 /// decremented, and always starts out with an initial value of zero.
 ///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
 /// # Example
 /// ```
 /// # use metrics::increment_counter;
@@ -454,6 +469,10 @@ pub use metrics_macros::increment_counter;
 ///
 /// Counters represent a single monotonic value, which means the value can only be incremented, not
 /// decremented, and always starts out with an initial value of zero.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
 ///
 /// # Example
 /// ```
@@ -478,6 +497,10 @@ pub use metrics_macros::counter;
 /// Gauges represent a single value that can go up or down over time, and always starts out with an
 /// initial value of zero.
 ///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
 /// # Example
 /// ```
 /// # use metrics::gauge;
@@ -501,6 +524,10 @@ pub use metrics_macros::gauge;
 /// Gauges represent a single value that can go up or down over time, and always starts out with an
 /// initial value of zero.
 ///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
 /// # Example
 /// ```
 /// # use metrics::increment_gauge;
@@ -523,6 +550,10 @@ pub use metrics_macros::increment_gauge;
 ///
 /// Gauges represent a single value that can go up or down over time, and always starts out with an
 /// initial value of zero.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
 ///
 /// # Example
 /// ```
@@ -555,6 +586,10 @@ pub use metrics_macros::decrement_gauge;
 ///
 /// External libraries and applications can create their own conversions by implementing the
 /// [`IntoF64`] trait for their types, which is required for the value being passed to `histogram!`.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
 ///
 /// # Example
 /// ```
