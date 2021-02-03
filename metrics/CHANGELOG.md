@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+### Added
+- Minor documentation test updates for better coverage of owned strings used as metric names.
 
 ## [0.14.0] - 2021-02-02
 ### Changed
