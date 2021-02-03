@@ -340,6 +340,13 @@ pub use self::recorder::*;
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
 /// register_counter!("some_metric_name", &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// register_counter!(name);
+///
+/// register_counter!(format!("{}_via_format", "name"));
 /// # }
 /// ```
 pub use metrics_macros::register_counter;
@@ -387,6 +394,13 @@ pub use metrics_macros::register_counter;
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
 /// register_gauge!("some_metric_name", &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// register_gauge!(name);
+///
+/// register_gauge!(format!("{}_via_format", "name"));
 /// # }
 /// ```
 pub use metrics_macros::register_gauge;
@@ -434,6 +448,13 @@ pub use metrics_macros::register_gauge;
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
 /// register_histogram!("some_metric_name", &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// register_histogram!(name);
+///
+/// register_histogram!(format!("{}_via_format", "name"));
 /// # }
 /// ```
 pub use metrics_macros::register_histogram;
@@ -461,6 +482,13 @@ pub use metrics_macros::register_histogram;
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
 /// increment_counter!("some_metric_name", &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// increment_counter!(name);
+///
+/// increment_counter!(format!("{}_via_format", "name"));
 /// # }
 /// ```
 pub use metrics_macros::increment_counter;
@@ -488,6 +516,13 @@ pub use metrics_macros::increment_counter;
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
 /// counter!("some_metric_name", 12, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// counter!(name, 12);
+///
+/// counter!(format!("{}_via_format", "name"), 12);
 /// # }
 /// ```
 pub use metrics_macros::counter;
@@ -515,6 +550,13 @@ pub use metrics_macros::counter;
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
 /// gauge!("some_metric_name", 42.42, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// gauge!(name, 800.85);
+///
+/// gauge!(format!("{}_via_format", "name"), 3.14);
 /// # }
 /// ```
 pub use metrics_macros::gauge;
@@ -542,6 +584,13 @@ pub use metrics_macros::gauge;
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
 /// increment_gauge!("some_metric_name", 42.42, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// increment_gauge!(name, 800.85);
+///
+/// increment_gauge!(format!("{}_via_format", "name"), 3.14);
 /// # }
 /// ```
 pub use metrics_macros::increment_gauge;
@@ -569,6 +618,13 @@ pub use metrics_macros::increment_gauge;
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
 /// decrement_gauge!("some_metric_name", 42.42, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// decrement_gauge!(name, 800.85);
+///
+/// decrement_gauge!(format!("{}_via_format", "name"), 3.14);
 /// # }
 /// ```
 pub use metrics_macros::decrement_gauge;
@@ -610,6 +666,13 @@ pub use metrics_macros::decrement_gauge;
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
 /// histogram!("some_metric_name", 1337.5, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// histogram!(name, 800.85);
+///
+/// histogram!(format!("{}_via_format", "name"), 3.14);
 /// # }
 /// ```
 pub use metrics_macros::histogram;
