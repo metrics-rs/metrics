@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - ReleaseDate
 
 ## [0.2.0] - 2021-02-02
+### Changed
+- Added support for owned strings as metric names. [#170](https://github.com/metrics-rs/metrics/pull/170)
 
 ## [0.1.0] - 2021-01-22
 ### Added
