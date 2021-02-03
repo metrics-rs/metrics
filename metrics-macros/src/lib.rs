@@ -313,13 +313,11 @@ where
 }
 
 fn name_is_fast_path(name: &Expr) -> bool {
-    match name {
-        Expr::Lit(lit) => match lit.lit {
-            Lit::Str(_) => true,
-            _ => false,
-        },
-        _ => false,
+    if let Expr::Lit(lit) = name {
+        return matches!(lit.lit, Lit::Str(_));
     }
+
+    false
 }
 
 fn labels_are_fast_path(labels: &Labels) -> bool {
@@ -441,7 +439,7 @@ fn labels_to_quoted(labels: &Labels) -> proc_macro2::TokenStream {
     match labels {
         Labels::Inline(pairs) => {
             let labels = pairs
-                .into_iter()
+                .iter()
                 .map(|(key, val)| quote! { metrics::Label::new(#key, #val) });
             quote! { vec![#(#labels),*] }
         }
