@@ -123,6 +123,11 @@ pub use prefix::{Prefix, PrefixLayer};
 mod fanout;
 pub use fanout::{Fanout, FanoutBuilder};
 
+#[cfg(feature = "layer-absolute")]
+mod absolute;
+#[cfg(feature = "layer-absolute")]
+pub use absolute::{Absolute, AbsoluteLayer};
+
 /// Decorates an object by wrapping it within another type.
 pub trait Layer<R> {
     /// The output type after wrapping.
