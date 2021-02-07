@@ -34,6 +34,10 @@ harness = false
 name = "filter"
 harness = false
 
+[[bench]]
+name = "absolute"
+harness = false
+
 [dependencies]
 metrics = { version = "^0.14", path = "../metrics", features = ["std"] }
 crossbeam-epoch = { version = "0.9", optional = true }
@@ -69,6 +73,7 @@ quickcheck_macros = "1"
 textplots = "0.5"
 
 [features]
-default = ["std", "layer-filter"]
+default = ["std", "layer-filter", "layer-absolute"]
 std = ["atomic-shim", "crossbeam-epoch", "crossbeam-utils", "dashmap", "indexmap", "parking_lot", "quanta", "sketches-ddsketch"]
 layer-filter = ["aho-corasick"]
+layer-absolute = ["aho-corasick", "parking_lot"]
