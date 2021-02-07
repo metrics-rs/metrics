@@ -1,9 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 #[cfg(feature = "layer-filter")]
-use criterion::Benchmark;
-
-#[cfg(feature = "layer-filter")]
 use metrics::{Key, KeyData, Label, NoopRecorder, Recorder, SharedString};
 
 #[cfg(feature = "layer-filter")]
@@ -12,9 +9,9 @@ use metrics_util::layers::{FilterLayer, Layer};
 #[allow(unused_variables)]
 fn layer_benchmark(c: &mut Criterion) {
     #[cfg(feature = "layer-filter")]
-    c.bench(
-        "filter",
-        Benchmark::new("match", |b| {
+    {
+        let mut group = c.benchmark_group("filter");
+        group.bench_function("match", |b| {
             let patterns = vec!["tokio"];
             let filter_layer = FilterLayer::from_patterns(patterns);
             let recorder = filter_layer.layer(NoopRecorder);
@@ -25,8 +22,8 @@ fn layer_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 recorder.increment_counter(Key::Borrowed(&KEY_DATA), 1);
             })
-        })
-        .with_function("no match", |b| {
+        });
+        group.bench_function("no match", |b| {
             let patterns = vec!["tokio"];
             let filter_layer = FilterLayer::from_patterns(patterns);
             let recorder = filter_layer.layer(NoopRecorder);
@@ -37,8 +34,8 @@ fn layer_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 recorder.increment_counter(Key::Borrowed(&KEY_DATA), 1);
             })
-        })
-        .with_function("deep match", |b| {
+        });
+        group.bench_function("deep match", |b| {
             let patterns = vec!["tokio"];
             let filter_layer = FilterLayer::from_patterns(patterns);
             let recorder = filter_layer.layer(NoopRecorder);
@@ -52,8 +49,8 @@ fn layer_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 recorder.increment_counter(Key::Borrowed(&KEY_DATA), 1);
             })
-        })
-        .with_function("noop recorder overhead (increment_counter)", |b| {
+        });
+        group.bench_function("noop recorder overhead (increment_counter)", |b| {
             let recorder = NoopRecorder;
             static KEY_NAME: [SharedString; 1] = [SharedString::const_str("tokio.foo")];
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
@@ -62,8 +59,8 @@ fn layer_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 recorder.increment_counter(Key::Borrowed(&KEY_DATA), 1);
             })
-        }),
-    );
+        });
+    }
 }
 
 criterion_group!(benches, layer_benchmark);
