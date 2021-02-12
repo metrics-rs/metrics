@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 /// the request currently being processed, or the request path being processed.  Another example may
 /// be that if you were running a piece o code that was turned on or off by a feature toggle, you may
 /// wish to include a label in metrics to indicate whether or not they were using the feature toggle.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
 pub struct Label(pub(crate) SharedString, pub(crate) SharedString);
 
 impl Label {
