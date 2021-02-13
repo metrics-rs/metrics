@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+### Added
+- Implemented `Ord`/`PartialOrd` for various key-related types.
 
 ## [0.14.1] - 2021-02-02
 ### Added
