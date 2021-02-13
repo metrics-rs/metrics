@@ -1,6 +1,7 @@
 use crate::{cow::Cow, IntoLabels, Label, SharedString};
 use alloc::{string::String, vec::Vec};
 use core::{
+    cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
     ops,
@@ -10,7 +11,7 @@ use core::{
 const NO_LABELS: [Label; 0] = [];
 
 /// Parts compromising a metric name.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
 pub struct NameParts(Cow<'static, [SharedString]>);
 
 impl NameParts {
@@ -82,7 +83,7 @@ impl fmt::Display for NameParts {
 ///
 /// While [`Key`] is the type that users will interact with via [`Recorder`][crate::Recorder],
 /// [`KeyData`] is responsible for the actual storage of the name and label data.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
 pub struct KeyData {
     // TODO: once const slicing is possible on stable, we could likely use `beef` for both of these
     name_parts: NameParts,
@@ -268,6 +269,18 @@ impl PartialEq for Key {
 }
 
 impl Eq for Key {}
+
+impl PartialOrd for Key {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Key {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_ref().cmp(other.as_ref())
+    }
+}
 
 impl Hash for Key {
     fn hash<H: Hasher>(&self, state: &mut H) {
