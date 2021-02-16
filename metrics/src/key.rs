@@ -359,6 +359,35 @@ mod tests {
     static BORROWED_LABELS: KeyData = KeyData::from_static_parts(&BORROWED_NAME, &LABELS);
 
     #[test]
+    fn test_key_ord_and_partialord() {
+        let keys_expected: Vec<Key> = vec![
+            KeyData::from_name("aaaa").into(),
+            KeyData::from_name("bbbb").into(),
+            KeyData::from_name("cccc").into(),
+        ];
+
+        let keys_unsorted: Vec<Key> = vec![
+            KeyData::from_name("bbbb").into(),
+            KeyData::from_name("cccc").into(),
+            KeyData::from_name("aaaa").into(),
+        ];
+
+        let keys = {
+            let mut keys = keys_unsorted.clone();
+            keys.sort();
+            keys
+        };
+        assert_eq!(keys, keys_expected);
+
+        let keys = {
+            let mut keys = keys_unsorted.clone();
+            keys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            keys
+        };
+        assert_eq!(keys, keys_expected);
+    }
+
+    #[test]
     fn test_keydata_eq_and_hash() {
         let mut keys = HashMap::new();
 
