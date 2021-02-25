@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::Read;
 use std::net::TcpStream;
 use std::net::ToSocketAddrs;
@@ -37,14 +37,14 @@ pub enum MetricData {
 
 pub struct Client {
     state: Arc<Mutex<ClientState>>,
-    metrics: Arc<RwLock<HashMap<CompositeKey, MetricData>>>,
+    metrics: Arc<RwLock<BTreeMap<CompositeKey, MetricData>>>,
     metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<Unit>, Option<String>)>>>,
 }
 
 impl Client {
     pub fn new(addr: String) -> Client {
         let state = Arc::new(Mutex::new(ClientState::Disconnected(None)));
-        let metrics = Arc::new(RwLock::new(HashMap::new()));
+        let metrics = Arc::new(RwLock::new(BTreeMap::new()));
         let metadata = Arc::new(RwLock::new(HashMap::new()));
         {
             let state = state.clone();
@@ -96,7 +96,7 @@ struct Runner {
     state: RunnerState,
     addr: String,
     client_state: Arc<Mutex<ClientState>>,
-    metrics: Arc<RwLock<HashMap<CompositeKey, MetricData>>>,
+    metrics: Arc<RwLock<BTreeMap<CompositeKey, MetricData>>>,
     metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<Unit>, Option<String>)>>>,
 }
 
@@ -104,7 +104,7 @@ impl Runner {
     pub fn new(
         addr: String,
         state: Arc<Mutex<ClientState>>,
-        metrics: Arc<RwLock<HashMap<CompositeKey, MetricData>>>,
+        metrics: Arc<RwLock<BTreeMap<CompositeKey, MetricData>>>,
         metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<Unit>, Option<String>)>>>,
     ) -> Runner {
         Runner {

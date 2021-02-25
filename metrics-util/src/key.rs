@@ -35,3 +35,15 @@ impl CompositeKey {
         (self.0, self.1)
     }
 }
+
+impl PartialOrd for CompositeKey {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.1.partial_cmp(&other.1)
+    }
+}
+
+impl Ord for CompositeKey {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.1.cmp(&other.1)
+    }
+}
