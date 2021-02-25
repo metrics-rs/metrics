@@ -34,7 +34,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     let mut events = InputEvents::new();
-    let address = std::env::args().nth(1).unwrap_or_else(|| "127.0.0.1:5000".to_owned());
+    let address = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "127.0.0.1:5000".to_owned());
     let client = metrics_inner::Client::new(address);
     let mut selector = Selector::new();
 
