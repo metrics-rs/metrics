@@ -157,6 +157,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             let metrics = List::new(items)
                 .block(metrics_block)
+                .highlight_style(
+                    Style::default()
+                        .add_modifier(Modifier::BOLD)
+                        .fg(Color::LightCyan),
+                )
                 .highlight_symbol(">> ");
 
             f.render_stateful_widget(metrics, chunks[1], selector.state());
