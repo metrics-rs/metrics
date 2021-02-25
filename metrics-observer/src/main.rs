@@ -160,7 +160,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .highlight_style(
                     Style::default()
                         .add_modifier(Modifier::BOLD)
-                        .bg(Color::LightCyan),
+                        .fg(Color::LightCyan),
                 )
                 .highlight_symbol(">> ");
 
