@@ -11,7 +11,7 @@ use metrics::Key;
 /// different metric kinds tryin to use the same key, calling read or write methods
 /// that inevitably panic.  With `CompositeKey`, the kind can tied to the underlying
 /// handle, ensuring parity between the two.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct CompositeKey(MetricKind, Key);
 
 impl CompositeKey {
@@ -36,14 +36,20 @@ impl CompositeKey {
     }
 }
 
-impl PartialOrd for CompositeKey {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.1.partial_cmp(&other.1)
-    }
-}
+#[cfg(test)]
+mod tests {
+    use std::cmp::Ordering;
 
-impl Ord for CompositeKey {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.1.cmp(&other.1)
+    use metrics::KeyData;
+
+    use super::*;
+
+    #[test]
+    fn test_same_keys_different_kinds_not_equal() {
+        let key = KeyData::from_name("test");
+        let key1 = CompositeKey::new(MetricKind::Counter, key.clone().into());
+        let key2 = CompositeKey::new(MetricKind::Gauge, key.into());
+
+        assert_ne!(key1.cmp(&key2), Ordering::Equal);
     }
 }
