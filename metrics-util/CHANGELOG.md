@@ -8,8 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
-## [0.6.2] - 2021-03-08
-
 ## [0.6.1] - 2021-02-07
 ### Added
 - Added `AbsoluteLayer` for supporting counters reported via absolute value.
