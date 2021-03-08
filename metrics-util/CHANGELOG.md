@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
+## [0.6.2] - 2021-03-08
 ### Changed
 - Fixed issue with ordering on `CompositeKey`. (#182)
 
