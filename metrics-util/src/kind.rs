@@ -6,7 +6,7 @@ use std::ops::BitOr;
 /// - counters
 /// - gauges
 /// - histograms
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub enum MetricKind {
     /// Counter type.
     Counter,
