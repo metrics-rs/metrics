@@ -35,7 +35,7 @@
 //! ### Histograms
 //! A histogram stores an arbitrary number of observations of a specific measurement and provides
 //! statistical analysis over the observed values.  Typically, measurements such as request latency
-//! are recoreded with histograms: a specific action that is repeated over and over which can have a
+//! are recorded with histograms: a specific action that is repeated over and over which can have a
 //! varying result each time.
 //!
 //! Histograms are used to explore the distribution of values, allowing a caller to understand the
