@@ -48,7 +48,7 @@ impl Handle {
     pub fn increment_counter(&self, value: u64) {
         match self {
             Handle::Counter(counter) => {
-                counter.fetch_add(value, Ordering::SeqCst);
+                counter.fetch_add(value, Ordering::Relaxed);
             }
             _ => panic!("tried to increment as counter"),
         }
@@ -60,7 +60,7 @@ impl Handle {
     pub fn update_gauge(&self, value: GaugeValue) {
         match self {
             Handle::Gauge(gauge) => {
-                let _ = gauge.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |curr| {
+                let _ = gauge.fetch_update(Ordering::AcqRel, Ordering::Relaxed, |curr| {
                     let input = f64::from_bits(curr);
                     let output = value.update_value(input);
                     Some(output.to_bits())
