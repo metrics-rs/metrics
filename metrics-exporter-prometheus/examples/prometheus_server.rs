@@ -11,8 +11,7 @@ use metrics_util::MetricKindMask;
 use quanta::Clock;
 use rand::{thread_rng, Rng};
 
-#[tokio::main]
-async fn main() {
+fn main() {
     tracing_subscriber::fmt::init();
 
     let builder = PrometheusBuilder::new();
