@@ -96,8 +96,8 @@ impl<T> Block<T> {
     }
 }
 
-unsafe impl<T> Send for Block<T> {}
-unsafe impl<T> Sync for Block<T> {}
+unsafe impl<T: Send> Send for Block<T> {}
+unsafe impl<T: Sync> Sync for Block<T> {}
 
 impl<T> std::fmt::Debug for Block<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
