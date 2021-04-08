@@ -155,7 +155,7 @@ impl PrometheusBuilder {
             .build()?;
 
         let (recorder, exporter) = {
-            runtime.enter();
+            let _g = runtime.enter();
             self.build_with_exporter()?
         };
         metrics::set_boxed_recorder(Box::new(recorder))?;
