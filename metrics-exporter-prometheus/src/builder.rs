@@ -255,7 +255,7 @@ mod tests {
 
     use quanta::Clock;
 
-    use metrics::{GaugeValue, Key, KeyData, Label, Recorder};
+    use metrics::{GaugeValue, Key, Label, Recorder};
     use metrics_util::MetricKindMask;
 
     use super::{Matcher, PrometheusBuilder};
@@ -264,8 +264,8 @@ mod tests {
     fn test_render() {
         let recorder = PrometheusBuilder::new().build();
 
-        let key = Key::from(KeyData::from_name("basic_counter"));
-        recorder.increment_counter(key, 42);
+        let key = Key::from_name("basic_counter");
+        recorder.increment_counter(&key, 42);
 
         let handle = recorder.handle();
         let rendered = handle.render();
@@ -274,8 +274,8 @@ mod tests {
         assert_eq!(rendered, expected_counter);
 
         let labels = vec![Label::new("wutang", "forever")];
-        let key = Key::from(KeyData::from_parts("basic_gauge", labels));
-        recorder.update_gauge(key, GaugeValue::Absolute(-3.14));
+        let key = Key::from_parts("basic_gauge", labels);
+        recorder.update_gauge(&key, GaugeValue::Absolute(-3.14));
         let rendered = handle.render();
         let expected_gauge = format!(
             "{}# TYPE basic_gauge gauge\nbasic_gauge{{wutang=\"forever\"}} -3.14\n\n",
@@ -284,8 +284,8 @@ mod tests {
 
         assert_eq!(rendered, expected_gauge);
 
-        let key = Key::from(KeyData::from_name("basic_histogram"));
-        recorder.record_histogram(key, 12.0);
+        let key = Key::from_name("basic_histogram");
+        recorder.record_histogram(&key, 12.0);
         let rendered = handle.render();
 
         let histogram_data = concat!(
@@ -326,17 +326,17 @@ mod tests {
             .set_buckets(&DEFAULT_VALUES[..])
             .build();
 
-        let full_key = Key::from(KeyData::from_name("metrics_testing_foo"));
-        recorder.record_histogram(full_key, FULL_VALUES[0]);
+        let full_key = Key::from_name("metrics_testing_foo");
+        recorder.record_histogram(&full_key, FULL_VALUES[0]);
 
-        let prefix_key = Key::from(KeyData::from_name("metrics_testing_bar"));
-        recorder.record_histogram(prefix_key, PREFIX_VALUES[1]);
+        let prefix_key = Key::from_name("metrics_testing_bar");
+        recorder.record_histogram(&prefix_key, PREFIX_VALUES[1]);
 
-        let suffix_key = Key::from(KeyData::from_name("metrics_testin_foo"));
-        recorder.record_histogram(suffix_key, SUFFIX_VALUES[2]);
+        let suffix_key = Key::from_name("metrics_testin_foo");
+        recorder.record_histogram(&suffix_key, SUFFIX_VALUES[2]);
 
-        let default_key = Key::from(KeyData::from_name("metrics_wee"));
-        recorder.record_histogram(default_key, DEFAULT_VALUES[2] + 1.0);
+        let default_key = Key::from_name("metrics_wee");
+        recorder.record_histogram(&default_key, DEFAULT_VALUES[2] + 1.0);
 
         let full_data = concat!(
             "# TYPE metrics_testing_foo histogram\n",
@@ -395,11 +395,11 @@ mod tests {
             .idle_timeout(MetricKindMask::COUNTER, Some(Duration::from_secs(10)))
             .build_with_clock(clock);
 
-        let key = Key::from(KeyData::from_name("basic_counter"));
-        recorder.increment_counter(key, 42);
+        let key = Key::from_name("basic_counter");
+        recorder.increment_counter(&key, 42);
 
-        let key = Key::from(KeyData::from_name("basic_gauge"));
-        recorder.update_gauge(key, GaugeValue::Absolute(-3.14));
+        let key = Key::from_name("basic_gauge");
+        recorder.update_gauge(&key, GaugeValue::Absolute(-3.14));
 
         let handle = recorder.handle();
         let rendered = handle.render();
@@ -429,8 +429,8 @@ mod tests {
             .add_global_label("foo", "foo")
             .add_global_label("foo", "bar")
             .build();
-        let key = Key::from(KeyData::from_name("basic_counter"));
-        recorder.increment_counter(key, 42);
+        let key = Key::from_name("basic_counter");
+        recorder.increment_counter(&key, 42);
 
         let handle = recorder.handle();
         let rendered = handle.render();
@@ -445,11 +445,9 @@ mod tests {
             .add_global_label("foo", "foo")
             .build();
 
-        let key = Key::from(
-            KeyData::from_name("overridden")
-                .with_extra_labels(vec![Label::new("foo", "overridden")]),
-        );
-        recorder.increment_counter(key, 1);
+        let key = Key::from_name("overridden")
+            .with_extra_labels(vec![Label::new("foo", "overridden")]);
+        recorder.increment_counter(&key, 1);
 
         let handle = recorder.handle();
         let rendered = handle.render();

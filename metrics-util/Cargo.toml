@@ -50,6 +50,9 @@ parking_lot = { version = "0.11", optional = true }
 quanta = { version = "0.7", optional = true }
 sketches-ddsketch = { version = "0.1", optional = true }
 ordered-float = "2.0"
+num_cpus = "1"
+t1ha = "0.1"
+hashbrown = "0.11"
 
 [dev-dependencies]
 approx = "0.4"

@@ -157,21 +157,21 @@
 //! struct LogRecorder;
 //!
 //! impl Recorder for LogRecorder {
-//!     fn register_counter(&self, key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+//!     fn register_counter(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //!
-//!     fn register_gauge(&self, key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+//!     fn register_gauge(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //!
-//!     fn register_histogram(&self, key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+//!     fn register_histogram(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //!
-//!     fn increment_counter(&self, key: Key, value: u64) {
+//!     fn increment_counter(&self, key: &Key, value: u64) {
 //!         info!("counter '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn update_gauge(&self, key: Key, value: GaugeValue) {
+//!     fn update_gauge(&self, key: &Key, value: GaugeValue) {
 //!         info!("gauge '{}' -> {:?}", key, value);
 //!     }
 //!
-//!     fn record_histogram(&self, key: Key, value: f64) {
+//!     fn record_histogram(&self, key: &Key, value: f64) {
 //!         info!("histogram '{}' -> {}", key, value);
 //!     }
 //! }

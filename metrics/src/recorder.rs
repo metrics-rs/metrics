@@ -23,7 +23,7 @@ pub trait Recorder {
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
-    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>);
+    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
 
     /// Registers a gauge.
     ///
@@ -31,7 +31,7 @@ pub trait Recorder {
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
-    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>);
+    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
 
     /// Registers a histogram.
     ///
@@ -39,16 +39,16 @@ pub trait Recorder {
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
-    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>);
+    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
 
     /// Increments a counter.
-    fn increment_counter(&self, key: Key, value: u64);
+    fn increment_counter(&self, key: &Key, value: u64);
 
     /// Updates a gauge.
-    fn update_gauge(&self, key: Key, value: GaugeValue);
+    fn update_gauge(&self, key: &Key, value: GaugeValue);
 
     /// Records a histogram.
-    fn record_histogram(&self, key: Key, value: f64);
+    fn record_histogram(&self, key: &Key, value: f64);
 }
 
 /// A no-op recorder.
@@ -58,19 +58,19 @@ pub trait Recorder {
 pub struct NoopRecorder;
 
 impl Recorder for NoopRecorder {
-    fn register_counter(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {
+    fn register_counter(&self, _key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {
     }
-    fn register_gauge(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+    fn register_gauge(&self, _key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
     fn register_histogram(
         &self,
-        _key: Key,
+        _key: &Key,
         _unit: Option<Unit>,
         _description: Option<&'static str>,
     ) {
     }
-    fn increment_counter(&self, _key: Key, _value: u64) {}
-    fn update_gauge(&self, _key: Key, _value: GaugeValue) {}
-    fn record_histogram(&self, _key: Key, _value: f64) {}
+    fn increment_counter(&self, _key: &Key, _value: u64) {}
+    fn update_gauge(&self, _key: &Key, _value: GaugeValue) {}
+    fn record_histogram(&self, _key: &Key, _value: f64) {}
 }
 
 /// Sets the global recorder to a `&'static Recorder`.

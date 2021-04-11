@@ -55,7 +55,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
 
-use metrics::{GaugeValue, Key, KeyData, Label, Recorder, Unit};
+use metrics::{GaugeValue, Key, Label, Recorder, Unit};
 use metrics_util::layers::Layer;
 use tracing::Span;
 
@@ -123,10 +123,10 @@ where
         });
     }
 
-    fn enhance_key(&self, key: Key) -> Key {
-        let (name, mut labels) = key.into_owned().into_parts();
+    fn enhance_key(&self, key: &Key) -> Key {
+        let (name, mut labels) = key.clone().into_parts();
         self.enhance_labels(&mut labels);
-        KeyData::from_parts(name, labels).into()
+        Key::from_parts(name, labels)
     }
 }
 
@@ -135,30 +135,30 @@ where
     R: Recorder,
     F: LabelFilter,
 {
-    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         self.inner.register_counter(key, unit, description)
     }
 
-    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         self.inner.register_gauge(key, unit, description)
     }
 
-    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         self.inner.register_histogram(key, unit, description)
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: &Key, value: u64) {
         let key = self.enhance_key(key);
-        self.inner.increment_counter(key, value);
+        self.inner.increment_counter(&key, value);
     }
 
-    fn update_gauge(&self, key: Key, value: GaugeValue) {
+    fn update_gauge(&self, key: &Key, value: GaugeValue) {
         let key = self.enhance_key(key);
-        self.inner.update_gauge(key, value);
+        self.inner.update_gauge(&key, value);
     }
 
-    fn record_histogram(&self, key: Key, value: f64) {
+    fn record_histogram(&self, key: &Key, value: f64) {
         let key = self.enhance_key(key);
-        self.inner.record_histogram(key, value);
+        self.inner.record_histogram(&key, value);
     }
 }

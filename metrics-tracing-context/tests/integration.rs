@@ -1,4 +1,4 @@
-use metrics::{counter, Key, KeyData, Label, SharedString};
+use metrics::{counter, Key, Label, SharedString};
 use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::{
     layers::Layer, CompositeKey, DebugValue, DebuggingRecorder, MetricKind, Snapshotter,
@@ -108,7 +108,7 @@ fn test_basic_functionality() {
         vec![(
             CompositeKey::new(
                 MetricKind::Counter,
-                Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS, SVC_USER_EMAIL))
+                Key::from_static_parts(LOGIN_ATTEMPTS, SVC_USER_EMAIL)
             ),
             None,
             None,
@@ -145,7 +145,7 @@ fn test_macro_forms() {
             (
                 CompositeKey::new(
                     MetricKind::Counter,
-                    Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS_NONE, USER_EMAIL))
+                    Key::from_static_parts(LOGIN_ATTEMPTS_NONE, USER_EMAIL)
                 ),
                 None,
                 None,
@@ -154,10 +154,10 @@ fn test_macro_forms() {
             (
                 CompositeKey::new(
                     MetricKind::Counter,
-                    Key::Owned(KeyData::from_static_parts(
+                    Key::from_static_parts(
                         LOGIN_ATTEMPTS_STATIC,
                         SVC_USER_EMAIL
-                    )),
+                    ),
                 ),
                 None,
                 None,
@@ -166,10 +166,10 @@ fn test_macro_forms() {
             (
                 CompositeKey::new(
                     MetricKind::Counter,
-                    Key::Owned(KeyData::from_static_parts(
+                    Key::from_static_parts(
                         LOGIN_ATTEMPTS_DYNAMIC,
                         NODE_USER_EMAIL
-                    )),
+                    ),
                 ),
                 None,
                 None,
@@ -178,10 +178,10 @@ fn test_macro_forms() {
             (
                 CompositeKey::new(
                     MetricKind::Counter,
-                    Key::Owned(KeyData::from_static_parts(
+                    Key::from_static_parts(
                         LOGIN_ATTEMPTS_BOTH,
                         SVC_NODE_USER_EMAIL
-                    )),
+                    ),
                 ),
                 None,
                 None,
@@ -207,7 +207,7 @@ fn test_no_labels() {
         vec![(
             CompositeKey::new(
                 MetricKind::Counter,
-                Key::Owned(KeyData::from_static_name(LOGIN_ATTEMPTS)),
+                Key::from_static_name(LOGIN_ATTEMPTS),
             ),
             None,
             None,
@@ -261,7 +261,7 @@ fn test_multiple_paths_to_the_same_callsite() {
             (
                 CompositeKey::new(
                     MetricKind::Counter,
-                    Key::Owned(KeyData::from_static_parts(MY_COUNTER, SAME_CALLSITE_PATH_1)),
+                    Key::from_static_parts(MY_COUNTER, SAME_CALLSITE_PATH_1),
                 ),
                 None,
                 None,
@@ -270,7 +270,7 @@ fn test_multiple_paths_to_the_same_callsite() {
             (
                 CompositeKey::new(
                     MetricKind::Counter,
-                    Key::Owned(KeyData::from_static_parts(MY_COUNTER, SAME_CALLSITE_PATH_2)),
+                    Key::from_static_parts(MY_COUNTER, SAME_CALLSITE_PATH_2),
                 ),
                 None,
                 None,
@@ -320,7 +320,7 @@ fn test_nested_spans() {
         vec![(
             CompositeKey::new(
                 MetricKind::Counter,
-                Key::Owned(KeyData::from_static_parts(MY_COUNTER, COMBINED_LABELS))
+                Key::from_static_parts(MY_COUNTER, COMBINED_LABELS)
             ),
             None,
             None,
@@ -356,7 +356,7 @@ fn test_label_filtering() {
         vec![(
             CompositeKey::new(
                 MetricKind::Counter,
-                Key::Owned(KeyData::from_static_parts(LOGIN_ATTEMPTS, EMAIL_USER))
+                Key::from_static_parts(LOGIN_ATTEMPTS, EMAIL_USER)
             ),
             None,
             None,

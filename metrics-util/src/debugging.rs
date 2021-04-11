@@ -25,7 +25,7 @@ pub enum DebugValue {
 
 /// Captures point-in-time snapshots of `DebuggingRecorder`.
 pub struct Snapshotter {
-    registry: Arc<Registry<CompositeKey, Handle>>,
+    registry: Arc<Registry<Key, Handle>>,
     metrics: Option<Arc<Mutex<IndexMap<CompositeKey, ()>>>>,
     units: UnitMap,
     descs: DescriptionMap,
@@ -37,11 +37,13 @@ impl Snapshotter {
         let mut snapshot = Vec::new();
         let handles = self.registry.get_handles();
 
-        let collect_metric = |ckey: CompositeKey,
+        let collect_metric = |kind: MetricKind,
+                              key: Key,
                               handle: &Handle,
                               units: &UnitMap,
                               descs: &DescriptionMap,
                               snapshot: &mut Snapshot| {
+            let ckey = CompositeKey::new(kind, key);
             let unit = units
                 .lock()
                 .expect("units lock poisoned")
@@ -52,7 +54,7 @@ impl Snapshotter {
                 .expect("descriptions lock poisoned")
                 .get(&ckey)
                 .cloned();
-            let value = match ckey.kind() {
+            let value = match kind {
                 MetricKind::Counter => DebugValue::Counter(handle.read_counter()),
                 MetricKind::Gauge => DebugValue::Gauge(handle.read_gauge().into()),
                 MetricKind::Histogram => {
@@ -75,14 +77,15 @@ impl Snapshotter {
                 };
 
                 for (dk, _) in metrics.into_iter() {
-                    if let Some((_, h)) = handles.get(&dk) {
-                        collect_metric(dk, h, &self.units, &self.descs, &mut snapshot);
+                    let key = dk.into_parts();
+                    if let Some((_, h)) = handles.get(&key) {
+                        collect_metric(key.0, key.1, h, &self.units, &self.descs, &mut snapshot);
                     }
                 }
             }
             None => {
-                for (dk, (_, h)) in handles.into_iter() {
-                    collect_metric(dk, &h, &self.units, &self.descs, &mut snapshot);
+                for ((kind, key), (_, h)) in handles.into_iter() {
+                    collect_metric(kind, key, &h, &self.units, &self.descs, &mut snapshot);
                 }
             }
         }
@@ -96,7 +99,7 @@ impl Snapshotter {
 /// Callers can easily take snapshots of the metrics at any given time and get access
 /// to the raw values.
 pub struct DebuggingRecorder {
-    registry: Arc<Registry<CompositeKey, Handle>>,
+    registry: Arc<Registry<Key, Handle>>,
     metrics: Option<Arc<Mutex<IndexMap<CompositeKey, ()>>>>,
     units: Arc<Mutex<HashMap<CompositeKey, Unit>>>,
     descs: Arc<Mutex<HashMap<CompositeKey, &'static str>>>,
@@ -170,49 +173,55 @@ impl DebuggingRecorder {
 }
 
 impl Recorder for DebuggingRecorder {
-    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
-        let rkey = CompositeKey::new(MetricKind::Counter, key);
+    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+        let rkey = CompositeKey::new(MetricKind::Counter, key.clone());
         self.register_metric(rkey.clone());
         self.insert_unit_description(rkey.clone(), unit, description);
-        self.registry.op(rkey, |_| {}, Handle::counter)
+        self.registry.op(MetricKind::Counter, key, |_| {}, Handle::counter)
     }
 
-    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
-        let rkey = CompositeKey::new(MetricKind::Gauge, key);
+    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+        let rkey = CompositeKey::new(MetricKind::Gauge, key.clone());
         self.register_metric(rkey.clone());
         self.insert_unit_description(rkey.clone(), unit, description);
-        self.registry.op(rkey, |_| {}, Handle::gauge)
+        self.registry.op(MetricKind::Gauge, key, |_| {}, Handle::gauge)
     }
 
-    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
-        let rkey = CompositeKey::new(MetricKind::Histogram, key);
+    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+        let rkey = CompositeKey::new(MetricKind::Histogram, key.clone());
         self.register_metric(rkey.clone());
         self.insert_unit_description(rkey.clone(), unit, description);
-        self.registry.op(rkey, |_| {}, Handle::histogram)
+        self.registry.op(MetricKind::Histogram, key, |_| {}, Handle::histogram)
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
-        let rkey = CompositeKey::new(MetricKind::Counter, key);
+    fn increment_counter(&self, key: &Key, value: u64) {
+        let rkey = CompositeKey::new(MetricKind::Counter, key.clone());
         self.register_metric(rkey.clone());
         self.registry.op(
-            rkey,
+            MetricKind::Counter,
+            key,
             |handle| handle.increment_counter(value),
             Handle::counter,
         )
     }
 
-    fn update_gauge(&self, key: Key, value: GaugeValue) {
-        let rkey = CompositeKey::new(MetricKind::Gauge, key);
-        self.register_metric(rkey.clone());
-        self.registry
-            .op(rkey, |handle| handle.update_gauge(value), Handle::gauge)
-    }
-
-    fn record_histogram(&self, key: Key, value: f64) {
-        let rkey = CompositeKey::new(MetricKind::Histogram, key);
+    fn update_gauge(&self, key: &Key, value: GaugeValue) {
+        let rkey = CompositeKey::new(MetricKind::Gauge, key.clone());
         self.register_metric(rkey.clone());
         self.registry.op(
-            rkey,
+            MetricKind::Gauge,
+            key,
+            |handle| handle.update_gauge(value),
+            Handle::gauge
+        )
+    }
+
+    fn record_histogram(&self, key: &Key, value: f64) {
+        let rkey = CompositeKey::new(MetricKind::Histogram, key.clone());
+        self.register_metric(rkey.clone());
+        self.registry.op(
+            MetricKind::Histogram,
+            key,
             |handle| handle.record_histogram(value),
             Handle::histogram,
         )
