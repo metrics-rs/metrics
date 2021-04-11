@@ -252,47 +252,47 @@ impl Default for TcpBuilder {
 impl TcpRecorder {
     fn register_metric(
         &self,
-        key: Key,
+        key: &Key,
         metric_type: MetricType,
         unit: Option<Unit>,
         description: Option<&'static str>,
     ) {
         let _ = self
             .tx
-            .try_send(Event::Metadata(key, metric_type, unit, description));
+            .try_send(Event::Metadata(key.clone(), metric_type, unit, description));
         self.state.wake();
     }
 
-    fn push_metric(&self, key: Key, value: MetricValue) {
+    fn push_metric(&self, key: &Key, value: MetricValue) {
         if self.state.should_send() {
-            let _ = self.tx.try_send(Event::Metric(key, value));
+            let _ = self.tx.try_send(Event::Metric(key.clone(), value));
             self.state.wake();
         }
     }
 }
 
 impl Recorder for TcpRecorder {
-    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         self.register_metric(key, MetricType::Counter, unit, description);
     }
 
-    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         self.register_metric(key, MetricType::Gauge, unit, description);
     }
 
-    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         self.register_metric(key, MetricType::Histogram, unit, description);
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: &Key, value: u64) {
         self.push_metric(key, MetricValue::Counter(value));
     }
 
-    fn update_gauge(&self, key: Key, value: GaugeValue) {
+    fn update_gauge(&self, key: &Key, value: GaugeValue) {
         self.push_metric(key, MetricValue::Gauge(value));
     }
 
-    fn record_histogram(&self, key: Key, value: f64) {
+    fn record_histogram(&self, key: &Key, value: f64) {
         self.push_metric(key, MetricValue::Histogram(value));
     }
 }

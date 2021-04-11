@@ -9,19 +9,19 @@ use rand::{thread_rng, Rng};
 #[derive(Default)]
 struct TestRecorder;
 impl Recorder for TestRecorder {
-    fn register_counter(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {
+    fn register_counter(&self, _key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {
     }
-    fn register_gauge(&self, _key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+    fn register_gauge(&self, _key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
     fn register_histogram(
         &self,
-        _key: Key,
+        _key: &Key,
         _unit: Option<Unit>,
         _description: Option<&'static str>,
     ) {
     }
-    fn increment_counter(&self, _key: Key, _value: u64) {}
-    fn update_gauge(&self, _key: Key, _value: GaugeValue) {}
-    fn record_histogram(&self, _key: Key, _value: f64) {}
+    fn increment_counter(&self, _key: &Key, _value: u64) {}
+    fn update_gauge(&self, _key: &Key, _value: GaugeValue) {}
+    fn record_histogram(&self, _key: &Key, _value: f64) {}
 }
 
 fn reset_recorder() {

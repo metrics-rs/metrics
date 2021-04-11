@@ -6,39 +6,39 @@ pub struct Fanout {
 }
 
 impl Recorder for Fanout {
-    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         for recorder in &self.recorders {
-            recorder.register_counter(key.clone(), unit.clone(), description);
+            recorder.register_counter(key, unit.clone(), description);
         }
     }
 
-    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         for recorder in &self.recorders {
-            recorder.register_gauge(key.clone(), unit.clone(), description);
+            recorder.register_gauge(key, unit.clone(), description);
         }
     }
 
-    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         for recorder in &self.recorders {
-            recorder.register_histogram(key.clone(), unit.clone(), description);
+            recorder.register_histogram(key, unit.clone(), description);
         }
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: &Key, value: u64) {
         for recorder in &self.recorders {
-            recorder.increment_counter(key.clone(), value);
+            recorder.increment_counter(key, value);
         }
     }
 
-    fn update_gauge(&self, key: Key, value: GaugeValue) {
+    fn update_gauge(&self, key: &Key, value: GaugeValue) {
         for recorder in &self.recorders {
-            recorder.update_gauge(key.clone(), value.clone());
+            recorder.update_gauge(key, value.clone());
         }
     }
 
-    fn record_histogram(&self, key: Key, value: f64) {
+    fn record_histogram(&self, key: &Key, value: f64) {
         for recorder in &self.recorders {
-            recorder.record_histogram(key.clone(), value);
+            recorder.record_histogram(key, value);
         }
     }
 }
@@ -73,7 +73,7 @@ impl FanoutBuilder {
 mod tests {
     use super::FanoutBuilder;
     use crate::debugging::DebuggingRecorder;
-    use metrics::{GaugeValue, Key, Recorder, Unit};
+    use metrics::{GaugeValue, Recorder, Unit};
 
     #[test]
     fn test_basic_functionality() {
@@ -86,6 +86,9 @@ mod tests {
             .add_recorder(recorder2)
             .build();
 
+        let tlkey = "tokio.loops".into();
+        let hsbkey = "hyper.sent.bytes".into();
+
         let before1 = snapshotter1.snapshot();
         let before2 = snapshotter2.snapshot();
         assert_eq!(before1.len(), 0);
@@ -94,18 +97,18 @@ mod tests {
         let ud = &[(Unit::Count, "counter desc"), (Unit::Bytes, "gauge desc")];
 
         fanout.register_counter(
-            Key::Owned("tokio.loops".into()),
+            &tlkey,
             Some(ud[0].0.clone()),
             Some(ud[0].1),
         );
         fanout.register_gauge(
-            Key::Owned("hyper.sent_bytes".into()),
+            &hsbkey,
             Some(ud[1].0.clone()),
             Some(ud[1].1),
         );
-        fanout.increment_counter(Key::Owned("tokio.loops".into()), 47);
+        fanout.increment_counter(&tlkey, 47);
         fanout.update_gauge(
-            Key::Owned("hyper.sent_bytes".into()),
+            &hsbkey,
             GaugeValue::Absolute(12.0),
         );
 

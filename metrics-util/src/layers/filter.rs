@@ -19,42 +19,42 @@ impl<R> Filter<R> {
 }
 
 impl<R: Recorder> Recorder for Filter<R> {
-    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         if self.should_filter(&key) {
             return;
         }
         self.inner.register_counter(key, unit, description)
     }
 
-    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         if self.should_filter(&key) {
             return;
         }
         self.inner.register_gauge(key, unit, description)
     }
 
-    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         if self.should_filter(&key) {
             return;
         }
         self.inner.register_histogram(key, unit, description)
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: &Key, value: u64) {
         if self.should_filter(&key) {
             return;
         }
         self.inner.increment_counter(key, value);
     }
 
-    fn update_gauge(&self, key: Key, value: GaugeValue) {
+    fn update_gauge(&self, key: &Key, value: GaugeValue) {
         if self.should_filter(&key) {
             return;
         }
         self.inner.update_gauge(key, value);
     }
 
-    fn record_histogram(&self, key: Key, value: f64) {
+    fn record_histogram(&self, key: &Key, value: f64) {
         if self.should_filter(&key) {
             return;
         }
@@ -157,7 +157,7 @@ mod tests {
     use super::FilterLayer;
     use crate::debugging::DebuggingRecorder;
     use crate::layers::Layer;
-    use metrics::{Key, Recorder, Unit};
+    use metrics::{Recorder, Unit};
 
     #[test]
     fn test_basic_functionality() {
@@ -166,6 +166,12 @@ mod tests {
         let snapshotter = recorder.snapshotter();
         let filter = FilterLayer::from_patterns(patterns);
         let layered = filter.layer(recorder);
+
+        let tlkey = "tokio.loops".into();
+        let hsbkey = "hyper.sent_bytes".into();
+        let htsbkey = "hyper.tokio.sent_bytes".into();
+        let bckey = "bb8.conns".into();
+        let hrbkey = "hyper.recv_bytes".into();
 
         let before = snapshotter.snapshot();
         assert_eq!(before.len(), 0);
@@ -179,27 +185,27 @@ mod tests {
         ];
 
         layered.register_counter(
-            Key::Owned("tokio.loops".into()),
+            &tlkey,
             Some(ud[0].0.clone()),
             Some(ud[0].1),
         );
         layered.register_gauge(
-            Key::Owned("hyper.sent_bytes".into()),
+            &hsbkey,
             Some(ud[1].0.clone()),
             Some(ud[1].1),
         );
         layered.register_histogram(
-            Key::Owned("hyper.tokio.sent_bytes".into()),
+            &htsbkey,
             Some(ud[2].0.clone()),
             Some(ud[2].1),
         );
         layered.register_counter(
-            Key::Owned("bb8.conns".into()),
+            &bckey,
             Some(ud[3].0.clone()),
             Some(ud[3].1),
         );
         layered.register_gauge(
-            Key::Owned("hyper.recv_bytes".into()),
+            &hrbkey,
             Some(ud[4].0.clone()),
             Some(ud[4].1),
         );
@@ -231,11 +237,17 @@ mod tests {
         let before = snapshotter.snapshot();
         assert_eq!(before.len(), 0);
 
-        layered.register_counter(Key::Owned("tokiO.loops".into()), None, None);
-        layered.register_gauge(Key::Owned("hyper.sent_bytes".into()), None, None);
-        layered.register_histogram(Key::Owned("hyper.recv_bytes".into()), None, None);
-        layered.register_counter(Key::Owned("bb8.conns".into()), None, None);
-        layered.register_counter(Key::Owned("Bb8.conns_closed".into()), None, None);
+        let tlkey = "tokiO.loops".into();
+        let hsbkey = "hyper.sent_bytes".into();
+        let hrbkey = "hyper.recv_bytes".into();
+        let bckey = "bb8.conns".into();
+        let bcckey = "Bb8.conns_closed".into();
+
+        layered.register_counter(&tlkey, None, None);
+        layered.register_gauge(&hsbkey, None, None);
+        layered.register_histogram(&hrbkey, None, None);
+        layered.register_counter(&bckey, None, None);
+        layered.register_counter(&bcckey, None, None);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);

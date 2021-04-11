@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use metrics::{Key, KeyData, Label, NoopRecorder, Recorder, SharedString};
+use metrics::{Key, Label, NoopRecorder, Recorder, SharedString};
 use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
 use metrics_util::layers::Layer;
 use tracing::{
@@ -14,10 +14,10 @@ fn layer_benchmark(c: &mut Criterion) {
         let recorder = NoopRecorder;
         static KEY_NAME: [SharedString; 1] = [SharedString::const_str("key")];
         static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-        static KEY_DATA: KeyData = KeyData::from_static_parts(&KEY_NAME, &KEY_LABELS);
+        static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
         b.iter(|| {
-            recorder.increment_counter(Key::Borrowed(&KEY_DATA), 1);
+            recorder.increment_counter(&KEY_DATA, 1);
         })
     });
     group.bench_function("no integration", |b| {
@@ -32,10 +32,10 @@ fn layer_benchmark(c: &mut Criterion) {
             let recorder = NoopRecorder;
             static KEY_NAME: [SharedString; 1] = [SharedString::const_str("key")];
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: KeyData = KeyData::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
             b.iter(|| {
-                recorder.increment_counter(Key::Borrowed(&KEY_DATA), 1);
+                recorder.increment_counter(&KEY_DATA, 1);
             })
         })
     });
@@ -51,10 +51,10 @@ fn layer_benchmark(c: &mut Criterion) {
             let recorder = NoopRecorder;
             static KEY_NAME: [SharedString; 1] = [SharedString::const_str("key")];
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: KeyData = KeyData::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
             b.iter(|| {
-                recorder.increment_counter(Key::Borrowed(&KEY_DATA), 1);
+                recorder.increment_counter(&KEY_DATA, 1);
             })
         })
     });
@@ -71,10 +71,10 @@ fn layer_benchmark(c: &mut Criterion) {
             let recorder = tracing_layer.layer(NoopRecorder);
             static KEY_NAME: [SharedString; 1] = [SharedString::const_str("key")];
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: KeyData = KeyData::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
             b.iter(|| {
-                recorder.increment_counter(Key::Borrowed(&KEY_DATA), 1);
+                recorder.increment_counter(&KEY_DATA, 1);
             })
         })
     });
@@ -91,10 +91,10 @@ fn layer_benchmark(c: &mut Criterion) {
             let recorder = tracing_layer.layer(NoopRecorder);
             static KEY_NAME: [SharedString; 1] = [SharedString::const_str("key")];
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: KeyData = KeyData::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
             b.iter(|| {
-                recorder.increment_counter(Key::Borrowed(&KEY_DATA), 1);
+                recorder.increment_counter(&KEY_DATA, 1);
             })
         })
     });

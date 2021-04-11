@@ -4,14 +4,14 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 
 use metrics::{GaugeValue, Key, Recorder, Unit};
-use metrics_util::{CompositeKey, Handle, MetricKind, Recency, Registry};
+use metrics_util::{Handle, MetricKind, Recency, Registry};
 
 use crate::common::Snapshot;
 use crate::distribution::{Distribution, DistributionBuilder};
 
 pub(crate) struct Inner {
-    pub registry: Registry<CompositeKey, Handle>,
-    pub recency: Recency<CompositeKey>,
+    pub registry: Registry<Key, Handle>,
+    pub recency: Recency<Key>,
     pub distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, &'static str>>,
@@ -19,7 +19,7 @@ pub(crate) struct Inner {
 }
 
 impl Inner {
-    pub fn registry(&self) -> &Registry<CompositeKey, Handle> {
+    pub fn registry(&self) -> &Registry<Key, Handle> {
         &self.registry
     }
 
@@ -29,8 +29,7 @@ impl Inner {
         let mut counters = HashMap::new();
         let mut gauges = HashMap::new();
 
-        for (key, (gen, handle)) in metrics.into_iter() {
-            let kind = key.kind();
+        for ((kind, key), (gen, handle)) in metrics.into_iter() {
             if !self.recency.should_store(kind, &key, gen, self.registry()) {
                 continue;
             }
@@ -39,8 +38,7 @@ impl Inner {
                 MetricKind::Counter => {
                     let value = handle.read_counter();
 
-                    let (_, key) = key.into_parts();
-                    let (name, labels) = key_to_parts(key, &self.global_labels);
+                    let (name, labels) = key_to_parts(&key, &self.global_labels);
                     let entry = counters
                         .entry(name)
                         .or_insert_with(HashMap::new)
@@ -51,8 +49,7 @@ impl Inner {
                 MetricKind::Gauge => {
                     let value = handle.read_gauge();
 
-                    let (_, key) = key.into_parts();
-                    let (name, labels) = key_to_parts(key, &self.global_labels);
+                    let (name, labels) = key_to_parts(&key, &self.global_labels);
                     let entry = gauges
                         .entry(name)
                         .or_insert_with(HashMap::new)
@@ -61,8 +58,7 @@ impl Inner {
                     *entry = value;
                 }
                 MetricKind::Histogram => {
-                    let (_, key) = key.into_parts();
-                    let (name, labels) = key_to_parts(key, &self.global_labels);
+                    let (name, labels) = key_to_parts(&key, &self.global_labels);
 
                     let mut wg = self.distributions.write();
                     let entry = wg
@@ -228,52 +224,58 @@ impl From<Inner> for PrometheusRecorder {
 }
 
 impl Recorder for PrometheusRecorder {
-    fn register_counter(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_counter(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Counter, key),
+            MetricKind::Counter,
+            key,
             |_| {},
             Handle::counter,
         );
     }
 
-    fn register_gauge(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_gauge(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Gauge, key),
+            MetricKind::Gauge,
+            key,
             |_| {},
             Handle::gauge,
         );
     }
 
-    fn register_histogram(&self, key: Key, _unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_histogram(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Histogram, key),
+            MetricKind::Histogram,
+            key,
             |_| {},
             Handle::histogram,
         );
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: &Key, value: u64) {
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Counter, key),
+            MetricKind::Counter,
+            key,
             |h| h.increment_counter(value),
             Handle::counter,
         );
     }
 
-    fn update_gauge(&self, key: Key, value: GaugeValue) {
+    fn update_gauge(&self, key: &Key, value: GaugeValue) {
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Gauge, key),
+            MetricKind::Gauge,
+            key,
             |h| h.update_gauge(value),
             Handle::gauge,
         );
     }
 
-    fn record_histogram(&self, key: Key, value: f64) {
+    fn record_histogram(&self, key: &Key, value: f64) {
         self.inner.registry().op(
-            CompositeKey::new(MetricKind::Histogram, key),
+            MetricKind::Histogram,
+            key,
             |h| h.record_histogram(value),
             Handle::histogram,
         );
@@ -295,7 +297,7 @@ impl PrometheusHandle {
     }
 }
 
-fn key_to_parts(key: Key, defaults: &HashMap<String, String>) -> (String, Vec<String>) {
+fn key_to_parts(key: &Key, defaults: &HashMap<String, String>) -> (String, Vec<String>) {
     let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';
     let name = key.name().to_string().replace(sanitize, "_");
     let mut values = defaults.clone();

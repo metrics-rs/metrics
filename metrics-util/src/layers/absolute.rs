@@ -23,19 +23,19 @@ impl<R> Absolute<R> {
 }
 
 impl<R: Recorder> Recorder for Absolute<R> {
-    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         self.inner.register_counter(key, unit, description)
     }
 
-    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         self.inner.register_gauge(key, unit, description)
     }
 
-    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         self.inner.register_histogram(key, unit, description)
     }
 
-    fn increment_counter(&self, key: Key, value: u64) {
+    fn increment_counter(&self, key: &Key, value: u64) {
         let value = if self.should_convert(&key) {
             let mut seen = self.seen.lock();
             let curr_value = seen.entry(key.clone()).or_default();
@@ -52,11 +52,11 @@ impl<R: Recorder> Recorder for Absolute<R> {
         self.inner.increment_counter(key, value);
     }
 
-    fn update_gauge(&self, key: Key, value: GaugeValue) {
+    fn update_gauge(&self, key: &Key, value: GaugeValue) {
         self.inner.update_gauge(key, value);
     }
 
-    fn record_histogram(&self, key: Key, value: f64) {
+    fn record_histogram(&self, key: &Key, value: f64) {
         self.inner.record_histogram(key, value);
     }
 }
@@ -185,32 +185,36 @@ mod tests {
         let absolute = AbsoluteLayer::from_patterns(patterns);
         let layered = absolute.layer(recorder);
 
+        let ckey = "counter".into();
+        let gkey = "gauge".into();
+        let hkey = "histo".into();
+
         let before = snapshotter.snapshot();
         assert_eq!(before.len(), 0);
 
-        layered.register_counter(Key::Owned("counter".into()), None, None);
-        layered.register_gauge(Key::Owned("gauge".into()), None, None);
-        layered.register_histogram(Key::Owned("histo".into()), None, None);
+        layered.register_counter(&ckey, None, None);
+        layered.register_gauge(&gkey, None, None);
+        layered.register_histogram(&hkey, None, None);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 3);
 
-        assert_eq!(after[0].0.key().clone(), Key::Owned("counter".into()));
-        assert_eq!(after[1].0.key().clone(), Key::Owned("gauge".into()));
-        assert_eq!(after[2].0.key().clone(), Key::Owned("histo".into()));
+        assert_eq!(after[0].0.key(), &ckey);
+        assert_eq!(after[1].0.key(), &gkey);
+        assert_eq!(after[2].0.key(), &hkey);
 
-        layered.increment_counter(Key::Owned("counter".into()), 42);
-        layered.update_gauge(Key::Owned("gauge".into()), GaugeValue::Absolute(-420.69));
-        layered.record_histogram(Key::Owned("histo".into()), 3.14);
+        layered.increment_counter(&ckey, 42);
+        layered.update_gauge(&gkey, GaugeValue::Absolute(-420.69));
+        layered.record_histogram(&hkey, 3.14);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 3);
 
-        assert_eq!(after[0].0.key().clone(), Key::Owned("counter".into()));
+        assert_eq!(after[0].0.key(), &ckey);
         assert_eq!(after[0].3, DebugValue::Counter(42));
-        assert_eq!(after[1].0.key().clone(), Key::Owned("gauge".into()));
+        assert_eq!(after[1].0.key(), &gkey);
         assert_eq!(after[1].3, DebugValue::Gauge(OrderedFloat::<f64>(-420.69)));
-        assert_eq!(after[2].0.key().clone(), Key::Owned("histo".into()));
+        assert_eq!(after[2].0.key(), &hkey);
         assert_eq!(
             after[2].3,
             DebugValue::Histogram(vec![OrderedFloat::<f64>(3.14)])
@@ -225,57 +229,60 @@ mod tests {
         let absolute = AbsoluteLayer::from_patterns(patterns);
         let layered = absolute.layer(recorder);
 
+        let ckey = "counter".into();
+        let rbkey = "rdkafka.bytes".into();
+
         let before = snapshotter.snapshot();
         assert_eq!(before.len(), 0);
 
         // First counter.  Brand new.
-        layered.increment_counter(Key::Owned("counter".into()), 42);
+        layered.increment_counter(&ckey, 42);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 1);
 
-        assert_eq!(after[0].0.key().clone(), Key::Owned("counter".into()));
+        assert_eq!(after[0].0.key(), &ckey);
         assert_eq!(after[0].3, DebugValue::Counter(42));
 
         // Second counter.  Brand new.
-        layered.increment_counter(Key::Owned("rdkafka.bytes".into()), 18);
+        layered.increment_counter(&rbkey, 18);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);
 
-        assert_eq!(after[0].0.key().clone(), Key::Owned("counter".into()));
+        assert_eq!(after[0].0.key(), &ckey);
         assert_eq!(after[0].3, DebugValue::Counter(42));
-        assert_eq!(after[1].0.key().clone(), Key::Owned("rdkafka.bytes".into()));
+        assert_eq!(after[1].0.key(), &rbkey);
         assert_eq!(after[1].3, DebugValue::Counter(18));
 
         // Now do them both.
-        layered.increment_counter(Key::Owned("counter".into()), 42);
-        layered.increment_counter(Key::Owned("rdkafka.bytes".into()), 18);
+        layered.increment_counter(&ckey, 42);
+        layered.increment_counter(&rbkey, 18);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);
 
-        assert_eq!(after[0].0.key().clone(), Key::Owned("counter".into()));
+        assert_eq!(after[0].0.key(), &ckey);
         assert_eq!(after[0].3, DebugValue::Counter(84));
-        assert_eq!(after[1].0.key().clone(), Key::Owned("rdkafka.bytes".into()));
+        assert_eq!(after[1].0.key(), &rbkey);
         assert_eq!(after[1].3, DebugValue::Counter(18));
 
         // Try setting another absolute value.
-        layered.increment_counter(Key::Owned("rdkafka.bytes".into()), 24);
+        layered.increment_counter(&rbkey, 24);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);
 
-        assert_eq!(after[1].0.key().clone(), Key::Owned("rdkafka.bytes".into()));
+        assert_eq!(after[1].0.key(), &rbkey);
         assert_eq!(after[1].3, DebugValue::Counter(24));
 
         // And make certain we can't regress.
-        layered.increment_counter(Key::Owned("rdkafka.bytes".into()), 18);
+        layered.increment_counter(&rbkey, 18);
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);
 
-        assert_eq!(after[1].0.key().clone(), Key::Owned("rdkafka.bytes".into()));
+        assert_eq!(after[1].0.key(), &rbkey);
         assert_eq!(after[1].3, DebugValue::Counter(24));
     }
 }

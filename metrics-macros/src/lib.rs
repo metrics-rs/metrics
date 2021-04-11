@@ -268,12 +268,13 @@ fn get_expanded_registration(
     };
 
     let statics = generate_statics(&name, &labels);
-    let metric_key = generate_metric_key(&name, &labels);
+    let (locals, metric_key) = generate_metric_key(&name, &labels);
     quote! {
         {
             #statics
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
+                #locals
                 recorder.#register_ident(#metric_key, #unit, #description);
             }
         }
@@ -300,12 +301,13 @@ where
 
     let op_ident = format_ident!("{}_{}", op_type, metric_type);
     let statics = generate_statics(&name, &labels);
-    let metric_key = generate_metric_key(&name, &labels);
+    let (locals, metric_key) = generate_metric_key(&name, &labels);
     quote! {
         {
             #statics
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
+                #locals
                 recorder.#op_ident(#metric_key, #op_values);
             }
         }
@@ -372,11 +374,11 @@ fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
     let key_static = if use_name_static && use_labels_static {
         if has_labels {
             quote! {
-                static METRIC_KEY: metrics::KeyData = metrics::KeyData::from_static_parts(&METRIC_NAME, &METRIC_LABELS);
+                static METRIC_KEY: metrics::Key = metrics::Key::from_static_parts(&METRIC_NAME, &METRIC_LABELS);
             }
         } else {
             quote! {
-                static METRIC_KEY: metrics::KeyData = metrics::KeyData::from_static_name(&METRIC_NAME);
+                static METRIC_KEY: metrics::Key = metrics::Key::from_static_name(&METRIC_NAME);
             }
         }
     } else {
@@ -390,7 +392,7 @@ fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
     }
 }
 
-fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
+fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> (TokenStream2, TokenStream2) {
     let use_name_static = name_is_fast_path(name);
 
     let has_labels = labels.is_some();
@@ -399,17 +401,19 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
         None => true,
     };
 
-    if use_name_static && use_labels_static {
+    let mut key_name = quote! { &key };
+    let locals = if use_name_static && use_labels_static {
         // Key is entirely static, so we can simply reference our generated statics.  They will be
         // inclusive of whether or not labels were specified.
-        quote! { metrics::Key::Borrowed(&METRIC_KEY) }
+        key_name = quote! { &METRIC_KEY };
+        quote! {}
     } else if use_name_static && !use_labels_static {
         // The name is static, but we have labels which are not static.  Since `use_labels_static`
         // cannot be false unless labels _are_ specified, we know this unwrap is safe.
         let labels = labels.as_ref().unwrap();
         let quoted_labels = labels_to_quoted(labels);
         quote! {
-            metrics::Key::Owned(metrics::KeyData::from_hybrid(&METRIC_NAME, #quoted_labels))
+            let key = metrics::Key::from_hybrid(&METRIC_NAME, #quoted_labels);
         }
     } else if !use_name_static && !use_labels_static {
         // The name is not static, and neither are the labels. Since `use_labels_static`
@@ -417,7 +421,7 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
         let labels = labels.as_ref().unwrap();
         let quoted_labels = labels_to_quoted(labels);
         quote! {
-            metrics::Key::Owned(metrics::KeyData::from_parts(#name, #quoted_labels))
+            metrics::Key::from_parts(#name, #quoted_labels)
         }
     } else {
         // The name is not static, but the labels are.  This could technically mean that there
@@ -425,14 +429,16 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
         // to figure out the correct key.
         if has_labels {
             quote! {
-                metrics::Key::Owned(metrics::KeyData::from_static_labels(#name, &METRIC_LABELS))
+                metrics::Key::from_static_labels(#name, &METRICS_LABELS)
             }
         } else {
             quote! {
-                metrics::Key::Owned(metrics::KeyData::from_name(#name))
+                metrics::Key::from_name(#name)
             }
         }
-    }
+    };
+
+    (locals, key_name)
 }
 
 fn labels_to_quoted(labels: &Labels) -> proc_macro2::TokenStream {
