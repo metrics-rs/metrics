@@ -52,19 +52,6 @@ fn registry_benchmark(c: &mut Criterion) {
                 BatchSize::NumIterations(1),
             )
         })
-        .with_function("key overhead (basic)", |b| {
-            b.iter(|| {
-                let key = "simple_key";
-                Key::from_name(key)
-            })
-        })
-        .with_function("key overhead (labels)", |b| {
-            b.iter(|| {
-                let key = "simple_key";
-                let labels = vec![Label::new("type", "http")];
-                Key::from_parts(key, labels)
-            })
-        })
         .with_function("const key overhead (basic)", |b| {
             b.iter(|| {
                 static KEY_NAME: [SharedString; 1] = [SharedString::const_str("simple_key")];
