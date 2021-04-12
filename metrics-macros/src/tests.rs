@@ -12,9 +12,9 @@ fn test_get_expanded_registration() {
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
-        "static METRIC_KEY : metrics :: KeyData = metrics :: KeyData :: from_static_name (& METRIC_NAME) ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (& METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . register_mytype (metrics :: Key :: Borrowed (& METRIC_KEY) , None , None) ; ",
+        "recorder . register_mytype (& METRIC_KEY , None , None) ; ",
         "} ",
         "}",
     );
@@ -37,9 +37,9 @@ fn test_get_expanded_registration_with_unit() {
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
-        "static METRIC_KEY : metrics :: KeyData = metrics :: KeyData :: from_static_name (& METRIC_NAME) ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (& METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . register_mytype (metrics :: Key :: Borrowed (& METRIC_KEY) , Some (metrics :: Unit :: Nanoseconds) , None) ; ",
+        "recorder . register_mytype (& METRIC_KEY , Some (metrics :: Unit :: Nanoseconds) , None) ; ",
         "} ",
         "}",
     );
@@ -61,9 +61,9 @@ fn test_get_expanded_registration_with_description() {
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
-        "static METRIC_KEY : metrics :: KeyData = metrics :: KeyData :: from_static_name (& METRIC_NAME) ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (& METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . register_mytype (metrics :: Key :: Borrowed (& METRIC_KEY) , None , Some (\"flerkin\")) ; ",
+        "recorder . register_mytype (& METRIC_KEY , None , Some (\"flerkin\")) ; ",
         "} ",
         "}",
     );
@@ -86,9 +86,9 @@ fn test_get_expanded_registration_with_unit_and_description() {
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
-        "static METRIC_KEY : metrics :: KeyData = metrics :: KeyData :: from_static_name (& METRIC_NAME) ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (& METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . register_mytype (metrics :: Key :: Borrowed (& METRIC_KEY) , Some (metrics :: Unit :: Nanoseconds) , Some (\"flerkin\")) ; ",
+        "recorder . register_mytype (& METRIC_KEY , Some (metrics :: Unit :: Nanoseconds) , Some (\"flerkin\")) ; ",
         "} ",
         "}",
     );
@@ -109,9 +109,9 @@ fn test_get_expanded_callsite_static_name_no_labels() {
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
-        "static METRIC_KEY : metrics :: KeyData = metrics :: KeyData :: from_static_name (& METRIC_NAME) ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (& METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (metrics :: Key :: Borrowed (& METRIC_KEY) , 1) ; ",
+        "recorder . myop_mytype (& METRIC_KEY , 1) ; ",
         "} }",
     );
 
@@ -133,9 +133,9 @@ fn test_get_expanded_callsite_static_name_static_inline_labels() {
         "{ ",
         "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
         "static METRIC_LABELS : [metrics :: Label ; 1usize] = [metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
-        "static METRIC_KEY : metrics :: KeyData = metrics :: KeyData :: from_static_parts (& METRIC_NAME , & METRIC_LABELS) ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_parts (& METRIC_NAME , & METRIC_LABELS) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (metrics :: Key :: Borrowed (& METRIC_KEY) , 1) ; ",
+        "recorder . myop_mytype (& METRIC_KEY , 1) ; ",
         "} ",
         "}",
     );
@@ -158,9 +158,8 @@ fn test_get_expanded_callsite_static_name_dynamic_inline_labels() {
         "{ ",
         "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (metrics :: Key :: Owned (",
-        "metrics :: KeyData :: from_hybrid (& METRIC_NAME , vec ! [metrics :: Label :: new (\"key1\" , & value1)])",
-        ") , 1) ; ",
+        "let key = metrics :: Key :: from_parts (& METRIC_NAME [..] , vec ! [metrics :: Label :: new (\"key1\" , & value1)]) ; ",
+        "recorder . myop_mytype (& key , 1) ; ",
         "} ",
         "}",
     );
@@ -183,7 +182,8 @@ fn test_get_expanded_callsite_static_name_existing_labels() {
         "{ ",
         "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (metrics :: Key :: Owned (metrics :: KeyData :: from_hybrid (& METRIC_NAME , mylabels)) , 1) ; ",
+        "let key = metrics :: Key :: from_parts (& METRIC_NAME [..] , mylabels) ; ",
+        "recorder . myop_mytype (& key , 1) ; ",
         "} ",
         "}",
     );
@@ -204,7 +204,8 @@ fn test_get_expanded_callsite_owned_name_no_labels() {
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (metrics :: Key :: Owned (metrics :: KeyData :: from_name (String :: from (\"owned\"))) , 1) ; ",
+        "let key = metrics :: Key :: from_name (String :: from (\"owned\")) ; ",
+        "recorder . myop_mytype (& key , 1) ; ",
         "} ",
         "}",
     );
@@ -227,7 +228,8 @@ fn test_get_expanded_callsite_owned_name_static_inline_labels() {
         "{ ",
         "static METRIC_LABELS : [metrics :: Label ; 1usize] = [metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (metrics :: Key :: Owned (metrics :: KeyData :: from_static_labels (String :: from (\"owned\") , & METRIC_LABELS)) , 1) ; ",
+        "let key = metrics :: Key :: from_static_labels (String :: from (\"owned\") , & METRICS_LABELS) ; ",
+        "recorder . myop_mytype (& key , 1) ; ",
         "} ",
         "}",
     );
@@ -249,9 +251,8 @@ fn test_get_expanded_callsite_owned_name_dynamic_inline_labels() {
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (metrics :: Key :: Owned (",
-        "metrics :: KeyData :: from_parts (String :: from (\"owned\") , vec ! [metrics :: Label :: new (\"key1\" , & value1)])",
-        ") , 1) ; ",
+        "let key = metrics :: Key :: from_parts (String :: from (\"owned\") , vec ! [metrics :: Label :: new (\"key1\" , & value1)]) ; ",
+        "recorder . myop_mytype (& key , 1) ; ",
         "} ",
         "}",
     );
@@ -273,7 +274,8 @@ fn test_get_expanded_callsite_owned_name_existing_labels() {
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (metrics :: Key :: Owned (metrics :: KeyData :: from_parts (String :: from (\"owned\") , mylabels)) , 1) ; ",
+        "let key = metrics :: Key :: from_parts (String :: from (\"owned\") , mylabels) ; ",
+        "recorder . myop_mytype (& key , 1) ; ",
         "} ",
         "}",
     );

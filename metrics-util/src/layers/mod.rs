@@ -27,42 +27,42 @@
 //! }
 //!
 //! impl<R: Recorder> Recorder for StairwayDeny<R> {
-//!    fn register_counter(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+//!    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
 //!        self.0.register_counter(key, unit, description)
 //!    }
 //!
-//!    fn register_gauge(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+//!    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
 //!        self.0.register_gauge(key, unit, description)
 //!    }
 //!
-//!    fn register_histogram(&self, key: Key, unit: Option<Unit>, description: Option<&'static str>) {
+//!    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
 //!        self.0.register_histogram(key, unit, description)
 //!    }
 //!
-//!    fn increment_counter(&self, key: Key, value: u64) {
+//!    fn increment_counter(&self, key: &Key, value: u64) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
 //!        self.0.increment_counter(key, value);
 //!    }
 //!
-//!    fn update_gauge(&self, key: Key, value: GaugeValue) {
+//!    fn update_gauge(&self, key: &Key, value: GaugeValue) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
 //!        self.0.update_gauge(key, value);
 //!    }
 //!
-//!    fn record_histogram(&self, key: Key, value: f64) {
+//!    fn record_histogram(&self, key: &Key, value: f64) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }

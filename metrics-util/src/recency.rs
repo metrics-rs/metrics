@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::time::Duration;
 use std::{collections::HashMap, ops::DerefMut};
 
@@ -71,8 +72,8 @@ impl<K> Recency<K> {
         registry: &Registry<K, H>,
     ) -> bool
     where
-        K: Eq + Hashable + Clone + 'static,
-        H: Clone + 'static,
+        K: Debug + Eq + Hashable + Clone + 'static,
+        H: Debug + Clone + 'static,
     {
         if let Some(idle_timeout) = self.idle_timeout {
             if self.mask.matches(kind) {

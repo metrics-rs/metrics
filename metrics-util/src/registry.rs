@@ -1,13 +1,14 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
+use std::fmt::{self, Debug};
 use std::{hash::BuildHasherDefault, iter::repeat};
 
 use hashbrown::{hash_map::RawEntryMut, HashMap};
+use metrics::KeyHasher;
 use parking_lot::RwLock;
-use t1ha::T1haHasher;
 
 use crate::{Hashable, MetricKind};
 
-type RegistryHasher = T1haHasher;
+type RegistryHasher = KeyHasher;
 type RegistryHashMap<K, V> = HashMap<K, Generational<V>, BuildHasherDefault<RegistryHasher>>;
 
 /// Generation counter.
@@ -18,7 +19,6 @@ type RegistryHashMap<K, V> = HashMap<K, Generational<V>, BuildHasherDefault<Regi
 #[derive(Debug, Clone, PartialEq)]
 pub struct Generation(usize);
 
-#[derive(Debug)]
 pub(crate) struct Generational<H>(AtomicUsize, H);
 
 impl<H> Generational<H> {
@@ -36,6 +36,15 @@ impl<H> Generational<H> {
 
     pub fn get_inner(&self) -> &H {
         &self.1
+    }
+}
+
+impl<H: fmt::Debug> fmt::Debug for Generational<H> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Generational")
+            .field("gen", &self.0)
+            .field("inner", &self.1)
+            .finish()
     }
 }
 
@@ -141,10 +150,15 @@ where
             {
                 v
             } else {
-                shard_write.entry(key.clone()).or_insert_with(|| {
-                    let value = init();
-                    Generational::new(value)
-                })
+                let (_, v) = shard_write
+                    .raw_entry_mut()
+                    .from_key_hashed_nocheck(hash, key)
+                    .or_insert(key.clone(), {
+                        let value = init();
+                        Generational::new(value)
+                    });
+
+                v
             };
 
             let result = op(v.get_inner());
@@ -233,6 +247,7 @@ fn idx_to_kind(idx: usize) -> MetricKind {
 #[cfg(test)]
 mod tests {
     use super::{Generational, MetricKind, Registry};
+    use crate::DefaultHashable;
     use std::sync::{
         atomic::{AtomicUsize, Ordering::SeqCst},
         Arc,
@@ -240,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_generation() {
-        let generational = Generational::new(());
+        let generational = Generational::new(1);
         let start_gen = generational.get_generation();
         let start_gen_extra = generational.get_generation();
         assert_eq!(start_gen, start_gen_extra);
@@ -253,14 +268,16 @@ mod tests {
 
     #[test]
     fn test_registry() {
-        let registry = Registry::<u64, Arc<AtomicUsize>>::new();
+        let registry = Registry::<DefaultHashable<u64>, Arc<AtomicUsize>>::new();
+
+        let key = DefaultHashable(1);
 
         let entries = registry.get_handles();
         assert_eq!(entries.len(), 0);
 
         let initial_value = registry.op(
             MetricKind::Counter,
-            &1,
+            &key,
             |h| h.fetch_add(1, SeqCst),
             || Arc::new(AtomicUsize::new(42)),
         );
@@ -274,13 +291,13 @@ mod tests {
             .next()
             .expect("failed to get first entry");
 
-        let (key, (initial_gen, value)) = initial_entry;
-        assert_eq!(key, (MetricKind::Counter, 1));
+        let (ikey, (initial_gen, value)) = initial_entry;
+        assert_eq!(ikey, (MetricKind::Counter, DefaultHashable(1)));
         assert_eq!(value.load(SeqCst), 43);
 
         let update_value = registry.op(
             MetricKind::Counter,
-            &1,
+            &key,
             |h| h.fetch_add(1, SeqCst),
             || Arc::new(AtomicUsize::new(42)),
         );
@@ -294,9 +311,9 @@ mod tests {
             .next()
             .expect("failed to get updated entry");
 
-        let ((kind, key), (updated_gen, value)) = updated_entry;
+        let ((kind, ukey), (updated_gen, value)) = updated_entry;
         assert_eq!(kind, MetricKind::Counter);
-        assert_eq!(key, 1);
+        assert_eq!(ukey, DefaultHashable(1));
         assert_eq!(value.load(SeqCst), 44);
 
         assert!(!registry.delete(kind, &key, initial_gen));

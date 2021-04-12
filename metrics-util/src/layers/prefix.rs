@@ -75,7 +75,7 @@ mod tests {
     use super::PrefixLayer;
     use crate::debugging::DebuggingRecorder;
     use crate::layers::Layer;
-    use metrics::{Key, Recorder, Unit};
+    use metrics::{Recorder, Unit};
 
     #[test]
     fn test_basic_functionality() {

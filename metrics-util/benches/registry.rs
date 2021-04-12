@@ -43,7 +43,7 @@ fn registry_benchmark(c: &mut Criterion) {
     group.bench_function("registry overhead", |b| {
         b.iter_batched(
             || (),
-            |_| Registry::<u64, ()>::new(),
+            |_| Registry::<Key, ()>::new(),
             BatchSize::NumIterations(1),
         )
     });
