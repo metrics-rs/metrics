@@ -27,7 +27,7 @@ mod registry;
 pub use registry::{Generation, Registry};
 
 mod common;
-pub use common::Hashable;
+pub use common::*;
 
 mod key;
 pub use key::CompositeKey;

@@ -92,14 +92,12 @@ impl Key {
     /// Creates a [`Key`] from a name.
     pub fn from_name<N>(name: N) -> Self
     where
-        N: Into<SharedString>,
+        N: Into<NameParts>,
     {
-        Self {
-            name_parts: NameParts::from_name(name),
-            labels: Cow::owned(Vec::new()),
-            hashed: AtomicBool::new(false),
-            hash: AtomicU64::new(0),
-        }
+        let name_parts = name.into();
+        let labels = Cow::owned(Vec::new());
+
+        Self::builder(name_parts, labels)
     }
 
     /// Creates a [`Key`] from a name and set of labels.
@@ -108,25 +106,10 @@ impl Key {
         N: Into<NameParts>,
         L: IntoLabels,
     {
-        Self {
-            name_parts: name.into(),
-            labels: Cow::owned(labels.into_labels()),
-            hashed: AtomicBool::new(false),
-            hash: AtomicU64::new(0),
-        }
-    }
+        let name_parts = name.into();
+        let labels = Cow::owned(labels.into_labels());
 
-    /// Creates a [`Key`] from a static name and non-static set of labels.
-    pub fn from_hybrid<L>(name_parts: &'static [SharedString], labels: L) -> Self
-    where
-        L: IntoLabels,
-    {
-        Self {
-            name_parts: NameParts::from_static_names(name_parts),
-            labels: Cow::owned(labels.into_labels()),
-            hashed: AtomicBool::new(false),
-            hash: AtomicU64::new(0),
-        }
+        Self::builder(name_parts, labels)
     }
 
     /// Creates a [`Key`] from a non-static name and a static set of labels.
@@ -137,6 +120,8 @@ impl Key {
         Self {
             name_parts: name.into(),
             labels: Cow::<[Label]>::const_slice(labels),
+            hashed: AtomicBool::new(false),
+            hash: AtomicU64::new(0),
         }
     }
 
@@ -162,6 +147,17 @@ impl Key {
         }
     }
 
+    fn builder(name_parts: NameParts, labels: Cow<'static, [Label]>) -> Self {
+        let hash = generate_key_hash(&name_parts, &labels);
+
+        Self {
+            name_parts,
+            labels,
+            hashed: AtomicBool::new(true),
+            hash: AtomicU64::new(hash),
+        }
+    }
+
     /// Name parts of this key.
     pub fn name(&self) -> &NameParts {
         &self.name_parts
@@ -175,23 +171,13 @@ impl Key {
     /// Appends a part to the name,
     pub fn append_name<S: Into<SharedString>>(self, part: S) -> Self {
         let name_parts = self.name_parts.append(part);
-        Self {
-            name_parts,
-            labels: self.labels,
-            hashed: AtomicBool::new(false),
-            hash: AtomicU64::new(0),
-        }
+        Self::builder(name_parts, self.labels)
     }
 
     /// Prepends a part to the name.
     pub fn prepend_name<S: Into<SharedString>>(self, part: S) -> Self {
         let name_parts = self.name_parts.prepend(part);
-        Self {
-            name_parts,
-            labels: self.labels,
-            hashed: AtomicBool::new(false),
-            hash: AtomicU64::new(0),
-        }
+        Self::builder(name_parts, self.labels)
     }
 
     /// Consumes this [`Key`], returning the name parts and any labels.
@@ -209,19 +195,7 @@ impl Key {
         let mut labels = self.labels.clone().into_owned();
         labels.extend(extra_labels);
 
-        Self {
-            name_parts,
-            labels: labels.into(),
-            hashed: AtomicBool::new(false),
-            hash: AtomicU64::new(0),
-        }
-    }
-
-    fn generate_hash(&self) -> u64 {
-        let mut hasher = KeyHasher::default();
-        self.hash(&mut hasher);
-
-        hasher.finish()
+        Self::builder(name_parts, labels.into())
     }
 
     /// Gets the hash value for this key.
@@ -229,12 +203,27 @@ impl Key {
         if self.hashed.load(Ordering::Acquire) {
             self.hash.load(Ordering::Acquire)
         } else {
-            let hash = self.generate_hash();
+            let hash = generate_key_hash(&self.name_parts, &self.labels);
             self.hash.store(hash, Ordering::Release);
             self.hashed.store(true, Ordering::Release);
             hash
         }
     }
+}
+
+fn generate_key_hash(name_parts: &NameParts, labels: &Cow<'static, [Label]>) -> u64 {
+    let mut hasher = KeyHasher::default();
+    key_hasher_impl(&mut hasher, name_parts, labels);
+    hasher.finish()
+}
+
+fn key_hasher_impl<H: Hasher>(
+    state: &mut H,
+    name_parts: &NameParts,
+    labels: &Cow<'static, [Label]>,
+) {
+    name_parts.hash(state);
+    labels.hash(state);
 }
 
 impl Clone for Key {
@@ -270,8 +259,7 @@ impl Ord for Key {
 
 impl Hash for Key {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name_parts.hash(state);
-        self.labels.hash(state);
+        key_hasher_impl(state, &self.name_parts, &self.labels);
     }
 }
 

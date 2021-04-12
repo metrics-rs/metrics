@@ -413,7 +413,7 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> (TokenStream2, T
         let labels = labels.as_ref().unwrap();
         let quoted_labels = labels_to_quoted(labels);
         quote! {
-            let key = metrics::Key::from_hybrid(&METRIC_NAME, #quoted_labels);
+            let key = metrics::Key::from_parts(&METRIC_NAME[..], #quoted_labels);
         }
     } else if !use_name_static && !use_labels_static {
         // The name is not static, and neither are the labels. Since `use_labels_static`
@@ -421,7 +421,7 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> (TokenStream2, T
         let labels = labels.as_ref().unwrap();
         let quoted_labels = labels_to_quoted(labels);
         quote! {
-            metrics::Key::from_parts(#name, #quoted_labels)
+            let key = metrics::Key::from_parts(#name, #quoted_labels);
         }
     } else {
         // The name is not static, but the labels are.  This could technically mean that there
@@ -429,11 +429,11 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> (TokenStream2, T
         // to figure out the correct key.
         if has_labels {
             quote! {
-                metrics::Key::from_static_labels(#name, &METRICS_LABELS)
+                let key = metrics::Key::from_static_labels(#name, &METRICS_LABELS)
             }
         } else {
             quote! {
-                metrics::Key::from_name(#name)
+                let key = metrics::Key::from_name(#name);
             }
         }
     };

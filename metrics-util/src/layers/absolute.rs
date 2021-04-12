@@ -174,7 +174,7 @@ mod tests {
     use super::AbsoluteLayer;
     use crate::layers::Layer;
     use crate::{debugging::DebuggingRecorder, DebugValue};
-    use metrics::{GaugeValue, Key, Recorder};
+    use metrics::{GaugeValue, Recorder};
     use ordered_float::OrderedFloat;
 
     #[test]
