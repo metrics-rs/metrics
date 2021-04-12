@@ -56,7 +56,7 @@ hashbrown = "0.11"
 
 [dev-dependencies]
 approx = "0.4"
-criterion = "0.3"
+criterion = { version = "0.3", default-features = false, features = ["html_reports", "cargo_bench_support"] }
 lazy_static = "1.3"
 rand = { version = "0.8", features = ["small_rng"] }
 rand_distr = "0.4"

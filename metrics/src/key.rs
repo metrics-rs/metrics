@@ -1,9 +1,10 @@
-use crate::{cow::Cow, IntoLabels, Label, SharedString};
+use crate::{cow::Cow, IntoLabels, KeyHasher, Label, SharedString};
 use alloc::{string::String, vec::Vec};
-use core::{
-    fmt,
-    hash::Hash,
-    slice::Iter,
+use core::{fmt, hash::Hash, slice::Iter};
+use std::{
+    cmp,
+    hash::Hasher,
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 const NO_LABELS: [Label; 0] = [];
@@ -78,11 +79,13 @@ impl fmt::Display for NameParts {
 }
 
 /// A metric identifier.
-#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Key {
     // TODO: once const slicing is possible on stable, we could likely use `beef` for both of these
     name_parts: NameParts,
     labels: Cow<'static, [Label]>,
+    hashed: AtomicBool,
+    hash: AtomicU64,
 }
 
 impl Key {
@@ -94,6 +97,8 @@ impl Key {
         Self {
             name_parts: NameParts::from_name(name),
             labels: Cow::owned(Vec::new()),
+            hashed: AtomicBool::new(false),
+            hash: AtomicU64::new(0),
         }
     }
 
@@ -106,6 +111,8 @@ impl Key {
         Self {
             name_parts: name.into(),
             labels: Cow::owned(labels.into_labels()),
+            hashed: AtomicBool::new(false),
+            hash: AtomicU64::new(0),
         }
     }
 
@@ -117,6 +124,8 @@ impl Key {
         Self {
             name_parts: NameParts::from_static_names(name_parts),
             labels: Cow::owned(labels.into_labels()),
+            hashed: AtomicBool::new(false),
+            hash: AtomicU64::new(0),
         }
     }
 
@@ -148,6 +157,8 @@ impl Key {
         Self {
             name_parts: NameParts::from_static_names(name_parts),
             labels: Cow::<[Label]>::const_slice(labels),
+            hashed: AtomicBool::new(false),
+            hash: AtomicU64::new(0),
         }
     }
 
@@ -167,6 +178,8 @@ impl Key {
         Self {
             name_parts,
             labels: self.labels,
+            hashed: AtomicBool::new(false),
+            hash: AtomicU64::new(0),
         }
     }
 
@@ -176,6 +189,8 @@ impl Key {
         Self {
             name_parts,
             labels: self.labels,
+            hashed: AtomicBool::new(false),
+            hash: AtomicU64::new(0),
         }
     }
 
@@ -197,7 +212,66 @@ impl Key {
         Self {
             name_parts,
             labels: labels.into(),
+            hashed: AtomicBool::new(false),
+            hash: AtomicU64::new(0),
         }
+    }
+
+    fn generate_hash(&self) -> u64 {
+        let mut hasher = KeyHasher::default();
+        self.hash(&mut hasher);
+
+        hasher.finish()
+    }
+
+    /// Gets the hash value for this key.
+    pub fn get_hash(&self) -> u64 {
+        if self.hashed.load(Ordering::Acquire) {
+            self.hash.load(Ordering::Acquire)
+        } else {
+            let hash = self.generate_hash();
+            self.hash.store(hash, Ordering::Release);
+            self.hashed.store(true, Ordering::Release);
+            hash
+        }
+    }
+}
+
+impl Clone for Key {
+    fn clone(&self) -> Self {
+        Self {
+            name_parts: self.name_parts.clone(),
+            labels: self.labels.clone(),
+            hashed: AtomicBool::new(self.hashed.load(Ordering::Acquire)),
+            hash: AtomicU64::new(self.hash.load(Ordering::Acquire)),
+        }
+    }
+}
+
+impl PartialEq for Key {
+    fn eq(&self, other: &Self) -> bool {
+        self.name_parts == other.name_parts && self.labels == other.labels
+    }
+}
+
+impl Eq for Key {}
+
+impl PartialOrd for Key {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Key {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        (&self.name_parts, &self.labels).cmp(&(&other.name_parts, &other.labels))
+    }
+}
+
+impl Hash for Key {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name_parts.hash(state);
+        self.labels.hash(state);
     }
 }
 
@@ -239,10 +313,7 @@ where
     L: IntoLabels,
 {
     fn from(parts: (N, L)) -> Self {
-        Self {
-            name_parts: NameParts::from_name(parts.0),
-            labels: Cow::owned(parts.1.into_labels()),
-        }
+        Self::from_parts(NameParts::from_name(parts.0), parts.1)
     }
 }
 

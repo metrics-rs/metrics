@@ -10,7 +10,7 @@ use metrics_util::layers::{AbsoluteLayer, Layer};
 fn layer_benchmark(c: &mut Criterion) {
     #[cfg(feature = "layer-absolute")]
     {
-        let mut group = c.benchmark_group("Absolute");
+        let mut group = c.benchmark_group("absolute");
         group.bench_function("no match", |b| {
             let patterns = vec!["rdkafka"];
             let absolute_layer = AbsoluteLayer::from_patterns(patterns);

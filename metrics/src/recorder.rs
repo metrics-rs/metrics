@@ -58,7 +58,12 @@ pub trait Recorder {
 pub struct NoopRecorder;
 
 impl Recorder for NoopRecorder {
-    fn register_counter(&self, _key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {
+    fn register_counter(
+        &self,
+        _key: &Key,
+        _unit: Option<Unit>,
+        _description: Option<&'static str>,
+    ) {
     }
     fn register_gauge(&self, _key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
     fn register_histogram(

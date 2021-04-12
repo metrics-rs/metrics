@@ -154,10 +154,7 @@ fn test_macro_forms() {
             (
                 CompositeKey::new(
                     MetricKind::Counter,
-                    Key::from_static_parts(
-                        LOGIN_ATTEMPTS_STATIC,
-                        SVC_USER_EMAIL
-                    ),
+                    Key::from_static_parts(LOGIN_ATTEMPTS_STATIC, SVC_USER_EMAIL),
                 ),
                 None,
                 None,
@@ -166,10 +163,7 @@ fn test_macro_forms() {
             (
                 CompositeKey::new(
                     MetricKind::Counter,
-                    Key::from_static_parts(
-                        LOGIN_ATTEMPTS_DYNAMIC,
-                        NODE_USER_EMAIL
-                    ),
+                    Key::from_static_parts(LOGIN_ATTEMPTS_DYNAMIC, NODE_USER_EMAIL),
                 ),
                 None,
                 None,
@@ -178,10 +172,7 @@ fn test_macro_forms() {
             (
                 CompositeKey::new(
                     MetricKind::Counter,
-                    Key::from_static_parts(
-                        LOGIN_ATTEMPTS_BOTH,
-                        SVC_NODE_USER_EMAIL
-                    ),
+                    Key::from_static_parts(LOGIN_ATTEMPTS_BOTH, SVC_NODE_USER_EMAIL),
                 ),
                 None,
                 None,
@@ -205,10 +196,7 @@ fn test_no_labels() {
     assert_eq!(
         snapshot,
         vec![(
-            CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_static_name(LOGIN_ATTEMPTS),
-            ),
+            CompositeKey::new(MetricKind::Counter, Key::from_static_name(LOGIN_ATTEMPTS),),
             None,
             None,
             DebugValue::Counter(1),
