@@ -1,7 +1,7 @@
 use std::time::Duration;
-use std::{collections::HashMap, hash::Hash, ops::DerefMut};
+use std::{collections::HashMap, ops::DerefMut};
 
-use crate::{kind::MetricKindMask, Generation, MetricKind, Registry};
+use crate::{kind::MetricKindMask, Generation, Hashable, MetricKind, Registry};
 
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
@@ -71,7 +71,7 @@ impl<K> Recency<K> {
         registry: &Registry<K, H>,
     ) -> bool
     where
-        K: Eq + Hash + Clone + 'static,
+        K: Eq + Hashable + Clone + 'static,
         H: Clone + 'static,
     {
         if let Some(idle_timeout) = self.idle_timeout {

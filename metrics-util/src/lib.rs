@@ -26,6 +26,9 @@ mod registry;
 #[cfg(feature = "std")]
 pub use registry::{Generation, Registry};
 
+mod common;
+pub use common::Hashable;
+
 mod key;
 pub use key::CompositeKey;
 

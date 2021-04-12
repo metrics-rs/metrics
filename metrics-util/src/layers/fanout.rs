@@ -96,21 +96,10 @@ mod tests {
 
         let ud = &[(Unit::Count, "counter desc"), (Unit::Bytes, "gauge desc")];
 
-        fanout.register_counter(
-            &tlkey,
-            Some(ud[0].0.clone()),
-            Some(ud[0].1),
-        );
-        fanout.register_gauge(
-            &hsbkey,
-            Some(ud[1].0.clone()),
-            Some(ud[1].1),
-        );
+        fanout.register_counter(&tlkey, Some(ud[0].0.clone()), Some(ud[0].1));
+        fanout.register_gauge(&hsbkey, Some(ud[1].0.clone()), Some(ud[1].1));
         fanout.increment_counter(&tlkey, 47);
-        fanout.update_gauge(
-            &hsbkey,
-            GaugeValue::Absolute(12.0),
-        );
+        fanout.update_gauge(&hsbkey, GaugeValue::Absolute(12.0));
 
         let after1 = snapshotter1.snapshot();
         let after2 = snapshotter2.snapshot();

@@ -1,14 +1,11 @@
-use core::{
-    hash::Hash,
-    sync::atomic::{AtomicUsize, Ordering},
-};
-use std::{hash::{BuildHasherDefault, Hasher}, iter::repeat};
+use core::sync::atomic::{AtomicUsize, Ordering};
+use std::{hash::BuildHasherDefault, iter::repeat};
 
-use hashbrown::{HashMap, hash_map::RawEntryMut};
+use hashbrown::{hash_map::RawEntryMut, HashMap};
 use parking_lot::RwLock;
 use t1ha::T1haHasher;
 
-use crate::MetricKind;
+use crate::{Hashable, MetricKind};
 
 type RegistryHasher = T1haHasher;
 type RegistryHashMap<K, V> = HashMap<K, Generational<V>, BuildHasherDefault<RegistryHasher>>;
@@ -63,7 +60,7 @@ impl<H> Generational<H> {
 #[derive(Debug)]
 pub struct Registry<K, H>
 where
-    K: Eq + Hash + Clone + 'static,
+    K: Eq + Hashable + Clone + 'static,
     H: 'static,
 {
     shards: Vec<Vec<RwLock<RegistryHashMap<K, H>>>>,
@@ -72,7 +69,7 @@ where
 
 impl<K, H> Registry<K, H>
 where
-    K: Eq + Hash + Clone + 'static,
+    K: Eq + Hashable + Clone + 'static,
     H: 'static,
 {
     /// Creates a new `Registry`.
@@ -94,16 +91,16 @@ where
 
         let shards = vec![counters, gauges, histograms];
 
-        Self {
-            shards,
-            mask,
-        }
+        Self { shards, mask }
     }
 
     #[inline]
-    fn get_hash_and_shard(&self, kind: MetricKind, key: &K) -> (u64, &RwLock<RegistryHashMap<K, H>>) {
-        let mut hasher = RegistryHasher::default();
-        let hash = hash_key(&mut hasher, key);
+    fn get_hash_and_shard(
+        &self,
+        kind: MetricKind,
+        key: &K,
+    ) -> (u64, &RwLock<RegistryHashMap<K, H>>) {
+        let hash = key.hashable();
 
         // SAFETY: We map each MetricKind variant -- three at present -- to a usize value
         // representing an index in a vector, so we statically know that we're always extracting our
@@ -140,14 +137,14 @@ where
             // Switch to write guard and insert the handle first.
             drop(shard_read);
             let mut shard_write = shard.write();
-            let v = if let Some((_, v)) = shard_write.raw_entry().from_key_hashed_nocheck(hash, key) {
+            let v = if let Some((_, v)) = shard_write.raw_entry().from_key_hashed_nocheck(hash, key)
+            {
                 v
             } else {
-                shard_write.entry(key.clone())
-                    .or_insert_with(|| {
-                        let value = init();
-                        Generational::new(value)
-                    })
+                shard_write.entry(key.clone()).or_insert_with(|| {
+                    let value = init();
+                    Generational::new(value)
+                })
             };
 
             let result = op(v.get_inner());
@@ -164,11 +161,13 @@ where
     pub fn delete(&self, kind: MetricKind, key: &K, generation: Generation) -> bool {
         let (hash, shard) = self.get_hash_and_shard(kind, key);
         let mut shard_write = shard.write();
-        let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
+        let entry = shard_write
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(hash, key);
         if let RawEntryMut::Occupied(entry) = entry {
             if entry.get().get_generation() == generation {
                 let _ = entry.remove_entry();
-                return true
+                return true;
             }
         }
 
@@ -182,14 +181,20 @@ where
     where
         H: Clone,
     {
-        self.shards.iter()
+        self.shards
+            .iter()
             .enumerate()
             .fold(HashMap::default(), |mut acc, (idx, subshards)| {
                 let kind = idx_to_kind(idx);
 
                 for subshard in subshards {
                     let shard_read = subshard.read();
-                    let items = shard_read.iter().map(|(k, v)|  ((kind, k.clone()), (v.get_generation(), v.get_inner().clone())));
+                    let items = shard_read.iter().map(|(k, v)| {
+                        (
+                            (kind, k.clone()),
+                            (v.get_generation(), v.get_inner().clone()),
+                        )
+                    });
                     acc.extend(items);
                 }
                 acc
@@ -199,17 +204,12 @@ where
 
 impl<K, H> Default for Registry<K, H>
 where
-    K: Eq + Hash + Clone + 'static,
+    K: Eq + Hashable + Clone + 'static,
     H: 'static,
 {
     fn default() -> Self {
         Registry::new()
     }
-}
-
-fn hash_key<H: Hasher, I: Hash>(hasher: &mut H, item: I) -> u64 {
-    item.hash(hasher);
-    hasher.finish()
 }
 
 const fn kind_to_idx(kind: MetricKind) -> usize {
@@ -226,7 +226,7 @@ fn idx_to_kind(idx: usize) -> MetricKind {
         0 => MetricKind::Counter,
         1 => MetricKind::Gauge,
         2 => MetricKind::Histogram,
-        _ => panic!("invalid index")
+        _ => panic!("invalid index"),
     }
 }
 
@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     fn test_registry() {
-        let registry = Registry::<i32, Arc<AtomicUsize>>::new();
+        let registry = Registry::<u64, Arc<AtomicUsize>>::new();
 
         let entries = registry.get_handles();
         assert_eq!(entries.len(), 0);

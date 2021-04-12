@@ -445,8 +445,8 @@ mod tests {
             .add_global_label("foo", "foo")
             .build();
 
-        let key = Key::from_name("overridden")
-            .with_extra_labels(vec![Label::new("foo", "overridden")]);
+        let key =
+            Key::from_name("overridden").with_extra_labels(vec![Label::new("foo", "overridden")]);
         recorder.increment_counter(&key, 1);
 
         let handle = recorder.handle();

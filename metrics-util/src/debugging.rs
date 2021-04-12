@@ -177,21 +177,24 @@ impl Recorder for DebuggingRecorder {
         let rkey = CompositeKey::new(MetricKind::Counter, key.clone());
         self.register_metric(rkey.clone());
         self.insert_unit_description(rkey.clone(), unit, description);
-        self.registry.op(MetricKind::Counter, key, |_| {}, Handle::counter)
+        self.registry
+            .op(MetricKind::Counter, key, |_| {}, Handle::counter)
     }
 
     fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let rkey = CompositeKey::new(MetricKind::Gauge, key.clone());
         self.register_metric(rkey.clone());
         self.insert_unit_description(rkey.clone(), unit, description);
-        self.registry.op(MetricKind::Gauge, key, |_| {}, Handle::gauge)
+        self.registry
+            .op(MetricKind::Gauge, key, |_| {}, Handle::gauge)
     }
 
     fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let rkey = CompositeKey::new(MetricKind::Histogram, key.clone());
         self.register_metric(rkey.clone());
         self.insert_unit_description(rkey.clone(), unit, description);
-        self.registry.op(MetricKind::Histogram, key, |_| {}, Handle::histogram)
+        self.registry
+            .op(MetricKind::Histogram, key, |_| {}, Handle::histogram)
     }
 
     fn increment_counter(&self, key: &Key, value: u64) {
@@ -212,7 +215,7 @@ impl Recorder for DebuggingRecorder {
             MetricKind::Gauge,
             key,
             |handle| handle.update_gauge(value),
-            Handle::gauge
+            Handle::gauge,
         )
     }
 

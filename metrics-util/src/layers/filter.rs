@@ -184,31 +184,11 @@ mod tests {
             (Unit::Bytes, "gauge desc"),
         ];
 
-        layered.register_counter(
-            &tlkey,
-            Some(ud[0].0.clone()),
-            Some(ud[0].1),
-        );
-        layered.register_gauge(
-            &hsbkey,
-            Some(ud[1].0.clone()),
-            Some(ud[1].1),
-        );
-        layered.register_histogram(
-            &htsbkey,
-            Some(ud[2].0.clone()),
-            Some(ud[2].1),
-        );
-        layered.register_counter(
-            &bckey,
-            Some(ud[3].0.clone()),
-            Some(ud[3].1),
-        );
-        layered.register_gauge(
-            &hrbkey,
-            Some(ud[4].0.clone()),
-            Some(ud[4].1),
-        );
+        layered.register_counter(&tlkey, Some(ud[0].0.clone()), Some(ud[0].1));
+        layered.register_gauge(&hsbkey, Some(ud[1].0.clone()), Some(ud[1].1));
+        layered.register_histogram(&htsbkey, Some(ud[2].0.clone()), Some(ud[2].1));
+        layered.register_counter(&bckey, Some(ud[3].0.clone()), Some(ud[3].1));
+        layered.register_gauge(&hrbkey, Some(ud[4].0.clone()), Some(ud[4].1));
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 2);

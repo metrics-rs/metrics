@@ -226,32 +226,28 @@ impl From<Inner> for PrometheusRecorder {
 impl Recorder for PrometheusRecorder {
     fn register_counter(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
-        self.inner.registry().op(
-            MetricKind::Counter,
-            key,
-            |_| {},
-            Handle::counter,
-        );
+        self.inner
+            .registry()
+            .op(MetricKind::Counter, key, |_| {}, Handle::counter);
     }
 
     fn register_gauge(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
         self.add_description_if_missing(&key, description);
-        self.inner.registry().op(
-            MetricKind::Gauge,
-            key,
-            |_| {},
-            Handle::gauge,
-        );
+        self.inner
+            .registry()
+            .op(MetricKind::Gauge, key, |_| {}, Handle::gauge);
     }
 
-    fn register_histogram(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
+    fn register_histogram(
+        &self,
+        key: &Key,
+        _unit: Option<Unit>,
+        description: Option<&'static str>,
+    ) {
         self.add_description_if_missing(&key, description);
-        self.inner.registry().op(
-            MetricKind::Histogram,
-            key,
-            |_| {},
-            Handle::histogram,
-        );
+        self.inner
+            .registry()
+            .op(MetricKind::Histogram, key, |_| {}, Handle::histogram);
     }
 
     fn increment_counter(&self, key: &Key, value: u64) {

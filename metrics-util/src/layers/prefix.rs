@@ -97,21 +97,9 @@ mod tests {
             (Unit::Milliseconds, "histogram desc"),
         ];
 
-        layered.register_counter(
-            &ckey,
-            Some(ud[0].0.clone()),
-            Some(ud[0].1),
-        );
-        layered.register_gauge(
-            &gkey,
-            Some(ud[1].0.clone()),
-            Some(ud[1].1),
-        );
-        layered.register_histogram(
-            &hkey,
-            Some(ud[2].0.clone()),
-            Some(ud[2].1),
-        );
+        layered.register_counter(&ckey, Some(ud[0].0.clone()), Some(ud[0].1));
+        layered.register_gauge(&gkey, Some(ud[1].0.clone()), Some(ud[1].1));
+        layered.register_histogram(&hkey, Some(ud[2].0.clone()), Some(ud[2].1));
 
         let after = snapshotter.snapshot();
         assert_eq!(after.len(), 3);
