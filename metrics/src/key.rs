@@ -125,6 +125,17 @@ impl KeyData {
         }
     }
 
+    /// Creates a [`KeyData`] from a non-static name and a static set of labels.
+    pub fn from_static_labels<N>(name: N, labels: &'static [Label]) -> Self
+    where
+        N: Into<NameParts>,
+    {
+        Self {
+            name_parts: name.into(),
+            labels: Cow::<[Label]>::const_slice(labels),
+        }
+    }
+
     /// Creates a [`KeyData`] from a static name.
     ///
     /// This function is `const`, so it can be used in a static context.
