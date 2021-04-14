@@ -227,7 +227,7 @@ fn test_get_expanded_callsite_owned_name_static_inline_labels() {
         "{ ",
         "static METRIC_LABELS : [metrics :: Label ; 1usize] = [metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (metrics :: Key :: Owned (metrics :: KeyData :: from_parts (String :: from (\"owned\") , & METRICS_LABELS)) , 1) ; ",
+        "recorder . myop_mytype (metrics :: Key :: Owned (metrics :: KeyData :: from_parts (String :: from (\"owned\") , & METRIC_LABELS)) , 1) ; ",
         "} ",
         "}",
     );

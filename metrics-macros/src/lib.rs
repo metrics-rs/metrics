@@ -425,7 +425,7 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
         // to figure out the correct key.
         if has_labels {
             quote! {
-                metrics::Key::Owned(metrics::KeyData::from_parts(#name, & METRICS_LABELS))
+                metrics::Key::Owned(metrics::KeyData::from_parts(#name, & METRIC_LABELS))
             }
         } else {
             quote! {
