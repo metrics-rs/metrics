@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+- Switched `Registry` over to supporting `&Key`.
+- Switched from `dashmap` to `hashbrown`/`parking_lot` for `Registry`.
+- Updated all layers to support the change from `Key` to `&Key` in `metrics::Recorder`.`
+### Added
+- Support for using the pre-hashed value of `Key` to speed up `Registry` operations.
+
 ## [0.6.2] - 2021-03-08
 ### Changed
 - Fixed issue with ordering on `CompositeKey`. (#182)
