@@ -157,21 +157,21 @@
 //! struct LogRecorder;
 //!
 //! impl Recorder for LogRecorder {
-//!     fn register_counter(&self, key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+//!     fn register_counter(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //!
-//!     fn register_gauge(&self, key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+//!     fn register_gauge(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //!
-//!     fn register_histogram(&self, key: Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+//!     fn register_histogram(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
 //!
-//!     fn increment_counter(&self, key: Key, value: u64) {
+//!     fn increment_counter(&self, key: &Key, value: u64) {
 //!         info!("counter '{}' -> {}", key, value);
 //!     }
 //!
-//!     fn update_gauge(&self, key: Key, value: GaugeValue) {
+//!     fn update_gauge(&self, key: &Key, value: GaugeValue) {
 //!         info!("gauge '{}' -> {:?}", key, value);
 //!     }
 //!
-//!     fn record_histogram(&self, key: Key, value: f64) {
+//!     fn record_histogram(&self, key: &Key, value: f64) {
 //!         info!("histogram '{}' -> {}", key, value);
 //!     }
 //! }
@@ -193,11 +193,8 @@
 //! name, so long as they are of different types.
 //!
 //! As the types are enforced/limited by the [`Recorder`] trait itself, the remaining piece is the
-//! identifier, which we handle by using [`Key`].
-//!
-//! [`Key`] itself is a wrapper for [`KeyData`], which holds not only the name of a metric, but
-//! potentially holds labels for it as well.  Metric name and labels consist entirely of string
-//! values.
+//! identifier, which we handle by using [`Key`]. Keys hold both the metric name, and potentially,
+//! labels related to the metric. The metric name and labels are always string values.
 //!
 //! Internally, `metrics` uses a clone-on-write "smart pointer" for these values to optimize cases
 //! where the values are static strings, which can provide significant performance benefits.  These

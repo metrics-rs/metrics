@@ -14,6 +14,8 @@ const BLOCK_SIZE: usize = 32;
 #[cfg(target_pointer_width = "64")]
 const BLOCK_SIZE: usize = 64;
 
+const DEFERRED_BLOCK_BATCH_SIZE: usize = 32;
+
 /// Discrete chunk of values with atomic read/write access.
 struct Block<T> {
     // Write index.
@@ -310,8 +312,8 @@ impl<T> AtomicBucket<T> {
                 .compare_and_set(block_ptr, Shared::null(), Ordering::SeqCst, guard)
                 .is_ok()
         {
-            let mut freeable_blocks = Vec::new();
             let backoff = Backoff::new();
+            let mut freeable_blocks = Vec::new();
 
             // While we have a valid block -- either `tail` or the next block as we keep reading -- we
             // load the data from each block and process it by calling `f`.
@@ -332,18 +334,29 @@ impl<T> AtomicBucket<T> {
                 // Load the next block and take the shared reference to the current.
                 let old_block_ptr =
                     mem::replace(&mut block_ptr, block.next.load(Ordering::Acquire, guard));
+
                 freeable_blocks.push(old_block_ptr);
+                if freeable_blocks.len() >= DEFERRED_BLOCK_BATCH_SIZE {
+                    let blocks = mem::replace(&mut freeable_blocks, Vec::new());
+                    unsafe {
+                        guard.defer_unchecked(move || {
+                            for block in blocks {
+                                drop(block.into_owned());
+                            }
+                        });
+                    }
+                }
             }
 
-            // Once a block has been read, it is now detached from the bucket and no longer
-            // required, so we enqueue a deferred operation to block it as soon as all threads are
-            // unpinned, which reclaims the memory.
-            unsafe {
-                guard.defer_unchecked(move || {
-                    for block in freeable_blocks {
-                        drop(block.into_owned());
-                    }
-                });
+            // Free any remaining old blocks.
+            if !freeable_blocks.is_empty() {
+                unsafe {
+                    guard.defer_unchecked(move || {
+                        for block in freeable_blocks {
+                            drop(block.into_owned());
+                        }
+                    });
+                }
             }
 
             // This asks the global collector to attempt to drive execution of deferred operations a

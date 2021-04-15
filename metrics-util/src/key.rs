@@ -40,15 +40,15 @@ impl CompositeKey {
 mod tests {
     use std::cmp::Ordering;
 
-    use metrics::KeyData;
+    use metrics::Key;
 
     use super::*;
 
     #[test]
     fn test_same_keys_different_kinds_not_equal() {
-        let key = KeyData::from_name("test");
-        let key1 = CompositeKey::new(MetricKind::Counter, key.clone().into());
-        let key2 = CompositeKey::new(MetricKind::Gauge, key.into());
+        let key = Key::from_name("test");
+        let key1 = CompositeKey::new(MetricKind::Counter, key.clone());
+        let key2 = CompositeKey::new(MetricKind::Gauge, key);
 
         assert_ne!(key1.cmp(&key2), Ordering::Equal);
     }
