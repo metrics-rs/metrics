@@ -1,11 +1,10 @@
-use crate::{cow::Cow, IntoLabels, Label, SharedString};
+use crate::{cow::Cow, IntoLabels, KeyHasher, Label, SharedString};
 use alloc::{string::String, vec::Vec};
-use core::{
-    cmp::Ordering,
-    fmt,
-    hash::{Hash, Hasher},
-    ops,
-    slice::Iter,
+use core::{fmt, hash::Hash, slice::Iter};
+use std::{
+    cmp,
+    hash::Hasher,
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 const NO_LABELS: [Label; 0] = [];
@@ -79,53 +78,41 @@ impl fmt::Display for NameParts {
     }
 }
 
-/// Inner representation of [`Key`].
-///
-/// While [`Key`] is the type that users will interact with via [`Recorder`][crate::Recorder],
-/// [`KeyData`] is responsible for the actual storage of the name and label data.
-#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
-pub struct KeyData {
+/// A metric identifier.
+#[derive(Debug)]
+pub struct Key {
     // TODO: once const slicing is possible on stable, we could likely use `beef` for both of these
     name_parts: NameParts,
     labels: Cow<'static, [Label]>,
+    hashed: AtomicBool,
+    hash: AtomicU64,
 }
 
-impl KeyData {
-    /// Creates a [`KeyData`] from a name.
+impl Key {
+    /// Creates a [`Key`] from a name.
     pub fn from_name<N>(name: N) -> Self
     where
-        N: Into<SharedString>,
+        N: Into<NameParts>,
     {
-        Self {
-            name_parts: NameParts::from_name(name),
-            labels: Cow::owned(Vec::new()),
-        }
+        let name_parts = name.into();
+        let labels = Cow::owned(Vec::new());
+
+        Self::builder(name_parts, labels)
     }
 
-    /// Creates a [`KeyData`] from a name and set of labels.
+    /// Creates a [`Key`] from a name and set of labels.
     pub fn from_parts<N, L>(name: N, labels: L) -> Self
     where
         N: Into<NameParts>,
         L: IntoLabels,
     {
-        Self {
-            name_parts: name.into(),
-            labels: Cow::owned(labels.into_labels()),
-        }
+        let name_parts = name.into();
+        let labels = Cow::owned(labels.into_labels());
+
+        Self::builder(name_parts, labels)
     }
 
-    /// Creates a [`KeyData`] from a static name and non-static set of labels.
-    pub fn from_hybrid<L>(name_parts: &'static [SharedString], labels: L) -> Self
-    where
-        L: IntoLabels,
-    {
-        Self {
-            name_parts: NameParts::from_static_names(name_parts),
-            labels: Cow::owned(labels.into_labels()),
-        }
-    }
-
-    /// Creates a [`KeyData`] from a non-static name and a static set of labels.
+    /// Creates a [`Key`] from a non-static name and a static set of labels.
     pub fn from_static_labels<N>(name: N, labels: &'static [Label]) -> Self
     where
         N: Into<NameParts>,
@@ -133,17 +120,19 @@ impl KeyData {
         Self {
             name_parts: name.into(),
             labels: Cow::<[Label]>::const_slice(labels),
+            hashed: AtomicBool::new(false),
+            hash: AtomicU64::new(0),
         }
     }
 
-    /// Creates a [`KeyData`] from a static name.
+    /// Creates a [`Key`] from a static name.
     ///
     /// This function is `const`, so it can be used in a static context.
     pub const fn from_static_name(name_parts: &'static [SharedString]) -> Self {
         Self::from_static_parts(name_parts, &NO_LABELS)
     }
 
-    /// Creates a [`KeyData`] from a static name and static set of labels.
+    /// Creates a [`Key`] from a static name and static set of labels.
     ///
     /// This function is `const`, so it can be used in a static context.
     pub const fn from_static_parts(
@@ -153,6 +142,19 @@ impl KeyData {
         Self {
             name_parts: NameParts::from_static_names(name_parts),
             labels: Cow::<[Label]>::const_slice(labels),
+            hashed: AtomicBool::new(false),
+            hash: AtomicU64::new(0),
+        }
+    }
+
+    fn builder(name_parts: NameParts, labels: Cow<'static, [Label]>) -> Self {
+        let hash = generate_key_hash(&name_parts, &labels);
+
+        Self {
+            name_parts,
+            labels,
+            hashed: AtomicBool::new(true),
+            hash: AtomicU64::new(hash),
         }
     }
 
@@ -169,19 +171,13 @@ impl KeyData {
     /// Appends a part to the name,
     pub fn append_name<S: Into<SharedString>>(self, part: S) -> Self {
         let name_parts = self.name_parts.append(part);
-        Self {
-            name_parts,
-            labels: self.labels,
-        }
+        Self::builder(name_parts, self.labels)
     }
 
     /// Prepends a part to the name.
     pub fn prepend_name<S: Into<SharedString>>(self, part: S) -> Self {
         let name_parts = self.name_parts.prepend(part);
-        Self {
-            name_parts,
-            labels: self.labels,
-        }
+        Self::builder(name_parts, self.labels)
     }
 
     /// Consumes this [`Key`], returning the name parts and any labels.
@@ -199,19 +195,80 @@ impl KeyData {
         let mut labels = self.labels.clone().into_owned();
         labels.extend(extra_labels);
 
-        Self {
-            name_parts,
-            labels: labels.into(),
+        Self::builder(name_parts, labels.into())
+    }
+
+    /// Gets the hash value for this key.
+    pub fn get_hash(&self) -> u64 {
+        if self.hashed.load(Ordering::Acquire) {
+            self.hash.load(Ordering::Acquire)
+        } else {
+            let hash = generate_key_hash(&self.name_parts, &self.labels);
+            self.hash.store(hash, Ordering::Release);
+            self.hashed.store(true, Ordering::Release);
+            hash
         }
     }
 }
 
-impl fmt::Display for KeyData {
+fn generate_key_hash(name_parts: &NameParts, labels: &Cow<'static, [Label]>) -> u64 {
+    let mut hasher = KeyHasher::default();
+    key_hasher_impl(&mut hasher, name_parts, labels);
+    hasher.finish()
+}
+
+fn key_hasher_impl<H: Hasher>(
+    state: &mut H,
+    name_parts: &NameParts,
+    labels: &Cow<'static, [Label]>,
+) {
+    name_parts.hash(state);
+    labels.hash(state);
+}
+
+impl Clone for Key {
+    fn clone(&self) -> Self {
+        Self {
+            name_parts: self.name_parts.clone(),
+            labels: self.labels.clone(),
+            hashed: AtomicBool::new(self.hashed.load(Ordering::Acquire)),
+            hash: AtomicU64::new(self.hash.load(Ordering::Acquire)),
+        }
+    }
+}
+
+impl PartialEq for Key {
+    fn eq(&self, other: &Self) -> bool {
+        self.name_parts == other.name_parts && self.labels == other.labels
+    }
+}
+
+impl Eq for Key {}
+
+impl PartialOrd for Key {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Key {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        (&self.name_parts, &self.labels).cmp(&(&other.name_parts, &other.labels))
+    }
+}
+
+impl Hash for Key {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        key_hasher_impl(state, &self.name_parts, &self.labels);
+    }
+}
+
+impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.labels.is_empty() {
-            write!(f, "KeyData({})", self.name_parts)
+            write!(f, "Key({})", self.name_parts)
         } else {
-            write!(f, "KeyData({}, [", self.name_parts)?;
+            write!(f, "Key({}, [", self.name_parts)?;
             let mut first = true;
             for label in self.labels.as_ref() {
                 if first {
@@ -226,161 +283,52 @@ impl fmt::Display for KeyData {
     }
 }
 
-impl From<String> for KeyData {
+impl From<String> for Key {
     fn from(name: String) -> Self {
         Self::from_name(name)
     }
 }
 
-impl From<&'static str> for KeyData {
+impl From<&'static str> for Key {
     fn from(name: &'static str) -> Self {
         Self::from_name(name)
     }
 }
 
-impl<N, L> From<(N, L)> for KeyData
+impl<N, L> From<(N, L)> for Key
 where
     N: Into<SharedString>,
     L: IntoLabels,
 {
     fn from(parts: (N, L)) -> Self {
-        Self {
-            name_parts: NameParts::from_name(parts.0),
-            labels: Cow::owned(parts.1.into_labels()),
-        }
-    }
-}
-
-/// A metric identifier.
-///
-/// While [`KeyData`] holds the actual name and label data for a metric, [`Key`] works similar to
-/// [`std::borrow::Cow`] in that we can either hold an owned version of the key data, or a static
-/// reference to key data initialized elsewhere.
-///
-/// This allows for flexibility in the ways that [`KeyData`] can be passed around and reused, which
-/// allows us to enable performance optimizations in specific circumstances.
-#[derive(Debug, Clone)]
-pub enum Key {
-    /// A statically borrowed [`KeyData`].
-    ///
-    /// If you are capable of keeping a static [`KeyData`] around, this variant can be used to
-    /// reduce allocations and improve performance.
-    Borrowed(&'static KeyData),
-    /// An owned [`KeyData`].
-    ///
-    /// Useful when you need to modify a borrowed [`KeyData`] in-flight, or when there's no way to
-    /// keep around a static [`KeyData`] reference.
-    Owned(KeyData),
-}
-
-impl PartialEq for Key {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_ref() == other.as_ref()
-    }
-}
-
-impl Eq for Key {}
-
-impl PartialOrd for Key {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Key {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.as_ref().cmp(other.as_ref())
-    }
-}
-
-impl Hash for Key {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            Key::Borrowed(inner) => inner.hash(state),
-            Key::Owned(inner) => inner.hash(state),
-        }
-    }
-}
-
-impl Key {
-    /// Converts any kind of [`Key`] into an owned [`KeyData`].
-    ///
-    /// If this key is owned, the value is returned as is, otherwise, the contents are cloned.
-    pub fn into_owned(self) -> KeyData {
-        match self {
-            Self::Borrowed(val) => val.clone(),
-            Self::Owned(val) => val,
-        }
-    }
-}
-
-impl ops::Deref for Key {
-    type Target = KeyData;
-
-    #[must_use]
-    fn deref(&self) -> &Self::Target {
-        match self {
-            Self::Borrowed(val) => val,
-            Self::Owned(val) => val,
-        }
-    }
-}
-
-impl AsRef<KeyData> for Key {
-    #[must_use]
-    fn as_ref(&self) -> &KeyData {
-        match self {
-            Self::Borrowed(val) => val,
-            Self::Owned(val) => val,
-        }
-    }
-}
-
-impl fmt::Display for Key {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Borrowed(val) => val.fmt(f),
-            Self::Owned(val) => val.fmt(f),
-        }
-    }
-}
-
-impl From<KeyData> for Key {
-    fn from(key_data: KeyData) -> Self {
-        Self::Owned(key_data)
-    }
-}
-
-impl From<&'static KeyData> for Key {
-    fn from(key_data: &'static KeyData) -> Self {
-        Self::Borrowed(key_data)
+        Self::from_parts(NameParts::from_name(parts.0), parts.1)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Key, KeyData};
+    use super::Key;
     use crate::{Label, SharedString};
     use std::collections::HashMap;
 
     static BORROWED_NAME: [SharedString; 1] = [SharedString::const_str("name")];
     static FOOBAR_NAME: [SharedString; 1] = [SharedString::const_str("foobar")];
-    static BORROWED_BASIC: KeyData = KeyData::from_static_name(&BORROWED_NAME);
+    static BORROWED_BASIC: Key = Key::from_static_name(&BORROWED_NAME);
     static LABELS: [Label; 1] = [Label::from_static_parts("key", "value")];
-    static BORROWED_LABELS: KeyData = KeyData::from_static_parts(&BORROWED_NAME, &LABELS);
+    static BORROWED_LABELS: Key = Key::from_static_parts(&BORROWED_NAME, &LABELS);
 
     #[test]
     fn test_key_ord_and_partialord() {
         let keys_expected: Vec<Key> = vec![
-            KeyData::from_name("aaaa").into(),
-            KeyData::from_name("bbbb").into(),
-            KeyData::from_name("cccc").into(),
+            Key::from_name("aaaa").into(),
+            Key::from_name("bbbb").into(),
+            Key::from_name("cccc").into(),
         ];
 
         let keys_unsorted: Vec<Key> = vec![
-            KeyData::from_name("bbbb").into(),
-            KeyData::from_name("cccc").into(),
-            KeyData::from_name("aaaa").into(),
+            Key::from_name("bbbb").into(),
+            Key::from_name("cccc").into(),
+            Key::from_name("aaaa").into(),
         ];
 
         let keys = {
@@ -399,10 +347,10 @@ mod tests {
     }
 
     #[test]
-    fn test_keydata_eq_and_hash() {
+    fn test_key_eq_and_hash() {
         let mut keys = HashMap::new();
 
-        let owned_basic = KeyData::from_name("name");
+        let owned_basic: Key = Key::from_name("name").into();
         assert_eq!(&owned_basic, &BORROWED_BASIC);
 
         let previous = keys.insert(owned_basic, 42);
@@ -412,7 +360,7 @@ mod tests {
         assert_eq!(previous, Some(&42));
 
         let labels = LABELS.to_vec();
-        let owned_labels = KeyData::from_parts(&BORROWED_NAME[..], labels);
+        let owned_labels = Key::from_parts(&BORROWED_NAME[..], labels);
         assert_eq!(&owned_labels, &BORROWED_LABELS);
 
         let previous = keys.insert(owned_labels, 43);
@@ -423,49 +371,23 @@ mod tests {
     }
 
     #[test]
-    fn test_key_eq_and_hash() {
-        let mut keys = HashMap::new();
-
-        let owned_basic: Key = KeyData::from_name("name").into();
-        let borrowed_basic: Key = Key::from(&BORROWED_BASIC);
-        assert_eq!(owned_basic, borrowed_basic);
-
-        let previous = keys.insert(owned_basic, 42);
-        assert!(previous.is_none());
-
-        let previous = keys.get(&borrowed_basic);
-        assert_eq!(previous, Some(&42));
-
-        let labels = LABELS.to_vec();
-        let owned_labels = Key::from(KeyData::from_parts(&BORROWED_NAME[..], labels));
-        let borrowed_labels = Key::from(&BORROWED_LABELS);
-        assert_eq!(owned_labels, borrowed_labels);
-
-        let previous = keys.insert(owned_labels, 43);
-        assert!(previous.is_none());
-
-        let previous = keys.get(&borrowed_labels);
-        assert_eq!(previous, Some(&43));
-    }
-
-    #[test]
     fn test_key_data_proper_display() {
-        let key1 = KeyData::from_name("foobar");
+        let key1 = Key::from_name("foobar");
         let result1 = key1.to_string();
-        assert_eq!(result1, "KeyData(foobar)");
+        assert_eq!(result1, "Key(foobar)");
 
-        let key2 = KeyData::from_parts(&FOOBAR_NAME[..], vec![Label::new("system", "http")]);
+        let key2 = Key::from_parts(&FOOBAR_NAME[..], vec![Label::new("system", "http")]);
         let result2 = key2.to_string();
-        assert_eq!(result2, "KeyData(foobar, [system = http])");
+        assert_eq!(result2, "Key(foobar, [system = http])");
 
-        let key3 = KeyData::from_parts(
+        let key3 = Key::from_parts(
             &FOOBAR_NAME[..],
             vec![Label::new("system", "http"), Label::new("user", "joe")],
         );
         let result3 = key3.to_string();
-        assert_eq!(result3, "KeyData(foobar, [system = http, user = joe])");
+        assert_eq!(result3, "Key(foobar, [system = http, user = joe])");
 
-        let key4 = KeyData::from_parts(
+        let key4 = Key::from_parts(
             &FOOBAR_NAME[..],
             vec![
                 Label::new("black", "black"),
@@ -476,35 +398,7 @@ mod tests {
         let result4 = key4.to_string();
         assert_eq!(
             result4,
-            "KeyData(foobar, [black = black, lives = lives, matter = matter])"
+            "Key(foobar, [black = black, lives = lives, matter = matter])"
         );
-    }
-
-    #[test]
-    fn key_equality() {
-        let owned_a = KeyData::from_name("a");
-        let owned_b = KeyData::from_name("b");
-
-        static A_NAME: [SharedString; 1] = [SharedString::const_str("a")];
-        static STATIC_A: KeyData = KeyData::from_static_name(&A_NAME);
-        static B_NAME: [SharedString; 1] = [SharedString::const_str("b")];
-        static STATIC_B: KeyData = KeyData::from_static_name(&B_NAME);
-
-        assert_eq!(Key::Owned(owned_a.clone()), Key::Owned(owned_a.clone()));
-        assert_eq!(Key::Owned(owned_b.clone()), Key::Owned(owned_b.clone()));
-
-        assert_eq!(Key::Borrowed(&STATIC_A), Key::Borrowed(&STATIC_A));
-        assert_eq!(Key::Borrowed(&STATIC_B), Key::Borrowed(&STATIC_B));
-
-        assert_eq!(Key::Owned(owned_a.clone()), Key::Borrowed(&STATIC_A));
-        assert_eq!(Key::Owned(owned_b.clone()), Key::Borrowed(&STATIC_B));
-
-        assert_eq!(Key::Borrowed(&STATIC_A), Key::Owned(owned_a.clone()));
-        assert_eq!(Key::Borrowed(&STATIC_B), Key::Owned(owned_b.clone()));
-
-        assert_ne!(Key::Owned(owned_a.clone()), Key::Owned(owned_b.clone()),);
-        assert_ne!(Key::Borrowed(&STATIC_A), Key::Borrowed(&STATIC_B));
-        assert_ne!(Key::Owned(owned_a.clone()), Key::Borrowed(&STATIC_B));
-        assert_ne!(Key::Owned(owned_b.clone()), Key::Borrowed(&STATIC_A));
     }
 }

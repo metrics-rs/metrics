@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+### Changed
+- Switched from `Key` to `&Key` in `Recorder`.
+- Refactored `KeyData` into `Key`.
 
+### Added
+- Metric keys are now pre-hashed/memoized where possible, which provides a massive speedup to
+  hashing operations over time.
 ## [0.14.2] - 2021-02-13
 ### Added
 - Implemented `Ord`/`PartialOrd` for various key-related types.

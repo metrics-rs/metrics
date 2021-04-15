@@ -1,7 +1,8 @@
+use std::fmt::Debug;
 use std::time::Duration;
-use std::{collections::HashMap, hash::Hash, ops::DerefMut};
+use std::{collections::HashMap, ops::DerefMut};
 
-use crate::{kind::MetricKindMask, Generation, MetricKind, Registry};
+use crate::{kind::MetricKindMask, Generation, Hashable, MetricKind, Registry};
 
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
@@ -71,8 +72,8 @@ impl<K> Recency<K> {
         registry: &Registry<K, H>,
     ) -> bool
     where
-        K: Eq + Hash + Clone + 'static,
-        H: Clone + 'static,
+        K: Debug + Eq + Hashable + Clone + 'static,
+        H: Debug + Clone + 'static,
     {
         if let Some(idle_timeout) = self.idle_timeout {
             if self.mask.matches(kind) {
@@ -88,7 +89,7 @@ impl<K> Recency<K> {
                             // If the delete returns false, that means that our generation counter is
                             // out-of-date, and that the metric has been updated since, so we don't
                             // actually want to delete it yet.
-                            if registry.delete(&key, gen) {
+                            if registry.delete(kind, &key, gen) {
                                 return false;
                             }
                         }

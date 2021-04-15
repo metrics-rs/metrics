@@ -9,3 +9,6 @@ members = [
   "metrics-observer",
   "metrics-benchmark",
 ]
+
+[profile.release]
+debug = true

@@ -9,7 +9,7 @@ use std::time::Duration;
 use bytes::{BufMut, BytesMut};
 use prost::Message;
 
-use metrics::{KeyData, Label, Unit};
+use metrics::{Key, Label, Unit};
 use metrics_util::{CompositeKey, MetricKind, Summary};
 
 mod proto {
@@ -225,7 +225,7 @@ impl Runner {
                                         .into_iter()
                                         .map(|(k, v)| Label::new(k, v))
                                         .collect::<Vec<_>>();
-                                    let key_data: KeyData = (metric.name, labels).into();
+                                    let key_data: Key = (metric.name, labels).into();
 
                                     match metric.value.expect("no metric value") {
                                         proto::metric::Value::Counter(value) => {

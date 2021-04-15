@@ -2,8 +2,8 @@ use atomic_shim::AtomicU64;
 use getopts::Options;
 use hdrhistogram::Histogram;
 use log::{error, info};
-use metrics::{gauge, histogram, increment_counter};
-use metrics_util::DebuggingRecorder;
+use metrics::{gauge, histogram, increment_counter, GaugeValue, Key, Recorder, Unit};
+use metrics_util::{Handle, MetricKind, Registry};
 use quanta::{Clock, Instant as QuantaInstant};
 use std::{
     env,
@@ -17,6 +17,107 @@ use std::{
 };
 
 const LOOP_SAMPLE: u64 = 1000;
+
+pub struct Controller {
+    registry: Arc<Registry<Key, Handle>>,
+}
+
+impl Controller {
+    /// Takes a snapshot of the recorder.
+    // Performs the traditional "upkeep" of a recorder i.e. clearing histogram buckets, etc.
+    pub fn upkeep(&self) {
+        let handles = self.registry.get_handles();
+
+        for ((kind, _), (_, handle)) in handles {
+            if matches!(kind, MetricKind::Histogram) {
+                handle.read_histogram_with_clear(|_| {});
+            }
+        }
+    }
+}
+
+/// A simplistic recorder for benchmarking.
+///
+/// Simulates typical recorder implementations by utilizing `Registry`, clearing histogram buckets, etc.
+pub struct BenchmarkingRecorder {
+    registry: Arc<Registry<Key, Handle>>,
+}
+
+impl BenchmarkingRecorder {
+    /// Creates a new `BenchmarkingRecorder`.
+    pub fn new() -> BenchmarkingRecorder {
+        BenchmarkingRecorder {
+            registry: Arc::new(Registry::new()),
+        }
+    }
+
+    /// Gets a `Controller` attached to this recorder.
+    pub fn controller(&self) -> Controller {
+        Controller {
+            registry: self.registry.clone(),
+        }
+    }
+
+    /// Installs this recorder as the global recorder.
+    pub fn install(self) -> Result<(), metrics::SetRecorderError> {
+        metrics::set_boxed_recorder(Box::new(self))
+    }
+}
+
+impl Recorder for BenchmarkingRecorder {
+    fn register_counter(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {
+        self.registry
+            .op(MetricKind::Counter, key, |_| {}, Handle::counter)
+    }
+
+    fn register_gauge(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {
+        self.registry
+            .op(MetricKind::Gauge, key, |_| {}, Handle::gauge)
+    }
+
+    fn register_histogram(
+        &self,
+        key: &Key,
+        _unit: Option<Unit>,
+        _description: Option<&'static str>,
+    ) {
+        self.registry
+            .op(MetricKind::Histogram, key, |_| {}, Handle::histogram)
+    }
+
+    fn increment_counter(&self, key: &Key, value: u64) {
+        self.registry.op(
+            MetricKind::Counter,
+            key,
+            |handle| handle.increment_counter(value),
+            Handle::counter,
+        )
+    }
+
+    fn update_gauge(&self, key: &Key, value: GaugeValue) {
+        self.registry.op(
+            MetricKind::Gauge,
+            key,
+            |handle| handle.update_gauge(value),
+            Handle::gauge,
+        )
+    }
+
+    fn record_histogram(&self, key: &Key, value: f64) {
+        self.registry.op(
+            MetricKind::Histogram,
+            key,
+            |handle| handle.record_histogram(value),
+            Handle::histogram,
+        )
+    }
+}
+
+impl Default for BenchmarkingRecorder {
+    fn default() -> Self {
+        BenchmarkingRecorder::new()
+    }
+}
 
 struct Generator {
     t0: Option<QuantaInstant>,
@@ -45,7 +146,7 @@ impl Generator {
 
             self.gauge += 1;
 
-            let t1 = clock.now();
+            let t1 = clock.recent();
 
             if let Some(t0) = self.t0 {
                 let start = if counter % LOOP_SAMPLE == 0 {
@@ -148,8 +249,8 @@ fn main() {
     info!("duration: {}s", seconds);
     info!("producers: {}", producers);
 
-    let recorder = DebuggingRecorder::with_ordering(false);
-    let snapshotter = recorder.snapshotter();
+    let recorder = BenchmarkingRecorder::new();
+    let controller = recorder.controller();
     recorder.install().expect("failed to install recorder");
 
     info!("sink configured");
@@ -170,18 +271,23 @@ fn main() {
         handles.push(handle);
     }
 
+    thread::spawn(|| loop {
+        thread::sleep(Duration::from_millis(10));
+        quanta::set_recent(quanta::Instant::now());
+    });
+
     // Poll the controller to figure out the sample rate.
     let mut total = 0;
     let mut t0 = Instant::now();
 
-    let mut snapshot_hist = Histogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap();
+    let mut upkeep_hist = Histogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap();
     for _ in 0..seconds {
         let t1 = Instant::now();
 
         let start = Instant::now();
-        let _snapshot = snapshotter.snapshot();
+        controller.upkeep();
         let end = Instant::now();
-        snapshot_hist.saturating_record(duration_as_nanos(end - start) as u64);
+        upkeep_hist.saturating_record(duration_as_nanos(end - start) as u64);
 
         let turn_total = rate_counter.load(Ordering::Acquire);
         let turn_delta = turn_total - total;
@@ -196,13 +302,13 @@ fn main() {
     info!("--------------------------------------------------------------------------------");
     info!(" ingested samples total: {}", total);
     info!(
-        "snapshot retrieval: min: {:8} p50: {:8} p95: {:8} p99: {:8} p999: {:8} max: {:8}",
-        nanos_to_readable(snapshot_hist.min()),
-        nanos_to_readable(snapshot_hist.value_at_percentile(50.0)),
-        nanos_to_readable(snapshot_hist.value_at_percentile(95.0)),
-        nanos_to_readable(snapshot_hist.value_at_percentile(99.0)),
-        nanos_to_readable(snapshot_hist.value_at_percentile(99.9)),
-        nanos_to_readable(snapshot_hist.max())
+        "   recorder upkeep: min: {:8} p50: {:8} p95: {:8} p99: {:8} p999: {:8} max: {:8}",
+        nanos_to_readable(upkeep_hist.min()),
+        nanos_to_readable(upkeep_hist.value_at_percentile(50.0)),
+        nanos_to_readable(upkeep_hist.value_at_percentile(95.0)),
+        nanos_to_readable(upkeep_hist.value_at_percentile(99.0)),
+        nanos_to_readable(upkeep_hist.value_at_percentile(99.9)),
+        nanos_to_readable(upkeep_hist.max())
     );
 
     // Wait for the producers to finish so we can get their stats too.
