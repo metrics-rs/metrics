@@ -429,7 +429,7 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> (TokenStream2, T
         // to figure out the correct key.
         if has_labels {
             quote! {
-                let key = metrics::Key::from_static_labels(#name, &METRICS_LABELS)
+                let key = metrics::Key::from_static_labels(#name, &METRIC_LABELS);
             }
         } else {
             quote! {
