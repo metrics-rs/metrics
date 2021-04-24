@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+### Added
+- `PrometheusBuilder::add_allowed`, which enables the exporter to be configured with a
+  list of IP addresses or subnets that are allowed to connect. By default, no restrictions
+  are enforced.
 
 ## [0.3.0] - 2021-02-02
 ### Changed

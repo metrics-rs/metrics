@@ -8,9 +8,9 @@ use std::time::Duration;
 
 #[cfg(feature = "tokio-exporter")]
 use hyper::{
-    server::Server,
+    server::{conn::AddrStream, Server},
     service::{make_service_fn, service_fn},
-    {Body, Error as HyperError, Response},
+    StatusCode, {Body, Error as HyperError, Response},
 };
 use parking_lot::RwLock;
 use quanta::Clock;
@@ -28,6 +28,8 @@ use crate::recorder::{Inner, PrometheusRecorder};
 /// Builder for creating and installing a Prometheus recorder/exporter.
 pub struct PrometheusBuilder {
     listen_address: SocketAddr,
+    #[cfg(feature = "tokio-exporter")]
+    allow_ips: Option<Vec<ipnet::IpNet>>,
     quantiles: Vec<Quantile>,
     buckets: Option<Vec<f64>>,
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
@@ -43,6 +45,8 @@ impl PrometheusBuilder {
 
         Self {
             listen_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 9000),
+            #[cfg(feature = "tokio-exporter")]
+            allow_ips: None,
             quantiles,
             buckets: None,
             bucket_overrides: None,
@@ -59,6 +63,19 @@ impl PrometheusBuilder {
     /// Defaults to `0.0.0.0:9000`.
     pub fn listen_address(mut self, addr: impl Into<SocketAddr>) -> Self {
         self.listen_address = addr.into();
+        self
+    }
+
+    /// Adds an IP address or subnet that is allowed to connect to the Prometheus scrape endpoint.
+    ///
+    /// By default (if this method is never called), no restrictions are enforced.
+    ///
+    /// Note that this on its own is insufficient for access control, if the exporter is running in
+    /// an environment alongside applications (such as web browsers) that are susceptible to
+    /// [DNS rebinding attacks](https://en.wikipedia.org/wiki/DNS_rebinding).
+    #[cfg(feature = "tokio-exporter")]
+    pub fn add_allowed(mut self, subnet: ipnet::IpNet) -> Self {
+        self.allow_ips.get_or_insert(vec![]).push(subnet);
         self
     }
 
@@ -206,7 +223,7 @@ impl PrometheusBuilder {
     /// provides the flexibility to do so.
     #[cfg(feature = "tokio-exporter")]
     pub fn build_with_exporter(
-        self,
+        mut self,
     ) -> Result<
         (
             PrometheusRecorder,
@@ -215,13 +232,21 @@ impl PrometheusBuilder {
         InstallError,
     > {
         let address = self.listen_address;
+        let allow_ips = self.allow_ips.take();
         let recorder = self.build();
         let handle = recorder.handle();
 
         let server = Server::try_bind(&address)?;
 
         let exporter = async move {
-            let make_svc = make_service_fn(move |_| {
+            let make_svc = make_service_fn(move |socket: &AddrStream| {
+                let remote_addr = socket.remote_addr().ip();
+                let allowed = allow_ips
+                    .as_ref()
+                    .map(|subnets| subnets.iter().any(|subnet| subnet.contains(&remote_addr)))
+                    // If no subnets specified, allow all IPs.
+                    .unwrap_or(true);
+
                 let handle = handle.clone();
 
                 async move {
@@ -229,8 +254,17 @@ impl PrometheusBuilder {
                         let handle = handle.clone();
 
                         async move {
-                            let output = handle.render();
-                            Ok::<_, HyperError>(Response::new(Body::from(output)))
+                            if allowed {
+                                let output = handle.render();
+                                Ok::<_, HyperError>(Response::new(Body::from(output)))
+                            } else {
+                                Ok::<_, HyperError>(
+                                    Response::builder()
+                                        .status(StatusCode::FORBIDDEN)
+                                        .body(Body::empty())
+                                        .expect("static response is valid"),
+                                )
+                            }
                         }
                     }))
                 }
