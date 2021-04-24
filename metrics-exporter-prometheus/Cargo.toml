@@ -17,7 +17,7 @@ keywords = ["metrics", "telemetry", "prometheus"]
 
 [features]
 default = ["tokio-exporter"]
-tokio-exporter = ["hyper", "tokio"]
+tokio-exporter = ["hyper", "ipnet", "tokio"]
 
 [dependencies]
 metrics = { version = "^0.14", path = "../metrics" }
@@ -28,6 +28,7 @@ quanta = "0.7"
 
 # Optional
 hyper = { version = "0.14", default-features = false, features = ["server", "tcp", "http1"], optional = true }
+ipnet = { version = "2", optional = true }
 tokio = { version = "1.0", features = ["rt", "net", "time", "macros"], optional = true }
 
 [dev-dependencies]
