@@ -21,4 +21,4 @@ metrics-util = { version = "^0.6", path = "../metrics-util" }
 
 [build-dependencies]
 prost-build = "0.7"
-built = "0.4"
+built = "0.5"
