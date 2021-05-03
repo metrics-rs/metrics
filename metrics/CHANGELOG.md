@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
+## [0.15.0] - 2021-05-03
 ### Changed
 - Switched from `Key` to `&Key` in `Recorder`.
 - Refactored `KeyData` into `Key`.
