@@ -13,7 +13,7 @@ bytes = "1.0"
 crossbeam-channel = "0.5"
 prost = "0.7"
 prost-types = "0.7"
-tui = "0.14"
+tui = "0.15"
 termion = "1.5"
 chrono = "0.4"
 metrics = { version = "^0.15", path = "../metrics" }
