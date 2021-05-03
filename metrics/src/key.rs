@@ -42,6 +42,20 @@ impl NameParts {
     pub fn parts(&self) -> Iter<'_, SharedString> {
         self.0.iter()
     }
+
+    /// Creates an owned version of these parts, joined with periods into a single string.
+    pub fn to_string(&self) -> String {
+        let mut first = false;
+        let mut s = String::with_capacity(16);
+        for p in self.0.iter() {
+            if first {
+                s.push('.');
+                first = false;
+            }
+            s.push_str(p.as_ref());
+        }
+        s
+    }
 }
 
 impl From<String> for NameParts {
@@ -64,15 +78,7 @@ impl From<&'static [SharedString]> for NameParts {
 
 impl fmt::Display for NameParts {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut first = false;
-        let mut s = String::with_capacity(16);
-        for p in self.0.iter() {
-            if first {
-                s.push('.');
-                first = false;
-            }
-            s.push_str(p.as_ref());
-        }
+        let s = self.to_string();
         f.write_str(s.as_str())?;
         Ok(())
     }
@@ -368,6 +374,10 @@ mod tests {
 
         let previous = keys.get(&BORROWED_LABELS);
         assert_eq!(previous, Some(&43));
+
+        let basic: Key = "constant_key".into();
+        let cloned_basic = basic.clone();
+        assert_eq!(basic, cloned_basic);
     }
 
     #[test]
