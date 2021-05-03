@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.7.0] - 2021-05-03
+
 ### Changed
 - Switched `Registry` over to supporting `&Key`.
 - Switched from `dashmap` to `hashbrown`/`parking_lot` for `Registry`.
