@@ -1,6 +1,6 @@
 [package]
 name = "metrics-exporter-tcp"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -16,7 +16,7 @@ categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "tcp"]
 
 [dependencies]
-metrics = { version = "^0.14", path = "../metrics", features = ["std"] }
+metrics = { version = "^0.15", path = "../metrics", features = ["std"] }
 bytes = "1.0"
 crossbeam-channel = "0.5"
 prost = "0.7"
