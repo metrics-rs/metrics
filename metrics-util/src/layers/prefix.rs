@@ -11,7 +11,12 @@ pub struct Prefix<R> {
 
 impl<R> Prefix<R> {
     fn prefix_key(&self, key: &Key) -> Key {
-        key.clone().prepend_name(self.prefix.clone()).into()
+        let mut new_name = String::with_capacity(self.prefix.len() + 1 + key.name().len());
+        new_name.push_str(self.prefix.as_ref());
+        new_name.push('.');
+        new_name.push_str(key.name());
+
+        Key::from_parts(new_name, key.labels())
     }
 }
 

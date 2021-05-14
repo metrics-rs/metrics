@@ -11,8 +11,8 @@ fn test_get_expanded_registration() {
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
-        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (& METRIC_NAME) ; ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "recorder . register_mytype (& METRIC_KEY , None , None) ; ",
         "} ",
@@ -36,8 +36,8 @@ fn test_get_expanded_registration_with_unit() {
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
-        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (& METRIC_NAME) ; ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "recorder . register_mytype (& METRIC_KEY , Some (metrics :: Unit :: Nanoseconds) , None) ; ",
         "} ",
@@ -60,8 +60,8 @@ fn test_get_expanded_registration_with_description() {
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
-        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (& METRIC_NAME) ; ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "recorder . register_mytype (& METRIC_KEY , None , Some (\"flerkin\")) ; ",
         "} ",
@@ -85,8 +85,8 @@ fn test_get_expanded_registration_with_unit_and_description() {
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
-        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (& METRIC_NAME) ; ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "recorder . register_mytype (& METRIC_KEY , Some (metrics :: Unit :: Nanoseconds) , Some (\"flerkin\")) ; ",
         "} ",
@@ -108,8 +108,8 @@ fn test_get_expanded_callsite_static_name_no_labels() {
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
-        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (& METRIC_NAME) ; ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "recorder . myop_mytype (& METRIC_KEY , 1) ; ",
         "} }",
@@ -131,9 +131,9 @@ fn test_get_expanded_callsite_static_name_static_inline_labels() {
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "static METRIC_LABELS : [metrics :: Label ; 1usize] = [metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
-        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_parts (& METRIC_NAME , & METRIC_LABELS) ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_parts (METRIC_NAME , & METRIC_LABELS) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "recorder . myop_mytype (& METRIC_KEY , 1) ; ",
         "} ",
@@ -156,9 +156,9 @@ fn test_get_expanded_callsite_static_name_dynamic_inline_labels() {
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "let key = metrics :: Key :: from_parts (& METRIC_NAME [..] , vec ! [metrics :: Label :: new (\"key1\" , & value1)]) ; ",
+        "let key = metrics :: Key :: from_parts (METRIC_NAME , vec ! [metrics :: Label :: new (\"key1\" , & value1)]) ; ",
         "recorder . myop_mytype (& key , 1) ; ",
         "} ",
         "}",
@@ -180,9 +180,9 @@ fn test_get_expanded_callsite_static_name_existing_labels() {
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : [metrics :: SharedString ; 1] = [metrics :: SharedString :: const_str (\"mykeyname\")] ; ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "let key = metrics :: Key :: from_parts (& METRIC_NAME [..] , mylabels) ; ",
+        "let key = metrics :: Key :: from_parts (METRIC_NAME , mylabels) ; ",
         "recorder . myop_mytype (& key , 1) ; ",
         "} ",
         "}",

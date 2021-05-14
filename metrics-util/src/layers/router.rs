@@ -1,5 +1,5 @@
-use radix_trie::{Trie, TrieCommon};
 use metrics::{GaugeValue, Key, Recorder, Unit};
+use radix_trie::{Trie, TrieCommon};
 
 use crate::{MetricKind, MetricKindMask};
 
@@ -16,7 +16,12 @@ pub struct Router {
 }
 
 impl Router {
-    fn route(&self, kind: MetricKind, key: &Key, search_routes: &Trie<String, usize>) -> &dyn Recorder {
+    fn route(
+        &self,
+        kind: MetricKind,
+        key: &Key,
+        search_routes: &Trie<String, usize>,
+    ) -> &dyn Recorder {
         // The global mask is essentially a Bloom filter of overridden route types.  If it doesn't
         // match our metric, we know for a fact there's no route.  Use the default recorder.
         if !self.global_mask.matches(kind) {
@@ -30,7 +35,8 @@ impl Router {
             // length of `targets` itself before adding a new target.  Ergo, the index is provably
             // populated if the `idx` has been stored.
             let needle = key.name().to_string();
-            search_routes.get_ancestor(needle.as_str())
+            search_routes
+                .get_ancestor(needle.as_str())
                 .map(|st| unsafe { self.targets.get_unchecked(*st.value().unwrap()).as_ref() })
                 .unwrap_or(self.default.as_ref())
         }
@@ -110,7 +116,12 @@ impl RouterBuilder {
     /// string used to match against metric names.
     ///
     /// If a matching route already exists, it will be overwritten.
-    pub fn add_route<P, R>(&mut self, mask: MetricKindMask, pattern: P, recorder: R) -> &mut RouterBuilder
+    pub fn add_route<P, R>(
+        &mut self,
+        mask: MetricKindMask,
+        pattern: P,
+        recorder: R,
+    ) -> &mut RouterBuilder
     where
         P: AsRef<str>,
         R: Recorder + 'static,
@@ -122,19 +133,31 @@ impl RouterBuilder {
 
         match mask {
             MetricKindMask::ALL => {
-                let _ = self.counter_routes.insert(pattern.as_ref().to_string(), target_idx);
-                let _ = self.gauge_routes.insert(pattern.as_ref().to_string(), target_idx);
-                let _ = self.histogram_routes.insert(pattern.as_ref().to_string(), target_idx);
-            },
+                let _ = self
+                    .counter_routes
+                    .insert(pattern.as_ref().to_string(), target_idx);
+                let _ = self
+                    .gauge_routes
+                    .insert(pattern.as_ref().to_string(), target_idx);
+                let _ = self
+                    .histogram_routes
+                    .insert(pattern.as_ref().to_string(), target_idx);
+            }
             MetricKindMask::COUNTER => {
-                let _ = self.counter_routes.insert(pattern.as_ref().to_string(), target_idx);
-            },
+                let _ = self
+                    .counter_routes
+                    .insert(pattern.as_ref().to_string(), target_idx);
+            }
             MetricKindMask::GAUGE => {
-                let _ = self.gauge_routes.insert(pattern.as_ref().to_string(), target_idx);
-            },
+                let _ = self
+                    .gauge_routes
+                    .insert(pattern.as_ref().to_string(), target_idx);
+            }
             MetricKindMask::HISTOGRAM => {
-                let _ = self.histogram_routes.insert(pattern.as_ref().to_string(), target_idx);
-            },
+                let _ = self
+                    .histogram_routes
+                    .insert(pattern.as_ref().to_string(), target_idx);
+            }
             _ => panic!("cannot add route for unknown or empty metric kind mask"),
         };
         self
@@ -155,12 +178,12 @@ impl RouterBuilder {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
     use mockall::{mock, predicate::eq, Sequence};
+    use std::borrow::Cow;
 
-    use metrics::{GaugeValue, Key, Recorder, Unit};
-    use crate::MetricKindMask;
     use super::RouterBuilder;
+    use crate::MetricKindMask;
+    use metrics::{GaugeValue, Key, Recorder, Unit};
 
     mock! {
         pub TestRecorder {
@@ -183,8 +206,16 @@ mod tests {
         let mut builder = RouterBuilder::from_recorder(MockTestRecorder::new());
         builder
             .add_route(MetricKindMask::COUNTER, "foo", MockTestRecorder::new())
-            .add_route(MetricKindMask::GAUGE, "bar".to_owned(), MockTestRecorder::new())
-            .add_route(MetricKindMask::HISTOGRAM, Cow::Borrowed("baz"), MockTestRecorder::new())
+            .add_route(
+                MetricKindMask::GAUGE,
+                "bar".to_owned(),
+                MockTestRecorder::new(),
+            )
+            .add_route(
+                MetricKindMask::HISTOGRAM,
+                Cow::Borrowed("baz"),
+                MockTestRecorder::new(),
+            )
             .add_route(MetricKindMask::ALL, "quux", MockTestRecorder::new());
         let _ = builder.build();
     }
@@ -194,7 +225,7 @@ mod tests {
     fn test_bad_construction() {
         let mut builder = RouterBuilder::from_recorder(MockTestRecorder::new());
         builder.add_route(MetricKindMask::NONE, "foo", MockTestRecorder::new());
-        let _ = builder.build(); 
+        let _ = builder.build();
     }
 
     #[test]
@@ -209,25 +240,29 @@ mod tests {
 
         let mut seq = Sequence::new();
 
-        default_mock.expect_increment_counter()
+        default_mock
+            .expect_increment_counter()
             .times(1)
             .in_sequence(&mut seq)
             .with(eq(default_counter.clone()), eq(42u64))
             .return_const(());
 
-        counter_mock.expect_increment_counter()
+        counter_mock
+            .expect_increment_counter()
             .times(1)
             .in_sequence(&mut seq)
             .with(eq(override_counter.clone()), eq(49u64))
             .return_const(());
 
-        all_mock.expect_increment_counter()
+        all_mock
+            .expect_increment_counter()
             .times(1)
             .in_sequence(&mut seq)
             .with(eq(all_override.clone()), eq(420u64))
             .return_const(());
 
-        all_mock.expect_record_histogram()
+        all_mock
+            .expect_record_histogram()
             .times(1)
             .in_sequence(&mut seq)
             .with(eq(all_override.clone()), eq(0.0))
