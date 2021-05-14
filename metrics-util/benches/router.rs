@@ -3,9 +3,9 @@ use criterion::{criterion_group, criterion_main, Criterion};
 #[cfg(feature = "layer-router")]
 use metrics::{Key, NoopRecorder, Recorder};
 
-use metrics_util::MetricKindMask;
 #[cfg(feature = "layer-router")]
 use metrics_util::layers::RouterBuilder;
+use metrics_util::MetricKindMask;
 
 #[allow(unused_variables)]
 fn layer_benchmark(c: &mut Criterion) {

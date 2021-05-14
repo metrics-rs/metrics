@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 #[cfg(feature = "layer-absolute")]
-use metrics::{Key, Label, NoopRecorder, Recorder, SharedString};
+use metrics::{Key, Label, NoopRecorder, Recorder};
 
 #[cfg(feature = "layer-absolute")]
 use metrics_util::layers::{AbsoluteLayer, Layer};
@@ -15,7 +15,7 @@ fn layer_benchmark(c: &mut Criterion) {
             let patterns = vec!["rdkafka"];
             let absolute_layer = AbsoluteLayer::from_patterns(patterns);
             let recorder = absolute_layer.layer(NoopRecorder);
-            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("counter")];
+            static KEY_NAME: &'static str = "counter";
             static KEY_DATA: Key = Key::from_static_name(&KEY_NAME);
 
             b.iter(|| {
@@ -26,7 +26,7 @@ fn layer_benchmark(c: &mut Criterion) {
             let patterns = vec!["rdkafka"];
             let absolute_layer = AbsoluteLayer::from_patterns(patterns);
             let recorder = absolute_layer.layer(NoopRecorder);
-            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("rdkafka.bytes")];
+            static KEY_NAME: &'static str = "rdkafka.bytes";
             static KEY_DATA: Key = Key::from_static_name(&KEY_NAME);
 
             b.iter(|| {
@@ -37,7 +37,7 @@ fn layer_benchmark(c: &mut Criterion) {
             let patterns = vec!["tokio"];
             let absolute_layer = AbsoluteLayer::from_patterns(patterns);
             let recorder = absolute_layer.layer(NoopRecorder);
-            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("rdkafka.bytes")];
+            static KEY_NAME: &'static str = "rdkafka.bytes";
             static KEY_DATA: Key = Key::from_static_name(&KEY_NAME);
 
             let mut counter = 1;
@@ -49,7 +49,7 @@ fn layer_benchmark(c: &mut Criterion) {
         });
         group.bench_function("noop recorder overhead (increment_counter)", |b| {
             let recorder = NoopRecorder;
-            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("counter")];
+            static KEY_NAME: &'static str = "counter";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
