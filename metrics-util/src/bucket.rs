@@ -168,10 +168,11 @@ impl<T> AtomicBucket<T> {
             let mut tail = self.tail.load(Ordering::Acquire, guard);
             if tail.is_null() {
                 // No blocks at all yet.  We need to create one.
-                match self.tail.compare_and_set(
+                match self.tail.compare_exchange(
                     Shared::null(),
                     Owned::new(Block::new()),
                     Ordering::AcqRel,
+                    Ordering::Acquire,
                     guard,
                 ) {
                     // We won the race to install the new block.
@@ -189,10 +190,11 @@ impl<T> AtomicBucket<T> {
                 Ok(_) => return,
                 // The block was full, so we've been given the value back and we need to install a new block.
                 Err(value) => {
-                    match self.tail.compare_and_set(
+                    match self.tail.compare_exchange(
                         tail,
                         Owned::new(Block::new()),
                         Ordering::AcqRel,
+                        Ordering::Acquire,
                         guard,
                     ) {
                         // We managed to install the block, so we need to link this new block to
@@ -309,7 +311,13 @@ impl<T> AtomicBucket<T> {
         if !block_ptr.is_null()
             && self
                 .tail
-                .compare_and_set(block_ptr, Shared::null(), Ordering::SeqCst, guard)
+                .compare_exchange(
+                    block_ptr,
+                    Shared::null(),
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                    guard,
+                )
                 .is_ok()
         {
             let backoff = Backoff::new();
