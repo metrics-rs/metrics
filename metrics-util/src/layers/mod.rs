@@ -122,8 +122,9 @@ pub use fanout::{Fanout, FanoutBuilder};
 mod absolute;
 #[cfg(feature = "layer-absolute")]
 pub use absolute::{Absolute, AbsoluteLayer};
-
+#[cfg(feature = "layer-router")]
 mod router;
+#[cfg(feature = "layer-router")]
 pub use router::{Router, RouterBuilder};
 
 /// Decorates an object by wrapping it within another type.

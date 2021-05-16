@@ -23,20 +23,15 @@ impl Router {
         search_routes: &Trie<String, usize>,
     ) -> &dyn Recorder {
         // The global mask is essentially a Bloom filter of overridden route types.  If it doesn't
-        // match our metric, we know for a fact there's no route.  Use the default recorder.
+        // match our metric, we know for a fact there's no route and must use the default recorder.
         if !self.global_mask.matches(kind) {
             self.default.as_ref()
         } else {
-            // TODO: it'd be neat to search incrementally, like part #1 of key nameparts, then part
-            // #2, etc... but there's no way to do that with the exposed API. we'd need to be able
-            // to feed a it a slice of u8 slices or something.
-
             // SAFETY: We derive the `idx` value that is inserted into our route maps by using the
             // length of `targets` itself before adding a new target.  Ergo, the index is provably
             // populated if the `idx` has been stored.
-            let needle = key.name().to_string();
             search_routes
-                .get_ancestor(needle.as_str())
+                .get_ancestor(key.name())
                 .map(|st| unsafe { self.targets.get_unchecked(*st.value().unwrap()).as_ref() })
                 .unwrap_or(self.default.as_ref())
         }
