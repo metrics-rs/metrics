@@ -1,3 +1,5 @@
+use std::slice::Iter;
+
 use crate::SharedString;
 use alloc::vec::Vec;
 
@@ -64,6 +66,12 @@ pub trait IntoLabels {
 impl IntoLabels for Vec<Label> {
     fn into_labels(self) -> Vec<Label> {
         self
+    }
+}
+
+impl IntoLabels for Iter<'_, Label> {
+    fn into_labels(self) -> Vec<Label> {
+        self.cloned().collect()
     }
 }
 

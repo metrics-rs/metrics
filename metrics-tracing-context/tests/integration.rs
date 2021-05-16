@@ -1,4 +1,4 @@
-use metrics::{counter, Key, Label, SharedString};
+use metrics::{counter, Key, Label};
 use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::{
     layers::Layer, CompositeKey, DebugValue, DebuggingRecorder, MetricKind, Snapshotter,
@@ -9,17 +9,12 @@ use tracing::{span, Level};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
 
 static TEST_MUTEX: Mutex<()> = const_mutex(());
-static LOGIN_ATTEMPTS: &'static [SharedString] = &[SharedString::const_str("login_attempts")];
-static LOGIN_ATTEMPTS_NONE: &'static [SharedString] =
-    &[SharedString::const_str("login_attempts_no_labels")];
-static LOGIN_ATTEMPTS_STATIC: &'static [SharedString] =
-    &[SharedString::const_str("login_attempts_static_labels")];
-static LOGIN_ATTEMPTS_DYNAMIC: &'static [SharedString] =
-    &[SharedString::const_str("login_attempts_dynamic_labels")];
-static LOGIN_ATTEMPTS_BOTH: &'static [SharedString] = &[SharedString::const_str(
-    "login_attempts_static_and_dynamic_labels",
-)];
-static MY_COUNTER: &'static [SharedString] = &[SharedString::const_str("my_counter")];
+static LOGIN_ATTEMPTS: &'static str = "login_attempts";
+static LOGIN_ATTEMPTS_NONE: &'static str = "login_attempts_no_labels";
+static LOGIN_ATTEMPTS_STATIC: &'static str = "login_attempts_static_labels";
+static LOGIN_ATTEMPTS_DYNAMIC: &'static str = "login_attempts_dynamic_labels";
+static LOGIN_ATTEMPTS_BOTH: &'static str = "login_attempts_static_and_dynamic_labels";
+static MY_COUNTER: &'static str = "my_counter";
 static USER_EMAIL: &'static [Label] = &[
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),

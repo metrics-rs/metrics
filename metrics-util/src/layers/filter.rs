@@ -12,9 +12,7 @@ pub struct Filter<R> {
 
 impl<R> Filter<R> {
     fn should_filter(&self, key: &Key) -> bool {
-        key.name()
-            .parts()
-            .any(|s| self.automaton.is_match(s.as_ref()))
+        self.automaton.is_match(key.name())
     }
 }
 

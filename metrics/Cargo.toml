@@ -27,10 +27,6 @@ bench = false
 name = "macros"
 harness = false
 
-[[bench]]
-name = "key"
-harness = false
-
 [dependencies]
 metrics-macros = { version = "^0.3", path = "../metrics-macros" }
 proc-macro-hack = "0.5"
