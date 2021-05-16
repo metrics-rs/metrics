@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 #[cfg(feature = "layer-filter")]
-use metrics::{Key, Label, NoopRecorder, Recorder, SharedString};
+use metrics::{Key, Label, NoopRecorder, Recorder};
 
 #[cfg(feature = "layer-filter")]
 use metrics_util::layers::{FilterLayer, Layer};
@@ -15,7 +15,7 @@ fn layer_benchmark(c: &mut Criterion) {
             let patterns = vec!["tokio"];
             let filter_layer = FilterLayer::from_patterns(patterns);
             let recorder = filter_layer.layer(NoopRecorder);
-            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("tokio.foo")];
+            static KEY_NAME: &'static str = "tokio.foo";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
@@ -27,22 +27,7 @@ fn layer_benchmark(c: &mut Criterion) {
             let patterns = vec!["tokio"];
             let filter_layer = FilterLayer::from_patterns(patterns);
             let recorder = filter_layer.layer(NoopRecorder);
-            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("hyper.foo")];
-            static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
-
-            b.iter(|| {
-                recorder.increment_counter(&KEY_DATA, 1);
-            })
-        });
-        group.bench_function("deep match", |b| {
-            let patterns = vec!["tokio"];
-            let filter_layer = FilterLayer::from_patterns(patterns);
-            let recorder = filter_layer.layer(NoopRecorder);
-            static KEY_NAME: [SharedString; 2] = [
-                SharedString::const_str("prefix"),
-                SharedString::const_str("tokio.foo"),
-            ];
+            static KEY_NAME: &'static str = "hyper.foo";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
@@ -52,7 +37,7 @@ fn layer_benchmark(c: &mut Criterion) {
         });
         group.bench_function("noop recorder overhead (increment_counter)", |b| {
             let recorder = NoopRecorder;
-            static KEY_NAME: [SharedString; 1] = [SharedString::const_str("tokio.foo")];
+            static KEY_NAME: &'static str = "tokio.foo";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 

@@ -16,9 +16,7 @@ pub struct Absolute<R> {
 
 impl<R> Absolute<R> {
     fn should_convert(&self, key: &Key) -> bool {
-        key.name()
-            .parts()
-            .any(|s| self.automaton.is_match(s.as_ref()))
+        self.automaton.is_match(key.name())
     }
 }
 

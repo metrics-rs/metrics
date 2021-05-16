@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Removed
+- `NameParts` has been removed to simplify metric names, again relying on a single string which is
+  still backed by copy-on-write storage.
+
 ## [0.15.1] - 2021-05-03
+### Changed
+- Nothing.  Fixed an issue with using the wrong dependency version during a mass release of
+  workspace crates.
 
 ## [0.15.0] - 2021-05-03
 ### Changed

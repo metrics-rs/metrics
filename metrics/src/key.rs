@@ -9,80 +9,10 @@ use std::{
 
 const NO_LABELS: [Label; 0] = [];
 
-/// Parts compromising a metric name.
-#[derive(PartialEq, Eq, Hash, Clone, Debug, PartialOrd, Ord)]
-pub struct NameParts(Cow<'static, [SharedString]>);
-
-impl NameParts {
-    /// Creates a [`NameParts`] from the given name.
-    pub fn from_name<N: Into<SharedString>>(name: N) -> Self {
-        NameParts(Cow::owned(vec![name.into()]))
-    }
-
-    /// Creates a [`NameParts`] from the given static name.
-    pub const fn from_static_names(names: &'static [SharedString]) -> Self {
-        NameParts(Cow::<'static, [SharedString]>::const_slice(names))
-    }
-
-    /// Appends a name part.
-    pub fn append<S: Into<SharedString>>(self, part: S) -> Self {
-        let mut parts = self.0.into_owned();
-        parts.push(part.into());
-        NameParts(Cow::owned(parts))
-    }
-
-    /// Prepends a name part.
-    pub fn prepend<S: Into<SharedString>>(self, part: S) -> Self {
-        let mut parts = self.0.into_owned();
-        parts.insert(0, part.into());
-        NameParts(Cow::owned(parts))
-    }
-
-    /// Gets a reference to the parts for this name.
-    pub fn parts(&self) -> Iter<'_, SharedString> {
-        self.0.iter()
-    }
-}
-
-impl From<String> for NameParts {
-    fn from(name: String) -> NameParts {
-        NameParts::from_name(name)
-    }
-}
-
-impl From<&'static str> for NameParts {
-    fn from(name: &'static str) -> NameParts {
-        NameParts::from_name(name)
-    }
-}
-
-impl From<&'static [SharedString]> for NameParts {
-    fn from(names: &'static [SharedString]) -> NameParts {
-        NameParts::from_static_names(names)
-    }
-}
-
-impl fmt::Display for NameParts {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut first = false;
-        let mut s = String::with_capacity(16);
-        for p in self.0.iter() {
-            if first {
-                s.push('.');
-                first = false;
-            }
-            s.push_str(p.as_ref());
-        }
-        f.write_str(s.as_str())?;
-        Ok(())
-    }
-}
-
 /// A metric identifier.
 #[derive(Debug)]
 pub struct Key {
-    // TODO: once const slicing is possible on stable, we could likely use `beef` for both of these
-    name_parts: NameParts,
+    name: SharedString,
     labels: Cow<'static, [Label]>,
     hashed: AtomicBool,
     hash: AtomicU64,
@@ -92,33 +22,33 @@ impl Key {
     /// Creates a [`Key`] from a name.
     pub fn from_name<N>(name: N) -> Self
     where
-        N: Into<NameParts>,
+        N: Into<SharedString>,
     {
-        let name_parts = name.into();
+        let name = name.into();
         let labels = Cow::owned(Vec::new());
 
-        Self::builder(name_parts, labels)
+        Self::builder(name, labels)
     }
 
     /// Creates a [`Key`] from a name and set of labels.
     pub fn from_parts<N, L>(name: N, labels: L) -> Self
     where
-        N: Into<NameParts>,
+        N: Into<SharedString>,
         L: IntoLabels,
     {
-        let name_parts = name.into();
+        let name = name.into();
         let labels = Cow::owned(labels.into_labels());
 
-        Self::builder(name_parts, labels)
+        Self::builder(name, labels)
     }
 
     /// Creates a [`Key`] from a non-static name and a static set of labels.
     pub fn from_static_labels<N>(name: N, labels: &'static [Label]) -> Self
     where
-        N: Into<NameParts>,
+        N: Into<SharedString>,
     {
         Self {
-            name_parts: name.into(),
+            name: name.into(),
             labels: Cow::<[Label]>::const_slice(labels),
             hashed: AtomicBool::new(false),
             hash: AtomicU64::new(0),
@@ -128,39 +58,36 @@ impl Key {
     /// Creates a [`Key`] from a static name.
     ///
     /// This function is `const`, so it can be used in a static context.
-    pub const fn from_static_name(name_parts: &'static [SharedString]) -> Self {
-        Self::from_static_parts(name_parts, &NO_LABELS)
+    pub const fn from_static_name(name: &'static str) -> Self {
+        Self::from_static_parts(name, &NO_LABELS)
     }
 
     /// Creates a [`Key`] from a static name and static set of labels.
     ///
     /// This function is `const`, so it can be used in a static context.
-    pub const fn from_static_parts(
-        name_parts: &'static [SharedString],
-        labels: &'static [Label],
-    ) -> Self {
+    pub const fn from_static_parts(name: &'static str, labels: &'static [Label]) -> Self {
         Self {
-            name_parts: NameParts::from_static_names(name_parts),
+            name: Cow::const_str(name),
             labels: Cow::<[Label]>::const_slice(labels),
             hashed: AtomicBool::new(false),
             hash: AtomicU64::new(0),
         }
     }
 
-    fn builder(name_parts: NameParts, labels: Cow<'static, [Label]>) -> Self {
-        let hash = generate_key_hash(&name_parts, &labels);
+    fn builder(name: SharedString, labels: Cow<'static, [Label]>) -> Self {
+        let hash = generate_key_hash(&name, &labels);
 
         Self {
-            name_parts,
+            name,
             labels,
             hashed: AtomicBool::new(true),
             hash: AtomicU64::new(hash),
         }
     }
 
-    /// Name parts of this key.
-    pub fn name(&self) -> &NameParts {
-        &self.name_parts
+    /// Name of this key.
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
     }
 
     /// Labels of this key, if they exist.
@@ -168,21 +95,9 @@ impl Key {
         self.labels.iter()
     }
 
-    /// Appends a part to the name,
-    pub fn append_name<S: Into<SharedString>>(self, part: S) -> Self {
-        let name_parts = self.name_parts.append(part);
-        Self::builder(name_parts, self.labels)
-    }
-
-    /// Prepends a part to the name.
-    pub fn prepend_name<S: Into<SharedString>>(self, part: S) -> Self {
-        let name_parts = self.name_parts.prepend(part);
-        Self::builder(name_parts, self.labels)
-    }
-
     /// Consumes this [`Key`], returning the name parts and any labels.
-    pub fn into_parts(self) -> (NameParts, Vec<Label>) {
-        (self.name_parts.clone(), self.labels.into_owned())
+    pub fn into_parts(self) -> (SharedString, Vec<Label>) {
+        (self.name, self.labels.into_owned())
     }
 
     /// Clones this [`Key`], and expands the existing set of labels.
@@ -191,11 +106,11 @@ impl Key {
             return self.clone();
         }
 
-        let name_parts = self.name_parts.clone();
+        let name = self.name.clone();
         let mut labels = self.labels.clone().into_owned();
         labels.extend(extra_labels);
 
-        Self::builder(name_parts, labels.into())
+        Self::builder(name, labels.into())
     }
 
     /// Gets the hash value for this key.
@@ -203,7 +118,7 @@ impl Key {
         if self.hashed.load(Ordering::Acquire) {
             self.hash.load(Ordering::Acquire)
         } else {
-            let hash = generate_key_hash(&self.name_parts, &self.labels);
+            let hash = generate_key_hash(&self.name, &self.labels);
             self.hash.store(hash, Ordering::Release);
             self.hashed.store(true, Ordering::Release);
             hash
@@ -211,25 +126,21 @@ impl Key {
     }
 }
 
-fn generate_key_hash(name_parts: &NameParts, labels: &Cow<'static, [Label]>) -> u64 {
+fn generate_key_hash(name: &SharedString, labels: &Cow<'static, [Label]>) -> u64 {
     let mut hasher = KeyHasher::default();
-    key_hasher_impl(&mut hasher, name_parts, labels);
+    key_hasher_impl(&mut hasher, name, labels);
     hasher.finish()
 }
 
-fn key_hasher_impl<H: Hasher>(
-    state: &mut H,
-    name_parts: &NameParts,
-    labels: &Cow<'static, [Label]>,
-) {
-    name_parts.hash(state);
+fn key_hasher_impl<H: Hasher>(state: &mut H, name: &SharedString, labels: &Cow<'static, [Label]>) {
+    name.hash(state);
     labels.hash(state);
 }
 
 impl Clone for Key {
     fn clone(&self) -> Self {
         Self {
-            name_parts: self.name_parts.clone(),
+            name: self.name.clone(),
             labels: self.labels.clone(),
             hashed: AtomicBool::new(self.hashed.load(Ordering::Acquire)),
             hash: AtomicU64::new(self.hash.load(Ordering::Acquire)),
@@ -239,7 +150,7 @@ impl Clone for Key {
 
 impl PartialEq for Key {
     fn eq(&self, other: &Self) -> bool {
-        self.name_parts == other.name_parts && self.labels == other.labels
+        self.name == other.name && self.labels == other.labels
     }
 }
 
@@ -253,22 +164,22 @@ impl PartialOrd for Key {
 
 impl Ord for Key {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        (&self.name_parts, &self.labels).cmp(&(&other.name_parts, &other.labels))
+        (&self.name, &self.labels).cmp(&(&other.name, &other.labels))
     }
 }
 
 impl Hash for Key {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        key_hasher_impl(state, &self.name_parts, &self.labels);
+        key_hasher_impl(state, &self.name, &self.labels);
     }
 }
 
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.labels.is_empty() {
-            write!(f, "Key({})", self.name_parts)
+            write!(f, "Key({})", self.name)
         } else {
-            write!(f, "Key({}, [", self.name_parts)?;
+            write!(f, "Key({}, [", self.name)?;
             let mut first = true;
             for label in self.labels.as_ref() {
                 if first {
@@ -301,18 +212,18 @@ where
     L: IntoLabels,
 {
     fn from(parts: (N, L)) -> Self {
-        Self::from_parts(NameParts::from_name(parts.0), parts.1)
+        Self::from_parts(parts.0, parts.1)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Key;
-    use crate::{Label, SharedString};
+    use crate::Label;
     use std::collections::HashMap;
 
-    static BORROWED_NAME: [SharedString; 1] = [SharedString::const_str("name")];
-    static FOOBAR_NAME: [SharedString; 1] = [SharedString::const_str("foobar")];
+    static BORROWED_NAME: &'static str = "name";
+    static FOOBAR_NAME: &'static str = "foobar";
     static BORROWED_BASIC: Key = Key::from_static_name(&BORROWED_NAME);
     static LABELS: [Label; 1] = [Label::from_static_parts("key", "value")];
     static BORROWED_LABELS: Key = Key::from_static_parts(&BORROWED_NAME, &LABELS);
@@ -368,6 +279,10 @@ mod tests {
 
         let previous = keys.get(&BORROWED_LABELS);
         assert_eq!(previous, Some(&43));
+
+        let basic: Key = "constant_key".into();
+        let cloned_basic = basic.clone();
+        assert_eq!(basic, cloned_basic);
     }
 
     #[test]

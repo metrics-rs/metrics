@@ -334,7 +334,7 @@ fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
     let use_name_static = name_is_fast_path(name);
     let name_static = if use_name_static {
         quote! {
-            static METRIC_NAME: [metrics::SharedString; 1] = [metrics::SharedString::const_str(#name)];
+            static METRIC_NAME: &'static str = #name;
         }
     } else {
         quote! {}
@@ -374,11 +374,11 @@ fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
     let key_static = if use_name_static && use_labels_static {
         if has_labels {
             quote! {
-                static METRIC_KEY: metrics::Key = metrics::Key::from_static_parts(&METRIC_NAME, &METRIC_LABELS);
+                static METRIC_KEY: metrics::Key = metrics::Key::from_static_parts(METRIC_NAME, &METRIC_LABELS);
             }
         } else {
             quote! {
-                static METRIC_KEY: metrics::Key = metrics::Key::from_static_name(&METRIC_NAME);
+                static METRIC_KEY: metrics::Key = metrics::Key::from_static_name(METRIC_NAME);
             }
         }
     } else {
@@ -413,7 +413,7 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> (TokenStream2, T
         let labels = labels.as_ref().unwrap();
         let quoted_labels = labels_to_quoted(labels);
         quote! {
-            let key = metrics::Key::from_parts(&METRIC_NAME[..], #quoted_labels);
+            let key = metrics::Key::from_parts(METRIC_NAME, #quoted_labels);
         }
     } else if !use_name_static && !use_labels_static {
         // The name is not static, and neither are the labels. Since `use_labels_static`

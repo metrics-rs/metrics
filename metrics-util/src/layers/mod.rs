@@ -17,12 +17,7 @@
 //!
 //! impl<R> StairwayDeny<R> {
 //!     fn is_invalid_key(&self, key: &Key) -> bool {
-//!         for part in key.name().parts() {
-//!             if part.contains("stairway") || part.contains("heaven") {
-//!                 return true
-//!             }
-//!         }
-//!         false
+//!         key.name().contains("stairway") || key.name().contains("heaven")
 //!     }
 //! }
 //!
@@ -127,6 +122,10 @@ pub use fanout::{Fanout, FanoutBuilder};
 mod absolute;
 #[cfg(feature = "layer-absolute")]
 pub use absolute::{Absolute, AbsoluteLayer};
+#[cfg(feature = "layer-router")]
+mod router;
+#[cfg(feature = "layer-router")]
+pub use router::{Router, RouterBuilder};
 
 /// Decorates an object by wrapping it within another type.
 pub trait Layer<R> {
