@@ -118,7 +118,7 @@ impl PrometheusBuilder {
     /// It only affects matching metrics if set_buckets was not used.
     pub fn set_buckets_for_metric(mut self, matcher: Matcher, values: &[f64]) -> Self {
         let buckets = self.bucket_overrides.get_or_insert_with(HashMap::new);
-        buckets.insert(matcher, values.to_vec());
+        buckets.insert(matcher.sanitized(), values.to_vec());
         self
     }
 
@@ -349,27 +349,27 @@ mod tests {
 
         let recorder = PrometheusBuilder::new()
             .set_buckets_for_metric(
-                Matcher::Full("metrics_testing_foo".to_owned()),
+                Matcher::Full("metrics.testing foo".to_owned()),
                 &FULL_VALUES[..],
             )
             .set_buckets_for_metric(
-                Matcher::Prefix("metrics_testing".to_owned()),
+                Matcher::Prefix("metrics.testing".to_owned()),
                 &PREFIX_VALUES[..],
             )
             .set_buckets_for_metric(Matcher::Suffix("foo".to_owned()), &SUFFIX_VALUES[..])
             .set_buckets(&DEFAULT_VALUES[..])
             .build();
 
-        let full_key = Key::from_name("metrics_testing_foo");
+        let full_key = Key::from_name("metrics.testing_foo");
         recorder.record_histogram(&full_key, FULL_VALUES[0]);
 
-        let prefix_key = Key::from_name("metrics_testing_bar");
+        let prefix_key = Key::from_name("metrics.testing_bar");
         recorder.record_histogram(&prefix_key, PREFIX_VALUES[1]);
 
         let suffix_key = Key::from_name("metrics_testin_foo");
         recorder.record_histogram(&suffix_key, SUFFIX_VALUES[2]);
 
-        let default_key = Key::from_name("metrics_wee");
+        let default_key = Key::from_name("metrics.wee");
         recorder.record_histogram(&default_key, DEFAULT_VALUES[2] + 1.0);
 
         let full_data = concat!(

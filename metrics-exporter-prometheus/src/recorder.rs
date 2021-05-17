@@ -6,7 +6,7 @@ use parking_lot::RwLock;
 use metrics::{GaugeValue, Key, Recorder, Unit};
 use metrics_util::{Handle, MetricKind, Recency, Registry};
 
-use crate::common::Snapshot;
+use crate::common::{sanitize_key_name, Snapshot};
 use crate::distribution::{Distribution, DistributionBuilder};
 
 pub(crate) struct Inner {
@@ -294,8 +294,7 @@ impl PrometheusHandle {
 }
 
 fn key_to_parts(key: &Key, defaults: &HashMap<String, String>) -> (String, Vec<String>) {
-    let sanitize = |c| c == '.' || c == '=' || c == '{' || c == '}' || c == '+' || c == '-';
-    let name = key.name().to_string().replace(sanitize, "_");
+    let name = sanitize_key_name(key.name());
     let mut values = defaults.clone();
     key.labels().into_iter().for_each(|label| {
         values.insert(label.key().into(), label.value().into());
