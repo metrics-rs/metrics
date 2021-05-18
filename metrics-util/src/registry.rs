@@ -123,6 +123,18 @@ where
         (hash, shard)
     }
 
+    /// Removes all metrics from the registry.
+    ///
+    /// This operation is eventually consistent: metrics will be removed piecemeal, and this method
+    /// does not ensure that callers will see the registry as entirely empty at any given point.
+    pub fn clear(&self) {
+        for shard in &self.shards {
+            for subshard in shard {
+                subshard.write().clear();
+            }
+        }
+    }
+
     /// Perform an operation on a given key.
     ///
     /// The `op` function will be called for the handle under the given `key`.
