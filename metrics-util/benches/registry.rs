@@ -1,18 +1,18 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use metrics::{Key, Label};
-use metrics_util::{MetricKind, Registry};
+use metrics_util::{MetricKind, NotTracked, Registry};
 
 fn registry_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("registry");
+    let mut group = c.benchmark_group("registry (not tracked)");
     group.bench_function("cached op (basic)", |b| {
-        let registry: Registry<Key, ()> = Registry::new();
+        let registry = Registry::<Key, (), NotTracked<()>>::untracked();
         static KEY_NAME: &'static str = "simple_key";
         static KEY_DATA: Key = Key::from_static_name(&KEY_NAME);
 
         b.iter(|| registry.op(MetricKind::Counter, &KEY_DATA, |_| (), || ()))
     });
     group.bench_function("cached op (labels)", |b| {
-        let registry: Registry<Key, ()> = Registry::new();
+        let registry = Registry::<Key, (), NotTracked<()>>::untracked();
         static KEY_NAME: &'static str = "simple_key";
         static KEY_LABELS: [Label; 1] = [Label::from_static_parts("type", "http")];
         static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
@@ -21,7 +21,7 @@ fn registry_benchmark(c: &mut Criterion) {
     });
     group.bench_function("uncached op (basic)", |b| {
         b.iter_batched_ref(
-            || Registry::<Key, ()>::new(),
+            || Registry::<Key, (), NotTracked<()>>::untracked(),
             |registry| {
                 let key = "simple_key".into();
                 registry.op(MetricKind::Counter, &key, |_| (), || ())
@@ -31,7 +31,7 @@ fn registry_benchmark(c: &mut Criterion) {
     });
     group.bench_function("uncached op (labels)", |b| {
         b.iter_batched_ref(
-            || Registry::<Key, ()>::new(),
+            || Registry::<Key, (), NotTracked<()>>::untracked(),
             |registry| {
                 let labels = vec![Label::new("type", "http")];
                 let key = ("simple_key", labels).into();
@@ -43,7 +43,7 @@ fn registry_benchmark(c: &mut Criterion) {
     group.bench_function("registry overhead", |b| {
         b.iter_batched(
             || (),
-            |_| Registry::<Key, ()>::new(),
+            |_| Registry::<Key, (), NotTracked<()>>::untracked(),
             BatchSize::NumIterations(1),
         )
     });

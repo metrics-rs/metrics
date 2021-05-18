@@ -3,7 +3,7 @@ use getopts::Options;
 use hdrhistogram::Histogram;
 use log::{error, info};
 use metrics::{gauge, histogram, increment_counter, GaugeValue, Key, Recorder, Unit};
-use metrics_util::{Handle, MetricKind, Registry};
+use metrics_util::{Handle, MetricKind, Registry, Tracked};
 use quanta::{Clock, Instant as QuantaInstant};
 use std::{
     env,
@@ -19,7 +19,7 @@ use std::{
 const LOOP_SAMPLE: u64 = 1000;
 
 pub struct Controller {
-    registry: Arc<Registry<Key, Handle>>,
+    registry: Arc<Registry<Key, Handle, Tracked<Handle>>>,
 }
 
 impl Controller {
@@ -40,14 +40,14 @@ impl Controller {
 ///
 /// Simulates typical recorder implementations by utilizing `Registry`, clearing histogram buckets, etc.
 pub struct BenchmarkingRecorder {
-    registry: Arc<Registry<Key, Handle>>,
+    registry: Arc<Registry<Key, Handle, Tracked<Handle>>>,
 }
 
 impl BenchmarkingRecorder {
     /// Creates a new `BenchmarkingRecorder`.
     pub fn new() -> BenchmarkingRecorder {
         BenchmarkingRecorder {
-            registry: Arc::new(Registry::new()),
+            registry: Arc::new(Registry::<Key, Handle, Tracked<Handle>>::tracked()),
         }
     }
 
