@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::time::Duration;
 use std::{collections::HashMap, ops::DerefMut};
 
-use crate::{kind::MetricKindMask, Generation, Hashable, MetricKind, Registry};
+use crate::{kind::MetricKindMask, Generation, Generational, Hashable, MetricKind, Registry};
 
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
@@ -64,16 +64,17 @@ impl<K> Recency<K> {
     /// If the generation does not match, this indicates that the key was updated between querying
     /// it from the registry and calling this method, and this method will return `true` in those
     /// cases, and `false` for all remaining cases.
-    pub fn should_store<H>(
+    pub fn should_store<H, G>(
         &self,
         kind: MetricKind,
         key: &K,
         gen: Generation,
-        registry: &Registry<K, H>,
+        registry: &Registry<K, H, G>,
     ) -> bool
     where
         K: Debug + Eq + Hashable + Clone + 'static,
         H: Debug + Clone + 'static,
+        G: Generational<H>,
     {
         if let Some(idle_timeout) = self.idle_timeout {
             if self.mask.matches(kind) {

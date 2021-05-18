@@ -24,7 +24,7 @@ pub use quantile::{parse_quantiles, Quantile};
 #[cfg(feature = "std")]
 mod registry;
 #[cfg(feature = "std")]
-pub use registry::{Generation, Registry};
+pub use registry::{Generation, Generational, NotTracked, Registry, Tracked};
 
 mod common;
 pub use common::*;

@@ -4,13 +4,13 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 
 use metrics::{GaugeValue, Key, Recorder, Unit};
-use metrics_util::{Handle, MetricKind, Recency, Registry};
+use metrics_util::{Handle, MetricKind, Recency, Registry, Tracked};
 
 use crate::common::{sanitize_key_name, Snapshot};
 use crate::distribution::{Distribution, DistributionBuilder};
 
 pub(crate) struct Inner {
-    pub registry: Registry<Key, Handle>,
+    pub registry: Registry<Key, Handle, Tracked<Handle>>,
     pub recency: Recency<Key>,
     pub distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
@@ -19,7 +19,7 @@ pub(crate) struct Inner {
 }
 
 impl Inner {
-    pub fn registry(&self) -> &Registry<Key, Handle> {
+    pub fn registry(&self) -> &Registry<Key, Handle, Tracked<Handle>> {
         &self.registry
     }
 
