@@ -27,7 +27,7 @@ name = "layer"
 harness = false
 
 [dependencies]
-metrics = { version = "^0.15", path = "../metrics", features = ["std"] }
+metrics = { version = "^0.16", path = "../metrics", features = ["std"] }
 metrics-util = { version = "^0.7", path = "../metrics-util" }
 tracing = "0.1"
 tracing-core = "0.1"

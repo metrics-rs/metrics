@@ -43,7 +43,7 @@ name = "absolute"
 harness = false
 
 [dependencies]
-metrics = { version = "^0.15", path = "../metrics", features = ["std"] }
+metrics = { version = "^0.16", path = "../metrics", features = ["std"] }
 crossbeam-epoch = { version = "0.9", optional = true }
 crossbeam-utils = { version = "0.8", default-features = false, optional = true }
 atomic-shim = { version = "0.1", optional = true }
