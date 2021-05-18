@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - New layer -- `Router` -- for routing specific metrics to target downstream recorders.
+- `Registry::clear` allows clearing all metrics from the registry.
 
 ### Changed
 - Updated all deprecated usages of `crossbeam_epoch::Atomic<T>::compare_and_set` to `compare_exchange`.
