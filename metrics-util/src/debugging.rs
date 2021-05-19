@@ -2,7 +2,7 @@ use core::hash::Hash;
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::{handle::Handle, kind::MetricKind, registry::Registry, CompositeKey};
+use crate::{handle::Handle, kind::MetricKind, registry::Registry, CompositeKey, NotTracked};
 
 use indexmap::IndexMap;
 use metrics::{GaugeValue, Key, Recorder, Unit};
@@ -25,7 +25,7 @@ pub enum DebugValue {
 
 /// Captures point-in-time snapshots of `DebuggingRecorder`.
 pub struct Snapshotter {
-    registry: Arc<Registry<Key, Handle>>,
+    registry: Arc<Registry<Key, Handle, NotTracked<Handle>>>,
     metrics: Option<Arc<Mutex<IndexMap<CompositeKey, ()>>>>,
     units: UnitMap,
     descs: DescriptionMap,
@@ -99,7 +99,7 @@ impl Snapshotter {
 /// Callers can easily take snapshots of the metrics at any given time and get access
 /// to the raw values.
 pub struct DebuggingRecorder {
-    registry: Arc<Registry<Key, Handle>>,
+    registry: Arc<Registry<Key, Handle, NotTracked<Handle>>>,
     metrics: Option<Arc<Mutex<IndexMap<CompositeKey, ()>>>>,
     units: Arc<Mutex<HashMap<CompositeKey, Unit>>>,
     descs: Arc<Mutex<HashMap<CompositeKey, &'static str>>>,
@@ -124,7 +124,7 @@ impl DebuggingRecorder {
         };
 
         DebuggingRecorder {
-            registry: Arc::new(Registry::new()),
+            registry: Arc::new(Registry::<Key, Handle, NotTracked<Handle>>::untracked()),
             metrics,
             units: Arc::new(Mutex::new(HashMap::new())),
             descs: Arc::new(Mutex::new(HashMap::new())),

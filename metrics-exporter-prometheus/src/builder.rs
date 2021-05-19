@@ -12,12 +12,13 @@ use hyper::{
     service::{make_service_fn, service_fn},
     StatusCode, {Body, Error as HyperError, Response},
 };
+use metrics::Key;
 use parking_lot::RwLock;
 use quanta::Clock;
 #[cfg(feature = "tokio-exporter")]
 use tokio::{pin, runtime, select};
 
-use metrics_util::{parse_quantiles, MetricKindMask, Quantile, Recency, Registry};
+use metrics_util::{parse_quantiles, Handle, MetricKindMask, Quantile, Recency, Registry, Tracked};
 
 #[cfg(feature = "tokio-exporter")]
 use crate::common::InstallError;
@@ -200,7 +201,7 @@ impl PrometheusBuilder {
 
     pub(crate) fn build_with_clock(self, clock: Clock) -> PrometheusRecorder {
         let inner = Inner {
-            registry: Registry::new(),
+            registry: Registry::<Key, Handle, Tracked<Handle>>::tracked(),
             recency: Recency::new(clock, self.recency_mask, self.idle_timeout),
             distributions: RwLock::new(HashMap::new()),
             distribution_builder: DistributionBuilder::new(
