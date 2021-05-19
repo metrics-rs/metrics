@@ -90,7 +90,7 @@ impl<K> Recency<K> {
                             // If the delete returns false, that means that our generation counter is
                             // out-of-date, and that the metric has been updated since, so we don't
                             // actually want to delete it yet.
-                            if registry.delete(kind, &key, gen) {
+                            if registry.delete_with_gen(kind, &key, gen) {
                                 return false;
                             }
                         }

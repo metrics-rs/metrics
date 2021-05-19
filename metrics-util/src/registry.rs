@@ -274,10 +274,29 @@ where
 
     /// Deletes a handle from the registry.
     ///
+    /// Returns `true` if the handle existed and was removed, `false` otherwise.
+    pub fn delete(&self, kind: MetricKind, key: &K) -> bool {
+        let (hash, shard) = self.get_hash_and_shard(kind, key);
+        let mut shard_write = shard.write();
+        let entry = shard_write
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(hash, key);
+        if let RawEntryMut::Occupied(entry) = entry {
+            let _ = entry.remove_entry();
+            return true;
+        }
+
+        false
+    }
+
+    /// Deletes a handle from the registry.
+    ///
     /// The generation of a given key is passed along when querying the registry via
     /// [`get_handles`](Registry::get_handles).  If the generation given here does not match the
     /// current generation, then the handle will not be removed.
-    pub fn delete(&self, kind: MetricKind, key: &K, generation: Generation) -> bool {
+    ///
+    /// Returns `true` if the handle existed and was removed, `false` otherwise.
+    pub fn delete_with_gen(&self, kind: MetricKind, key: &K, generation: Generation) -> bool {
         let (hash, shard) = self.get_hash_and_shard(kind, key);
         let mut shard_write = shard.write();
         let entry = shard_write
@@ -293,6 +312,32 @@ where
         false
     }
 
+    /// Visits every handle stored in this registry.
+    ///
+    /// The given function will be passed the metric kind as well as the key and handle references,
+    /// which are wrapped in `Generational`-implementing holders.
+    ///
+    /// This operation does not lock the entire registry, but proceeds directly through the
+    /// "subshards" that are kept internally.  As a result, all subshards will be visited, but a
+    /// metric that existed at the exact moment that `visit` was called may not actually be observed
+    /// if it is deleted before that subshard is reached.  Likewise, a metric that is added after
+    /// the call to `visit`, but before `visit` finishes, may also not be observed.
+    pub fn visit<F>(&self, mut collect: F)
+    where
+        F: FnMut(MetricKind, (&K, &G)),
+    {
+        for (idx, subshards) in self.shards.iter().enumerate() {
+            let kind = idx_to_kind(idx);
+
+            for subshard in subshards {
+                let shard_read = subshard.read();
+                for item in shard_read.iter() {
+                    collect(kind, item);
+                }
+            }
+        }
+    }
+
     /// Gets a map of all present handles, mapped by key.
     ///
     /// Handles must implement `Clone`.  This map is a point-in-time snapshot of the registry.
@@ -300,24 +345,14 @@ where
     where
         H: Clone,
     {
-        self.shards
-            .iter()
-            .enumerate()
-            .fold(HashMap::default(), |mut acc, (idx, subshards)| {
-                let kind = idx_to_kind(idx);
-
-                for subshard in subshards {
-                    let shard_read = subshard.read();
-                    let items = shard_read.iter().map(|(k, v)| {
-                        (
-                            (kind, k.clone()),
-                            (v.get_generation(), v.get_inner().clone()),
-                        )
-                    });
-                    acc.extend(items);
-                }
-                acc
-            })
+        let mut handles = HashMap::new();
+        self.visit(|kind, (k, v)| {
+            handles.insert(
+                (kind, k.clone()),
+                (v.get_generation(), v.get_inner().clone()),
+            );
+        });
+        handles
     }
 }
 
@@ -437,12 +472,12 @@ mod tests {
         assert_eq!(ukey, DefaultHashable(1));
         assert_eq!(value.load(SeqCst), 44);
 
-        assert!(!registry.delete(kind, &key, initial_gen));
+        assert!(!registry.delete_with_gen(kind, &key, initial_gen));
 
         let entries = registry.get_handles();
         assert_eq!(entries.len(), 1);
 
-        assert!(registry.delete(kind, &key, updated_gen));
+        assert!(registry.delete_with_gen(kind, &key, updated_gen));
 
         let entries = registry.get_handles();
         assert_eq!(entries.len(), 0);
