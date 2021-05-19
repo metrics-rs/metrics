@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+- Reworked `Registry` to make generation tracking a configurable property at the type level.
+
 ## [0.8.0] - 2021-05-18
 
 ### Added
