@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.1] - 2021-05-24
+
 ### Changed
 - Pin `crossbeam-epoch` to the correct version where `Atomic::compare_exchange` support was added.
 
