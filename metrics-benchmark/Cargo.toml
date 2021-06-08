@@ -10,7 +10,7 @@ log = "0.4"
 env_logger = "0.8"
 getopts = "0.2"
 hdrhistogram = { version = "7.2", default-features = false }
-quanta = "0.7"
+quanta = "0.8"
 atomic-shim = "0.1"
 metrics = { version = "^0.16", path = "../metrics" }
 metrics-util = { version = "^0.9", path = "../metrics-util" }
