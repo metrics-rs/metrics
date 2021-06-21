@@ -1,6 +1,6 @@
 use std::hash::Hasher;
 
-use t1ha::T1haHasher;
+use ahash::AHasher;
 
 use crate::cow::Cow;
 
@@ -16,12 +16,12 @@ pub type SharedString = Cow<'static, str>;
 
 /// Key-specific hashing algorithm.
 ///
-/// Currently uses T1ha (Fast Positive Hash).
+/// Currently uses AHash - <https://github.com/tkaitchuck/aHash>
 ///
 /// For any use-case within a `metrics`-owned or adjacent crate, where hashing of a key is required,
 /// this is the hasher that will be used.
 #[derive(Default)]
-pub struct KeyHasher(T1haHasher);
+pub struct KeyHasher(AHasher);
 
 impl Hasher for KeyHasher {
     fn finish(&self) -> u64 {
