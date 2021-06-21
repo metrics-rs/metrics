@@ -56,7 +56,7 @@ sketches-ddsketch = { version = "0.1", optional = true }
 radix_trie = { version = "0.2", optional = true }
 ordered-float = "2.0"
 num_cpus = "1"
-t1ha = "0.1"
+ahash = "0.7.4"
 hashbrown = "0.11"
 
 [dev-dependencies]
