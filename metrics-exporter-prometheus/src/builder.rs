@@ -25,10 +25,10 @@ use crate::common::InstallError;
 use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;
 use crate::recorder::{Inner, PrometheusRecorder};
-use reqwest::Error;
 use std::pin::Pin;
 
 #[cfg(feature = "push-gateway")]
+#[derive(Clone)]
 pub struct PrometheusPushGatewayConfig {
     address: String,
     push_interval: std::time::Duration,
@@ -265,6 +265,7 @@ impl PrometheusBuilder {
         InstallError,
     > {
         let address = self.listen_address;
+        let push_gateway_config = self.push_gateway_config.clone();
         let allow_ips = self.allow_ips.take();
         let recorder = self.build();
         let handle = recorder.handle();
@@ -308,17 +309,15 @@ impl PrometheusBuilder {
         }
 
         #[cfg(feature = "push-gateway")]
-        if let Some(push_gateway_config) = &self.push_gateway_config {
+        if let Some(push_gateway_config) = &push_gateway_config {
+            let push_interval = push_gateway_config.push_interval;
+            let push_address = push_gateway_config.address.to_string();
             let exporter = async move {
                 let client = reqwest::Client::default();
                 loop {
-                    tokio::time::sleep(push_gateway_config.push_interval).await;
+                    tokio::time::sleep(push_interval).await;
                     let output = handle.render();
-                    let response = client
-                        .put(push_gateway_config.address.as_str())
-                        .body(output)
-                        .send()
-                        .await;
+                    let response = client.put(push_address.as_str()).body(output).send().await;
                     match response {
                         Ok(response) => {
                             if let Err(e) = response.error_for_status() {
