@@ -25,6 +25,7 @@ use crate::common::InstallError;
 use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;
 use crate::recorder::{Inner, PrometheusRecorder};
+use reqwest::Error;
 use std::pin::Pin;
 
 #[cfg(feature = "push-gateway")]
@@ -313,11 +314,24 @@ impl PrometheusBuilder {
                 loop {
                     tokio::time::sleep(push_gateway_config.push_interval).await;
                     let output = handle.render();
-                    client
+                    let response = client
                         .put(push_gateway_config.address.as_str())
                         .body(output)
                         .send()
                         .await;
+                    match response {
+                        Ok(response) => {
+                            if let Err(e) = response.error_for_status() {
+                                tracing::error!(
+                                    "error status code for pushing metrics to push gateway: {:?}",
+                                    e
+                                )
+                            }
+                        }
+                        Err(e) => {
+                            tracing::error!("error pushing metrics to push gateway: {:?}", e)
+                        }
+                    }
                 }
             };
             return Ok((recorder, Box::pin(exporter)));
