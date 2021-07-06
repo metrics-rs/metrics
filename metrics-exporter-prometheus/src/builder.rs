@@ -336,7 +336,7 @@ impl PrometheusBuilder {
             return Ok((recorder, Box::pin(exporter)));
         }
 
-        unimplemented!("must specify one of listen_address or push_gateway_config");
+        unimplemented!("must specify at least one of listen_address or push_gateway_config");
     }
 }
 
