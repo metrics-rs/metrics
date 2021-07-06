@@ -78,7 +78,7 @@ impl PrometheusBuilder {
         self
     }
 
-    /// Disable the HHTP listener. This is useful when you only want to use the
+    /// Disable the HTTP listener. This is useful when you only want to use the
     /// Prometheus push gateway.
     pub fn disable_http_listener(mut self) -> Self {
         self.listen_address = None;
