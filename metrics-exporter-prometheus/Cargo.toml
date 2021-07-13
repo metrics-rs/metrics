@@ -20,7 +20,7 @@ default = ["tokio-exporter"]
 tokio-exporter = ["hyper", "ipnet", "tokio"]
 
 [dependencies]
-metrics = { version = "^0.16", path = "../metrics" }
+metrics = { version = "^0.17", path = "../metrics" }
 metrics-util = { version = "^0.9", path = "../metrics-util" }
 parking_lot = "0.11"
 thiserror = "1.0"

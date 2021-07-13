@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.17.0] - 2021-07-13
+
 ### Changed
 - Switched from `t1ha` to `ahash` for the key hasher.
 
