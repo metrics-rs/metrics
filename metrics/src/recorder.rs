@@ -1,4 +1,4 @@
-use crate::{GaugeValue, Key, Unit};
+use crate::{Counter, Gauge, GaugeValue, Histogram, Key, Unit};
 use core::fmt;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
@@ -17,38 +17,38 @@ static SET_RECORDER_ERROR: &str =
 /// This is the core trait that allows interoperability between exporter implementations and the
 /// macros provided by `metrics`.
 pub trait Recorder {
-    /// Registers a counter.
+    /// Describes a counter.
     ///
     /// Callers may provide the unit or a description of the counter being registered. Whether or
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
-    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
+    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
 
-    /// Registers a gauge.
+    /// Describes a gauge.
     ///
     /// Callers may provide the unit or a description of the gauge being registered. Whether or
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
-    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
+    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
 
-    /// Registers a histogram.
+    /// Describes a histogram.
     ///
     /// Callers may provide the unit or a description of the histogram being registered. Whether or
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
-    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
+    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
 
-    /// Increments a counter.
-    fn increment_counter(&self, key: &Key, value: u64);
+    /// Registers a counter.
+    fn register_counter(&self, key: &Key) -> Counter;
 
-    /// Updates a gauge.
-    fn update_gauge(&self, key: &Key, value: GaugeValue);
+    /// Registers a gauge.
+    fn register_gauge(&self, key: &Key) -> Gauge;
 
-    /// Records a histogram.
-    fn record_histogram(&self, key: &Key, value: f64);
+    /// Registers a histogram.
+    fn register_histogram(&self, key: &Key) -> Histogram;
 }
 
 /// A no-op recorder.
@@ -58,24 +58,24 @@ pub trait Recorder {
 pub struct NoopRecorder;
 
 impl Recorder for NoopRecorder {
-    fn register_counter(
+    fn describe_counter(
         &self,
         _key: &Key,
         _unit: Option<Unit>,
         _description: Option<&'static str>,
     ) {
     }
-    fn register_gauge(&self, _key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
-    fn register_histogram(
+    fn describe_gauge(&self, _key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
+    fn describe_histogram(
         &self,
         _key: &Key,
         _unit: Option<Unit>,
         _description: Option<&'static str>,
     ) {
     }
-    fn increment_counter(&self, _key: &Key, _value: u64) {}
-    fn update_gauge(&self, _key: &Key, _value: GaugeValue) {}
-    fn record_histogram(&self, _key: &Key, _value: f64) {}
+    fn register_counter(&self, _key: &Key) -> Counter { Counter::noop() }
+    fn register_gauge(&self, _key: &Key) -> Gauge { Gauge::noop() }
+    fn register_histogram(&self, _key: &Key) -> Histogram { Histogram::noop() }
 }
 
 /// Sets the global recorder to a `&'static Recorder`.

@@ -16,7 +16,7 @@ pub use debugging::{DebugValue, DebuggingRecorder, Snapshotter};
 #[cfg(feature = "std")]
 mod handle;
 #[cfg(feature = "std")]
-pub use handle::Handle;
+pub use handle::*;
 
 mod quantile;
 pub use quantile::{parse_quantiles, Quantile};

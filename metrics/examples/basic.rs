@@ -5,46 +5,43 @@
 //!
 //! We demonstrate the various permutations of values that can be passed in the macro calls, all of
 //! which are documented in detail for the respective macro.
-use metrics::{
-    counter, decrement_gauge, gauge, histogram, increment_counter, increment_gauge,
-    register_counter, register_gauge, register_histogram, GaugeValue, Key, Recorder, Unit,
-};
+use metrics::{Counter, Gauge, GaugeValue, Histogram, Key, Recorder, Unit, counter, decrement_gauge, gauge, histogram, increment_counter, increment_gauge, register_counter, register_gauge, register_histogram};
 
 #[derive(Default)]
 struct PrintRecorder;
 
 impl Recorder for PrintRecorder {
-    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         println!(
             "(counter) registered key {} with unit {:?} and description {:?}",
             key, unit, description
         );
     }
 
-    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         println!(
             "(gauge) registered key {} with unit {:?} and description {:?}",
             key, unit, description
         );
     }
 
-    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         println!(
             "(histogram) registered key {} with unit {:?} and description {:?}",
             key, unit, description
         );
     }
 
-    fn increment_counter(&self, key: &Key, value: u64) {
-        println!("(counter) got value {} for key {}", value, key);
+    fn register_counter(&self, key: &Key) -> Counter {
+        //println!("(counter) got value {} for key {}", value, key);
     }
 
-    fn update_gauge(&self, key: &Key, value: GaugeValue) {
-        println!("(gauge) got value {:?} for key {}", value, key);
+    fn register_gauge(&self, key: &Key) -> Gauge {
+        //println!("(gauge) got value {:?} for key {}", value, key);
     }
 
-    fn record_histogram(&self, key: &Key, value: f64) {
-        println!("(histogram) got value {} for key {}", value, key);
+    fn register_histogram(&self, key: &Key) -> Histogram {
+        //println!("(histogram) got value {} for key {}", value, key);
     }
 }
 
