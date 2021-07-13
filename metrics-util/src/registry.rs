@@ -22,37 +22,24 @@ type RegistryHashMap<K, V> = HashMap<K, V, BuildHasherDefault<RegistryHasher>>;
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Generation(usize);
 
-/// A trait that defines generational semantics for wrapper types.
-///
-/// Used to provide compile-time generation tracking where the choice is encoded in which type is
-/// used (i.e. `Tracked` vs `NotTracked`), which necessitates a trait to mediate usage.
-pub trait Generational<H>: From<H> {
-    /// Increments the generation counter.
+/// An object that can track generations of update to an inner object.
+trait Generational<H> {
     fn increment_generation(&self);
-
-    /// Gets the current generation counter.
     fn get_generation(&self) -> Generation;
-
-    /// Gets a reference to the inner type.
     fn get_inner(&self) -> &H;
-
-    /// Creates a default initialized wrapper around `inner`.
-    fn initial(inner: H) -> Self {
-        inner.into()
-    }
 }
 
 /// A generational wrapper that does track the generation.
-pub struct Tracked<H>(AtomicUsize, H);
+pub struct GenerationTracked<H>(AtomicUsize, H);
 
-impl<H> Tracked<H> {
-    /// Creates a new `Tracked`.
-    pub fn new(h: H) -> Tracked<H> {
-        Tracked(AtomicUsize::new(0), h)
+impl<H> GenerationTracked<H> {
+    /// Creates a new `Generational`.
+    pub fn new(h: H) -> Generational<H> {
+        Generational(AtomicUsize::new(0), h)
     }
 }
 
-impl<H> Generational<H> for Tracked<H> {
+impl<H> Generational<H> for GenerationTracked<H> {
     /// Increments the generation counter.
     fn increment_generation(&self) {
         self.0.fetch_add(1, Ordering::Release);
@@ -69,50 +56,23 @@ impl<H> Generational<H> for Tracked<H> {
     }
 }
 
-impl<H> From<H> for Tracked<H> {
+impl<H> From<H> for GenerationTracked<H> {
     fn from(inner: H) -> Self {
         Self::new(inner)
     }
 }
 
-impl<H: fmt::Debug> fmt::Debug for Tracked<H> {
+impl<H: fmt::Debug> fmt::Debug for GenerationTracked<H> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Tracked")
+        f.debug_struct("GenerationTracked")
             .field("gen", &self.0)
             .field("inner", &self.1)
             .finish()
     }
 }
 
-/// A generational wrapper that does not track the generation.
-pub struct NotTracked<H>(H);
-
-impl<H> NotTracked<H> {
-    /// Creates a new `NotTracked`.
-    pub fn new(h: H) -> NotTracked<H> {
-        NotTracked(h)
-    }
-}
-
-impl<H> Generational<H> for NotTracked<H> {
-    /// Increments the generation counter.
-    fn increment_generation(&self) {}
-
-    /// Gets the current generation counter.
-    fn get_generation(&self) -> Generation {
-        Generation::default()
-    }
-
-    /// Gets a reference to the inner type.
-    fn get_inner(&self) -> &H {
-        &self.0
-    }
-}
-
-impl<H> From<H> for NotTracked<H> {
-    fn from(inner: H) -> Self {
-        Self::new(inner)
-    }
+trait RegistryConfiguration {
+    type GenerationImpl: Genera
 }
 
 /// A high-performance metric registry.
@@ -134,23 +94,23 @@ impl<H> From<H> for NotTracked<H> {
 ///
 /// `Registry` is optimized for reads.
 #[derive(Debug)]
-pub struct Registry<K, H, G>
+pub struct Registry<K, G>
 where
     K: Eq + Hashable + Clone + 'static,
-    H: 'static,
 {
-    shards: Vec<Vec<RwLock<RegistryHashMap<K, G>>>>,
+    counter_shards: Vec<RwLock<RegistryHashMap<K, G::Counter>>>,
+    gauge_shards: Vec<RwLock<RegistryHashMap<K, G::Gauge>>>,
+    histogram_shards: Vec<RwLock<RegistryHashMap<K, G::Histogram>>>,
     mask: usize,
-    _handle: PhantomData<H>,
 }
 
 impl<K, H, G> Registry<K, H, G>
 where
     K: Eq + Hashable + Clone + 'static,
-    H: 'static,
+    H: HandleGenerator + 'static,
 {
     /// Creates a new `Registry`.
-    fn new() -> Self {
+    pub fn new(generator: G) -> Self {
         let shard_count = std::cmp::max(1, num_cpus::get()).next_power_of_two();
         let mask = shard_count - 1;
         let counters = repeat(())
@@ -171,13 +131,13 @@ where
         Self {
             shards,
             mask,
-            _handle: PhantomData,
+            generator,
         }
     }
 
     /// Creates a new `Registry` without generation semantics.
-    pub fn untracked() -> Registry<K, H, NotTracked<H>> {
-        Registry::<K, H, NotTracked<H>>::new()
+    pub fn untracked(generator: G) -> Registry<K, H, NotTracked<H>> {
+        Registry::<K, G, NotTracked<H>>::new()
     }
 
     /// Creates a new `Registry` with generation semantics.

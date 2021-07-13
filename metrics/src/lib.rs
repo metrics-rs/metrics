@@ -285,6 +285,9 @@ pub use self::common::*;
 
 mod cow;
 
+mod handles;
+pub use self::handles::*;
+
 mod key;
 pub use self::key::*;
 

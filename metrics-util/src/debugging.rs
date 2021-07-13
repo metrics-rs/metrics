@@ -2,7 +2,7 @@ use core::hash::Hash;
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::{handle::Handle, kind::MetricKind, registry::Registry, CompositeKey, NotTracked};
+use crate::{kind::MetricKind, registry::Registry, CompositeKey, NotTracked};
 
 use indexmap::IndexMap;
 use metrics::{GaugeValue, Key, Recorder, Unit};
