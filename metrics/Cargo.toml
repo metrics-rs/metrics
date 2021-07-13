@@ -1,6 +1,6 @@
 [package]
 name = "metrics"
-version = "0.16.0"
+version = "0.17.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
