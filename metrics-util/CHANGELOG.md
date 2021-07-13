@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+- Bumped `metrics` dependency to correspond to the change in key hasher.
+
 ## [0.9.1] - 2021-05-24
 
 ### Changed
