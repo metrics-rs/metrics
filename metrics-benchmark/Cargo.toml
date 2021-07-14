@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 log = "0.4"
-env_logger = "0.8"
+env_logger = "0.9"
 getopts = "0.2"
 hdrhistogram = { version = "7.2", default-features = false }
 quanta = "0.7"
