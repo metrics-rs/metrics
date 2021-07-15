@@ -25,10 +25,20 @@ use crate::common::InstallError;
 use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;
 use crate::recorder::{Inner, PrometheusRecorder};
+use std::pin::Pin;
+
+#[cfg(feature = "push-gateway")]
+#[derive(Clone)]
+pub struct PrometheusPushGatewayConfig {
+    address: String,
+    push_interval: std::time::Duration,
+}
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
 pub struct PrometheusBuilder {
-    listen_address: SocketAddr,
+    listen_address: Option<SocketAddr>,
+    #[cfg(feature = "push-gateway")]
+    push_gateway_config: Option<PrometheusPushGatewayConfig>,
     #[cfg(feature = "tokio-exporter")]
     allow_ips: Option<Vec<ipnet::IpNet>>,
     quantiles: Vec<Quantile>,
@@ -45,7 +55,7 @@ impl PrometheusBuilder {
         let quantiles = parse_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0]);
 
         Self {
-            listen_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 9000),
+            listen_address: Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 9000)),
             #[cfg(feature = "tokio-exporter")]
             allow_ips: None,
             quantiles,
@@ -54,6 +64,8 @@ impl PrometheusBuilder {
             idle_timeout: None,
             recency_mask: MetricKindMask::NONE,
             global_labels: None,
+            #[cfg(feature = "push-gateway")]
+            push_gateway_config: None,
         }
     }
 
@@ -63,7 +75,27 @@ impl PrometheusBuilder {
     ///
     /// Defaults to `0.0.0.0:9000`.
     pub fn listen_address(mut self, addr: impl Into<SocketAddr>) -> Self {
-        self.listen_address = addr.into();
+        self.listen_address = Some(addr.into());
+        self
+    }
+
+    /// Disable the HTTP listener. This is useful when you only want to use the
+    /// Prometheus push gateway.
+    pub fn disable_http_listener(mut self) -> Self {
+        self.listen_address = None;
+        self
+    }
+
+    /// Sets the push gateway address and push interval for the Prometheus push gateway.
+    #[cfg(feature = "push-gateway")]
+    pub fn push_gateway_config<T>(mut self, addr: T, interval: std::time::Duration) -> Self
+    where
+        T: AsRef<str>,
+    {
+        self.push_gateway_config = Some(PrometheusPushGatewayConfig {
+            address: addr.as_ref().to_string(),
+            push_interval: interval,
+        });
         self
     }
 
@@ -228,53 +260,84 @@ impl PrometheusBuilder {
     ) -> Result<
         (
             PrometheusRecorder,
-            impl Future<Output = Result<(), HyperError>> + Send + 'static,
+            Pin<Box<dyn Future<Output = Result<(), HyperError>> + Send + 'static>>,
         ),
         InstallError,
     > {
         let address = self.listen_address;
         let allow_ips = self.allow_ips.take();
+        #[cfg(feature = "push-gateway")]
+        let push_gateway_config = self.push_gateway_config.clone();
         let recorder = self.build();
         let handle = recorder.handle();
 
-        let server = Server::try_bind(&address)?;
+        if let Some(address) = &address {
+            let server = Server::try_bind(&address)?;
+            let exporter = async move {
+                let make_svc = make_service_fn(move |socket: &AddrStream| {
+                    let remote_addr = socket.remote_addr().ip();
+                    let allowed = allow_ips
+                        .as_ref()
+                        .map(|subnets| subnets.iter().any(|subnet| subnet.contains(&remote_addr)))
+                        // If no subnets specified, allow all IPs.
+                        .unwrap_or(true);
 
-        let exporter = async move {
-            let make_svc = make_service_fn(move |socket: &AddrStream| {
-                let remote_addr = socket.remote_addr().ip();
-                let allowed = allow_ips
-                    .as_ref()
-                    .map(|subnets| subnets.iter().any(|subnet| subnet.contains(&remote_addr)))
-                    // If no subnets specified, allow all IPs.
-                    .unwrap_or(true);
+                    let handle = handle.clone();
 
-                let handle = handle.clone();
+                    async move {
+                        Ok::<_, HyperError>(service_fn(move |_| {
+                            let handle = handle.clone();
 
-                async move {
-                    Ok::<_, HyperError>(service_fn(move |_| {
-                        let handle = handle.clone();
+                            async move {
+                                if allowed {
+                                    let output = handle.render();
+                                    Ok::<_, HyperError>(Response::new(Body::from(output)))
+                                } else {
+                                    Ok::<_, HyperError>(
+                                        Response::builder()
+                                            .status(StatusCode::FORBIDDEN)
+                                            .body(Body::empty())
+                                            .expect("static response is valid"),
+                                    )
+                                }
+                            }
+                        }))
+                    }
+                });
+                server.serve(make_svc).await
+            };
+            return Ok((recorder, Box::pin(exporter)));
+        }
 
-                        async move {
-                            if allowed {
-                                let output = handle.render();
-                                Ok::<_, HyperError>(Response::new(Body::from(output)))
-                            } else {
-                                Ok::<_, HyperError>(
-                                    Response::builder()
-                                        .status(StatusCode::FORBIDDEN)
-                                        .body(Body::empty())
-                                        .expect("static response is valid"),
+        #[cfg(feature = "push-gateway")]
+        if let Some(push_gateway_config) = &push_gateway_config {
+            let push_interval = push_gateway_config.push_interval;
+            let push_address = push_gateway_config.address.to_string();
+            let exporter = async move {
+                let client = reqwest::Client::default();
+                loop {
+                    tokio::time::sleep(push_interval).await;
+                    let output = handle.render();
+                    let response = client.put(push_address.as_str()).body(output).send().await;
+                    match response {
+                        Ok(response) => {
+                            if let Err(e) = response.error_for_status() {
+                                tracing::error!(
+                                    "error status code for pushing metrics to push gateway: {:?}",
+                                    e
                                 )
                             }
                         }
-                    }))
+                        Err(e) => {
+                            tracing::error!("error pushing metrics to push gateway: {:?}", e)
+                        }
+                    }
                 }
-            });
+            };
+            return Ok((recorder, Box::pin(exporter)));
+        }
 
-            server.serve(make_svc).await
-        };
-
-        Ok((recorder, exporter))
+        unimplemented!("must specify at least one of listen_address or push_gateway_config");
     }
 }
 
