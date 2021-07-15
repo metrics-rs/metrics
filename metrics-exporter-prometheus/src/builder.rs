@@ -90,7 +90,7 @@ impl PrometheusBuilder {
     #[cfg(feature = "push-gateway")]
     pub fn push_gateway_config<T>(mut self, addr: T, interval: std::time::Duration) -> Self
     where
-        T: AsRef<String>,
+        T: AsRef<str>,
     {
         self.push_gateway_config = Some(PrometheusPushGatewayConfig {
             address: addr.as_ref().to_string(),
@@ -265,8 +265,9 @@ impl PrometheusBuilder {
         InstallError,
     > {
         let address = self.listen_address;
-        let push_gateway_config = self.push_gateway_config.clone();
         let allow_ips = self.allow_ips.take();
+        #[cfg(feature = "push-gateway")]
+        let push_gateway_config = self.push_gateway_config.clone();
         let recorder = self.build();
         let handle = recorder.handle();
 
