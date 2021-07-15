@@ -1,11 +1,16 @@
+/// Make sure to run this example with `--features push-gateway` to properly enable push gateway support.
+#[allow(unused_imports)]
 use std::thread;
 use std::time::Duration;
 
+#[allow(unused_imports)]
 use metrics::{
     decrement_gauge, gauge, histogram, increment_counter, increment_gauge, register_counter,
     register_histogram,
 };
+#[allow(unused_imports)]
 use metrics_exporter_prometheus::PrometheusBuilder;
+#[allow(unused_imports)]
 use metrics_util::MetricKindMask;
 
 use quanta::Clock;
@@ -14,17 +19,23 @@ use rand::{thread_rng, Rng};
 fn main() {
     tracing_subscriber::fmt::init();
 
-    let builder = PrometheusBuilder::new();
-    builder
+    #[allow(unused_mut)]
+    let mut builder = PrometheusBuilder::new()
         .disable_http_listener()
-        .push_gateway_config(
-            "http://127.0.0.1:9091/metrics/job/example",
-            Duration::from_secs(10),
-        )
         .idle_timeout(
             MetricKindMask::COUNTER | MetricKindMask::HISTOGRAM,
             Some(Duration::from_secs(10)),
-        )
+        );
+
+    #[cfg(feature = "push-gateway")]
+    {
+        builder = builder.push_gateway_config(
+            "http://127.0.0.1:9091/metrics/job/example",
+            Duration::from_secs(10),
+        );
+    }
+
+    builder
         .install()
         .expect("failed to install Prometheus recorder");
 

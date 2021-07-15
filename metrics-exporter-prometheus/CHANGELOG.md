@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+- Support for pushing to a Push Gateway. ([#217](https://github.com/metrics-rs/metrics/pull/217))
+
 ## [0.5.0] - 2021-05-18
 ### Added
 - `PrometheusBuilder::add_allowed`, which enables the exporter to be configured with a
