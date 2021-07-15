@@ -313,32 +313,23 @@ impl PrometheusBuilder {
             let push_interval = push_gateway_config.push_interval;
             let push_address = push_gateway_config.address.to_string();
             let exporter = async move {
-                let client = hyper::Client::default();
+                let client = reqwest::Client::default();
                 loop {
                     tokio::time::sleep(push_interval).await;
                     let output = handle.render();
-                    let request =
-                        hyper::Request::put(push_address.as_str()).body(hyper::Body::from(output));
-                    if let Ok(request) = request {
-                        let response = client.request(request).await;
-                        if let Ok(response) = response {
-                            if !response.status().is_success() {
+                    let response = client.put(push_address.as_str()).body(output).send().await;
+                    match response {
+                        Ok(response) => {
+                            if let Err(e) = response.error_for_status() {
                                 tracing::error!(
-                                    "error status code for pushing metrics to push gateway: {}",
-                                    response.status()
+                                    "error status code for pushing metrics to push gateway: {:?}",
+                                    e
                                 )
                             }
-                        } else {
-                            tracing::error!(
-                                "error pushing metrics to push gateway: {:?}",
-                                response
-                            );
                         }
-                    } else {
-                        tracing::error!(
-                            "cannot create prometheus push gateway request {:?}",
-                            request
-                        );
+                        Err(e) => {
+                            tracing::error!("error pushing metrics to push gateway: {:?}", e)
+                        }
                     }
                 }
             };
