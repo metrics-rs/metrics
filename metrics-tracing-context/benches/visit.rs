@@ -1,5 +1,10 @@
+use std::sync::Arc;
+
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use lockfree_object_pool::LinearObjectPool;
+use metrics::Label;
 use metrics_tracing_context::Labels;
+use once_cell::sync::OnceCell;
 use tracing::Metadata;
 use tracing_core::{
     field::Visit,
@@ -7,6 +12,11 @@ use tracing_core::{
     metadata::{Kind, Level},
     Callsite, Interest,
 };
+
+fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
+    static POOL: OnceCell<Arc<LinearObjectPool<Vec<Label>>>> = OnceCell::new();
+    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| Vec::new(), |vec| vec.clear())))
+}
 
 const BATCH_SIZE: usize = 1000;
 
@@ -29,7 +39,7 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(Vec::with_capacity(BATCH_SIZE)),
+            || Labels(get_pool().pull_owned()),
             |labels| {
                 labels.record_str(&field, "test test");
             },
@@ -43,7 +53,7 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(Vec::with_capacity(BATCH_SIZE)),
+            || Labels(get_pool().pull_owned()),
             |labels| {
                 labels.record_bool(&field, true);
             },
@@ -57,7 +67,7 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(Vec::with_capacity(BATCH_SIZE)),
+            || Labels(get_pool().pull_owned()),
             |labels| {
                 labels.record_bool(&field, false);
             },
@@ -71,7 +81,7 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(Vec::with_capacity(BATCH_SIZE)),
+            || Labels(get_pool().pull_owned()),
             |labels| {
                 labels.record_i64(&field, -3423432);
             },
@@ -85,7 +95,7 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(Vec::with_capacity(BATCH_SIZE)),
+            || Labels(get_pool().pull_owned()),
             |labels| {
                 labels.record_u64(&field, 3423432);
             },
@@ -100,7 +110,7 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(Vec::with_capacity(BATCH_SIZE)),
+            || Labels(get_pool().pull_owned()),
             |labels| {
                 labels.record_debug(&field, &debug_struct);
             },
@@ -114,7 +124,7 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(Vec::with_capacity(BATCH_SIZE)),
+            || Labels(get_pool().pull_owned()),
             |labels| {
                 labels.record_debug(&field, &true);
             },
@@ -129,7 +139,7 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(Vec::with_capacity(BATCH_SIZE)),
+            || Labels(get_pool().pull_owned()),
             |labels| {
                 labels.record_debug(&field, &value);
             },
@@ -144,7 +154,7 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(Vec::with_capacity(BATCH_SIZE)),
+            || Labels(get_pool().pull_owned()),
             |labels| {
                 labels.record_debug(&field, &value);
             },

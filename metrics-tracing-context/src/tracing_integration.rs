@@ -1,17 +1,24 @@
 //! The code that integrates with the `tracing` crate.
 
+use lockfree_object_pool::{LinearObjectPool, LinearOwnedReusable};
 use metrics::Label;
+use once_cell::sync::OnceCell;
+use std::sync::Arc;
 use std::{any::TypeId, marker::PhantomData};
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{field::Visit, Dispatch, Field, Subscriber};
 use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 
+fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
+    static POOL: OnceCell<Arc<LinearObjectPool<Vec<Label>>>> = OnceCell::new();
+    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| Vec::new(), |vec| vec.clear())))
+}
 /// Per-span extension for collecting labels from fields.
 ///
 /// Hidden from documentation as there is no need for end users to ever touch this type, but it must
 /// be public in order to be pulled in by external benchmark code.
 #[doc(hidden)]
-pub struct Labels(pub Vec<Label>);
+pub struct Labels(pub LinearOwnedReusable<Vec<Label>>);
 
 impl Visit for Labels {
     fn record_str(&mut self, field: &Field, value: &str) {
@@ -49,7 +56,9 @@ impl Visit for Labels {
 
 impl Labels {
     fn from_attributes(attrs: &Attributes<'_>) -> Self {
-        let mut labels = Self(Vec::new()); // TODO: Vec::with_capacity?
+        let labels = get_pool().pull_owned();
+        assert!(labels.len() == 0);
+        let mut labels = Self(labels); // TODO: Vec::with_capacity?
         let record = Record::new(attrs.values());
         record.record(&mut labels);
         labels
