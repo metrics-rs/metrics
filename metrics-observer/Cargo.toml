@@ -20,5 +20,5 @@ metrics = { version = "^0.17", path = "../metrics" }
 metrics-util = { version = "^0.10", path = "../metrics-util" }
 
 [build-dependencies]
-prost-build = "0.7"
+prost-build = "0.8"
 built = "0.4"
