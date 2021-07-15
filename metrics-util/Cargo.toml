@@ -79,7 +79,7 @@ crossbeam-queue = "0.3"
 quickcheck = "1"
 quickcheck_macros = "1"
 textplots = "0.6"
-mockall = "0.9"
+mockall = "0.10"
 
 [features]
 default = ["std", "layer-filter", "layer-absolute", "layer-router"]
