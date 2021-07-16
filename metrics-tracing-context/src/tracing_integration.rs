@@ -10,17 +10,22 @@ use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{field::Visit, Dispatch, Field, Subscriber};
 use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 
-fn get_pool() -> &'static Arc<LinearObjectPool<SmallVec<[Label; 4]>>> {
-    static POOL: OnceCell<Arc<LinearObjectPool<SmallVec<[Label; 4]>>>> = OnceCell::new();
-    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| SmallVec::new(), |vec| vec.clear())))
+fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
+    static POOL: OnceCell<Arc<LinearObjectPool<Vec<Label>>>> = OnceCell::new();
+    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| Vec::new(), |vec| vec.clear())))
 }
 /// Span fields mapped as metrics labels.
 ///
 /// Hidden from documentation as there is no need for end users to ever touch this type, but it must
 /// be public in order to be pulled in by external benchmark code.
 #[doc(hidden)]
-#[derive(Default)]
-pub struct Labels(pub Vec<Label>);
+pub struct Labels(pub LinearOwnedReusable<Vec<Label>>);
+
+impl Default for Labels {
+    fn default() -> Self {
+        Labels(get_pool().pull_owned())
+    }
+}
 
 impl Visit for Labels {
     fn record_str(&mut self, field: &Field, value: &str) {
