@@ -40,7 +40,8 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(get_pool().pull_owned()),
+            //|| Labels(get_pool().pull_owned()),
+            || Labels(Vec::new()),
             |labels| {
                 labels.record_str(&field, "test test");
             },
@@ -54,7 +55,8 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(get_pool().pull_owned()),
+            //|| Labels(get_pool().pull_owned()),
+            || Labels(Vec::new()),
             |labels| {
                 labels.record_bool(&field, true);
             },
@@ -68,7 +70,8 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(get_pool().pull_owned()),
+            //|| Labels(get_pool().pull_owned()),
+            || Labels(Vec::new()),
             |labels| {
                 labels.record_bool(&field, false);
             },
@@ -82,7 +85,8 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(get_pool().pull_owned()),
+            //|| Labels(get_pool().pull_owned()),
+            || Labels(Vec::new()),
             |labels| {
                 labels.record_i64(&field, -3423432);
             },
@@ -96,7 +100,8 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(get_pool().pull_owned()),
+            //|| Labels(get_pool().pull_owned()),
+            || Labels(Vec::new()),
             |labels| {
                 labels.record_u64(&field, 3423432);
             },
@@ -111,7 +116,8 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(get_pool().pull_owned()),
+            //|| Labels(get_pool().pull_owned()),
+            || Labels(Vec::new()),
             |labels| {
                 labels.record_debug(&field, &debug_struct);
             },
@@ -125,7 +131,8 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(get_pool().pull_owned()),
+            //|| Labels(get_pool().pull_owned()),
+            || Labels(Vec::new()),
             |labels| {
                 labels.record_debug(&field, &true);
             },
@@ -140,7 +147,8 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(get_pool().pull_owned()),
+            //|| Labels(get_pool().pull_owned()),
+            || Labels(Vec::new()),
             |labels| {
                 labels.record_debug(&field, &value);
             },
@@ -155,7 +163,8 @@ fn visit_benchmark(c: &mut Criterion) {
             .field("test")
             .expect("test field missing");
         b.iter_batched_ref(
-            || Labels(get_pool().pull_owned()),
+            //|| Labels(get_pool().pull_owned()),
+            || Labels(Vec::new()),
             |labels| {
                 labels.record_debug(&field, &value);
             },
