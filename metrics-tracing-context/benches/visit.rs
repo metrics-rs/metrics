@@ -5,6 +5,7 @@ use lockfree_object_pool::LinearObjectPool;
 use metrics::Label;
 use metrics_tracing_context::Labels;
 use once_cell::sync::OnceCell;
+use smallvec::SmallVec;
 use tracing::Metadata;
 use tracing_core::{
     field::Visit,
@@ -13,9 +14,9 @@ use tracing_core::{
     Callsite, Interest,
 };
 
-fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
-    static POOL: OnceCell<Arc<LinearObjectPool<Vec<Label>>>> = OnceCell::new();
-    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| Vec::new(), |vec| vec.clear())))
+fn get_pool() -> &'static Arc<LinearObjectPool<SmallVec<[Label; 4]>>> {
+    static POOL: OnceCell<Arc<LinearObjectPool<SmallVec<[Label; 4]>>>> = OnceCell::new();
+    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| SmallVec::new(), |vec| vec.clear())))
 }
 
 const BATCH_SIZE: usize = 1000;

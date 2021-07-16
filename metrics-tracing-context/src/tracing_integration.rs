@@ -3,22 +3,23 @@
 use lockfree_object_pool::{LinearObjectPool, LinearOwnedReusable};
 use metrics::Label;
 use once_cell::sync::OnceCell;
+use smallvec::SmallVec;
 use std::sync::Arc;
 use std::{any::TypeId, marker::PhantomData};
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{field::Visit, Dispatch, Field, Subscriber};
 use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 
-fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
-    static POOL: OnceCell<Arc<LinearObjectPool<Vec<Label>>>> = OnceCell::new();
-    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| Vec::new(), |vec| vec.clear())))
+fn get_pool() -> &'static Arc<LinearObjectPool<SmallVec<[Label; 4]>>> {
+    static POOL: OnceCell<Arc<LinearObjectPool<SmallVec<[Label; 4]>>>> = OnceCell::new();
+    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| SmallVec::new(), |vec| vec.clear())))
 }
 /// Per-span extension for collecting labels from fields.
 ///
 /// Hidden from documentation as there is no need for end users to ever touch this type, but it must
 /// be public in order to be pulled in by external benchmark code.
 #[doc(hidden)]
-pub struct Labels(pub LinearOwnedReusable<Vec<Label>>);
+pub struct Labels(pub LinearOwnedReusable<SmallVec<[Label; 4]>>);
 
 impl Visit for Labels {
     fn record_str(&mut self, field: &Field, value: &str) {
@@ -57,16 +58,15 @@ impl Visit for Labels {
 impl Labels {
     fn from_attributes(attrs: &Attributes<'_>) -> Self {
         let labels = get_pool().pull_owned();
-        assert!(labels.len() == 0);
-        let mut labels = Self(labels); // TODO: Vec::with_capacity?
+        let mut labels = Self(labels);
         let record = Record::new(attrs.values());
         record.record(&mut labels);
         labels
     }
 }
 
-impl AsRef<Vec<Label>> for Labels {
-    fn as_ref(&self) -> &Vec<Label> {
+impl AsRef<[Label]> for Labels {
+    fn as_ref(&self) -> &[Label] {
         &self.0
     }
 }
@@ -76,7 +76,7 @@ pub struct WithContext {
 }
 
 impl WithContext {
-    pub fn with_labels<'a>(&self, dispatch: &'a Dispatch, id: &Id, f: &mut dyn FnMut(&Vec<Label>)) {
+    pub fn with_labels<'a>(&self, dispatch: &'a Dispatch, id: &Id, f: &mut dyn FnMut(&[Label])) {
         let mut ff = |labels: &Labels| f(labels.as_ref());
         (self.with_labels)(dispatch, id, &mut ff)
     }
@@ -160,13 +160,13 @@ pub trait SpanExt {
     /// Run the provided function with a read-only access to labels.
     fn with_labels<F>(&self, f: F)
     where
-        F: FnMut(&Vec<Label>);
+        F: FnMut(&[Label]);
 }
 
 impl SpanExt for tracing::Span {
     fn with_labels<F>(&self, mut f: F)
     where
-        F: FnMut(&Vec<Label>),
+        F: FnMut(&[Label]),
     {
         self.with_subscriber(|(id, subscriber)| {
             if let Some(ctx) = subscriber.downcast_ref::<WithContext>() {
