@@ -57,13 +57,13 @@
 
 use metrics::{GaugeValue, Key, Label, Recorder, Unit};
 use metrics_util::layers::Layer;
-use tracing::Span;
 
 pub mod label_filter;
 mod tracing_integration;
 
 pub use label_filter::LabelFilter;
-pub use tracing_integration::{Labels, MetricsLayer, SpanExt};
+use tracing_integration::WithContext;
+pub use tracing_integration::{Labels, MetricsLayer};
 
 /// [`TracingContextLayer`] provides an implementation of a [`Layer`][metrics_util::layers::Layer]
 /// for [`TracingContext`].
@@ -112,18 +112,27 @@ where
     F: LabelFilter,
 {
     fn enhance_labels(&self, labels: &mut Vec<Label>) {
-        let span = Span::current();
-        span.with_labels(|new_labels| {
-            labels.extend(
-                new_labels
-                    .iter()
-                    .filter(|&label| self.label_filter.should_include_label(label))
-                    .cloned(),
-            );
+        tracing::dispatcher::get_default(|dispatch| {
+            let current = dispatch.current_span();
+            if let Some(id) = current.id() {
+                if let Some(ctx) = dispatch.downcast_ref::<WithContext>() {
+                    let mut f = |new_labels: &[Label]| {
+                        labels.extend(
+                            new_labels
+                                .iter()
+                                .filter(|&label| self.label_filter.should_include_label(label))
+                                .cloned(),
+                        );
+                    };
+                    ctx.with_labels(dispatch, id, &mut f);
+                }
+            }
         });
     }
 
     fn enhance_key(&self, key: &Key) -> Key {
+        // TODO: probably should make this return Option<Key> so that we can avoid
+        // the clone by deferring in `enhance_labels` until we know we have labels to add
         let (name, mut labels) = key.clone().into_parts();
         self.enhance_labels(&mut labels);
         Key::from_parts(name, labels)

@@ -168,24 +168,3 @@ where
         MetricsLayer::new()
     }
 }
-
-/// An extention to the `tracing::Span`, enabling the access to labels.
-pub trait SpanExt {
-    /// Run the provided function with a read-only access to labels.
-    fn with_labels<F>(&self, f: F)
-    where
-        F: FnMut(&[Label]);
-}
-
-impl SpanExt for tracing::Span {
-    fn with_labels<F>(&self, mut f: F)
-    where
-        F: FnMut(&[Label]),
-    {
-        self.with_subscriber(|(id, subscriber)| {
-            if let Some(ctx) = subscriber.downcast_ref::<WithContext>() {
-                ctx.with_labels(subscriber, id, &mut f)
-            }
-        });
-    }
-}
