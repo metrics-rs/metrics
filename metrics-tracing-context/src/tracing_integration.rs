@@ -21,6 +21,12 @@ fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
 #[doc(hidden)]
 pub struct Labels(pub LinearOwnedReusable<Vec<Label>>);
 
+impl Labels {
+    pub(crate) fn extend_from_labels(&mut self, other: &Labels) {
+        self.0.extend_from_slice(other.as_ref());
+    }
+}
+
 impl Default for Labels {
     fn default() -> Self {
         Labels(get_pool().pull_owned())
@@ -76,28 +82,13 @@ impl AsRef<[Label]> for Labels {
     }
 }
 
-/// Holds the reference to the labels for a span, and also potentially the labels of its parent span.
-struct LabelsRef {
-    labels: Arc<Labels>,
-    ancestor: Option<Arc<LabelsRef>>,
-}
-
-impl LabelsRef {
-    pub fn new(labels: Labels, ancestor: Option<Arc<LabelsRef>>) -> Self {
-        Self {
-            labels: Arc::new(labels),
-            ancestor,
-        }
-    }
-}
-
 pub struct WithContext {
-    with_labels: fn(&Dispatch, &Id, f: &mut dyn FnMut(&Arc<Labels>)),
+    with_labels: fn(&Dispatch, &Id, f: &mut dyn FnMut(&Labels)),
 }
 
 impl WithContext {
     pub fn with_labels<'a>(&self, dispatch: &'a Dispatch, id: &Id, f: &mut dyn FnMut(&[Label])) {
-        let mut ff = |labels: &Arc<Labels>| f(labels.as_ref().as_ref());
+        let mut ff = |labels: &Labels| f(labels.as_ref());
         (self.with_labels)(dispatch, id, &mut ff)
     }
 }
@@ -127,7 +118,7 @@ where
         }
     }
 
-    fn with_labels(dispatch: &Dispatch, id: &Id, f: &mut dyn FnMut(&Arc<Labels>)) {
+    fn with_labels(dispatch: &Dispatch, id: &Id, f: &mut dyn FnMut(&Labels)) {
         let span = {
             let subscriber = dispatch
                 .downcast_ref::<S>()
@@ -137,16 +128,9 @@ where
                 .expect("registry should have a span for the current ID")
         };
 
-        let labels_ref = span.extensions()
-            .get::<Arc<LabelsRef>>()
-            .cloned();
-        if let Some(value) = labels_ref {
-            let mut root = Some(value);
-            while let Some(labels_ref) = root {
-                f(&labels_ref.labels);
-                root = labels_ref.ancestor.clone();
-            }
-        }
+        if let Some(labels) = span.extensions().get::<Labels>() {
+            f(labels);
+        };
     }
 }
 
@@ -156,16 +140,15 @@ where
 {
     fn new_span(&self, attrs: &Attributes<'_>, id: &Id, cx: Context<'_, S>) {
         let span = cx.span(id).expect("span must already exist!");
-        let labels = Labels::from_attributes(attrs);
+        let mut labels = Labels::from_attributes(attrs);
 
-        let ancestor = span.parent()
-            .and_then(|parent| parent.extensions()
-                .get::<Arc<LabelsRef>>()
-                .map(|x| x.clone()));
+        if let Some(parent) = span.parent() {
+            if let Some(parent_labels) = parent.extensions().get::<Labels>() {
+                labels.extend_from_labels(parent_labels);
+            }
+        }
 
-        let labels_ref = Arc::new(LabelsRef::new(labels, ancestor));
-
-        span.extensions_mut().insert(labels_ref);
+        span.extensions_mut().insert(labels);
     }
 
     unsafe fn downcast_raw(&self, id: TypeId) -> Option<*const ()> {
