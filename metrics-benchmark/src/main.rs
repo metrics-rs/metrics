@@ -3,7 +3,7 @@ use getopts::Options;
 use hdrhistogram::Histogram;
 use log::{error, info};
 use metrics::{gauge, histogram, increment_counter, GaugeValue, Key, Recorder, Unit};
-use metrics_util::{Handle, MetricKind, NotTracked, Registry, Tracked};
+use metrics_util::{Handle, MetricKind, Registry, Tracked};
 use quanta::{Clock, Instant as QuantaInstant};
 use std::{
     env,
