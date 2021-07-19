@@ -1,17 +1,36 @@
 //! The code that integrates with the `tracing` crate.
 
-use metrics::Label;
+use lockfree_object_pool::{LinearObjectPool, LinearOwnedReusable};
+use metrics::{Key, Label};
+use once_cell::sync::OnceCell;
+use std::sync::Arc;
 use std::{any::TypeId, marker::PhantomData};
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{field::Visit, Dispatch, Field, Subscriber};
 use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 
-/// Per-span extension for collecting labels from fields.
+fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
+    static POOL: OnceCell<Arc<LinearObjectPool<Vec<Label>>>> = OnceCell::new();
+    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| Vec::new(), |vec| vec.clear())))
+}
+/// Span fields mapped as metrics labels.
 ///
 /// Hidden from documentation as there is no need for end users to ever touch this type, but it must
 /// be public in order to be pulled in by external benchmark code.
 #[doc(hidden)]
-pub struct Labels(pub Vec<Label>);
+pub struct Labels(pub LinearOwnedReusable<Vec<Label>>);
+
+impl Labels {
+    pub(crate) fn extend_from_labels(&mut self, other: &Labels) {
+        self.0.extend_from_slice(other.as_ref());
+    }
+}
+
+impl Default for Labels {
+    fn default() -> Self {
+        Labels(get_pool().pull_owned())
+    }
+}
 
 impl Visit for Labels {
     fn record_str(&mut self, field: &Field, value: &str) {
@@ -26,7 +45,7 @@ impl Visit for Labels {
 
     fn record_i64(&mut self, field: &Field, value: i64) {
         // Maximum length is 20 characters but 32 is a nice power-of-two number.
-        let mut s = String::with_capacity(32);
+        let mut s = String::with_capacity(20);
         itoa::fmt(&mut s, value).expect("failed to format/write i64");
         let label = Label::new(field.name(), s);
         self.0.push(label);
@@ -34,7 +53,7 @@ impl Visit for Labels {
 
     fn record_u64(&mut self, field: &Field, value: u64) {
         // Maximum length is 20 characters but 32 is a nice power-of-two number.
-        let mut s = String::with_capacity(32);
+        let mut s = String::with_capacity(20);
         itoa::fmt(&mut s, value).expect("failed to format/write u64");
         let label = Label::new(field.name(), s);
         self.0.push(label);
@@ -48,26 +67,31 @@ impl Visit for Labels {
 }
 
 impl Labels {
-    fn from_attributes(attrs: &Attributes<'_>) -> Self {
-        let mut labels = Self(Vec::new()); // TODO: Vec::with_capacity?
+    fn from_attributes(attrs: &Attributes<'_>) -> Labels {
+        let mut labels = Labels::default();
         let record = Record::new(attrs.values());
         record.record(&mut labels);
         labels
     }
 }
 
-impl AsRef<Vec<Label>> for Labels {
-    fn as_ref(&self) -> &Vec<Label> {
+impl AsRef<[Label]> for Labels {
+    fn as_ref(&self) -> &[Label] {
         &self.0
     }
 }
 
 pub struct WithContext {
-    with_labels: fn(&Dispatch, &Id, f: &mut dyn FnMut(&Labels)),
+    with_labels: fn(&Dispatch, &Id, f: &mut dyn FnMut(&Labels) -> Option<Key>) -> Option<Key>,
 }
 
 impl WithContext {
-    pub fn with_labels<'a>(&self, dispatch: &'a Dispatch, id: &Id, f: &mut dyn FnMut(&Vec<Label>)) {
+    pub fn with_labels<'a>(
+        &self,
+        dispatch: &'a Dispatch,
+        id: &Id,
+        f: &mut dyn FnMut(&[Label]) -> Option<Key>,
+    ) -> Option<Key> {
         let mut ff = |labels: &Labels| f(labels.as_ref());
         (self.with_labels)(dispatch, id, &mut ff)
     }
@@ -78,7 +102,6 @@ impl WithContext {
 pub struct MetricsLayer<S> {
     ctx: WithContext,
     _subscriber: PhantomData<fn(S)>,
-    _priv: (),
 }
 
 impl<S> MetricsLayer<S>
@@ -94,27 +117,27 @@ where
         Self {
             ctx,
             _subscriber: PhantomData,
-            _priv: (),
         }
     }
 
-    fn with_labels(dispatch: &Dispatch, id: &Id, f: &mut dyn FnMut(&Labels)) {
-        let span = {
-            let subscriber = dispatch
-                .downcast_ref::<S>()
-                .expect("subscriber should downcast to expected type; this is a bug!");
-            subscriber
-                .span(id)
-                .expect("registry should have a span for the current ID")
-        };
+    fn with_labels(
+        dispatch: &Dispatch,
+        id: &Id,
+        f: &mut dyn FnMut(&Labels) -> Option<Key>,
+    ) -> Option<Key> {
+        let subscriber = dispatch
+            .downcast_ref::<S>()
+            .expect("subscriber should downcast to expected type; this is a bug!");
+        let span = subscriber
+            .span(id)
+            .expect("registry should have a span for the current ID");
 
-        let parents = span.parents();
-        for span in std::iter::once(span).chain(parents) {
-            let extensions = span.extensions();
-            if let Some(value) = extensions.get::<Labels>() {
-                f(value);
-            }
-        }
+        let result = if let Some(labels) = span.extensions().get::<Labels>() {
+            f(labels)
+        } else {
+            None
+        };
+        result
     }
 }
 
@@ -124,7 +147,14 @@ where
 {
     fn new_span(&self, attrs: &Attributes<'_>, id: &Id, cx: Context<'_, S>) {
         let span = cx.span(id).expect("span must already exist!");
-        let labels = Labels::from_attributes(attrs);
+        let mut labels = Labels::from_attributes(attrs);
+
+        if let Some(parent) = span.parent() {
+            if let Some(parent_labels) = parent.extensions().get::<Labels>() {
+                labels.extend_from_labels(parent_labels);
+            }
+        }
+
         span.extensions_mut().insert(labels);
     }
 
@@ -143,26 +173,5 @@ where
 {
     fn default() -> Self {
         MetricsLayer::new()
-    }
-}
-
-/// An extention to the `tracing::Span`, enabling the access to labels.
-pub trait SpanExt {
-    /// Run the provided function with a read-only access to labels.
-    fn with_labels<F>(&self, f: F)
-    where
-        F: FnMut(&Vec<Label>);
-}
-
-impl SpanExt for tracing::Span {
-    fn with_labels<F>(&self, mut f: F)
-    where
-        F: FnMut(&Vec<Label>),
-    {
-        self.with_subscriber(|(id, subscriber)| {
-            if let Some(ctx) = subscriber.downcast_ref::<WithContext>() {
-                ctx.with_labels(subscriber, id, &mut f)
-            }
-        });
     }
 }
