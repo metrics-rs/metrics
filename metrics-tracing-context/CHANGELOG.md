@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+- Improved performance by memoizing/denormalizing fields, pooling label storage, and improving how
+  the current span is accessed. ([#224](https://github.com/metrics-rs/metrics/pull/224))
+
 ## [0.7.0] - 2021-07-14
 
 ## [0.6.0] - 2021-05-19
