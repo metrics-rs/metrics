@@ -1,9 +1,8 @@
 //! The code that integrates with the `tracing` crate.
 
 use lockfree_object_pool::{LinearObjectPool, LinearOwnedReusable};
-use metrics::Label;
+use metrics::{Key, Label};
 use once_cell::sync::OnceCell;
-use smallvec::SmallVec;
 use std::sync::Arc;
 use std::{any::TypeId, marker::PhantomData};
 use tracing_core::span::{Attributes, Id, Record};
@@ -46,7 +45,7 @@ impl Visit for Labels {
 
     fn record_i64(&mut self, field: &Field, value: i64) {
         // Maximum length is 20 characters but 32 is a nice power-of-two number.
-        let mut s = String::with_capacity(32);
+        let mut s = String::with_capacity(20);
         itoa::fmt(&mut s, value).expect("failed to format/write i64");
         let label = Label::new(field.name(), s);
         self.0.push(label);
@@ -54,7 +53,7 @@ impl Visit for Labels {
 
     fn record_u64(&mut self, field: &Field, value: u64) {
         // Maximum length is 20 characters but 32 is a nice power-of-two number.
-        let mut s = String::with_capacity(32);
+        let mut s = String::with_capacity(20);
         itoa::fmt(&mut s, value).expect("failed to format/write u64");
         let label = Label::new(field.name(), s);
         self.0.push(label);
@@ -83,11 +82,16 @@ impl AsRef<[Label]> for Labels {
 }
 
 pub struct WithContext {
-    with_labels: fn(&Dispatch, &Id, f: &mut dyn FnMut(&Labels)),
+    with_labels: fn(&Dispatch, &Id, f: &mut dyn FnMut(&Labels) -> Option<Key>) -> Option<Key>,
 }
 
 impl WithContext {
-    pub fn with_labels<'a>(&self, dispatch: &'a Dispatch, id: &Id, f: &mut dyn FnMut(&[Label])) {
+    pub fn with_labels<'a>(
+        &self,
+        dispatch: &'a Dispatch,
+        id: &Id,
+        f: &mut dyn FnMut(&[Label]) -> Option<Key>,
+    ) -> Option<Key> {
         let mut ff = |labels: &Labels| f(labels.as_ref());
         (self.with_labels)(dispatch, id, &mut ff)
     }
@@ -98,7 +102,6 @@ impl WithContext {
 pub struct MetricsLayer<S> {
     ctx: WithContext,
     _subscriber: PhantomData<fn(S)>,
-    _priv: (),
 }
 
 impl<S> MetricsLayer<S>
@@ -114,23 +117,27 @@ where
         Self {
             ctx,
             _subscriber: PhantomData,
-            _priv: (),
         }
     }
 
-    fn with_labels(dispatch: &Dispatch, id: &Id, f: &mut dyn FnMut(&Labels)) {
-        let span = {
-            let subscriber = dispatch
-                .downcast_ref::<S>()
-                .expect("subscriber should downcast to expected type; this is a bug!");
-            subscriber
-                .span(id)
-                .expect("registry should have a span for the current ID")
-        };
+    fn with_labels(
+        dispatch: &Dispatch,
+        id: &Id,
+        f: &mut dyn FnMut(&Labels) -> Option<Key>,
+    ) -> Option<Key> {
+        let subscriber = dispatch
+            .downcast_ref::<S>()
+            .expect("subscriber should downcast to expected type; this is a bug!");
+        let span = subscriber
+            .span(id)
+            .expect("registry should have a span for the current ID");
 
-        if let Some(labels) = span.extensions().get::<Labels>() {
-            f(labels);
+        let result = if let Some(labels) = span.extensions().get::<Labels>() {
+            f(labels)
+        } else {
+            None
         };
+        result
     }
 }
 

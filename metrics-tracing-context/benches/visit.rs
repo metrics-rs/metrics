@@ -5,7 +5,6 @@ use lockfree_object_pool::LinearObjectPool;
 use metrics::Label;
 use metrics_tracing_context::Labels;
 use once_cell::sync::OnceCell;
-use smallvec::SmallVec;
 use tracing::Metadata;
 use tracing_core::{
     field::Visit,
