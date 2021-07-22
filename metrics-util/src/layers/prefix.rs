@@ -1,5 +1,5 @@
 use crate::layers::Layer;
-use metrics::{GaugeValue, Key, Recorder, SharedString, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, Recorder, SharedString, Unit};
 
 /// Applies a prefix to every metric key.
 ///
@@ -21,34 +21,34 @@ impl<R> Prefix<R> {
 }
 
 impl<R: Recorder> Recorder for Prefix<R> {
-    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let new_key = self.prefix_key(key);
-        self.inner.register_counter(&new_key, unit, description)
+        self.inner.describe_counter(&new_key, unit, description)
     }
 
-    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let new_key = self.prefix_key(key);
-        self.inner.register_gauge(&new_key, unit, description)
+        self.inner.describe_gauge(&new_key, unit, description)
     }
 
-    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let new_key = self.prefix_key(key);
-        self.inner.register_histogram(&new_key, unit, description)
+        self.inner.describe_histogram(&new_key, unit, description)
     }
 
-    fn increment_counter(&self, key: &Key, value: u64) {
+    fn register_counter(&self, key: &Key) -> Counter {
         let new_key = self.prefix_key(key);
-        self.inner.increment_counter(&new_key, value);
+        self.inner.register_counter(&new_key)
     }
 
-    fn update_gauge(&self, key: &Key, value: GaugeValue) {
+    fn register_gauge(&self, key: &Key) -> Gauge {
         let new_key = self.prefix_key(key);
-        self.inner.update_gauge(&new_key, value);
+        self.inner.register_gauge(&new_key)
     }
 
-    fn record_histogram(&self, key: &Key, value: f64) {
+    fn register_histogram(&self, key: &Key) -> Histogram {
         let new_key = self.prefix_key(key);
-        self.inner.record_histogram(&new_key, value);
+        self.inner.register_histogram(&new_key)
     }
 }
 
@@ -93,7 +93,7 @@ mod tests {
         let gkey = "gauge_metric".into();
         let hkey = "histogram_metric".into();
 
-        let before = snapshotter.snapshot();
+        let before = snapshotter.snapshot().into_vec();
         assert_eq!(before.len(), 0);
 
         let ud = &[
@@ -102,17 +102,20 @@ mod tests {
             (Unit::Milliseconds, "histogram desc"),
         ];
 
-        layered.register_counter(&ckey, Some(ud[0].0.clone()), Some(ud[0].1));
-        layered.register_gauge(&gkey, Some(ud[1].0.clone()), Some(ud[1].1));
-        layered.register_histogram(&hkey, Some(ud[2].0.clone()), Some(ud[2].1));
+        let _ = layered.describe_counter(&ckey, Some(ud[0].0.clone()), Some(ud[0].1));
+        let _ = layered.register_counter(&ckey);
+        let _ = layered.describe_gauge(&gkey, Some(ud[1].0.clone()), Some(ud[1].1));
+        let _ = layered.register_gauge(&gkey);
+        let _ = layered.describe_histogram(&hkey, Some(ud[2].0.clone()), Some(ud[2].1));
+        let _ = layered.register_histogram(&hkey);
 
-        let after = snapshotter.snapshot();
+        let after = snapshotter.snapshot().into_vec();
         assert_eq!(after.len(), 3);
 
-        for (i, (key, unit, desc, _value)) in after.iter().enumerate() {
+        for (i, (key, unit, desc, _value)) in after.into_iter().enumerate() {
             assert!(key.key().name().to_string().starts_with("testing"));
-            assert_eq!(&Some(ud[i].0.clone()), unit);
-            assert_eq!(&Some(ud[i].1), desc);
+            assert_eq!(Some(ud[i].0.clone()), unit);
+            assert_eq!(Some(ud[i].1), desc);
         }
     }
 }

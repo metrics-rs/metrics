@@ -1,4 +1,4 @@
-use crate::{Counter, Gauge, GaugeValue, Histogram, Key, Unit};
+use crate::{Counter, Gauge, Histogram, Key, Unit};
 use core::fmt;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
@@ -73,9 +73,15 @@ impl Recorder for NoopRecorder {
         _description: Option<&'static str>,
     ) {
     }
-    fn register_counter(&self, _key: &Key) -> Counter { Counter::noop() }
-    fn register_gauge(&self, _key: &Key) -> Gauge { Gauge::noop() }
-    fn register_histogram(&self, _key: &Key) -> Histogram { Histogram::noop() }
+    fn register_counter(&self, _key: &Key) -> Counter {
+        Counter::noop()
+    }
+    fn register_gauge(&self, _key: &Key) -> Gauge {
+        Gauge::noop()
+    }
+    fn register_histogram(&self, _key: &Key) -> Histogram {
+        Histogram::noop()
+    }
 }
 
 /// Sets the global recorder to a `&'static Recorder`.

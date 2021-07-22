@@ -2,8 +2,10 @@ use std::fmt::Debug;
 use std::time::Duration;
 use std::{collections::HashMap, ops::DerefMut};
 
-use crate::{kind::MetricKindMask, Generation, Generational, Hashable, MetricKind, Registry};
+use crate::registry::GenerationalFamily;
+use crate::{kind::MetricKindMask, Generation, MetricKind, Registry};
 
+use metrics::Key;
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
 
@@ -21,13 +23,13 @@ use quanta::{Clock, Instant};
 /// [`Recency`] is separate from [`Registry`](crate::Registry) specifically to avoid imposing any
 /// slowdowns when tracking recency does not matter, despite their otherwise tight coupling.
 #[derive(Debug)]
-pub struct Recency<K> {
+pub struct Recency {
     mask: MetricKindMask,
-    inner: Mutex<(Clock, HashMap<K, (Generation, Instant)>)>,
+    inner: Mutex<(Clock, HashMap<Key, (Generation, Instant)>)>,
     idle_timeout: Option<Duration>,
 }
 
-impl<K> Recency<K> {
+impl Recency {
     /// Creates a new [`Recency`].
     ///
     /// If `idle_timeout` is `None`, no recency checking will occur.  `mask` controls which metrics
@@ -42,7 +44,7 @@ impl<K> Recency<K> {
     ///
     /// Refer to the documentation for [`MetricKindMask`](crate::MetricKindMask) for more
     /// information on defining a metric kind mask.
-    pub fn new(clock: Clock, mask: MetricKindMask, idle_timeout: Option<Duration>) -> Recency<K> {
+    pub fn new(clock: Clock, mask: MetricKindMask, idle_timeout: Option<Duration>) -> Recency {
         Recency {
             mask,
             inner: Mutex::new((clock, HashMap::new())),
@@ -50,11 +52,7 @@ impl<K> Recency<K> {
         }
     }
 
-    /// Checks if the given key should be stored, based on its known recency.
-    ///
-    /// `kind` will be used to see if the given metric kind is subject to recency tracking for this
-    /// instance.  `generation` should be obtained from the the same reference to `registry` that
-    /// been given.
+    /// Checks if the given counter should be stored, based on its known recency.
     ///
     /// If the given key has been updated recently enough, and should continue to be stored, this
     /// method will return `true` and will update the last update time internally.  If the given key
@@ -64,17 +62,72 @@ impl<K> Recency<K> {
     /// If the generation does not match, this indicates that the key was updated between querying
     /// it from the registry and calling this method, and this method will return `true` in those
     /// cases, and `false` for all remaining cases.
-    pub fn should_store<H, G>(
+    pub fn should_store_counter<G>(
         &self,
-        kind: MetricKind,
-        key: &K,
+        key: &Key,
         gen: Generation,
-        registry: &Registry<K, H, G>,
+        registry: &Registry<G>,
     ) -> bool
     where
-        K: Debug + Eq + Hashable + Clone + 'static,
-        H: Debug + Clone + 'static,
-        G: Generational<H>,
+        G: GenerationalFamily,
+    {
+        self.should_store(key, gen, registry, MetricKind::Counter, |registry, key, gen| {
+            registry.delete_counter_with_gen(key, gen)
+        })
+    }
+
+    /// Checks if the given gauge should be stored, based on its known recency.
+    ///
+    /// If the given key has been updated recently enough, and should continue to be stored, this
+    /// method will return `true` and will update the last update time internally.  If the given key
+    /// has not been updated recently enough, the key will be removed from the given registry if the
+    /// given generation also matches.
+    ///
+    /// If the generation does not match, this indicates that the key was updated between querying
+    /// it from the registry and calling this method, and this method will return `true` in those
+    /// cases, and `false` for all remaining cases.
+    pub fn should_store_gauge<G>(
+        &self,
+        key: &Key,
+        gen: Generation,
+        registry: &Registry<G>,
+    ) -> bool
+    where
+        G: GenerationalFamily,
+    {
+        self.should_store(key, gen, registry, MetricKind::Gauge, |registry, key, gen| {
+            registry.delete_gauge_with_gen(key, gen)
+        })
+    }
+
+    /// Checks if the given histogram should be stored, based on its known recency.
+    ///
+    /// If the given key has been updated recently enough, and should continue to be stored, this
+    /// method will return `true` and will update the last update time internally.  If the given key
+    /// has not been updated recently enough, the key will be removed from the given registry if the
+    /// given generation also matches.
+    ///
+    /// If the generation does not match, this indicates that the key was updated between querying
+    /// it from the registry and calling this method, and this method will return `true` in those
+    /// cases, and `false` for all remaining cases.
+    pub fn should_store_histogram<G>(
+        &self,
+        key: &Key,
+        gen: Generation,
+        registry: &Registry<G>,
+    ) -> bool
+    where
+        G: GenerationalFamily,
+    {
+        self.should_store(key, gen, registry, MetricKind::Histogram, |registry, key, gen| {
+            registry.delete_histogram_with_gen(key, gen)
+        })
+    }
+
+    fn should_store<F, G>(&self, key: &Key, gen: Generation, registry: &Registry<G>, kind: MetricKind, delete_op: F) -> bool
+    where
+        F: Fn(&Registry<G>, &Key, Generation) -> bool,
+        G: GenerationalFamily,
     {
         if let Some(idle_timeout) = self.idle_timeout {
             if self.mask.matches(kind) {
@@ -90,8 +143,8 @@ impl<K> Recency<K> {
                             // If the delete returns false, that means that our generation counter is
                             // out-of-date, and that the metric has been updated since, so we don't
                             // actually want to delete it yet.
-                            if registry.delete_with_gen(kind, &key, gen) {
-                                return false;
+                            if delete_op(registry, key, gen) {
+                                return true
                             }
                         }
                     } else {

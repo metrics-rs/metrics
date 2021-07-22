@@ -5,7 +5,51 @@
 //!
 //! We demonstrate the various permutations of values that can be passed in the macro calls, all of
 //! which are documented in detail for the respective macro.
-use metrics::{Counter, Gauge, GaugeValue, Histogram, Key, Recorder, Unit, counter, decrement_gauge, gauge, histogram, increment_counter, increment_gauge, register_counter, register_gauge, register_histogram};
+use std::sync::Arc;
+
+use metrics::{
+    absolute_counter, counter, decrement_gauge, describe_counter, describe_gauge,
+    describe_histogram, gauge, histogram, increment_counter, increment_gauge, register_counter,
+    register_gauge, register_histogram,
+};
+use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, Recorder, Unit};
+
+struct PrintHandle(Key);
+
+impl CounterFn for PrintHandle {
+    fn increment(&self, value: u64) -> u64 {
+        println!("counter increment for '{}': {}", self.0, value);
+        value
+    }
+
+    fn absolute(&self, value: u64) -> u64 {
+        println!("counter absolute for '{}': {}", self.0, value);
+        value
+    }
+}
+
+impl GaugeFn for PrintHandle {
+    fn increment(&self, value: f64) -> f64 {
+        println!("gauge increment for '{}': {}", self.0, value);
+        value
+    }
+
+    fn decrement(&self, value: f64) -> f64 {
+        println!("gauge decrement for '{}': {}", self.0, value);
+        value
+    }
+
+    fn set(&self, value: f64) -> f64 {
+        println!("gauge set for '{}': {}", self.0, value);
+        value
+    }
+}
+
+impl HistogramFn for PrintHandle {
+    fn record(&self, value: f64) {
+        println!("histogram record for '{}': {}", self.0, value);
+    }
+}
 
 #[derive(Default)]
 struct PrintRecorder;
@@ -33,15 +77,15 @@ impl Recorder for PrintRecorder {
     }
 
     fn register_counter(&self, key: &Key) -> Counter {
-        //println!("(counter) got value {} for key {}", value, key);
+        Counter::from_arc(Arc::new(PrintHandle(key.clone())))
     }
 
     fn register_gauge(&self, key: &Key) -> Gauge {
-        //println!("(gauge) got value {:?} for key {}", value, key);
+        Gauge::from_arc(Arc::new(PrintHandle(key.clone())))
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
-        //println!("(histogram) got value {} for key {}", value, key);
+        Histogram::from_arc(Arc::new(PrintHandle(key.clone())))
     }
 }
 
@@ -57,29 +101,49 @@ fn main() {
 
     let common_labels = &[("listener", "frontend")];
 
-    // Go through registration:
-    register_counter!("requests_processed", "number of requests processed");
-    register_counter!("bytes_sent", Unit::Bytes);
-    register_gauge!("connection_count", common_labels);
-    register_histogram!(
+    // Go through describing the metrics:
+    describe_counter!("requests_processed", "number of requests processed");
+    describe_counter!("bytes_sent", Unit::Bytes);
+    describe_gauge!("connection_count", common_labels);
+    describe_histogram!(
         "svc.execution_time",
         Unit::Milliseconds,
         "execution time of request handler"
     );
-    register_gauge!("unused_gauge", "service" => "backend");
-    register_histogram!("unused_histogram", Unit::Seconds, "unused histo", "service" => "middleware");
+    describe_gauge!("unused_gauge", "service" => "backend");
+    describe_histogram!("unused_histogram", Unit::Seconds, "unused histo", "service" => "middleware");
 
-    // All the supported permutations of `increment!`:
+    // And registering them:
+    let counter1 = register_counter!("test_counter");
+    counter1.increment(1);
+    let counter2 = register_counter!("test_counter", "type" => "absolute");
+    counter2.absolute(42);
+
+    let gauge1 = register_gauge!("test_gauge");
+    gauge1.increment(1.0);
+    let gauge2 = register_gauge!("test_gauge", "type" => "decrement");
+    gauge2.decrement(1.0);
+    let gauge3 = register_gauge!("test_gauge", "type" => "set");
+    gauge3.set(3.1459);
+
+    let histogram1 = register_histogram!("test_histogram");
+    histogram1.record(0.57721);
+
+    // All the supported permutations of `counter!` and its increment/absolute versions:
+    counter!("bytes_sent", 64);
+    counter!("bytes_sent", 64, "listener" => "frontend");
+    counter!("bytes_sent", 64, "listener" => "frontend", "server" => server_name.clone());
+    counter!("bytes_sent", 64, common_labels);
+
     increment_counter!("requests_processed");
     increment_counter!("requests_processed", "request_type" => "admin");
     increment_counter!("requests_processed", "request_type" => "admin", "server" => server_name.clone());
     increment_counter!("requests_processed", common_labels);
 
-    // All the supported permutations of `counter!`:
-    counter!("bytes_sent", 64);
-    counter!("bytes_sent", 64, "listener" => "frontend");
-    counter!("bytes_sent", 64, "listener" => "frontend", "server" => server_name.clone());
-    counter!("bytes_sent", 64, common_labels);
+    absolute_counter!("bytes_sent", 64);
+    absolute_counter!("bytes_sent", 64, "listener" => "frontend");
+    absolute_counter!("bytes_sent", 64, "listener" => "frontend", "server" => server_name.clone());
+    absolute_counter!("bytes_sent", 64, common_labels);
 
     // All the supported permutations of `gauge!` and its increment/decrement versions:
     gauge!("connection_count", 300.0);

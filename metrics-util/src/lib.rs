@@ -2,6 +2,8 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(incomplete_features)]
+#![feature(generic_associated_types)]
 
 #[cfg(feature = "std")]
 mod bucket;
@@ -14,9 +16,7 @@ mod debugging;
 pub use debugging::{DebugValue, DebuggingRecorder, Snapshotter};
 
 #[cfg(feature = "std")]
-mod handle;
-#[cfg(feature = "std")]
-pub use handle::*;
+mod handles;
 
 mod quantile;
 pub use quantile::{parse_quantiles, Quantile};
@@ -24,7 +24,8 @@ pub use quantile::{parse_quantiles, Quantile};
 #[cfg(feature = "std")]
 mod registry;
 #[cfg(feature = "std")]
-pub use registry::{Generation, Generational, NotTracked, Registry, Tracked};
+pub use registry::{Registry, StandardPrimitives};
+//pub use registry::{Generation, Generational};
 
 mod common;
 pub use common::*;
@@ -45,7 +46,7 @@ pub use summary::Summary;
 
 pub mod layers;
 
-#[cfg(feature = "std")]
-mod recency;
-#[cfg(feature = "std")]
-pub use recency::Recency;
+//#[cfg(feature = "std")]
+//mod recency;
+//#[cfg(feature = "std")]
+//pub use recency::Recency;

@@ -1,5 +1,10 @@
 use metrics::{GaugeValue, Key, Recorder, Unit};
 
+// TODO: fanout doesn't make a ton of sense in a world where we're giving out direct metric handles
+// but given that handles can have an arbitrary backend, it is _technically_ possible that we could
+// devise a fanout handler for each handle type.  this will take some work though so this layer is
+// disabled via the module not being included in mod.rs, for the time being.
+
 /// Fans out metrics to multiple recorders.
 pub struct Fanout {
     recorders: Vec<Box<dyn Recorder>>,

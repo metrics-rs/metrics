@@ -102,7 +102,7 @@
 //!     .expect("failed to install stack");
 //! # }
 //! ```
-use metrics::{GaugeValue, Key, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 
 #[cfg(feature = "std")]
 use metrics::SetRecorderError;
@@ -115,13 +115,10 @@ pub use filter::{Filter, FilterLayer};
 mod prefix;
 pub use prefix::{Prefix, PrefixLayer};
 
-mod fanout;
-pub use fanout::{Fanout, FanoutBuilder};
+// see comment in fanout.rs for why this is currently disabled
+//mod fanout;
+//pub use fanout::{Fanout, FanoutBuilder};
 
-#[cfg(feature = "layer-absolute")]
-mod absolute;
-#[cfg(feature = "layer-absolute")]
-pub use absolute::{Absolute, AbsoluteLayer};
 #[cfg(feature = "layer-router")]
 mod router;
 #[cfg(feature = "layer-router")]
@@ -164,27 +161,27 @@ impl<R: Recorder + 'static> Stack<R> {
 }
 
 impl<R: Recorder> Recorder for Stack<R> {
-    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        self.inner.register_counter(key, unit, description);
+    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.describe_counter(key, unit, description);
     }
 
-    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        self.inner.register_gauge(key, unit, description);
+    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.describe_gauge(key, unit, description);
     }
 
-    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        self.inner.register_histogram(key, unit, description);
+    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.describe_histogram(key, unit, description);
     }
 
-    fn increment_counter(&self, key: &Key, value: u64) {
-        self.inner.increment_counter(key, value);
+    fn register_counter(&self, key: &Key) -> Counter {
+        self.inner.register_counter(key)
     }
 
-    fn update_gauge(&self, key: &Key, value: GaugeValue) {
-        self.inner.update_gauge(key, value);
+    fn register_gauge(&self, key: &Key) -> Gauge {
+        self.inner.register_gauge(key)
     }
 
-    fn record_histogram(&self, key: &Key, value: f64) {
-        self.inner.record_histogram(key, value);
+    fn register_histogram(&self, key: &Key) -> Histogram {
+        self.inner.register_histogram(key)
     }
 }

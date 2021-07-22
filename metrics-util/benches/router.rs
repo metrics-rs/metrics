@@ -17,7 +17,7 @@ fn layer_benchmark(c: &mut Criterion) {
             let key = Key::from_name("test_key");
 
             b.iter(|| {
-                recorder.increment_counter(&key, 1);
+                let _ = recorder.register_counter(&key);
             })
         });
         group.bench_function("default target (via fallback)", |b| {
@@ -27,7 +27,7 @@ fn layer_benchmark(c: &mut Criterion) {
             let key = Key::from_name("normal_key");
 
             b.iter(|| {
-                recorder.increment_counter(&key, 1);
+                let _ = recorder.register_counter(&key);
             })
         });
         group.bench_function("routed target", |b| {
@@ -37,7 +37,7 @@ fn layer_benchmark(c: &mut Criterion) {
             let key = Key::from_name("override_key");
 
             b.iter(|| {
-                recorder.increment_counter(&key, 1);
+                let _ = recorder.register_counter(&key);
             })
         });
     }
