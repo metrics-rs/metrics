@@ -1,6 +1,6 @@
 use crate::layers::Layer;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
-use metrics::{GaugeValue, Key, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 
 /// Filters and discards metrics matching certain name patterns.
 ///
@@ -17,46 +17,46 @@ impl<R> Filter<R> {
 }
 
 impl<R: Recorder> Recorder for Filter<R> {
-    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         if self.should_filter(&key) {
             return;
         }
-        self.inner.register_counter(key, unit, description)
+        self.inner.describe_counter(key, unit, description)
     }
 
-    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         if self.should_filter(&key) {
             return;
         }
-        self.inner.register_gauge(key, unit, description)
+        self.inner.describe_gauge(key, unit, description)
     }
 
-    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         if self.should_filter(&key) {
             return;
         }
-        self.inner.register_histogram(key, unit, description)
+        self.inner.describe_histogram(key, unit, description)
     }
 
-    fn increment_counter(&self, key: &Key, value: u64) {
+    fn register_counter(&self, key: &Key) -> Counter {
         if self.should_filter(&key) {
-            return;
+            return Counter::noop();
         }
-        self.inner.increment_counter(key, value);
+        self.inner.register_counter(key)
     }
 
-    fn update_gauge(&self, key: &Key, value: GaugeValue) {
+    fn register_gauge(&self, key: &Key) -> Gauge {
         if self.should_filter(&key) {
-            return;
+            return Gauge::noop();
         }
-        self.inner.update_gauge(key, value);
+        self.inner.register_gauge(key)
     }
 
-    fn record_histogram(&self, key: &Key, value: f64) {
+    fn register_histogram(&self, key: &Key) -> Histogram {
         if self.should_filter(&key) {
-            return;
+            return Histogram::noop();
         }
-        self.inner.record_histogram(key, value);
+        self.inner.register_histogram(key)
     }
 }
 
@@ -171,7 +171,7 @@ mod tests {
         let bckey = "bb8.conns".into();
         let hrbkey = "hyper.recv_bytes".into();
 
-        let before = snapshotter.snapshot();
+        let before = snapshotter.snapshot().into_vec();
         assert_eq!(before.len(), 0);
 
         let ud = &[
@@ -182,13 +182,13 @@ mod tests {
             (Unit::Bytes, "gauge desc"),
         ];
 
-        layered.register_counter(&tlkey, Some(ud[0].0.clone()), Some(ud[0].1));
-        layered.register_gauge(&hsbkey, Some(ud[1].0.clone()), Some(ud[1].1));
-        layered.register_histogram(&htsbkey, Some(ud[2].0.clone()), Some(ud[2].1));
-        layered.register_counter(&bckey, Some(ud[3].0.clone()), Some(ud[3].1));
-        layered.register_gauge(&hrbkey, Some(ud[4].0.clone()), Some(ud[4].1));
+        layered.describe_counter(&tlkey, Some(ud[0].0.clone()), Some(ud[0].1));
+        layered.describe_gauge(&hsbkey, Some(ud[1].0.clone()), Some(ud[1].1));
+        layered.describe_histogram(&htsbkey, Some(ud[2].0.clone()), Some(ud[2].1));
+        layered.describe_counter(&bckey, Some(ud[3].0.clone()), Some(ud[3].1));
+        layered.describe_gauge(&hrbkey, Some(ud[4].0.clone()), Some(ud[4].1));
 
-        let after = snapshotter.snapshot();
+        let after = snapshotter.snapshot().into_vec();
         assert_eq!(after.len(), 2);
 
         for (key, unit, desc, _value) in after {
@@ -212,7 +212,7 @@ mod tests {
         filter.case_insensitive(true);
         let layered = filter.layer(recorder);
 
-        let before = snapshotter.snapshot();
+        let before = snapshotter.snapshot().into_vec();
         assert_eq!(before.len(), 0);
 
         let tlkey = "tokiO.loops".into();
@@ -221,16 +221,16 @@ mod tests {
         let bckey = "bb8.conns".into();
         let bcckey = "Bb8.conns_closed".into();
 
-        layered.register_counter(&tlkey, None, None);
-        layered.register_gauge(&hsbkey, None, None);
-        layered.register_histogram(&hrbkey, None, None);
-        layered.register_counter(&bckey, None, None);
-        layered.register_counter(&bcckey, None, None);
+        layered.describe_counter(&tlkey, None, None);
+        layered.describe_gauge(&hsbkey, None, None);
+        layered.describe_histogram(&hrbkey, None, None);
+        layered.describe_counter(&bckey, None, None);
+        layered.describe_counter(&bcckey, None, None);
 
-        let after = snapshotter.snapshot();
+        let after = snapshotter.snapshot().into_vec();
         assert_eq!(after.len(), 2);
 
-        for (key, _unit, _desc, _value) in &after {
+        for (key, _unit, _desc, _value) in after {
             assert!(
                 !key.key()
                     .name()

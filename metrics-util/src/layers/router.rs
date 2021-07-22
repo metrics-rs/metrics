@@ -1,4 +1,4 @@
-use metrics::{GaugeValue, Key, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 use radix_trie::{Trie, TrieCommon};
 
 use crate::{MetricKind, MetricKindMask};
@@ -39,34 +39,34 @@ impl Router {
 }
 
 impl Recorder for Router {
-    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let target = self.route(MetricKind::Counter, key, &self.counter_routes);
-        target.register_counter(key, unit, description)
+        target.describe_counter(key, unit, description)
     }
 
-    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let target = self.route(MetricKind::Gauge, key, &self.gauge_routes);
-        target.register_gauge(key, unit, description)
+        target.describe_gauge(key, unit, description)
     }
 
-    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let target = self.route(MetricKind::Histogram, key, &self.histogram_routes);
-        target.register_histogram(key, unit, description)
+        target.describe_histogram(key, unit, description)
     }
 
-    fn increment_counter(&self, key: &Key, value: u64) {
+    fn register_counter(&self, key: &Key) -> Counter {
         let target = self.route(MetricKind::Counter, key, &self.counter_routes);
-        target.increment_counter(key, value);
+        target.register_counter(key)
     }
 
-    fn update_gauge(&self, key: &Key, value: GaugeValue) {
+    fn register_gauge(&self, key: &Key) -> Gauge {
         let target = self.route(MetricKind::Gauge, key, &self.gauge_routes);
-        target.update_gauge(key, value);
+        target.register_gauge(key)
     }
 
-    fn record_histogram(&self, key: &Key, value: f64) {
+    fn register_histogram(&self, key: &Key) -> Histogram {
         let target = self.route(MetricKind::Histogram, key, &self.histogram_routes);
-        target.record_histogram(key, value);
+        target.register_histogram(key)
     }
 }
 
@@ -178,19 +178,19 @@ mod tests {
 
     use super::RouterBuilder;
     use crate::MetricKindMask;
-    use metrics::{GaugeValue, Key, Recorder, Unit};
+    use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 
     mock! {
         pub TestRecorder {
         }
 
         impl Recorder for TestRecorder {
-            fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
-            fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
-            fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
-            fn increment_counter(&self, key: &Key, value: u64);
-            fn update_gauge(&self, key: &Key, value: GaugeValue);
-            fn record_histogram(&self, key: &Key, value: f64);
+            fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
+            fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
+            fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
+            fn register_counter(&self, key: &Key) -> Counter;
+            fn register_gauge(&self, key: &Key) -> Gauge;
+            fn register_histogram(&self, key: &Key) -> Histogram;
         }
     }
 
@@ -236,32 +236,28 @@ mod tests {
         let mut seq = Sequence::new();
 
         default_mock
-            .expect_increment_counter()
+            .expect_register_counter()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(default_counter.clone()), eq(42u64))
-            .return_const(());
+            .with(eq(default_counter.clone()));
 
         counter_mock
-            .expect_increment_counter()
+            .expect_register_counter()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(override_counter.clone()), eq(49u64))
-            .return_const(());
+            .with(eq(override_counter.clone()));
 
         all_mock
-            .expect_increment_counter()
+            .expect_register_counter()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(all_override.clone()), eq(420u64))
-            .return_const(());
+            .with(eq(all_override.clone()));
 
         all_mock
-            .expect_record_histogram()
+            .expect_register_histogram()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(all_override.clone()), eq(0.0))
-            .return_const(());
+            .with(eq(all_override.clone()));
 
         let mut builder = RouterBuilder::from_recorder(default_mock);
         builder
@@ -269,9 +265,9 @@ mod tests {
             .add_route(MetricKindMask::ALL, "all_override", all_mock);
         let recorder = builder.build();
 
-        recorder.increment_counter(&default_counter, 42);
-        recorder.increment_counter(&override_counter, 49);
-        recorder.increment_counter(&all_override, 420);
-        recorder.record_histogram(&all_override, 0.0);
+        let _ = recorder.register_counter(&default_counter);
+        let _ = recorder.register_counter(&override_counter);
+        let _ = recorder.register_counter(&all_override);
+        let _ = recorder.register_histogram(&all_override);
     }
 }

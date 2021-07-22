@@ -4,17 +4,16 @@ use syn::{Expr, ExprPath};
 use super::*;
 
 #[test]
-fn test_get_expanded_registration() {
+fn test_get_describe_code() {
     // Basic registration.
-    let stream =
-        get_expanded_registration("mytype", parse_quote! { "mykeyname" }, None, None, None);
+    let stream = get_describe_code("mytype", parse_quote! { "mykeyname" }, None, None, None);
 
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . register_mytype (& METRIC_KEY , None , None) ; ",
+        "recorder . describe_mytype (& METRIC_KEY , None , None) ; ",
         "} ",
         "}",
     );
@@ -23,10 +22,10 @@ fn test_get_expanded_registration() {
 }
 
 #[test]
-fn test_get_expanded_registration_with_unit() {
+fn test_get_describe_code_with_unit() {
     // Now with unit.
     let units: ExprPath = parse_quote! { metrics::Unit::Nanoseconds };
-    let stream = get_expanded_registration(
+    let stream = get_describe_code(
         "mytype",
         parse_quote! { "mykeyname" },
         Some(Expr::Path(units)),
@@ -39,7 +38,7 @@ fn test_get_expanded_registration_with_unit() {
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . register_mytype (& METRIC_KEY , Some (metrics :: Unit :: Nanoseconds) , None) ; ",
+        "recorder . describe_mytype (& METRIC_KEY , Some (metrics :: Unit :: Nanoseconds) , None) ; ",
         "} ",
         "}",
     );
@@ -48,9 +47,9 @@ fn test_get_expanded_registration_with_unit() {
 }
 
 #[test]
-fn test_get_expanded_registration_with_description() {
+fn test_get_describe_code_with_description() {
     // And with description.
-    let stream = get_expanded_registration(
+    let stream = get_describe_code(
         "mytype",
         parse_quote! { "mykeyname" },
         None,
@@ -63,7 +62,7 @@ fn test_get_expanded_registration_with_description() {
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . register_mytype (& METRIC_KEY , None , Some (\"flerkin\")) ; ",
+        "recorder . describe_mytype (& METRIC_KEY , None , Some (\"flerkin\")) ; ",
         "} ",
         "}",
     );
@@ -72,10 +71,10 @@ fn test_get_expanded_registration_with_description() {
 }
 
 #[test]
-fn test_get_expanded_registration_with_unit_and_description() {
+fn test_get_describe_code_with_unit_and_description() {
     // And with unit and description.
     let units: ExprPath = parse_quote! { metrics::Unit::Nanoseconds };
-    let stream = get_expanded_registration(
+    let stream = get_describe_code(
         "mytype",
         parse_quote! { "mykeyname" },
         Some(Expr::Path(units)),
@@ -88,7 +87,7 @@ fn test_get_expanded_registration_with_unit_and_description() {
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . register_mytype (& METRIC_KEY , Some (metrics :: Unit :: Nanoseconds) , Some (\"flerkin\")) ; ",
+        "recorder . describe_mytype (& METRIC_KEY , Some (metrics :: Unit :: Nanoseconds) , Some (\"flerkin\")) ; ",
         "} ",
         "}",
     );
@@ -97,13 +96,163 @@ fn test_get_expanded_registration_with_unit_and_description() {
 }
 
 #[test]
-fn test_get_expanded_callsite_static_name_no_labels() {
-    let stream = get_expanded_callsite(
+fn test_get_register_and_op_code_register_static_name_no_labels() {
+    let stream = get_register_and_op_code::<bool>("mytype", parse_quote! {"mykeyname"}, None, None);
+
+    let expected = concat!(
+        "{ ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
+        "metrics :: recorder () . register_mytype (& METRIC_KEY) ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_register_and_op_code_register_static_name_static_inline_labels() {
+    let labels = Labels::Inline(vec![(parse_quote! { "key1" }, parse_quote! { "value1" })]);
+    let stream =
+        get_register_and_op_code::<bool>("mytype", parse_quote! {"mykeyname"}, Some(labels), None);
+
+    let expected = concat!(
+        "{ ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METRIC_LABELS : [metrics :: Label ; 1usize] = [metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
+        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_parts (METRIC_NAME , & METRIC_LABELS) ; ",
+        "metrics :: recorder () . register_mytype (& METRIC_KEY) ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_register_and_op_code_register_static_name_dynamic_inline_labels() {
+    let labels = Labels::Inline(vec![(parse_quote! { "key1" }, parse_quote! { &value1 })]);
+    let stream =
+        get_register_and_op_code::<bool>("mytype", parse_quote! {"mykeyname"}, Some(labels), None);
+
+    let expected = concat!(
+        "{ ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "let key = metrics :: Key :: from_parts (METRIC_NAME , vec ! [metrics :: Label :: new (\"key1\" , & value1)]) ; ",
+        "metrics :: recorder () . register_mytype (& key) ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+/// If there are dynamic labels - generate a direct invocation.
+#[test]
+fn test_get_register_and_op_code_register_static_name_existing_labels() {
+    let stream = get_register_and_op_code::<bool>(
         "mytype",
-        "myop",
+        parse_quote! {"mykeyname"},
+        Some(Labels::Existing(parse_quote! { mylabels })),
+        None,
+    );
+
+    let expected = concat!(
+        "{ ",
+        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "let key = metrics :: Key :: from_parts (METRIC_NAME , mylabels) ; ",
+        "metrics :: recorder () . register_mytype (& key) ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_register_and_op_code_register_owned_name_no_labels() {
+    let stream = get_register_and_op_code::<bool>(
+        "mytype",
+        parse_quote! { String::from("owned") },
+        None,
+        None,
+    );
+
+    let expected = concat!(
+        "{ ",
+        "let key = metrics :: Key :: from_name (String :: from (\"owned\")) ; ",
+        "metrics :: recorder () . register_mytype (& key) ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_register_and_op_code_register_owned_name_static_inline_labels() {
+    let labels = Labels::Inline(vec![(parse_quote! { "key1" }, parse_quote! { "value1" })]);
+    let stream = get_register_and_op_code::<bool>(
+        "mytype",
+        parse_quote! { String::from("owned") },
+        Some(labels),
+        None,
+    );
+
+    let expected = concat!(
+        "{ ",
+        "static METRIC_LABELS : [metrics :: Label ; 1usize] = [metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
+        "let key = metrics :: Key :: from_static_labels (String :: from (\"owned\") , & METRIC_LABELS) ; ",
+        "metrics :: recorder () . register_mytype (& key) ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_register_and_op_code_register_owned_name_dynamic_inline_labels() {
+    let labels = Labels::Inline(vec![(parse_quote! { "key1" }, parse_quote! { &value1 })]);
+    let stream = get_register_and_op_code::<bool>(
+        "mytype",
+        parse_quote! { String::from("owned") },
+        Some(labels),
+        None,
+    );
+
+    let expected = concat!(
+        "{ ",
+        "let key = metrics :: Key :: from_parts (String :: from (\"owned\") , vec ! [metrics :: Label :: new (\"key1\" , & value1)]) ; ",
+        "metrics :: recorder () . register_mytype (& key) ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+/// If there are dynamic labels - generate a direct invocation.
+#[test]
+fn test_get_register_and_op_code_register_owned_name_existing_labels() {
+    let stream = get_register_and_op_code::<bool>(
+        "mytype",
+        parse_quote! { String::from("owned") },
+        Some(Labels::Existing(parse_quote! { mylabels })),
+        None,
+    );
+
+    let expected = concat!(
+        "{ ",
+        "let key = metrics :: Key :: from_parts (String :: from (\"owned\") , mylabels) ; ",
+        "metrics :: recorder () . register_mytype (& key) ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_register_and_op_code_op_static_name_no_labels() {
+    let stream = get_register_and_op_code(
+        "mytype",
         parse_quote! {"mykeyname"},
         None,
-        quote! { 1 },
+        Some(("myop", quote! { 1 })),
     );
 
     let expected = concat!(
@@ -111,22 +260,23 @@ fn test_get_expanded_callsite_static_name_no_labels() {
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (& METRIC_KEY , 1) ; ",
-        "} }",
+        "let handle = recorder . register_mytype (& METRIC_KEY) ; ",
+        "handle . myop (1) ; ",
+        "} ",
+        "}",
     );
 
     assert_eq!(stream.to_string(), expected);
 }
 
 #[test]
-fn test_get_expanded_callsite_static_name_static_inline_labels() {
+fn test_get_register_and_op_code_op_static_name_static_inline_labels() {
     let labels = Labels::Inline(vec![(parse_quote! { "key1" }, parse_quote! { "value1" })]);
-    let stream = get_expanded_callsite(
+    let stream = get_register_and_op_code(
         "mytype",
-        "myop",
         parse_quote! {"mykeyname"},
         Some(labels),
-        quote! { 1 },
+        Some(("myop", quote! { 1 })),
     );
 
     let expected = concat!(
@@ -135,7 +285,8 @@ fn test_get_expanded_callsite_static_name_static_inline_labels() {
         "static METRIC_LABELS : [metrics :: Label ; 1usize] = [metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
         "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_parts (METRIC_NAME , & METRIC_LABELS) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . myop_mytype (& METRIC_KEY , 1) ; ",
+        "let handle = recorder . register_mytype (& METRIC_KEY) ; ",
+        "handle . myop (1) ; ",
         "} ",
         "}",
     );
@@ -144,14 +295,13 @@ fn test_get_expanded_callsite_static_name_static_inline_labels() {
 }
 
 #[test]
-fn test_get_expanded_callsite_static_name_dynamic_inline_labels() {
+fn test_get_register_and_op_code_op_static_name_dynamic_inline_labels() {
     let labels = Labels::Inline(vec![(parse_quote! { "key1" }, parse_quote! { &value1 })]);
-    let stream = get_expanded_callsite(
+    let stream = get_register_and_op_code(
         "mytype",
-        "myop",
         parse_quote! {"mykeyname"},
         Some(labels),
-        quote! { 1 },
+        Some(("myop", quote! { 1 })),
     );
 
     let expected = concat!(
@@ -159,7 +309,8 @@ fn test_get_expanded_callsite_static_name_dynamic_inline_labels() {
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "let key = metrics :: Key :: from_parts (METRIC_NAME , vec ! [metrics :: Label :: new (\"key1\" , & value1)]) ; ",
-        "recorder . myop_mytype (& key , 1) ; ",
+        "let handle = recorder . register_mytype (& key) ; ",
+        "handle . myop (1) ; ",
         "} ",
         "}",
     );
@@ -169,13 +320,12 @@ fn test_get_expanded_callsite_static_name_dynamic_inline_labels() {
 
 /// If there are dynamic labels - generate a direct invocation.
 #[test]
-fn test_get_expanded_callsite_static_name_existing_labels() {
-    let stream = get_expanded_callsite(
+fn test_get_register_and_op_code_op_static_name_existing_labels() {
+    let stream = get_register_and_op_code(
         "mytype",
-        "myop",
         parse_quote! {"mykeyname"},
         Some(Labels::Existing(parse_quote! { mylabels })),
-        quote! { 1 },
+        Some(("myop", quote! { 1 })),
     );
 
     let expected = concat!(
@@ -183,7 +333,8 @@ fn test_get_expanded_callsite_static_name_existing_labels() {
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "let key = metrics :: Key :: from_parts (METRIC_NAME , mylabels) ; ",
-        "recorder . myop_mytype (& key , 1) ; ",
+        "let handle = recorder . register_mytype (& key) ; ",
+        "handle . myop (1) ; ",
         "} ",
         "}",
     );
@@ -192,20 +343,20 @@ fn test_get_expanded_callsite_static_name_existing_labels() {
 }
 
 #[test]
-fn test_get_expanded_callsite_owned_name_no_labels() {
-    let stream = get_expanded_callsite(
+fn test_get_register_and_op_code_op_owned_name_no_labels() {
+    let stream = get_register_and_op_code(
         "mytype",
-        "myop",
         parse_quote! { String::from("owned") },
         None,
-        quote! { 1 },
+        Some(("myop", quote! { 1 })),
     );
 
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "let key = metrics :: Key :: from_name (String :: from (\"owned\")) ; ",
-        "recorder . myop_mytype (& key , 1) ; ",
+        "let handle = recorder . register_mytype (& key) ; ",
+        "handle . myop (1) ; ",
         "} ",
         "}",
     );
@@ -214,14 +365,13 @@ fn test_get_expanded_callsite_owned_name_no_labels() {
 }
 
 #[test]
-fn test_get_expanded_callsite_owned_name_static_inline_labels() {
+fn test_get_register_and_op_code_op_owned_name_static_inline_labels() {
     let labels = Labels::Inline(vec![(parse_quote! { "key1" }, parse_quote! { "value1" })]);
-    let stream = get_expanded_callsite(
+    let stream = get_register_and_op_code(
         "mytype",
-        "myop",
         parse_quote! { String::from("owned") },
         Some(labels),
-        quote! { 1 },
+        Some(("myop", quote! { 1 })),
     );
 
     let expected = concat!(
@@ -229,7 +379,8 @@ fn test_get_expanded_callsite_owned_name_static_inline_labels() {
         "static METRIC_LABELS : [metrics :: Label ; 1usize] = [metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "let key = metrics :: Key :: from_static_labels (String :: from (\"owned\") , & METRIC_LABELS) ; ",
-        "recorder . myop_mytype (& key , 1) ; ",
+        "let handle = recorder . register_mytype (& key) ; ",
+        "handle . myop (1) ; ",
         "} ",
         "}",
     );
@@ -238,21 +389,21 @@ fn test_get_expanded_callsite_owned_name_static_inline_labels() {
 }
 
 #[test]
-fn test_get_expanded_callsite_owned_name_dynamic_inline_labels() {
+fn test_get_register_and_op_code_op_owned_name_dynamic_inline_labels() {
     let labels = Labels::Inline(vec![(parse_quote! { "key1" }, parse_quote! { &value1 })]);
-    let stream = get_expanded_callsite(
+    let stream = get_register_and_op_code(
         "mytype",
-        "myop",
         parse_quote! { String::from("owned") },
         Some(labels),
-        quote! { 1 },
+        Some(("myop", quote! { 1 })),
     );
 
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "let key = metrics :: Key :: from_parts (String :: from (\"owned\") , vec ! [metrics :: Label :: new (\"key1\" , & value1)]) ; ",
-        "recorder . myop_mytype (& key , 1) ; ",
+        "let handle = recorder . register_mytype (& key) ; ",
+        "handle . myop (1) ; ",
         "} ",
         "}",
     );
@@ -262,20 +413,20 @@ fn test_get_expanded_callsite_owned_name_dynamic_inline_labels() {
 
 /// If there are dynamic labels - generate a direct invocation.
 #[test]
-fn test_get_expanded_callsite_owned_name_existing_labels() {
-    let stream = get_expanded_callsite(
+fn test_get_register_and_op_code_op_owned_name_existing_labels() {
+    let stream = get_register_and_op_code(
         "mytype",
-        "myop",
         parse_quote! { String::from("owned") },
         Some(Labels::Existing(parse_quote! { mylabels })),
-        quote! { 1 },
+        Some(("myop", quote! { 1 })),
     );
 
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
         "let key = metrics :: Key :: from_parts (String :: from (\"owned\") , mylabels) ; ",
-        "recorder . myop_mytype (& key , 1) ; ",
+        "let handle = recorder . register_mytype (& key) ; ",
+        "handle . myop (1) ; ",
         "} ",
         "}",
     );

@@ -1,9 +1,11 @@
 use atomic_shim::AtomicU64;
 use getopts::Options;
-use hdrhistogram::Histogram;
+use hdrhistogram::Histogram as HdrHistogram;
 use log::{error, info};
-use metrics::{gauge, histogram, increment_counter, GaugeValue, Key, Recorder, Unit};
-use metrics_util::{Handle, MetricKind, Registry, Tracked};
+use metrics::{
+    gauge, histogram, increment_counter, Counter, Gauge, Histogram, Key, Recorder, Unit,
+};
+use metrics_util::{Registry, StandardPrimitives};
 use quanta::{Clock, Instant as QuantaInstant};
 use std::{
     env,
@@ -19,19 +21,17 @@ use std::{
 const LOOP_SAMPLE: u64 = 1000;
 
 pub struct Controller {
-    registry: Arc<Registry<Key, Handle, Tracked<Handle>>>,
+    registry: Arc<Registry<StandardPrimitives>>,
 }
 
 impl Controller {
     /// Takes a snapshot of the recorder.
-    // Performs the traditional "upkeep" of a recorder i.e. clearing histogram buckets, etc.
+    /// Performs the traditional "upkeep" of a recorder i.e. clearing histogram buckets, etc.
     pub fn upkeep(&self) {
-        let handles = self.registry.get_handles();
+        let handles = self.registry.get_histogram_handles();
 
-        for ((kind, _), (_, handle)) in handles {
-            if matches!(kind, MetricKind::Histogram) {
-                handle.read_histogram_with_clear(|_| {});
-            }
+        for (key, histo) in handles {
+            histo.clear();
         }
     }
 }
@@ -40,14 +40,14 @@ impl Controller {
 ///
 /// Simulates typical recorder implementations by utilizing `Registry`, clearing histogram buckets, etc.
 pub struct BenchmarkingRecorder {
-    registry: Arc<Registry<Key, Handle, Tracked<Handle>>>,
+    registry: Arc<Registry<StandardPrimitives>>,
 }
 
 impl BenchmarkingRecorder {
     /// Creates a new `BenchmarkingRecorder`.
     pub fn new() -> BenchmarkingRecorder {
         BenchmarkingRecorder {
-            registry: Arc::new(Registry::<Key, Handle, Tracked<Handle>>::tracked()),
+            registry: Arc::new(Registry::new()),
         }
     }
 
@@ -65,51 +65,31 @@ impl BenchmarkingRecorder {
 }
 
 impl Recorder for BenchmarkingRecorder {
-    fn register_counter(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {
+    fn describe_counter(&self, key: &Key, _: Option<Unit>, _: Option<&'static str>) {
+        self.registry.get_or_create_counter(key, |_| {})
+    }
+
+    fn describe_gauge(&self, key: &Key, _: Option<Unit>, _: Option<&'static str>) {
+        self.registry.get_or_create_gauge(key, |_| {})
+    }
+
+    fn describe_histogram(&self, key: &Key, _: Option<Unit>, _: Option<&'static str>) {
+        self.registry.get_or_create_histogram(key, |_| {})
+    }
+
+    fn register_counter(&self, key: &Key) -> Counter {
         self.registry
-            .op(MetricKind::Counter, key, |_| {}, Handle::counter)
+            .get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
     }
 
-    fn register_gauge(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {
+    fn register_gauge(&self, key: &Key) -> Gauge {
         self.registry
-            .op(MetricKind::Gauge, key, |_| {}, Handle::gauge)
+            .get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
     }
 
-    fn register_histogram(
-        &self,
-        key: &Key,
-        _unit: Option<Unit>,
-        _description: Option<&'static str>,
-    ) {
+    fn register_histogram(&self, key: &Key) -> Histogram {
         self.registry
-            .op(MetricKind::Histogram, key, |_| {}, Handle::histogram)
-    }
-
-    fn increment_counter(&self, key: &Key, value: u64) {
-        self.registry.op(
-            MetricKind::Counter,
-            key,
-            |handle| handle.increment_counter(value),
-            Handle::counter,
-        )
-    }
-
-    fn update_gauge(&self, key: &Key, value: GaugeValue) {
-        self.registry.op(
-            MetricKind::Gauge,
-            key,
-            |handle| handle.update_gauge(value),
-            Handle::gauge,
-        )
-    }
-
-    fn record_histogram(&self, key: &Key, value: f64) {
-        self.registry.op(
-            MetricKind::Histogram,
-            key,
-            |handle| handle.record_histogram(value),
-            Handle::histogram,
-        )
+            .get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
     }
 }
 
@@ -122,7 +102,7 @@ impl Default for BenchmarkingRecorder {
 struct Generator {
     t0: Option<QuantaInstant>,
     gauge: i64,
-    hist: Histogram<u64>,
+    hist: HdrHistogram<u64>,
     done: Arc<AtomicBool>,
     rate_counter: Arc<AtomicU64>,
 }
@@ -132,7 +112,7 @@ impl Generator {
         Generator {
             t0: None,
             gauge: 0,
-            hist: Histogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap(),
+            hist: HdrHistogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap(),
             done,
             rate_counter,
         }
@@ -280,7 +260,7 @@ fn main() {
     let mut total = 0;
     let mut t0 = Instant::now();
 
-    let mut upkeep_hist = Histogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap();
+    let mut upkeep_hist = HdrHistogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap();
     for _ in 0..seconds {
         let t1 = Instant::now();
 
