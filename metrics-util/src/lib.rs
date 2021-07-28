@@ -46,7 +46,5 @@ pub use summary::Summary;
 
 pub mod layers;
 
-//#[cfg(feature = "std")]
-//mod recency;
-//#[cfg(feature = "std")]
-//pub use recency::Recency;
+#[cfg(feature = "std")]
+pub mod recency;

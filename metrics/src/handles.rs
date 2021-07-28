@@ -10,7 +10,7 @@ pub trait CounterFn {
     /// Increments the counter by the given amount.
     ///
     /// Returns the previous value.
-    fn increment(&self, value: u64) -> u64;
+    fn increment(&self, value: u64);
 
     /// Sets the counter to at least the given amount.
     ///
@@ -24,7 +24,7 @@ pub trait CounterFn {
     /// `AtomicCounter`.
     ///
     /// Returns the previous value.
-    fn absolute(&self, value: u64) -> u64;
+    fn absolute(&self, value: u64);
 }
 
 /// A gauge handler.
@@ -32,17 +32,17 @@ pub trait GaugeFn {
     /// Increments the gauge by the given amount.
     ///
     /// Returns the previous value.
-    fn increment(&self, value: f64) -> f64;
+    fn increment(&self, value: f64);
 
     /// Decrements the gauge by the given amount.
     ///
     /// Returns the previous value.
-    fn decrement(&self, value: f64) -> f64;
+    fn decrement(&self, value: f64);
 
     /// Sets the gauge to the given amount.
     ///
     /// Returns the previous value.
-    fn set(&self, value: f64) -> f64;
+    fn set(&self, value: f64);
 }
 
 /// A histogram handler.
@@ -84,19 +84,17 @@ impl Counter {
     }
 
     /// Increments the counter.
-    pub fn increment(&self, value: u64) -> u64 {
-        self.inner
-            .as_ref()
-            .map(|c| c.increment(value))
-            .unwrap_or_default()
+    pub fn increment(&self, value: u64) {
+        if let Some(c) = &self.inner {
+            c.increment(value)
+        }
     }
 
     /// Sets the counter to an absolute value.
-    pub fn absolute(&self, value: u64) -> u64 {
-        self.inner
-            .as_ref()
-            .map(|c| c.absolute(value))
-            .unwrap_or_default()
+    pub fn absolute(&self, value: u64) {
+        if let Some(c) = &self.inner {
+            c.absolute(value)
+        }
     }
 }
 
@@ -115,27 +113,24 @@ impl Gauge {
     }
 
     /// Increments the gauge.
-    pub fn increment<T: IntoF64>(&self, value: T) -> f64 {
-        self.inner
-            .as_ref()
-            .map(|g| g.increment(value.into_f64()))
-            .unwrap_or_default()
+    pub fn increment<T: IntoF64>(&self, value: T) {
+        if let Some(g) = &self.inner {
+            g.increment(value.into_f64())
+        }
     }
 
     /// Decrements the gauge.
-    pub fn decrement<T: IntoF64>(&self, value: T) -> f64 {
-        self.inner
-            .as_ref()
-            .map(|g| g.decrement(value.into_f64()))
-            .unwrap_or_default()
+    pub fn decrement<T: IntoF64>(&self, value: T) {
+        if let Some(g) = &self.inner {
+            g.decrement(value.into_f64())
+        }
     }
 
     /// Sets the gauge.
-    pub fn set<T: IntoF64>(&self, value: T) -> f64 {
-        self.inner
-            .as_ref()
-            .map(|g| g.set(value.into_f64()))
-            .unwrap_or_default()
+    pub fn set<T: IntoF64>(&self, value: T) {
+        if let Some(g) = &self.inner {
+            g.set(value.into_f64())
+        }
     }
 }
 
@@ -162,17 +157,17 @@ impl Histogram {
 }
 
 impl CounterFn for AtomicU64 {
-    fn increment(&self, value: u64) -> u64 {
-        self.fetch_add(value, Ordering::Release)
+    fn increment(&self, value: u64) {
+        let _ = self.fetch_add(value, Ordering::Release);
     }
 
-    fn absolute(&self, value: u64) -> u64 {
-        self.fetch_max(value, Ordering::AcqRel)
+    fn absolute(&self, value: u64) {
+        let _ = self.fetch_max(value, Ordering::AcqRel);
     }
 }
 
 impl GaugeFn for AtomicU64 {
-    fn increment(&self, value: f64) -> f64 {
+    fn increment(&self, value: f64) {
         loop {
             let result = self.fetch_update(Ordering::AcqRel, Ordering::Relaxed, |curr| {
                 let input = f64::from_bits(curr);
@@ -180,13 +175,13 @@ impl GaugeFn for AtomicU64 {
                 Some(output.to_bits())
             });
 
-            if let Ok(previous) = result {
-                return f64::from_bits(previous);
+            if result.is_ok() {
+                break;
             }
         }
     }
 
-    fn decrement(&self, value: f64) -> f64 {
+    fn decrement(&self, value: f64) {
         loop {
             let result = self.fetch_update(Ordering::AcqRel, Ordering::Relaxed, |curr| {
                 let input = f64::from_bits(curr);
@@ -194,14 +189,14 @@ impl GaugeFn for AtomicU64 {
                 Some(output.to_bits())
             });
 
-            if let Ok(previous) = result {
-                return f64::from_bits(previous);
+            if result.is_ok() {
+                break;
             }
         }
     }
 
-    fn set(&self, value: f64) -> f64 {
-        f64::from_bits(self.swap(value.to_bits(), Ordering::AcqRel))
+    fn set(&self, value: f64) {
+        let _ = self.swap(value.to_bits(), Ordering::AcqRel);
     }
 }
 
@@ -209,11 +204,11 @@ impl<T> CounterFn for Arc<T>
 where
     T: CounterFn,
 {
-    fn increment(&self, value: u64) -> u64 {
+    fn increment(&self, value: u64) {
         (**self).increment(value)
     }
 
-    fn absolute(&self, value: u64) -> u64 {
+    fn absolute(&self, value: u64) {
         (**self).absolute(value)
     }
 }
@@ -221,15 +216,15 @@ impl<T> GaugeFn for Arc<T>
 where
     T: GaugeFn,
 {
-    fn increment(&self, value: f64) -> f64 {
+    fn increment(&self, value: f64) {
         (**self).increment(value)
     }
 
-    fn decrement(&self, value: f64) -> f64 {
+    fn decrement(&self, value: f64) {
         (**self).decrement(value)
     }
 
-    fn set(&self, value: f64) -> f64 {
+    fn set(&self, value: f64) {
         (**self).set(value)
     }
 }
@@ -240,5 +235,32 @@ where
 {
     fn record(&self, value: f64) {
         (**self).record(value);
+    }
+}
+
+impl<T> From<Arc<T>> for Counter
+where
+    T: CounterFn + 'static,
+{
+    fn from(inner: Arc<T>) -> Self {
+        Counter::from_arc(inner)
+    }
+}
+
+impl<T> From<Arc<T>> for Gauge
+where
+    T: GaugeFn + 'static,
+{
+    fn from(inner: Arc<T>) -> Self {
+        Gauge::from_arc(inner)
+    }
+}
+
+impl<T> From<Arc<T>> for Histogram
+where
+    T: HistogramFn + 'static,
+{
+    fn from(inner: Arc<T>) -> Self {
+        Histogram::from_arc(inner)
     }
 }
