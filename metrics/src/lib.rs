@@ -145,37 +145,12 @@
 //! The primary interface with `metrics` is through the [`Recorder`] trait, so we'll show examples
 //! below of the trait and implementation notes.
 //!
-//! ## Implementing and installing a basic recorder
+//! ## Installing a basic recorder
 //!
 //! Here's a basic example which writes metrics in text form via the `log` crate.
 //!
-//! ```rust
-//! use log::info;
-//! use metrics::{GaugeValue, Key, Recorder, Unit};
-//! use metrics::SetRecorderError;
-//!
-//! struct LogRecorder;
-//!
-//! impl Recorder for LogRecorder {
-//!     fn describe_counter(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
-//!
-//!     fn describe_gauge(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
-//!
-//!     fn describe_histogram(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
-//!
-//!     fn increment_counter(&self, key: &Key, value: u64) {
-//!         info!("counter '{}' -> {}", key, value);
-//!     }
-//!
-//!     fn update_gauge(&self, key: &Key, value: GaugeValue) {
-//!         info!("gauge '{}' -> {:?}", key, value);
-//!     }
-//!
-//!     fn record_histogram(&self, key: &Key, value: f64) {
-//!         info!("histogram '{}' -> {}", key, value);
-//!     }
-//! }
-//!
+//! ```no_run
+//! # use metrics::{SetRecorderError, NoopRecorder as LogRecorder};
 //! // Recorders are installed by calling the [`set_recorder`] function.  Recorders should provide a
 //! // function that wraps the creation and installation of the recorder:
 //!
@@ -515,27 +490,27 @@ pub use metrics_macros::register_counter;
 /// ```
 /// # use metrics::register_gauge;
 /// # fn main() {
-/// // A basic histogram:
-/// let histogram = register_histogram!("some_metric_name");
-/// histogram.increment(1);
+/// // A basic gauge:
+/// let gauge = register_gauge!("some_metric_name");
+/// gauge.increment(1.0);
 ///
 /// // Specifying labels:
-/// let histogram = register_histogram!("some_metric_name", "service" => "http");
-/// histogram.decement(42);
+/// let gauge = register_gauge!("some_metric_name", "service" => "http");
+/// gauge.decrement(42.0);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs.  In this scenario,
 /// // a unit or description can still be passed in their respective positions:
 /// let dynamic_val = "woo";
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
-/// let histogram = register_histogram!("some_metric_name", &labels);
-/// histogram.set(1337)
+/// let gauge = register_gauge!("some_metric_name", &labels);
+/// gauge.set(1337.0);
 ///
 /// // As mentioned in the documentation, metric names also can be owned strings, including ones
 /// // generated at the callsite via things like `format!`:
 /// let name = String::from("some_owned_metric_name");
-/// let histogram = register_histogram!(name);
+/// let gauge = register_gauge!(name);
 ///
-/// let histogram = register_histogram!(format!("{}_via_format", "name"));
+/// let gauge = register_gauge!(format!("{}_via_format", "name"));
 /// # }
 /// ```
 pub use metrics_macros::register_gauge;
@@ -558,7 +533,7 @@ pub use metrics_macros::register_gauge;
 /// # fn main() {
 /// // A basic histogram:
 /// let histogram = register_histogram!("some_metric_name");
-/// histogram.record(1);
+/// histogram.record(1.0);
 ///
 /// // Specifying labels:
 /// let histogram = register_histogram!("some_metric_name", "service" => "http");

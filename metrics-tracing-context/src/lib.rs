@@ -95,7 +95,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
 
-use metrics::{Counter, Gauge, GaugeValue, Histogram, Key, Label, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, Label, Recorder, Unit};
 use metrics_util::layers::Layer;
 
 pub mod label_filter;

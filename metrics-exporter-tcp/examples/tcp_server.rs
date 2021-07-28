@@ -2,7 +2,7 @@ use std::thread;
 use std::time::Duration;
 
 use metrics::{
-    decrement_gauge, histogram, increment_counter, increment_gauge, register_histogram, Unit,
+    decrement_gauge, describe_histogram, histogram, increment_counter, increment_gauge, Unit,
 };
 use metrics_exporter_tcp::TcpBuilder;
 
@@ -18,7 +18,7 @@ fn main() {
     let clock = Clock::new();
     let mut last = None;
 
-    register_histogram!("tcp_server_loop_delta_secs", Unit::Seconds);
+    describe_histogram!("tcp_server_loop_delta_secs", Unit::Seconds);
 
     loop {
         increment_counter!("tcp_server_loops", "system" => "foo");

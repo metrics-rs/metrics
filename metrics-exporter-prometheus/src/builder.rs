@@ -12,7 +12,6 @@ use hyper::{
     service::{make_service_fn, service_fn},
     StatusCode, {Body, Error as HyperError, Response},
 };
-use metrics::Key;
 use parking_lot::RwLock;
 use quanta::Clock;
 #[cfg(feature = "tokio-exporter")]
@@ -353,7 +352,7 @@ mod tests {
 
     use quanta::Clock;
 
-    use metrics::{GaugeValue, Key, Label, Recorder};
+    use metrics::{Key, Label, Recorder};
     use metrics_util::MetricKindMask;
 
     use super::{Matcher, PrometheusBuilder};

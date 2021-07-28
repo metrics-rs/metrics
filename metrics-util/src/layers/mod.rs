@@ -8,7 +8,7 @@
 //! Here's an example of a layer that filters out all metrics that start with a specific string:
 //!
 //! ```rust
-//! # use metrics::{GaugeValue, Key, Recorder, Unit};
+//! # use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 //! # use metrics_util::DebuggingRecorder;
 //! # use metrics_util::layers::{Layer, Stack, PrefixLayer};
 //! // A simple layer that denies any metrics that have "stairway" or "heaven" in their name.
@@ -22,46 +22,46 @@
 //! }
 //!
 //! impl<R: Recorder> Recorder for StairwayDeny<R> {
-//!    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+//!    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
-//!        self.0.register_counter(key, unit, description)
+//!        self.0.describe_counter(key, unit, description)
 //!    }
 //!
-//!    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+//!    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
-//!        self.0.register_gauge(key, unit, description)
+//!        self.0.describe_gauge(key, unit, description)
 //!    }
 //!
-//!    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+//!    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
 //!        if self.is_invalid_key(&key) {
 //!            return;
 //!        }
-//!        self.0.register_histogram(key, unit, description)
+//!        self.0.describe_histogram(key, unit, description)
 //!    }
 //!
-//!    fn increment_counter(&self, key: &Key, value: u64) {
+//!    fn register_counter(&self, key: &Key) -> Counter {
 //!        if self.is_invalid_key(&key) {
-//!            return;
+//!            return Counter::noop()
 //!        }
-//!        self.0.increment_counter(key, value);
+//!        self.0.register_counter(key)
 //!    }
 //!
-//!    fn update_gauge(&self, key: &Key, value: GaugeValue) {
+//!    fn register_gauge(&self, key: &Key) -> Gauge {
 //!        if self.is_invalid_key(&key) {
-//!            return;
+//!            return Gauge::noop()
 //!        }
-//!        self.0.update_gauge(key, value);
+//!        self.0.register_gauge(key)
 //!    }
 //!
-//!    fn record_histogram(&self, key: &Key, value: f64) {
+//!    fn register_histogram(&self, key: &Key) -> Histogram {
 //!        if self.is_invalid_key(&key) {
-//!            return;
+//!            return Histogram::noop()
 //!        }
-//!        self.0.record_histogram(key, value);
+//!        self.0.register_histogram(key)
 //!    }
 //! }
 //!

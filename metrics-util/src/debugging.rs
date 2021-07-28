@@ -9,20 +9,20 @@ use indexmap::IndexMap;
 use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 use ordered_float::OrderedFloat;
 
-pub struct Snapshot(HashMap<CompositeKey, (Option<Unit>, Option<&'static str>, DebugValue)>);
+pub struct Snapshot(Vec<(CompositeKey, Option<Unit>, Option<&'static str>, DebugValue)>);
 
 impl Snapshot {
     pub fn into_hashmap(
         self,
     ) -> HashMap<CompositeKey, (Option<Unit>, Option<&'static str>, DebugValue)> {
         self.0
+            .into_iter()
+            .map(|(k, unit, desc, value)| (k, (unit, desc, value)))
+            .collect::<HashMap<_, _>>()
     }
 
     pub fn into_vec(self) -> Vec<(CompositeKey, Option<Unit>, Option<&'static str>, DebugValue)> {
         self.0
-            .into_iter()
-            .map(|(k, (unit, desc, value))| (k, unit, desc, value))
-            .collect::<Vec<_>>()
     }
 }
 
@@ -49,7 +49,7 @@ pub struct Snapshotter {
 impl Snapshotter {
     /// Takes a snapshot of the recorder.
     pub fn snapshot(&self) -> Snapshot {
-        let mut snapshot = HashMap::new();
+        let mut snapshot = Vec::new();
 
         let counters = self.registry.get_counter_handles();
         let gauges = self.registry.get_gauge_handles();
@@ -72,9 +72,12 @@ impl Snapshotter {
                     DebugValue::Histogram(values)
                 }),
             };
-            let value = value.expect("debug value should always be present");
 
-            snapshot.insert(ck, (unit, desc, value));
+            // If there's no value for the key, that means the metric was only ever described, and
+            // not registered, so don't emit it.
+            if let Some(value) = value {
+                snapshot.push((ck, unit, desc, value));
+            }
         }
 
         Snapshot(snapshot)
@@ -110,8 +113,12 @@ impl DebuggingRecorder {
     fn describe_metric(&self, rkey: CompositeKey, unit: Option<Unit>, desc: Option<&'static str>) {
         let mut metrics = self.metrics.lock().expect("metrics lock poisoned");
         let (uentry, dentry) = metrics.entry(rkey).or_insert((None, None));
-        *uentry = unit;
-        *dentry = desc;
+        if unit.is_some() {
+            *uentry = unit;
+        }
+        if desc.is_some() {
+            *dentry = desc;
+        }
     }
 
     /// Installs this recorder as the global recorder.
@@ -137,16 +144,22 @@ impl Recorder for DebuggingRecorder {
     }
 
     fn register_counter(&self, key: &Key) -> Counter {
+        let ckey = CompositeKey::new(MetricKind::Counter, key.clone());
+        self.describe_metric(ckey, None, None);
         self.registry
             .get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
     }
 
     fn register_gauge(&self, key: &Key) -> Gauge {
+        let ckey = CompositeKey::new(MetricKind::Gauge, key.clone());
+        self.describe_metric(ckey, None, None);
         self.registry
             .get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
+        let ckey = CompositeKey::new(MetricKind::Histogram, key.clone());
+        self.describe_metric(ckey, None, None);
         self.registry
             .get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
     }

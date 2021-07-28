@@ -31,7 +31,7 @@ impl Controller {
     pub fn upkeep(&self) {
         let handles = self.registry.get_histogram_handles();
 
-        for (key, histo) in handles {
+        for (_, histo) in handles {
             histo.clear();
         }
     }
@@ -119,7 +119,47 @@ impl Generator {
         }
     }
 
-    fn run(&mut self) {
+    fn run_slow(&mut self) {
+        let clock = Clock::new();
+        let mut loop_counter = 0;
+
+        loop {
+            loop_counter += 1;
+
+            self.gauge += 1;
+
+            let t1 = clock.recent();
+
+            if let Some(t0) = self.t0 {
+                let start = if loop_counter % LOOP_SAMPLE == 0 {
+                    Some(clock.now())
+                } else {
+                    None
+                };
+
+                increment_counter!("ok");
+                gauge!("total", self.gauge as f64);
+                histogram!("ok", t1.sub(t0));
+
+                if let Some(val) = start {
+                    let delta = clock.now() - val;
+                    self.hist.saturating_record(delta.as_nanos() as u64);
+
+                    // We also increment our global counter for the sample rate here.
+                    self.rate_counter
+                        .fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
+
+                    if self.done.load(Ordering::Relaxed) {
+                        break;
+                    }
+                }
+            }
+
+            self.t0 = Some(t1);
+        }
+    }
+
+    fn run_fast(&mut self) {
         let clock = Clock::new();
         let mut loop_counter = 0;
 
@@ -141,12 +181,9 @@ impl Generator {
                     None
                 };
 
-                increment_counter!("ok");
-                gauge!("total", self.gauge as f64);
-                histogram!("ok", t1.sub(t0));
-                //counter.increment(1);
-                //gauge.set(self.gauge as f64);
-                //histogram.record(t1.sub(t0));
+                counter.increment(1);
+                gauge.set(self.gauge as f64);
+                histogram.record(t1.sub(t0));
 
                 if let Some(val) = start {
                     let delta = clock.now() - val;
@@ -234,6 +271,17 @@ fn main() {
         .unwrap_or_else(|| "1".to_owned())
         .parse()
         .unwrap();
+    let mode = matches
+        .opt_str("mode")
+        .map(|s| {
+            if s.to_ascii_lowercase() == "fast" {
+                "fast"
+            } else {
+                "slow"
+            }
+        })
+        .unwrap_or_else(|| "slow")
+        .to_owned();
 
     info!("duration: {}s", seconds);
     info!("producers: {}", producers);
@@ -252,9 +300,14 @@ fn main() {
     for _ in 0..producers {
         let d = done.clone();
         let r = rate_counter.clone();
+        let mode = mode.clone();
         let handle = thread::spawn(move || {
             let mut gen = Generator::new(d, r);
-            gen.run();
+            if mode == "fast" {
+                gen.run_fast();
+            } else {
+                gen.run_slow();
+            }
         });
 
         handles.push(handle);

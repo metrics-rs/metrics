@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use metrics::{
     decrement_gauge, describe_counter, describe_histogram, gauge, histogram, increment_counter,
-    increment_gauge, register_counter, register_histogram,
+    increment_gauge,
 };
 use metrics_exporter_prometheus::PrometheusBuilder;
 use metrics_util::MetricKindMask;
