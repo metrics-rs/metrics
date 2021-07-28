@@ -1,4 +1,3 @@
-use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::{hash::BuildHasherDefault, iter::repeat};
@@ -45,71 +44,6 @@ impl Primitives for StandardPrimitives {
         Arc::new(AtomicBucket::new())
     }
 }
-/// Generation counter.
-///
-/// Used for denoting the generation of a given handle, which is used to provide compare-and-swap
-/// deletion semantics i.e. if the generation used to request deletion for a handle is behind the
-/// current generation of the handle, then the deletion will not proceed.
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct Generation(usize);
-/*
-pub trait Generational {
-    type Inner;
-
-    fn increment_generation(&self);
-    fn get_generation(&self) -> Generation;
-    fn get_inner(&self) -> &Self::Inner;
-}
-
-pub trait GenerationalFamily {
-    type Wrapper<T>: Generational<Inner = T> + From<T>;
-}
-
-/// A generational wrapper that does track the generation.
-pub struct Tracked<T> {
-    gen: AtomicUsize,
-    inner: T,
-}
-
-impl<T> Tracked<T> {
-    /// Creates a new `Tracked`.
-    pub fn new(inner: T) -> Tracked<T> {
-        Tracked {
-            gen: AtomicUsize::new(0),
-            inner,
-        }
-    }
-}
-
-impl<T> Generational for Tracked<T> {
-    type Inner = T;
-
-    /// Increments the generation counter.
-    fn increment_generation(&self) {
-        self.gen.fetch_add(1, Ordering::Release);
-    }
-
-    /// Gets the current generation counter.
-    fn get_generation(&self) -> Generation {
-        Generation(self.gen.load(Ordering::Acquire))
-    }
-
-    /// Gets a reference to the inner type.
-    fn get_inner(&self) -> &Self::Inner {
-        &self.inner
-    }
-}
-
-impl<T> From<T> for Tracked<T> {
-    fn from(inner: T) -> Self {
-        Self::new(inner)
-    }
-}
-pub struct TrackedFamily;
-impl GenerationalFamily for TrackedFamily {
-    type Wrapper<T> = Tracked<T>;
-}
-*/
 
 /// A high-performance metric registry.
 ///
@@ -355,7 +289,7 @@ where
     ///
     /// Returns `true` if the gauge existed and was removed, `false` otherwise.
     pub fn delete_gauge(&self, key: &Key) -> bool {
-        let (hash, shard) = self.get_hash_and_shard_for_counter(key);
+        let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
         let mut shard_write = shard.write();
         let entry = shard_write
             .raw_entry_mut()
@@ -487,34 +421,6 @@ mod tests {
     //use crate::registry::Tracked;
     use std::sync::{atomic::Ordering, Arc};
 
-    /*
-    #[test]
-    fn test_tracked() {
-        let generational = Tracked::new(1);
-        let start_gen = generational.get_generation();
-        let start_gen_extra = generational.get_generation();
-        assert_eq!(start_gen, start_gen_extra);
-
-        generational.increment_generation();
-
-        let end_gen = generational.get_generation();
-        assert_ne!(start_gen, end_gen);
-    }
-
-    #[test]
-    fn test_not_tracked() {
-        let generational = NotTracked::new(1);
-        let start_gen = generational.get_generation();
-        let start_gen_extra = generational.get_generation();
-        assert_eq!(start_gen, start_gen_extra);
-
-        generational.increment_generation();
-
-        let end_gen = generational.get_generation();
-        assert_eq!(start_gen, end_gen);
-    }
-    */
-
     #[test]
     fn test_registry() {
         let registry = Registry::<StandardPrimitives>::new();
@@ -523,11 +429,7 @@ mod tests {
         let entries = registry.get_counter_handles();
         assert_eq!(entries.len(), 0);
 
-        let initial_value = registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| {
-            c.increment(1);
-            c.load(Ordering::Relaxed)
-        });
-        assert_eq!(initial_value, 0);
+        registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| c.increment(1));
 
         let initial_entries = registry.get_counter_handles();
         assert_eq!(initial_entries.len(), 1);
@@ -541,11 +443,7 @@ mod tests {
         assert_eq!(ikey, key);
         assert_eq!(ivalue.load(Ordering::SeqCst), 1);
 
-        let update_value = registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| {
-            c.increment(1);
-            c.load(Ordering::Relaxed)
-        });
-        assert_eq!(update_value, 1);
+        registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| c.increment(1));
 
         let updated_entries = registry.get_counter_handles();
         assert_eq!(updated_entries.len(), 1);

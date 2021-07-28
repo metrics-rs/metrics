@@ -278,7 +278,7 @@ impl Recency {
                             // out-of-date, and that the metric has been updated since, so we don't
                             // actually want to delete it yet.
                             if delete_op(registry, key) {
-                                return true;
+                                return false;
                             }
                         }
                     } else {

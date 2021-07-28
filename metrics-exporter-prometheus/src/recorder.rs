@@ -3,10 +3,10 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use metrics_util::recency::{GenerationalPrimitives, Recency};
-use metrics_util::{MetricKind, Registry};
+use metrics_util::Registry;
 use parking_lot::RwLock;
 
-use metrics::{Counter, Gauge, GaugeValue, Histogram, Key, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 
 use crate::common::{sanitize_key_name, Snapshot};
 use crate::distribution::{Distribution, DistributionBuilder};

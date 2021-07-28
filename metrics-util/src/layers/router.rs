@@ -239,25 +239,29 @@ mod tests {
             .expect_register_counter()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(default_counter.clone()));
+            .with(eq(default_counter.clone()))
+            .returning(|_| Counter::noop());
 
         counter_mock
             .expect_register_counter()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(override_counter.clone()));
+            .with(eq(override_counter.clone()))
+            .returning(|_| Counter::noop());
 
         all_mock
             .expect_register_counter()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(all_override.clone()));
+            .with(eq(all_override.clone()))
+            .returning(|_| Counter::noop());
 
         all_mock
             .expect_register_histogram()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(all_override.clone()));
+            .with(eq(all_override.clone()))
+            .returning(|_| Histogram::noop());
 
         let mut builder = RouterBuilder::from_recorder(default_mock);
         builder

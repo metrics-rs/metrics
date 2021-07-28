@@ -188,6 +188,12 @@ mod tests {
         layered.describe_counter(&bckey, Some(ud[3].0.clone()), Some(ud[3].1));
         layered.describe_gauge(&hrbkey, Some(ud[4].0.clone()), Some(ud[4].1));
 
+        let _ = layered.register_counter(&tlkey);
+        let _ = layered.register_gauge(&hsbkey);
+        let _ = layered.register_histogram(&htsbkey);
+        let _ = layered.register_counter(&bckey);
+        let _ = layered.register_gauge(&hrbkey);
+
         let after = snapshotter.snapshot().into_vec();
         assert_eq!(after.len(), 2);
 
@@ -226,6 +232,12 @@ mod tests {
         layered.describe_histogram(&hrbkey, None, None);
         layered.describe_counter(&bckey, None, None);
         layered.describe_counter(&bcckey, None, None);
+
+        let _ = layered.register_counter(&tlkey);
+        let _ = layered.register_gauge(&hsbkey);
+        let _ = layered.register_histogram(&hrbkey);
+        let _ = layered.register_counter(&bckey);
+        let _ = layered.register_gauge(&bcckey);
 
         let after = snapshotter.snapshot().into_vec();
         assert_eq!(after.len(), 2);
