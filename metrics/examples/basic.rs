@@ -17,31 +17,26 @@ use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, R
 struct PrintHandle(Key);
 
 impl CounterFn for PrintHandle {
-    fn increment(&self, value: u64) -> u64 {
+    fn increment(&self, value: u64) {
         println!("counter increment for '{}': {}", self.0, value);
-        value
     }
 
-    fn absolute(&self, value: u64) -> u64 {
+    fn absolute(&self, value: u64) {
         println!("counter absolute for '{}': {}", self.0, value);
-        value
     }
 }
 
 impl GaugeFn for PrintHandle {
-    fn increment(&self, value: f64) -> f64 {
+    fn increment(&self, value: f64) {
         println!("gauge increment for '{}': {}", self.0, value);
-        value
     }
 
-    fn decrement(&self, value: f64) -> f64 {
+    fn decrement(&self, value: f64) {
         println!("gauge decrement for '{}': {}", self.0, value);
-        value
     }
 
-    fn set(&self, value: f64) -> f64 {
+    fn set(&self, value: f64) {
         println!("gauge set for '{}': {}", self.0, value);
-        value
     }
 }
 

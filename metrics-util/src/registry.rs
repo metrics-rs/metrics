@@ -396,7 +396,7 @@ where
     where
         F: FnMut(&Key, &P::Counter),
     {
-        for (idx, subshard) in self.counters.iter().enumerate() {
+        for subshard in self.counters.iter() {
             let shard_read = subshard.read();
             for (key, counter) in shard_read.iter() {
                 collect(key, counter);
@@ -415,7 +415,7 @@ where
     where
         F: FnMut(&Key, &P::Gauge),
     {
-        for (idx, subshard) in self.gauges.iter().enumerate() {
+        for subshard in self.gauges.iter() {
             let shard_read = subshard.read();
             for (key, gauge) in shard_read.iter() {
                 collect(key, gauge);
@@ -434,7 +434,7 @@ where
     where
         F: FnMut(&Key, &P::Histogram),
     {
-        for (idx, subshard) in self.histograms.iter().enumerate() {
+        for subshard in self.histograms.iter() {
             let shard_read = subshard.read();
             for (key, histogram) in shard_read.iter() {
                 collect(key, histogram);
@@ -523,8 +523,10 @@ mod tests {
         let entries = registry.get_counter_handles();
         assert_eq!(entries.len(), 0);
 
-        let initial_value =
-            registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| c.increment(1));
+        let initial_value = registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| {
+            c.increment(1);
+            c.load(Ordering::Relaxed)
+        });
         assert_eq!(initial_value, 0);
 
         let initial_entries = registry.get_counter_handles();
@@ -539,8 +541,10 @@ mod tests {
         assert_eq!(ikey, key);
         assert_eq!(ivalue.load(Ordering::SeqCst), 1);
 
-        let update_value =
-            registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| c.increment(1));
+        let update_value = registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| {
+            c.increment(1);
+            c.load(Ordering::Relaxed)
+        });
         assert_eq!(update_value, 1);
 
         let updated_entries = registry.get_counter_handles();

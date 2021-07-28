@@ -40,6 +40,9 @@ pub enum DebugValue {
 /// Captures point-in-time snapshots of `DebuggingRecorder`.
 pub struct Snapshotter {
     registry: Arc<Registry>,
+    // TODO: unit/desc does actually have to be separate, because we might only describe, and not
+    // register, and then iterating snapshot data to get the value for that key will fail, so gotta
+    // track them separately and recombine when snapshotting
     metrics: Arc<Mutex<IndexMap<CompositeKey, (Option<Unit>, Option<&'static str>)>>>,
 }
 
@@ -104,7 +107,7 @@ impl DebuggingRecorder {
         }
     }
 
-    fn register_metric(&self, rkey: CompositeKey, unit: Option<Unit>, desc: Option<&'static str>) {
+    fn describe_metric(&self, rkey: CompositeKey, unit: Option<Unit>, desc: Option<&'static str>) {
         let mut metrics = self.metrics.lock().expect("metrics lock poisoned");
         let (uentry, dentry) = metrics.entry(rkey).or_insert((None, None));
         *uentry = unit;
@@ -120,17 +123,17 @@ impl DebuggingRecorder {
 impl Recorder for DebuggingRecorder {
     fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let ckey = CompositeKey::new(MetricKind::Counter, key.clone());
-        self.register_metric(ckey, unit, description);
+        self.describe_metric(ckey, unit, description);
     }
 
     fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let ckey = CompositeKey::new(MetricKind::Gauge, key.clone());
-        self.register_metric(ckey, unit, description);
+        self.describe_metric(ckey, unit, description);
     }
 
     fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
         let ckey = CompositeKey::new(MetricKind::Histogram, key.clone());
-        self.register_metric(ckey, unit, description);
+        self.describe_metric(ckey, unit, description);
     }
 
     fn register_counter(&self, key: &Key) -> Counter {

@@ -3,7 +3,8 @@ use getopts::Options;
 use hdrhistogram::Histogram as HdrHistogram;
 use log::{error, info};
 use metrics::{
-    gauge, histogram, increment_counter, Counter, Gauge, Histogram, Key, Recorder, Unit,
+    gauge, histogram, increment_counter, register_counter, register_gauge, register_histogram,
+    Counter, Gauge, Histogram, Key, Recorder, Unit,
 };
 use metrics_util::{Registry, StandardPrimitives};
 use quanta::{Clock, Instant as QuantaInstant};
@@ -120,16 +121,21 @@ impl Generator {
 
     fn run(&mut self) {
         let clock = Clock::new();
-        let mut counter = 0;
+        let mut loop_counter = 0;
+
+        let counter = register_counter!("ok");
+        let gauge = register_gauge!("total");
+        let histogram = register_histogram!("ok");
+
         loop {
-            counter += 1;
+            loop_counter += 1;
 
             self.gauge += 1;
 
             let t1 = clock.recent();
 
             if let Some(t0) = self.t0 {
-                let start = if counter % LOOP_SAMPLE == 0 {
+                let start = if loop_counter % LOOP_SAMPLE == 0 {
                     Some(clock.now())
                 } else {
                     None
@@ -138,6 +144,9 @@ impl Generator {
                 increment_counter!("ok");
                 gauge!("total", self.gauge as f64);
                 histogram!("ok", t1.sub(t0));
+                //counter.increment(1);
+                //gauge.set(self.gauge as f64);
+                //histogram.record(t1.sub(t0));
 
                 if let Some(val) = start {
                     let delta = clock.now() - val;
