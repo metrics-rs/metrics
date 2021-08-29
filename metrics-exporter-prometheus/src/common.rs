@@ -57,9 +57,13 @@ pub enum InstallError {
     Recorder(#[from] SetRecorderError),
 }
 
+/// All metrics in the Recorder as `HashMap`s
 pub struct Snapshot {
+    /// Counters
     pub counters: HashMap<String, HashMap<Vec<String>, u64>>,
+    /// Gauges
     pub gauges: HashMap<String, HashMap<Vec<String>, f64>>,
+    /// Distributions/histograms
     pub distributions: HashMap<String, HashMap<Vec<String>, Distribution>>,
 }
 

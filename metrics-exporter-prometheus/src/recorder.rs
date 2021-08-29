@@ -291,6 +291,11 @@ impl PrometheusHandle {
     pub fn render(&self) -> String {
         self.inner.render()
     }
+
+    /// Returns the metrics returned by `render` unformatted as a `Snapshot`
+    pub fn get_recent_metrics(&self) -> Snapshot {
+        self.inner.get_recent_metrics()
+    }
 }
 
 fn key_to_parts(key: &Key, defaults: &HashMap<String, String>) -> (String, Vec<String>) {
