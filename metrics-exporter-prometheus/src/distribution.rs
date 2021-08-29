@@ -5,6 +5,7 @@ use crate::common::Matcher;
 use metrics_util::{Histogram, Quantile, Summary};
 
 #[derive(Clone)]
+/// A Prometheus distribution
 pub enum Distribution {
     /// A Prometheus histogram.
     ///
@@ -21,16 +22,19 @@ pub enum Distribution {
 }
 
 impl Distribution {
+    /// Creates a new histogram distribution
     pub fn new_histogram(buckets: &[f64]) -> Option<Distribution> {
         let hist = Histogram::new(buckets)?;
         Some(Distribution::Histogram(hist))
     }
 
+    /// Creates a new summary distribution
     pub fn new_summary(quantiles: Arc<Vec<Quantile>>) -> Option<Distribution> {
         let summary = Summary::with_defaults();
         Some(Distribution::Summary(summary, quantiles, 0.0))
     }
 
+    /// Records samples to the distribution
     pub fn record_samples(&mut self, samples: &[f64]) {
         match self {
             Distribution::Histogram(hist) => hist.record_many(samples),
