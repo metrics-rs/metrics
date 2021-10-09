@@ -180,15 +180,7 @@ impl Inner {
             mut distributions,
         } = self.get_recent_metrics();
 
-        let ts = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-
-        let mut output = format!(
-            "# metrics snapshot (ts={}) (prometheus exposition format)\n",
-            ts
-        );
+        let mut output = String::new();
 
         let descriptions = self.descriptions.read();
 
