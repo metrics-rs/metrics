@@ -107,17 +107,20 @@ use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 #[cfg(feature = "std")]
 use metrics::SetRecorderError;
 
+#[cfg(feature = "layer-fanout")]
+mod fanout;
+#[cfg(feature = "layer-fanout")]
+pub use fanout::{Fanout, FanoutBuilder};
+
 #[cfg(feature = "layer-filter")]
 mod filter;
 #[cfg(feature = "layer-filter")]
 pub use filter::{Filter, FilterLayer};
 
+#[cfg(feature = "layer-prefix")]
 mod prefix;
+#[cfg(feature = "layer-prefix")]
 pub use prefix::{Prefix, PrefixLayer};
-
-// see comment in fanout.rs for why this is currently disabled
-//mod fanout;
-//pub use fanout::{Fanout, FanoutBuilder};
 
 #[cfg(feature = "layer-router")]
 mod router;

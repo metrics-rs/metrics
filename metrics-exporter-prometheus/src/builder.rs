@@ -24,6 +24,7 @@ use crate::common::InstallError;
 use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;
 use crate::recorder::{Inner, PrometheusRecorder};
+#[cfg(feature = "tokio-exporter")]
 use std::pin::Pin;
 
 #[cfg(feature = "push-gateway")]
@@ -241,7 +242,7 @@ impl PrometheusBuilder {
                 self.bucket_overrides,
             ),
             descriptions: RwLock::new(HashMap::new()),
-            global_labels: self.global_labels.unwrap_or(HashMap::new()),
+            global_labels: self.global_labels.unwrap_or_default(),
         };
 
         PrometheusRecorder::from(inner)
@@ -271,7 +272,7 @@ impl PrometheusBuilder {
         let handle = recorder.handle();
 
         if let Some(address) = &address {
-            let server = Server::try_bind(&address)?;
+            let server = Server::try_bind(address)?;
             let exporter = async move {
                 let make_svc = make_service_fn(move |socket: &AddrStream| {
                     let remote_addr = socket.remote_addr().ip();

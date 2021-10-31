@@ -12,6 +12,7 @@ use ordered_float::OrderedFloat;
 pub struct Snapshot(Vec<(CompositeKey, Option<Unit>, Option<&'static str>, DebugValue)>);
 
 impl Snapshot {
+    #[allow(clippy::mutable_key_type)]
     pub fn into_hashmap(
         self,
     ) -> HashMap<CompositeKey, (Option<Unit>, Option<&'static str>, DebugValue)> {

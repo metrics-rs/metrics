@@ -232,6 +232,12 @@ pub fn opts() -> Options {
         "number of seconds to run the benchmark",
         "INTEGER",
     );
+    opts.optopt(
+        "m",
+        "mode",
+        "whether or run the benchmark in slow or fast mode (static vs dynamic handles)",
+        "STRING",
+    );
     opts.optopt("p", "producers", "number of producers", "INTEGER");
     opts.optflag("h", "help", "print this help menu");
 
@@ -239,7 +245,7 @@ pub fn opts() -> Options {
 }
 
 fn main() {
-    env_logger::init();
+    pretty_env_logger::init();
 
     let args: Vec<String> = env::args().collect();
     let program = &args[0];
