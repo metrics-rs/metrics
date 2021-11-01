@@ -14,9 +14,9 @@ jobs:
     - name: Install Rust Nightly
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: nightly
-          override: true
-          components: rustfmt, clippy
+        toolchain: nightly
+        override: true
+        components: rustfmt, clippy
     - name: Check Formatting
       uses: actions-rs/cargo@v1
       with:
@@ -29,9 +29,8 @@ jobs:
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: stable
-          override: true
-          toolchain: hack
+        toolchain: stable
+        override: true
     - name: Install cargo-hack
       uses: actions-rs/cargo@v1
       with:
@@ -54,8 +53,8 @@ jobs:
     - name: Install Rust ${{ matrix.rust_version }}
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: ${{ matrix.rust_version }}
-          override: true
+        toolchain: ${{ matrix.rust_version }}
+        override: true
     - name: Run Tests
       uses: actions-rs/cargo@v1
       with:
@@ -70,9 +69,9 @@ jobs:
     - name: Install Rust Nightly
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: nightly
-          override: true
-          components: rust-docs
+        toolchain: nightly
+        override: true
+        components: rust-docs
     - name: Check Docs
       uses: actions-rs/cargo@v1
       with:
@@ -89,8 +88,8 @@ jobs:
     - name: Install Rust Stable
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: 'stable'
-          override: true
+        toolchain: stable
+        override: true
     - name: Run Benchmarks
       uses: actions-rs/cargo@v1
       with:
