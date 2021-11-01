@@ -35,7 +35,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: install
-        args: hack
+        args: cargo-hack
     - name: Check Feature Matrix
       uses: actions-rs/cargo@v1
       with:
