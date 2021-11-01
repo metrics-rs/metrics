@@ -177,15 +177,13 @@ pub struct Recency {
 impl Recency {
     /// Creates a new [`Recency`].
     ///
-    /// If `idle_timeout` is `None`, no recency checking will occur.  `mask` controls which metrics
+    /// If `idle_timeout` is `None`, no recency checking will occur.  Otherwise, any metric that has
+    /// not been updated for longer than `idle_timeout` will be subject for deletion the next time
+    /// the metric is checked.
+    ///
+    /// The provided `clock` is used for tracking time, while `mask` controls which metrics
     /// are covered by the recency logic.  For example, if `mask` only contains counters and
     /// histograms, then gauges will not be considered for recency, and thus will never be deleted.
-    ///
-    /// If `idle_timeout` is not `None`, then metrics which have not been updated within the given
-    /// duration will be subject to deletion when checked.  Specifically, the deletions done by this
-    /// object only happen when the object is "driven" by calling
-    /// [`should_store`](Recency::should_store), and so handles will not necessarily be deleted
-    /// immediately after execeeding their idle timeout.
     ///
     /// Refer to the documentation for [`MetricKindMask`](crate::MetricKindMask) for more
     /// information on defining a metric kind mask.
