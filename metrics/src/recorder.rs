@@ -111,8 +111,7 @@ pub fn set_recorder(recorder: &'static dyn Recorder) -> Result<(), SetRecorderEr
 /// # Errors
 ///
 /// An error is returned if a recorder has already been set.
-#[cfg(all(feature = "std", atomic_cas))]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+#[cfg(atomic_cas)]
 pub fn set_boxed_recorder(recorder: Box<dyn Recorder>) -> Result<(), SetRecorderError> {
     set_recorder_inner(|| unsafe { &*Box::into_raw(recorder) })
 }
@@ -197,7 +196,6 @@ impl fmt::Display for SetRecorderError {
 }
 
 // The Error trait is not available in libcore
-#[cfg(feature = "std")]
 impl std::error::Error for SetRecorderError {
     fn description(&self) -> &str {
         SET_RECORDER_ERROR

@@ -33,7 +33,7 @@ impl Router {
             search_routes
                 .get_ancestor(key.name())
                 .map(|st| unsafe { self.targets.get_unchecked(*st.value().unwrap()).as_ref() })
-                .unwrap_or(self.default.as_ref())
+                .unwrap_or_else(|| self.default.as_ref())
         }
     }
 }

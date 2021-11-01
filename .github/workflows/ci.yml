@@ -22,6 +22,26 @@ jobs:
       with:
         command: fmt
         args: --all -- --check
+  feature-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+          toolchain: hack
+    - name: Install cargo-hack
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: hack
+    - name: Check Feature Matrix
+      uses: actions-rs/cargo@v1
+      with:
+        command: hack
+        args: check --each-feature
   test:
     name: Test ${{ matrix.rust_version }}/${{ matrix.os }}
     runs-on: ${{ matrix.os }}

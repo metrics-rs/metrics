@@ -217,12 +217,12 @@ where
     fn register_gauge(&self, key: &Key) -> Gauge {
         let new_key = self.enhance_key(key);
         let key = new_key.as_ref().unwrap_or(key);
-        self.inner.register_gauge(&key)
+        self.inner.register_gauge(key)
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
         let new_key = self.enhance_key(key);
         let key = new_key.as_ref().unwrap_or(key);
-        self.inner.register_histogram(&key)
+        self.inner.register_histogram(key)
     }
 }

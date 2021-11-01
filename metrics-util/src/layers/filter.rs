@@ -18,42 +18,42 @@ impl<R> Filter<R> {
 
 impl<R: Recorder> Recorder for Filter<R> {
     fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        if self.should_filter(&key) {
+        if self.should_filter(key) {
             return;
         }
         self.inner.describe_counter(key, unit, description)
     }
 
     fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        if self.should_filter(&key) {
+        if self.should_filter(key) {
             return;
         }
         self.inner.describe_gauge(key, unit, description)
     }
 
     fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        if self.should_filter(&key) {
+        if self.should_filter(key) {
             return;
         }
         self.inner.describe_histogram(key, unit, description)
     }
 
     fn register_counter(&self, key: &Key) -> Counter {
-        if self.should_filter(&key) {
+        if self.should_filter(key) {
             return Counter::noop();
         }
         self.inner.register_counter(key)
     }
 
     fn register_gauge(&self, key: &Key) -> Gauge {
-        if self.should_filter(&key) {
+        if self.should_filter(key) {
             return Gauge::noop();
         }
         self.inner.register_gauge(key)
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
-        if self.should_filter(&key) {
+        if self.should_filter(key) {
             return Histogram::noop();
         }
         self.inner.register_histogram(key)

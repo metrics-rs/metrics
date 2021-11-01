@@ -28,7 +28,7 @@ harness = false
 
 [dependencies]
 itoa = "0.4"
-metrics = { version = "0.17", path = "../metrics", features = ["std"] }
+metrics = { version = "0.17", path = "../metrics" }
 metrics-util = { version = "0.10", path = "../metrics-util" }
 lockfree-object-pool = "0.1"
 once_cell = "1.8"

@@ -350,6 +350,7 @@ impl Recorder for TcpRecorder {
     }
 }
 
+#[allow(clippy::mutable_key_type)]
 fn run_transport(
     mut poll: Poll,
     listener: TcpListener,
@@ -523,6 +524,7 @@ fn run_transport(
     }
 }
 
+#[allow(clippy::mutable_key_type)]
 fn generate_metadata_messages(
     metadata: &HashMap<Key, (MetricType, Option<Unit>, Option<&'static str>)>,
 ) -> VecDeque<Bytes> {

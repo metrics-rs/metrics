@@ -269,7 +269,7 @@ impl Recency {
                 let (clock, entries) = guard.deref_mut();
 
                 let now = clock.now();
-                if let Some((last_gen, last_update)) = entries.get_mut(&key) {
+                if let Some((last_gen, last_update)) = entries.get_mut(key) {
                     // If the value is the same as the latest value we have internally, and
                     // we're over the idle timeout period, then remove it and continue.
                     if *last_gen == gen {

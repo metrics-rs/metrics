@@ -239,11 +239,11 @@ impl From<Inner> for PrometheusRecorder {
 
 impl Recorder for PrometheusRecorder {
     fn describe_counter(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
-        self.add_description_if_missing(&key, description);
+        self.add_description_if_missing(key, description);
     }
 
     fn describe_gauge(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
-        self.add_description_if_missing(&key, description);
+        self.add_description_if_missing(key, description);
     }
 
     fn describe_histogram(
@@ -252,7 +252,7 @@ impl Recorder for PrometheusRecorder {
         _unit: Option<Unit>,
         description: Option<&'static str>,
     ) {
-        self.add_description_if_missing(&key, description);
+        self.add_description_if_missing(key, description);
     }
 
     fn register_counter(&self, key: &Key) -> Counter {

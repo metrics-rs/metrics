@@ -191,7 +191,7 @@ where
                 let (_, v) = shard_write
                     .raw_entry_mut()
                     .from_key_hashed_nocheck(hash, key)
-                    .or_insert_with(|| (key.clone(), P::counter().into()));
+                    .or_insert_with(|| (key.clone(), P::counter()));
 
                 v
             };
@@ -225,7 +225,7 @@ where
                 let (_, v) = shard_write
                     .raw_entry_mut()
                     .from_key_hashed_nocheck(hash, key)
-                    .or_insert_with(|| (key.clone(), P::gauge().into()));
+                    .or_insert_with(|| (key.clone(), P::gauge()));
 
                 v
             };
@@ -259,7 +259,7 @@ where
                 let (_, v) = shard_write
                     .raw_entry_mut()
                     .from_key_hashed_nocheck(hash, key)
-                    .or_insert_with(|| (key.clone(), P::histogram().into()));
+                    .or_insert_with(|| (key.clone(), P::histogram()));
 
                 v
             };
