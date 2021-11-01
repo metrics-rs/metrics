@@ -40,14 +40,14 @@ harness = false
 
 [dependencies]
 metrics = { version = "^0.17", path = "../metrics" }
-crossbeam-epoch = { version = "0.9.2" }
+crossbeam-epoch = "0.9.2"
 crossbeam-utils = { version = "0.8", default-features = false }
-atomic-shim = { version = "0.1" }
+atomic-shim = "0.1"
 aho-corasick = { version = "0.7", optional = true }
-indexmap = { version = "1.6" }
-parking_lot = { version = "0.11" }
-quanta = { version = "0.7" }
-sketches-ddsketch = { version = "0.1" }
+indexmap = "1.6"
+parking_lot = "0.11"
+quanta = "0.9.3"
+sketches-ddsketch = "0.1"
 radix_trie = { version = "0.2", optional = true }
 ordered-float = "2.0"
 num_cpus = "1"
