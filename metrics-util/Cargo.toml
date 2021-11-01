@@ -77,8 +77,6 @@ textplots = "0.6"
 mockall = "0.10"
 
 [features]
-default = ["layer-fanout", "layer-filter", "layer-prefix", "layer-router"]
-layer-fanout = []
+default = ["layer-filter", "layer-router"]
 layer-filter = ["aho-corasick"]
-layer-prefix = []
 layer-router = ["radix_trie"]

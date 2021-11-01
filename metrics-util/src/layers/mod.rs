@@ -104,12 +104,9 @@
 //! ```
 use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 
-#[cfg(feature = "std")]
 use metrics::SetRecorderError;
 
-#[cfg(feature = "layer-fanout")]
 mod fanout;
-#[cfg(feature = "layer-fanout")]
 pub use fanout::{Fanout, FanoutBuilder};
 
 #[cfg(feature = "layer-filter")]
@@ -117,9 +114,7 @@ mod filter;
 #[cfg(feature = "layer-filter")]
 pub use filter::{Filter, FilterLayer};
 
-#[cfg(feature = "layer-prefix")]
 mod prefix;
-#[cfg(feature = "layer-prefix")]
 pub use prefix::{Prefix, PrefixLayer};
 
 #[cfg(feature = "layer-router")]
@@ -153,7 +148,6 @@ impl<R> Stack<R> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<R: Recorder + 'static> Stack<R> {
     /// Installs this stack as the global recorder.
     ///
