@@ -11,7 +11,7 @@ use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 
 fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
     static POOL: OnceCell<Arc<LinearObjectPool<Vec<Label>>>> = OnceCell::new();
-    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| Vec::new(), |vec| vec.clear())))
+    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(Vec::new, Vec::clear)))
 }
 /// Span fields mapped as metrics labels.
 ///
