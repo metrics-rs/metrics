@@ -74,7 +74,7 @@ noisy_float = "0.2"
 pretty-bytes = "0.2"
 tracing = "0.1"
 tracing-appender = "0.1"
-tracing-subscriber = { version = "0.2", default-features = false, features = ["fmt", "ansi"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi"] }
 crossbeam-queue = "0.3"
 quickcheck = "1"
 quickcheck_macros = "1"
