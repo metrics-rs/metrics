@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+- Updated all dependencies to remove default features and only use necessary features for the crate itself.
+
 ## [0.8.0] - 2021-07-19
 
 ### Changed
