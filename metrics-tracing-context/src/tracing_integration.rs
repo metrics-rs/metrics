@@ -145,7 +145,7 @@ impl<S> Layer<S> for MetricsLayer<S>
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
-    fn new_span(&self, attrs: &Attributes<'_>, id: &Id, cx: Context<'_, S>) {
+    fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, cx: Context<'_, S>) {
         let span = cx.span(id).expect("span must already exist!");
         let mut labels = Labels::from_attributes(attrs);
 
