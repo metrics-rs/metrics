@@ -200,6 +200,25 @@ impl PrometheusBuilder {
     /// installing the recorder as the global recorder.
     #[cfg(feature = "tokio-exporter")]
     pub fn install(self) -> Result<(), InstallError> {
+        if let Ok(handle) = runtime::Handle::try_current() {
+            let (recorder, exporter) = {
+                let _g = handle.enter();
+                self.build_with_exporter()?
+            };
+            metrics::set_boxed_recorder(Box::new(recorder))?;
+
+            handle.spawn(async move {
+                pin!(exporter);
+                loop {
+                    select! {
+                        _ = &mut exporter => {}
+                    }
+                }
+            });
+
+            return Ok(());
+        }
+
         let runtime = runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
