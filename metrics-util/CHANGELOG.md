@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.10.2] - 2021-12-12
+
 ### Changed
 - Bump `atomic-shim` from 0.1 to 0.2.
 
