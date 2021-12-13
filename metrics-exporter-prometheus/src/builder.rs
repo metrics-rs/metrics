@@ -194,7 +194,11 @@ impl PrometheusBuilder {
         self
     }
 
-    /// Builds the recorder and exporter and installs them globally.
+    /// Builds the recorder and exporter and installs them globally. Behaves
+    /// differently depending on if called from within a tokio runtime. If
+    /// called within a Runtime, spawns the handler future onto the current
+    /// runtime. If called with no active runtime, spawns a new single-threaded
+    /// tokio runtime and polls the handler future from a new background thread.
     ///
     /// An error will be returned if there's an issue with creating the HTTP server or with
     /// installing the recorder as the global recorder.
