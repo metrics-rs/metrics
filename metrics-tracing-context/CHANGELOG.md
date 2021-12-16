@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.0] - 2021-12-16
+
 ### Changed
 - Bumped dependency on `tracing-subscriber` to `0.3`. ([#249](https://github.com/metrics-rs/metrics/pull/249))
 
