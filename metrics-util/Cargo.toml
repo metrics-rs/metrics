@@ -73,7 +73,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["f
 crossbeam-queue = "0.3"
 quickcheck = "1"
 quickcheck_macros = "1"
-textplots = "0.6"
+textplots = "0.8"
 mockall = "0.10"
 
 [features]
