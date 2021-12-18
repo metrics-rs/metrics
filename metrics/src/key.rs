@@ -10,6 +10,19 @@ use std::{
 const NO_LABELS: [Label; 0] = [];
 
 /// A metric identifier.
+///
+/// # Safety
+/// Clippy will report any usage of `Key` as the key of a map/set as "mutable key type", meaning
+/// that it believes that there is interior mutability present which could lead to a key being
+/// hashed different over time.  That behavior could lead to unexpected behavior, as standard
+/// maps/sets depend on keys having stable hashes over time, related to times when they must be
+/// recomputed as the internal storage is resized and items are moved around.
+///
+/// In this case, the `Hash` implementation of `Key` does _not_ depend on the fields which Clippy
+/// considers mutable (the atomics) and so it is actually safe against differing hashes being
+/// generated.  We personally allow this Clippy lint in places where we store the key, such as
+/// helper types in the `metrics-util` crate, and you may need to do the same if you're using it in
+/// such a way as well.
 #[derive(Debug)]
 pub struct Key {
     name: SharedString,

@@ -3,7 +3,8 @@ use crossbeam_utils::Backoff;
 use std::{
     cell::UnsafeCell,
     cmp::min,
-    mem, slice,
+    mem::{self, MaybeUninit},
+    slice,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -22,10 +23,31 @@ struct Block<T> {
     write: AtomicUsize,
 
     // Read bitmap.
+    //
+    // Internally, we track the write index whicxh indicates what slot should be written by the next
+    // writer.  This works fine as writers race via CAS to "acquire" a slot to write to.  The
+    // trouble comes when attempting to read written values, as writers may still have writes
+    // in-flight, this leading to potential uninitialized reads, UB, and the world imploding.
+    //
+    // We use a simplete scheme where writers acknowledge their writes by setting a bit in `read`
+    // that corresponds to the index that they've written.  For example, a write at index 5 being
+    // complete can be verified by checking if `1 << 5` in `read` is set.  This allows writers to
+    // concurrently update `read` despite non-sequential indexes.
+    //
+    // Additionally, an optimization is then available where finding the longest sequential run of
+    // initialized slots can be trivially calculated by getting the number of trailing ones in
+    // `read`.  This allows reading the "length" of initialized values in constant time, without
+    // blocking.
+    //
+    // This optimization does mean, however, that the simplest implementation is limited to block
+    // sizes that match the number of bits available in the target platform pointer size.  A
+    // potential future optimization could use const generics to size an array of read bitmap
+    // atomics such that the total sum of the bits could be efficiently utilized, although this
+    // would involve more complex logic to read all of the atomics.
     read: AtomicUsize,
 
     // The individual slots.
-    slots: [UnsafeCell<T>; BLOCK_SIZE],
+    slots: [MaybeUninit<UnsafeCell<T>>; BLOCK_SIZE],
 
     // The "next" block to iterate, aka the block that came before this one.
     next: Atomic<Block<T>>,
@@ -34,12 +56,13 @@ struct Block<T> {
 impl<T> Block<T> {
     /// Creates a new [`Block`].
     pub fn new() -> Self {
-        Block {
-            write: AtomicUsize::new(0),
-            read: AtomicUsize::new(0),
-            slots: unsafe { mem::zeroed() },
-            next: Atomic::null(),
-        }
+        // SAFETY:
+        // At a high level, all types inherent to  `Block<T>` can be safely zero initialized.
+        //
+        // `write`/`read` are meant to start at zero (`AtomicUsize`)
+        // `slots` is an array of `MaybeUninit`, which is zero init safe
+        // `next` is meant to start as "null", where the pointer (`AtomicUsize`) is zero
+        unsafe { MaybeUninit::zeroed().assume_init() }
     }
 
     // Gets the length of the next block, if it exists.
@@ -72,9 +95,15 @@ impl<T> Block<T> {
 
     /// Gets a slice of the data written to this block.
     pub fn data(&self) -> &[T] {
+        // SAFETY:
+        // We can always get a pointer to the first slot, but the reference we give back will only
+        // be as long as the number of slots written, indicated by `len`.  The value of `len` is
+        // only updated once a slot has been fully written, guaranteeing the slot is initialized.
         let len = self.len();
-        let head = self.slots[0].get();
-        unsafe { slice::from_raw_parts(head as *const T, len) }
+        unsafe {
+            let head = self.slots.get_unchecked(0).as_ptr();
+            slice::from_raw_parts(head as *const T, len)
+        }
     }
 
     /// Pushes a value into this block.
@@ -86,9 +115,18 @@ impl<T> Block<T> {
             return Err(value);
         }
 
-        // Update the slot.
+        // SAFETY:
+        // - We never index outside of our block size.
+        // - Each slot is `MaybeUninit`, which itself can be safely zero initialized.
+        // - We're writing an initialized value into the slot before anyone is able to ever read
+        //   it, ensuring no uninitialized access.
         unsafe {
-            self.slots[index].get().write(value);
+            // Update the slot.
+            self.slots
+                .get_unchecked(index)
+                .assume_init_ref()
+                .get()
+                .write(value);
         }
 
         // Scoot our read index forward.
@@ -101,9 +139,29 @@ impl<T> Block<T> {
 unsafe impl<T: Send> Send for Block<T> {}
 unsafe impl<T: Sync> Sync for Block<T> {}
 
+impl<T> Drop for Block<T> {
+    fn drop(&mut self) {
+        while !self.is_quiesced() {}
+
+        // SAFETY:
+        // The value of `len` is only updated once a slot has been fully written, guaranteeing the
+        // slot is initialized.  Thus, we're only touching initialized slots here.
+        unsafe {
+            let len = self.len();
+            for i in 0..len {
+                self.slots
+                    .get_unchecked(i)
+                    .assume_init_ref()
+                    .get()
+                    .drop_in_place();
+            }
+        }
+    }
+}
+
 impl<T> std::fmt::Debug for Block<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let has_next = unsafe { !self.next.load(Ordering::Acquire, &unprotected()).is_null() };
+        let has_next = unsafe { !self.next.load(Ordering::Acquire, unprotected()).is_null() };
         f.debug_struct("Block")
             .field("type", &std::any::type_name::<T>())
             .field("block_size", &BLOCK_SIZE)
@@ -156,7 +214,7 @@ impl<T> AtomicBucket<T> {
         // We have to check the next block of our tail in case the current tail is simply a fresh
         // block that has not been written to yet.
         let tail_block = unsafe { tail.deref() };
-        tail_block.len() == 0 && tail_block.next_len(&guard) == 0
+        tail_block.len() == 0 && tail_block.next_len(guard) == 0
     }
 
     /// Pushes an element into the bucket.
@@ -280,7 +338,7 @@ impl<T> AtomicBucket<T> {
     /// # Note
     /// This method will not affect reads that are already in progress.
     pub fn clear(&self) {
-        self.clear_with(|_| {})
+        self.clear_with(|_: &[T]| {})
     }
 
     /// Clears the bucket, invoking `f` for every block that will be cleared.
@@ -345,7 +403,7 @@ impl<T> AtomicBucket<T> {
 
                 freeable_blocks.push(old_block_ptr);
                 if freeable_blocks.len() >= DEFERRED_BLOCK_BATCH_SIZE {
-                    let blocks = mem::replace(&mut freeable_blocks, Vec::new());
+                    let blocks = mem::take(&mut freeable_blocks);
                     unsafe {
                         guard.defer_unchecked(move || {
                             for block in blocks {

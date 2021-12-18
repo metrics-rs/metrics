@@ -79,7 +79,7 @@ impl DistributionBuilder {
         }
 
         if let Some(ref buckets) = self.buckets {
-            return Distribution::new_histogram(&buckets);
+            return Distribution::new_histogram(buckets);
         }
 
         Distribution::new_summary(self.quantiles.clone())

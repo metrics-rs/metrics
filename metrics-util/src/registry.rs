@@ -1,117 +1,47 @@
-use core::sync::atomic::{AtomicUsize, Ordering};
-use std::{
-    fmt::{self, Debug},
-    marker::PhantomData,
-};
+use std::marker::PhantomData;
+use std::sync::Arc;
 use std::{hash::BuildHasherDefault, iter::repeat};
 
+use atomic_shim::AtomicU64;
 use hashbrown::{hash_map::RawEntryMut, HashMap};
-use metrics::KeyHasher;
+use metrics::{CounterFn, GaugeFn, HistogramFn, Key, KeyHasher};
 use parking_lot::RwLock;
 
-use crate::{Hashable, MetricKind};
+use crate::{AtomicBucket, Hashable};
 
 type RegistryHasher = KeyHasher;
-type RegistryHashMap<K, V> = HashMap<K, V, BuildHasherDefault<RegistryHasher>>;
+type RegistryHashMap<V> = HashMap<Key, V, BuildHasherDefault<RegistryHasher>>;
 
-/// Generation counter.
+pub trait Primitives {
+    type Counter: CounterFn + Clone;
+    type Gauge: GaugeFn + Clone;
+    type Histogram: HistogramFn + Clone;
+
+    fn counter() -> Self::Counter;
+    fn gauge() -> Self::Gauge;
+    fn histogram() -> Self::Histogram;
+}
+
+/// Standard metric primitives that fit most use cases.
 ///
-/// Used for denoting the generation of a given handle, which is used to provide compare-and-swap
-/// deletion semantics i.e. if the generation used to request deletion for a handle is behind the
-/// current generation of the handle, then the deletion will not proceed.
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct Generation(usize);
+/// The primitives used provide shared atomic access utilizing atomic storage and shared access via `Arc`.
+pub struct StandardPrimitives;
 
-/// A trait that defines generational semantics for wrapper types.
-///
-/// Used to provide compile-time generation tracking where the choice is encoded in which type is
-/// used (i.e. `Tracked` vs `NotTracked`), which necessitates a trait to mediate usage.
-pub trait Generational<H>: From<H> {
-    /// Increments the generation counter.
-    fn increment_generation(&self);
+impl Primitives for StandardPrimitives {
+    type Counter = Arc<AtomicU64>;
+    type Gauge = Arc<AtomicU64>;
+    type Histogram = Arc<AtomicBucket<f64>>;
 
-    /// Gets the current generation counter.
-    fn get_generation(&self) -> Generation;
-
-    /// Gets a reference to the inner type.
-    fn get_inner(&self) -> &H;
-
-    /// Creates a default initialized wrapper around `inner`.
-    fn initial(inner: H) -> Self {
-        inner.into()
-    }
-}
-
-/// A generational wrapper that does track the generation.
-pub struct Tracked<H>(AtomicUsize, H);
-
-impl<H> Tracked<H> {
-    /// Creates a new `Tracked`.
-    pub fn new(h: H) -> Tracked<H> {
-        Tracked(AtomicUsize::new(0), h)
-    }
-}
-
-impl<H> Generational<H> for Tracked<H> {
-    /// Increments the generation counter.
-    fn increment_generation(&self) {
-        self.0.fetch_add(1, Ordering::Release);
+    fn counter() -> Self::Counter {
+        Arc::new(AtomicU64::new(0))
     }
 
-    /// Gets the current generation counter.
-    fn get_generation(&self) -> Generation {
-        Generation(self.0.load(Ordering::Acquire))
+    fn gauge() -> Self::Gauge {
+        Arc::new(AtomicU64::new(0))
     }
 
-    /// Gets a reference to the inner type.
-    fn get_inner(&self) -> &H {
-        &self.1
-    }
-}
-
-impl<H> From<H> for Tracked<H> {
-    fn from(inner: H) -> Self {
-        Self::new(inner)
-    }
-}
-
-impl<H: fmt::Debug> fmt::Debug for Tracked<H> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Tracked")
-            .field("gen", &self.0)
-            .field("inner", &self.1)
-            .finish()
-    }
-}
-
-/// A generational wrapper that does not track the generation.
-pub struct NotTracked<H>(H);
-
-impl<H> NotTracked<H> {
-    /// Creates a new `NotTracked`.
-    pub fn new(h: H) -> NotTracked<H> {
-        NotTracked(h)
-    }
-}
-
-impl<H> Generational<H> for NotTracked<H> {
-    /// Increments the generation counter.
-    fn increment_generation(&self) {}
-
-    /// Gets the current generation counter.
-    fn get_generation(&self) -> Generation {
-        Generation::default()
-    }
-
-    /// Gets a reference to the inner type.
-    fn get_inner(&self) -> &H {
-        &self.0
-    }
-}
-
-impl<H> From<H> for NotTracked<H> {
-    fn from(inner: H) -> Self {
-        Self::new(inner)
+    fn histogram() -> Self::Histogram {
+        Arc::new(AtomicBucket::new())
     }
 }
 
@@ -132,27 +62,26 @@ impl<H> From<H> for NotTracked<H> {
 /// used in order to delete a handle from the registry, allowing callers to prune old/stale handles
 /// over time.
 ///
-/// `Registry` is optimized for reads.
-#[derive(Debug)]
-pub struct Registry<K, H, G>
+/// `Registry` is optimized for reads.  
+pub struct Registry<P = StandardPrimitives>
 where
-    K: Eq + Hashable + Clone + 'static,
-    H: 'static,
+    P: Primitives,
 {
-    shards: Vec<Vec<RwLock<RegistryHashMap<K, G>>>>,
-    mask: usize,
-    _handle: PhantomData<H>,
+    counters: Vec<RwLock<RegistryHashMap<P::Counter>>>,
+    gauges: Vec<RwLock<RegistryHashMap<P::Gauge>>>,
+    histograms: Vec<RwLock<RegistryHashMap<P::Histogram>>>,
+    shard_mask: usize,
+    _primitives: PhantomData<P>,
 }
 
-impl<K, H, G> Registry<K, H, G>
+impl<P> Registry<P>
 where
-    K: Eq + Hashable + Clone + 'static,
-    H: 'static,
+    P: Primitives,
 {
     /// Creates a new `Registry`.
-    fn new() -> Self {
+    pub fn new() -> Self {
         let shard_count = std::cmp::max(1, num_cpus::get()).next_power_of_two();
-        let mask = shard_count - 1;
+        let shard_mask = shard_count - 1;
         let counters = repeat(())
             .take(shard_count)
             .map(|_| RwLock::new(RegistryHashMap::default()))
@@ -166,55 +95,57 @@ where
             .map(|_| RwLock::new(RegistryHashMap::default()))
             .collect();
 
-        let shards = vec![counters, gauges, histograms];
-
         Self {
-            shards,
-            mask,
-            _handle: PhantomData,
+            counters,
+            gauges,
+            histograms,
+            shard_mask,
+            _primitives: PhantomData,
         }
     }
 
-    /// Creates a new `Registry` without generation semantics.
-    pub fn untracked() -> Registry<K, H, NotTracked<H>> {
-        Registry::<K, H, NotTracked<H>>::new()
-    }
-
-    /// Creates a new `Registry` with generation semantics.
-    ///
-    /// In some use cases, there is a requirement to understand what "generation" a metric is, for
-    /// the purposes of understanding if a given metric has changed between two points in time.
-    ///
-    /// This registry wraps metrics with a generation counter, which is incremented every time a
-    /// metric is operated on.  When queried for a list of metrics, they'll be provided with their
-    /// current generation.
-    pub fn tracked() -> Registry<K, H, Tracked<H>> {
-        Registry::<K, H, Tracked<H>>::new()
-    }
-}
-
-impl<K, H, G> Registry<K, H, G>
-where
-    K: Eq + Hashable + Clone + 'static,
-    H: 'static,
-    G: Generational<H>,
-{
     #[inline]
-    fn get_hash_and_shard(
+    fn get_hash_and_shard_for_counter(
         &self,
-        kind: MetricKind,
-        key: &K,
-    ) -> (u64, &RwLock<RegistryHashMap<K, G>>) {
+        key: &Key,
+    ) -> (u64, &RwLock<RegistryHashMap<P::Counter>>) {
         let hash = key.hashable();
 
-        // SAFETY: We map each MetricKind variant -- three at present -- to a usize value
-        // representing an index in a vector, so we statically know that we're always extracting our
-        // sub-shards correctly.  Secondly, we initialize vector of subshards with a power-of-two
-        // value, and `self.mask` is `self.shards.len() - 1`, thus we can never have a result from
+        // SAFETY: We initialize vector of subshards with a power-of-two value, and
+        // `self.shard_mask` is `self.counters.len() - 1`, thus we can never have a result from the
+        // masking operation that results in a value which is not in bounds of our subshards vector.
+        let shard = unsafe { self.counters.get_unchecked(hash as usize & self.shard_mask) };
+
+        (hash, shard)
+    }
+
+    #[inline]
+    fn get_hash_and_shard_for_gauge(&self, key: &Key) -> (u64, &RwLock<RegistryHashMap<P::Gauge>>) {
+        let hash = key.hashable();
+
+        // SAFETY: We initialize the vector of subshards with a power-of-two value, and
+        // `self.shard_mask` is `self.gauges.len() - 1`, thus we can never have a result from the
+        // masking operation that results in a value which is not in bounds of our subshards vector.
+        let shard = unsafe { self.gauges.get_unchecked(hash as usize & self.shard_mask) };
+
+        (hash, shard)
+    }
+
+    #[inline]
+    fn get_hash_and_shard_for_histogram(
+        &self,
+        key: &Key,
+    ) -> (u64, &RwLock<RegistryHashMap<P::Histogram>>) {
+        let hash = key.hashable();
+
+        // SAFETY: We initialize the vector of subshards with a power-of-two value, and
+        // `self.shard_mask` is `self.histograms.len() - 1`, thus we can never have a result from
         // the masking operation that results in a value which is not in bounds of our subshards
         // vector.
-        let shards = unsafe { self.shards.get_unchecked(kind_to_idx(kind)) };
-        let shard = unsafe { shards.get_unchecked(hash as usize & self.mask) };
+        let shard = unsafe {
+            self.histograms
+                .get_unchecked(hash as usize & self.shard_mask)
+        };
 
         (hash, shard)
     }
@@ -224,32 +155,31 @@ where
     /// This operation is eventually consistent: metrics will be removed piecemeal, and this method
     /// does not ensure that callers will see the registry as entirely empty at any given point.
     pub fn clear(&self) {
-        for shard in &self.shards {
-            for subshard in shard {
-                subshard.write().clear();
-            }
+        for shard in &self.counters {
+            shard.write().clear();
+        }
+        for shard in &self.gauges {
+            shard.write().clear();
+        }
+        for shard in &self.histograms {
+            shard.write().clear();
         }
     }
 
-    /// Perform an operation on a given key.
+    /// Gets or creates the given counter.
     ///
-    /// The `op` function will be called for the handle under the given `key`.
-    ///
-    /// If the `key` is not already mapped, the `init` function will be
-    /// called, and the resulting handle will be stored in the registry.
-    pub fn op<I, O, V>(&self, kind: MetricKind, key: &K, op: O, init: I) -> V
+    /// The `op` function will be called for the counter under the given `key`, with the counter
+    /// first being created if it does not already exist.
+    pub fn get_or_create_counter<O, V>(&self, key: &Key, op: O) -> V
     where
-        I: FnOnce() -> H,
-        O: FnOnce(&H) -> V,
+        O: FnOnce(&P::Counter) -> V,
     {
-        let (hash, shard) = self.get_hash_and_shard(kind, key);
+        let (hash, shard) = self.get_hash_and_shard_for_counter(key);
 
         // Try and get the handle if it exists, running our operation if we succeed.
         let shard_read = shard.read();
         if let Some((_, v)) = shard_read.raw_entry().from_key_hashed_nocheck(hash, key) {
-            let result = op(v.get_inner());
-            v.increment_generation();
-            result
+            op(v)
         } else {
             // Switch to write guard and insert the handle first.
             drop(shard_read);
@@ -261,22 +191,88 @@ where
                 let (_, v) = shard_write
                     .raw_entry_mut()
                     .from_key_hashed_nocheck(hash, key)
-                    .or_insert_with(|| (key.clone(), G::initial(init())));
+                    .or_insert_with(|| (key.clone(), P::counter()));
 
                 v
             };
 
-            let result = op(v.get_inner());
-            v.increment_generation();
-            result
+            op(v)
         }
     }
 
-    /// Deletes a handle from the registry.
+    /// Gets or creates the given gauge.
     ///
-    /// Returns `true` if the handle existed and was removed, `false` otherwise.
-    pub fn delete(&self, kind: MetricKind, key: &K) -> bool {
-        let (hash, shard) = self.get_hash_and_shard(kind, key);
+    /// The `op` function will be called for the gauge under the given `key`, with the gauge
+    /// first being created if it does not already exist.
+    pub fn get_or_create_gauge<O, V>(&self, key: &Key, op: O) -> V
+    where
+        O: FnOnce(&P::Gauge) -> V,
+    {
+        let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
+
+        // Try and get the handle if it exists, running our operation if we succeed.
+        let shard_read = shard.read();
+        if let Some((_, v)) = shard_read.raw_entry().from_key_hashed_nocheck(hash, key) {
+            op(v)
+        } else {
+            // Switch to write guard and insert the handle first.
+            drop(shard_read);
+            let mut shard_write = shard.write();
+            let v = if let Some((_, v)) = shard_write.raw_entry().from_key_hashed_nocheck(hash, key)
+            {
+                v
+            } else {
+                let (_, v) = shard_write
+                    .raw_entry_mut()
+                    .from_key_hashed_nocheck(hash, key)
+                    .or_insert_with(|| (key.clone(), P::gauge()));
+
+                v
+            };
+
+            op(v)
+        }
+    }
+
+    /// Gets or creates the given histogram.
+    ///
+    /// The `op` function will be called for the histogram under the given `key`, with the histogram
+    /// first being created if it does not already exist.
+    pub fn get_or_create_histogram<O, V>(&self, key: &Key, op: O) -> V
+    where
+        O: FnOnce(&P::Histogram) -> V,
+    {
+        let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
+
+        // Try and get the handle if it exists, running our operation if we succeed.
+        let shard_read = shard.read();
+        if let Some((_, v)) = shard_read.raw_entry().from_key_hashed_nocheck(hash, key) {
+            op(v)
+        } else {
+            // Switch to write guard and insert the handle first.
+            drop(shard_read);
+            let mut shard_write = shard.write();
+            let v = if let Some((_, v)) = shard_write.raw_entry().from_key_hashed_nocheck(hash, key)
+            {
+                v
+            } else {
+                let (_, v) = shard_write
+                    .raw_entry_mut()
+                    .from_key_hashed_nocheck(hash, key)
+                    .or_insert_with(|| (key.clone(), P::histogram()));
+
+                v
+            };
+
+            op(v)
+        }
+    }
+
+    /// Deletes a counter from the registry.
+    ///
+    /// Returns `true` if the counter existed and was removed, `false` otherwise.
+    pub fn delete_counter(&self, key: &Key) -> bool {
+        let (hash, shard) = self.get_hash_and_shard_for_counter(key);
         let mut shard_write = shard.write();
         let entry = shard_write
             .raw_entry_mut()
@@ -289,197 +285,181 @@ where
         false
     }
 
-    /// Deletes a handle from the registry.
+    /// Deletes a gauge from the registry.
     ///
-    /// The generation of a given key is passed along when querying the registry via
-    /// [`get_handles`](Registry::get_handles).  If the generation given here does not match the
-    /// current generation, then the handle will not be removed.
-    ///
-    /// Returns `true` if the handle existed and was removed, `false` otherwise.
-    pub fn delete_with_gen(&self, kind: MetricKind, key: &K, generation: Generation) -> bool {
-        let (hash, shard) = self.get_hash_and_shard(kind, key);
+    /// Returns `true` if the gauge existed and was removed, `false` otherwise.
+    pub fn delete_gauge(&self, key: &Key) -> bool {
+        let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
         let mut shard_write = shard.write();
         let entry = shard_write
             .raw_entry_mut()
             .from_key_hashed_nocheck(hash, key);
         if let RawEntryMut::Occupied(entry) = entry {
-            if entry.get().get_generation() == generation {
-                let _ = entry.remove_entry();
-                return true;
-            }
+            let _ = entry.remove_entry();
+            return true;
         }
 
         false
     }
 
-    /// Visits every handle stored in this registry.
+    /// Deletes a histogram from the registry.
     ///
-    /// The given function will be passed the metric kind as well as the key and handle references,
-    /// which are wrapped in `Generational`-implementing holders.
+    /// Returns `true` if the histogram existed and was removed, `false` otherwise.
+    pub fn delete_histogram(&self, key: &Key) -> bool {
+        let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
+        let mut shard_write = shard.write();
+        let entry = shard_write
+            .raw_entry_mut()
+            .from_key_hashed_nocheck(hash, key);
+        if let RawEntryMut::Occupied(entry) = entry {
+            let _ = entry.remove_entry();
+            return true;
+        }
+
+        false
+    }
+
+    /// Visits every counter stored in this registry.
     ///
     /// This operation does not lock the entire registry, but proceeds directly through the
     /// "subshards" that are kept internally.  As a result, all subshards will be visited, but a
-    /// metric that existed at the exact moment that `visit` was called may not actually be observed
+    /// metric that existed at the exact moment that `visit_counters` was called may not actually be observed
     /// if it is deleted before that subshard is reached.  Likewise, a metric that is added after
-    /// the call to `visit`, but before `visit` finishes, may also not be observed.
-    pub fn visit<F>(&self, mut collect: F)
+    /// the call to `visit_counters`, but before `visit_counters` finishes, may also not be observed.
+    pub fn visit_counters<F>(&self, mut collect: F)
     where
-        F: FnMut(MetricKind, (&K, &G)),
+        F: FnMut(&Key, &P::Counter),
     {
-        for (idx, subshards) in self.shards.iter().enumerate() {
-            let kind = idx_to_kind(idx);
-
-            for subshard in subshards {
-                let shard_read = subshard.read();
-                for item in shard_read.iter() {
-                    collect(kind, item);
-                }
+        for subshard in self.counters.iter() {
+            let shard_read = subshard.read();
+            for (key, counter) in shard_read.iter() {
+                collect(key, counter);
             }
         }
     }
 
-    /// Gets a map of all present handles, mapped by key.
+    /// Visits every gauge stored in this registry.
     ///
-    /// Handles must implement `Clone`.  This map is a point-in-time snapshot of the registry.
-    pub fn get_handles(&self) -> HashMap<(MetricKind, K), (Generation, H)>
+    /// This operation does not lock the entire registry, but proceeds directly through the
+    /// "subshards" that are kept internally.  As a result, all subshards will be visited, but a
+    /// metric that existed at the exact moment that `visit_gauges` was called may not actually be observed
+    /// if it is deleted before that subshard is reached.  Likewise, a metric that is added after
+    /// the call to `visit_gauges`, but before `visit_gauges` finishes, may also not be observed.
+    pub fn visit_gauges<F>(&self, mut collect: F)
     where
-        H: Clone,
+        F: FnMut(&Key, &P::Gauge),
     {
-        let mut handles = HashMap::new();
-        self.visit(|kind, (k, v)| {
-            handles.insert(
-                (kind, k.clone()),
-                (v.get_generation(), v.get_inner().clone()),
-            );
+        for subshard in self.gauges.iter() {
+            let shard_read = subshard.read();
+            for (key, gauge) in shard_read.iter() {
+                collect(key, gauge);
+            }
+        }
+    }
+
+    /// Visits every histogram stored in this registry.
+    ///
+    /// This operation does not lock the entire registry, but proceeds directly through the
+    /// "subshards" that are kept internally.  As a result, all subshards will be visited, but a
+    /// metric that existed at the exact moment that `visit_histograms` was called may not actually be observed
+    /// if it is deleted before that subshard is reached.  Likewise, a metric that is added after
+    /// the call to `visit_histograms`, but before `visit_histograms` finishes, may also not be observed.
+    pub fn visit_histograms<F>(&self, mut collect: F)
+    where
+        F: FnMut(&Key, &P::Histogram),
+    {
+        for subshard in self.histograms.iter() {
+            let shard_read = subshard.read();
+            for (key, histogram) in shard_read.iter() {
+                collect(key, histogram);
+            }
+        }
+    }
+
+    /// Gets a map of all present counters, mapped by key.
+    ///
+    /// This map is a point-in-time snapshot of the registry.
+    pub fn get_counter_handles(&self) -> HashMap<Key, P::Counter> {
+        let mut counters = HashMap::new();
+        self.visit_counters(|k, v| {
+            counters.insert(k.clone(), v.clone());
         });
-        handles
+        counters
     }
-}
 
-impl<K, H, G> Default for Registry<K, H, G>
-where
-    K: Eq + Hashable + Clone + 'static,
-    H: 'static,
-    G: Generational<H>,
-{
-    fn default() -> Self {
-        Registry::new()
+    /// Gets a map of all present gauges, mapped by key.
+    ///
+    /// This map is a point-in-time snapshot of the registry.
+    pub fn get_gauge_handles(&self) -> HashMap<Key, P::Gauge> {
+        let mut gauges = HashMap::new();
+        self.visit_gauges(|k, v| {
+            gauges.insert(k.clone(), v.clone());
+        });
+        gauges
     }
-}
 
-const fn kind_to_idx(kind: MetricKind) -> usize {
-    match kind {
-        MetricKind::Counter => 0,
-        MetricKind::Gauge => 1,
-        MetricKind::Histogram => 2,
-    }
-}
-
-#[inline]
-fn idx_to_kind(idx: usize) -> MetricKind {
-    match idx {
-        0 => MetricKind::Counter,
-        1 => MetricKind::Gauge,
-        2 => MetricKind::Histogram,
-        _ => panic!("invalid index"),
+    /// Gets a map of all present histograms, mapped by key.
+    ///
+    /// This map is a point-in-time snapshot of the registry.
+    pub fn get_histogram_handles(&self) -> HashMap<Key, P::Histogram> {
+        let mut histograms = HashMap::new();
+        self.visit_histograms(|k, v| {
+            histograms.insert(k.clone(), v.clone());
+        });
+        histograms
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Generational, MetricKind, Registry};
-    use crate::{DefaultHashable, NotTracked, Tracked};
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering::SeqCst},
-        Arc,
-    };
+    use atomic_shim::AtomicU64;
+    use metrics::{CounterFn, Key};
+
+    //use super::Generational;
+    use super::Registry;
+    use crate::registry::StandardPrimitives;
+    //use crate::registry::Tracked;
+    use std::sync::{atomic::Ordering, Arc};
 
     #[test]
-    fn test_tracked() {
-        let generational = Tracked::new(1);
-        let start_gen = generational.get_generation();
-        let start_gen_extra = generational.get_generation();
-        assert_eq!(start_gen, start_gen_extra);
+    fn test_registry() {
+        let registry = Registry::<StandardPrimitives>::new();
+        let key = Key::from_name("foobar");
 
-        generational.increment_generation();
-
-        let end_gen = generational.get_generation();
-        assert_ne!(start_gen, end_gen);
-    }
-
-    #[test]
-    fn test_not_tracked() {
-        let generational = NotTracked::new(1);
-        let start_gen = generational.get_generation();
-        let start_gen_extra = generational.get_generation();
-        assert_eq!(start_gen, start_gen_extra);
-
-        generational.increment_generation();
-
-        let end_gen = generational.get_generation();
-        assert_eq!(start_gen, end_gen);
-    }
-
-    #[test]
-    fn test_tracked_registry() {
-        let registry =
-            Registry::<DefaultHashable<u64>, Arc<AtomicUsize>, Tracked<Arc<AtomicUsize>>>::default(
-            );
-
-        let key = DefaultHashable(1);
-
-        let entries = registry.get_handles();
+        let entries = registry.get_counter_handles();
         assert_eq!(entries.len(), 0);
 
-        let initial_value = registry.op(
-            MetricKind::Counter,
-            &key,
-            |h| h.fetch_add(1, SeqCst),
-            || Arc::new(AtomicUsize::new(42)),
-        );
-        assert_eq!(initial_value, 42);
+        registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| c.increment(1));
 
-        let initial_entries = registry.get_handles();
+        let initial_entries = registry.get_counter_handles();
         assert_eq!(initial_entries.len(), 1);
 
-        let initial_entry = initial_entries
+        let initial_entry: (Key, Arc<AtomicU64>) = initial_entries
             .into_iter()
             .next()
             .expect("failed to get first entry");
 
-        let (ikey, (initial_gen, value)) = initial_entry;
-        assert_eq!(ikey, (MetricKind::Counter, DefaultHashable(1)));
-        assert_eq!(value.load(SeqCst), 43);
+        let (ikey, ivalue) = initial_entry;
+        assert_eq!(ikey, key);
+        assert_eq!(ivalue.load(Ordering::SeqCst), 1);
 
-        let update_value = registry.op(
-            MetricKind::Counter,
-            &key,
-            |h| h.fetch_add(1, SeqCst),
-            || Arc::new(AtomicUsize::new(42)),
-        );
-        assert_eq!(update_value, 43);
+        registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| c.increment(1));
 
-        let updated_entries = registry.get_handles();
+        let updated_entries = registry.get_counter_handles();
         assert_eq!(updated_entries.len(), 1);
 
-        let updated_entry = updated_entries
+        let updated_entry: (Key, Arc<AtomicU64>) = updated_entries
             .into_iter()
             .next()
             .expect("failed to get updated entry");
 
-        let ((kind, ukey), (updated_gen, value)) = updated_entry;
-        assert_eq!(kind, MetricKind::Counter);
-        assert_eq!(ukey, DefaultHashable(1));
-        assert_eq!(value.load(SeqCst), 44);
+        let (ukey, uvalue) = updated_entry;
+        assert_eq!(ukey, key);
+        assert_eq!(uvalue.load(Ordering::SeqCst), 2);
 
-        assert!(!registry.delete_with_gen(kind, &key, initial_gen));
+        assert!(registry.delete_counter(&key));
 
-        let entries = registry.get_handles();
-        assert_eq!(entries.len(), 1);
-
-        assert!(registry.delete_with_gen(kind, &key, updated_gen));
-
-        let entries = registry.get_handles();
+        let entries = registry.get_counter_handles();
         assert_eq!(entries.len(), 0);
     }
 }

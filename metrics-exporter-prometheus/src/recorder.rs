@@ -1,17 +1,19 @@
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
+use metrics_util::recency::{GenerationalPrimitives, Recency};
+use metrics_util::Registry;
 use parking_lot::RwLock;
 
-use metrics::{GaugeValue, Key, Recorder, Unit};
-use metrics_util::{Handle, MetricKind, Recency, Registry, Tracked};
+use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 
 use crate::common::{sanitize_key_name, Snapshot};
 use crate::distribution::{Distribution, DistributionBuilder};
 
 pub(crate) struct Inner {
-    pub registry: Registry<Key, Handle, Tracked<Handle>>,
-    pub recency: Recency<Key>,
+    pub registry: Registry<GenerationalPrimitives>,
+    pub recency: Recency,
     pub distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, &'static str>>,
@@ -19,61 +21,73 @@ pub(crate) struct Inner {
 }
 
 impl Inner {
-    pub fn registry(&self) -> &Registry<Key, Handle, Tracked<Handle>> {
+    pub(crate) fn registry(&self) -> &Registry<GenerationalPrimitives> {
         &self.registry
     }
 
     fn get_recent_metrics(&self) -> Snapshot {
-        let metrics = self.registry.get_handles();
-
         let mut counters = HashMap::new();
-        let mut gauges = HashMap::new();
-
-        for ((kind, key), (gen, handle)) in metrics.into_iter() {
-            if !self.recency.should_store(kind, &key, gen, self.registry()) {
+        let counter_handles = self.registry.get_counter_handles();
+        for (key, counter) in counter_handles {
+            let gen = counter.get_generation();
+            if !self
+                .recency
+                .should_store_counter(&key, gen, self.registry())
+            {
                 continue;
             }
 
-            match kind {
-                MetricKind::Counter => {
-                    let value = handle.read_counter();
+            let (name, labels) = key_to_parts(&key, &self.global_labels);
+            let value = counter.get_inner().load(Ordering::Acquire);
+            let entry = counters
+                .entry(name)
+                .or_insert_with(HashMap::new)
+                .entry(labels)
+                .or_insert(0);
+            *entry = value;
+        }
 
-                    let (name, labels) = key_to_parts(&key, &self.global_labels);
-                    let entry = counters
-                        .entry(name)
-                        .or_insert_with(HashMap::new)
-                        .entry(labels)
-                        .or_insert(0);
-                    *entry = value;
-                }
-                MetricKind::Gauge => {
-                    let value = handle.read_gauge();
-
-                    let (name, labels) = key_to_parts(&key, &self.global_labels);
-                    let entry = gauges
-                        .entry(name)
-                        .or_insert_with(HashMap::new)
-                        .entry(labels)
-                        .or_insert(0.0);
-                    *entry = value;
-                }
-                MetricKind::Histogram => {
-                    let (name, labels) = key_to_parts(&key, &self.global_labels);
-
-                    let mut wg = self.distributions.write();
-                    let entry = wg
-                        .entry(name.clone())
-                        .or_insert_with(HashMap::new)
-                        .entry(labels)
-                        .or_insert_with(|| {
-                            self.distribution_builder
-                                .get_distribution(name.as_str())
-                                .expect("failed to create distribution")
-                        });
-
-                    handle.read_histogram_with_clear(|samples| entry.record_samples(samples));
-                }
+        let mut gauges = HashMap::new();
+        let gauge_handles = self.registry.get_gauge_handles();
+        for (key, gauge) in gauge_handles {
+            let gen = gauge.get_generation();
+            if !self.recency.should_store_gauge(&key, gen, self.registry()) {
+                continue;
             }
+
+            let (name, labels) = key_to_parts(&key, &self.global_labels);
+            let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
+            let entry = gauges
+                .entry(name)
+                .or_insert_with(HashMap::new)
+                .entry(labels)
+                .or_insert(0.0);
+            *entry = value;
+        }
+
+        let histogram_handles = self.registry.get_histogram_handles();
+        for (key, histogram) in histogram_handles {
+            let gen = histogram.get_generation();
+            if !self.recency.should_store_gauge(&key, gen, self.registry()) {
+                continue;
+            }
+
+            let (name, labels) = key_to_parts(&key, &self.global_labels);
+
+            let mut wg = self.distributions.write();
+            let entry = wg
+                .entry(name.clone())
+                .or_insert_with(HashMap::new)
+                .entry(labels)
+                .or_insert_with(|| {
+                    self.distribution_builder
+                        .get_distribution(name.as_str())
+                        .expect("failed to create distribution")
+                });
+
+            histogram
+                .get_inner()
+                .clear_with(|samples| entry.record_samples(samples));
         }
 
         let distributions = self.distributions.read().clone();
@@ -224,57 +238,39 @@ impl From<Inner> for PrometheusRecorder {
 }
 
 impl Recorder for PrometheusRecorder {
-    fn register_counter(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
-        self.add_description_if_missing(&key, description);
-        self.inner
-            .registry()
-            .op(MetricKind::Counter, key, |_| {}, Handle::counter);
+    fn describe_counter(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
+        self.add_description_if_missing(key, description);
     }
 
-    fn register_gauge(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
-        self.add_description_if_missing(&key, description);
-        self.inner
-            .registry()
-            .op(MetricKind::Gauge, key, |_| {}, Handle::gauge);
+    fn describe_gauge(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
+        self.add_description_if_missing(key, description);
     }
 
-    fn register_histogram(
+    fn describe_histogram(
         &self,
         key: &Key,
         _unit: Option<Unit>,
         description: Option<&'static str>,
     ) {
-        self.add_description_if_missing(&key, description);
+        self.add_description_if_missing(key, description);
+    }
+
+    fn register_counter(&self, key: &Key) -> Counter {
         self.inner
-            .registry()
-            .op(MetricKind::Histogram, key, |_| {}, Handle::histogram);
+            .registry
+            .get_or_create_counter(key, |c| c.get_inner().clone().into())
     }
 
-    fn increment_counter(&self, key: &Key, value: u64) {
-        self.inner.registry().op(
-            MetricKind::Counter,
-            key,
-            |h| h.increment_counter(value),
-            Handle::counter,
-        );
+    fn register_gauge(&self, key: &Key) -> Gauge {
+        self.inner
+            .registry
+            .get_or_create_gauge(key, |c| c.get_inner().clone().into())
     }
 
-    fn update_gauge(&self, key: &Key, value: GaugeValue) {
-        self.inner.registry().op(
-            MetricKind::Gauge,
-            key,
-            |h| h.update_gauge(value),
-            Handle::gauge,
-        );
-    }
-
-    fn record_histogram(&self, key: &Key, value: f64) {
-        self.inner.registry().op(
-            MetricKind::Histogram,
-            key,
-            |h| h.record_histogram(value),
-            Handle::histogram,
-        );
+    fn register_histogram(&self, key: &Key) -> Histogram {
+        self.inner
+            .registry
+            .get_or_create_histogram(key, |c| c.get_inner().clone().into())
     }
 }
 

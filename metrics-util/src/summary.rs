@@ -125,7 +125,7 @@ impl Summary {
     /// While `q` can be either 0.0 or 1.0, callers should prefer to use [`Summary::min`] and
     /// [`Summary::max`] as the values will be the true values, and not an estimation.
     pub fn quantile(&self, q: f64) -> Option<f64> {
-        if q < 0.0 || q > 1.0 || self.count() == 0 {
+        if !(0.0..=1.0).contains(&q) || self.count() == 0 {
             return None;
         }
 
