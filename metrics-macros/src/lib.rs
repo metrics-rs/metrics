@@ -27,7 +27,7 @@ struct WithExpression {
     labels: Option<Labels>,
 }
 
-struct Registration {
+struct Description {
     key: Expr,
     unit: Option<Expr>,
     description: Option<LitStr>,
@@ -60,7 +60,7 @@ impl Parse for WithExpression {
     }
 }
 
-impl Parse for Registration {
+impl Parse for Description {
     fn parse(mut input: ParseStream) -> Result<Self> {
         let key = input.parse::<Expr>()?;
 
@@ -133,7 +133,7 @@ impl Parse for Registration {
             (None, None, None)
         };
 
-        Ok(Registration {
+        Ok(Description {
             key,
             unit,
             description,
@@ -143,39 +143,60 @@ impl Parse for Registration {
 }
 
 #[proc_macro]
-pub fn register_counter(input: TokenStream) -> TokenStream {
-    let Registration {
+pub fn describe_counter(input: TokenStream) -> TokenStream {
+    let Description {
         key,
         unit,
         description,
         labels,
-    } = parse_macro_input!(input as Registration);
+    } = parse_macro_input!(input as Description);
 
-    get_expanded_registration("counter", key, unit, description, labels).into()
+    get_describe_code("counter", key, unit, description, labels).into()
+}
+
+#[proc_macro]
+pub fn describe_gauge(input: TokenStream) -> TokenStream {
+    let Description {
+        key,
+        unit,
+        description,
+        labels,
+    } = parse_macro_input!(input as Description);
+
+    get_describe_code("gauge", key, unit, description, labels).into()
+}
+
+#[proc_macro]
+pub fn describe_histogram(input: TokenStream) -> TokenStream {
+    let Description {
+        key,
+        unit,
+        description,
+        labels,
+    } = parse_macro_input!(input as Description);
+
+    get_describe_code("histogram", key, unit, description, labels).into()
+}
+
+#[proc_macro]
+pub fn register_counter(input: TokenStream) -> TokenStream {
+    let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
+
+    get_register_and_op_code::<bool>("counter", key, labels, None).into()
 }
 
 #[proc_macro]
 pub fn register_gauge(input: TokenStream) -> TokenStream {
-    let Registration {
-        key,
-        unit,
-        description,
-        labels,
-    } = parse_macro_input!(input as Registration);
+    let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
 
-    get_expanded_registration("gauge", key, unit, description, labels).into()
+    get_register_and_op_code::<bool>("gauge", key, labels, None).into()
 }
 
 #[proc_macro]
 pub fn register_histogram(input: TokenStream) -> TokenStream {
-    let Registration {
-        key,
-        unit,
-        description,
-        labels,
-    } = parse_macro_input!(input as Registration);
+    let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
 
-    get_expanded_registration("histogram", key, unit, description, labels).into()
+    get_register_and_op_code::<bool>("histogram", key, labels, None).into()
 }
 
 #[proc_macro]
@@ -184,7 +205,7 @@ pub fn increment_counter(input: TokenStream) -> TokenStream {
 
     let op_value = quote! { 1 };
 
-    get_expanded_callsite("counter", "increment", key, labels, op_value).into()
+    get_register_and_op_code("counter", key, labels, Some(("increment", op_value))).into()
 }
 
 #[proc_macro]
@@ -195,7 +216,18 @@ pub fn counter(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite("counter", "increment", key, labels, op_value).into()
+    get_register_and_op_code("counter", key, labels, Some(("increment", op_value))).into()
+}
+
+#[proc_macro]
+pub fn absolute_counter(input: TokenStream) -> TokenStream {
+    let WithExpression {
+        key,
+        op_value,
+        labels,
+    } = parse_macro_input!(input as WithExpression);
+
+    get_register_and_op_code("counter", key, labels, Some(("absolute", op_value))).into()
 }
 
 #[proc_macro]
@@ -206,9 +238,7 @@ pub fn increment_gauge(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    let gauge_value = quote! { metrics::GaugeValue::Increment(#op_value) };
-
-    get_expanded_callsite("gauge", "update", key, labels, gauge_value).into()
+    get_register_and_op_code("gauge", key, labels, Some(("increment", op_value))).into()
 }
 
 #[proc_macro]
@@ -219,9 +249,7 @@ pub fn decrement_gauge(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    let gauge_value = quote! { metrics::GaugeValue::Decrement(#op_value) };
-
-    get_expanded_callsite("gauge", "update", key, labels, gauge_value).into()
+    get_register_and_op_code("gauge", key, labels, Some(("decrement", op_value))).into()
 }
 
 #[proc_macro]
@@ -232,9 +260,7 @@ pub fn gauge(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    let gauge_value = quote! { metrics::GaugeValue::Absolute(#op_value) };
-
-    get_expanded_callsite("gauge", "update", key, labels, gauge_value).into()
+    get_register_and_op_code("gauge", key, labels, Some(("set", op_value))).into()
 }
 
 #[proc_macro]
@@ -245,17 +271,17 @@ pub fn histogram(input: TokenStream) -> TokenStream {
         labels,
     } = parse_macro_input!(input as WithExpression);
 
-    get_expanded_callsite("histogram", "record", key, labels, op_value).into()
+    get_register_and_op_code("histogram", key, labels, Some(("record", op_value))).into()
 }
 
-fn get_expanded_registration(
+fn get_describe_code(
     metric_type: &str,
     name: Expr,
     unit: Option<Expr>,
     description: Option<LitStr>,
     labels: Option<Labels>,
 ) -> TokenStream2 {
-    let register_ident = format_ident!("register_{}", metric_type);
+    let describe_ident = format_ident!("describe_{}", metric_type);
 
     let unit = match unit {
         Some(e) => quote! { Some(#e) },
@@ -275,40 +301,55 @@ fn get_expanded_registration(
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
                 #locals
-                recorder.#register_ident(#metric_key, #unit, #description);
+                recorder.#describe_ident(#metric_key, #unit, #description);
             }
         }
     }
 }
 
-fn get_expanded_callsite<V>(
+fn get_register_and_op_code<V>(
     metric_type: &str,
-    op_type: &str,
     name: Expr,
     labels: Option<Labels>,
-    op_values: V,
+    op: Option<(&'static str, V)>,
 ) -> TokenStream2
 where
     V: ToTokens,
 {
-    // We use a helper method for histogram values to coerce into f64, but otherwise,
-    // just pass through whatever the caller gave us.
-    let op_values = if metric_type == "histogram" {
-        quote! { metrics::__into_f64(#op_values) }
-    } else {
-        quote! { #op_values }
-    };
-
-    let op_ident = format_ident!("{}_{}", op_type, metric_type);
+    let register_ident = format_ident!("register_{}", metric_type);
     let statics = generate_statics(&name, &labels);
     let (locals, metric_key) = generate_metric_key(&name, &labels);
-    quote! {
-        {
-            #statics
-            // Only do this work if there's a recorder installed.
-            if let Some(recorder) = metrics::try_recorder() {
-                #locals
-                recorder.#op_ident(#metric_key, #op_values);
+    match op {
+        Some((op_type, op_value)) => {
+            let op_ident = format_ident!("{}", op_type);
+            let op_value = if metric_type == "histogram" {
+                quote! { metrics::__into_f64(#op_value) }
+            } else {
+                quote! { #op_value }
+            };
+
+            // We've been given values to actually use with the handle, so we actually check if a
+            // recorder is installed before bothering to create a handle and everything.
+            quote! {
+                {
+                    #statics
+                    // Only do this work if there's a recorder installed.
+                    if let Some(recorder) = metrics::try_recorder() {
+                        #locals
+                        let handle = recorder.#register_ident(#metric_key);
+                        handle.#op_ident(#op_value);
+                    }
+                }
+            }
+        }
+        None => {
+            // If there's no values specified, we simply return the metric handle.
+            quote! {
+                {
+                    #statics
+                    #locals
+                    metrics::recorder().#register_ident(#metric_key)
+                }
             }
         }
     }

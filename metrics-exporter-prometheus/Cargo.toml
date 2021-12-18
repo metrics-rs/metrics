@@ -18,7 +18,7 @@ keywords = ["metrics", "telemetry", "prometheus"]
 [features]
 default = ["tokio-exporter"]
 tokio-exporter = ["hyper", "ipnet", "tokio"]
-push-gateway = ["reqwest", "tracing"]
+push-gateway = ["reqwest", "tracing", "tokio-exporter"]
 
 [dependencies]
 metrics = { version = "^0.17", path = "../metrics" }

@@ -8,6 +8,7 @@ use metrics::{
     decrement_gauge, gauge, histogram, increment_counter, increment_gauge, register_counter,
     register_histogram,
 };
+use metrics::{describe_counter, describe_histogram};
 #[allow(unused_imports)]
 use metrics_exporter_prometheus::PrometheusBuilder;
 #[allow(unused_imports)]
@@ -45,11 +46,11 @@ fn main() {
     //
     // Registering metrics ahead of using them is not required, but is the only way to specify the
     // description of a metric.
-    register_counter!(
+    describe_counter!(
         "tcp_server_loops",
         "The iterations of the TCP server event loop so far."
     );
-    register_histogram!(
+    describe_histogram!(
         "tcp_server_loop_delta_ns",
         "The time taken for iterations of the TCP server event loop."
     );

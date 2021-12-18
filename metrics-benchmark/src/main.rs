@@ -1,9 +1,12 @@
 use atomic_shim::AtomicU64;
 use getopts::Options;
-use hdrhistogram::Histogram;
+use hdrhistogram::Histogram as HdrHistogram;
 use log::{error, info};
-use metrics::{gauge, histogram, increment_counter, GaugeValue, Key, Recorder, Unit};
-use metrics_util::{Handle, MetricKind, Registry, Tracked};
+use metrics::{
+    gauge, histogram, increment_counter, register_counter, register_gauge, register_histogram,
+    Counter, Gauge, Histogram, Key, Recorder, Unit,
+};
+use metrics_util::{Registry, StandardPrimitives};
 use quanta::{Clock, Instant as QuantaInstant};
 use std::{
     env,
@@ -19,19 +22,17 @@ use std::{
 const LOOP_SAMPLE: u64 = 1000;
 
 pub struct Controller {
-    registry: Arc<Registry<Key, Handle, Tracked<Handle>>>,
+    registry: Arc<Registry<StandardPrimitives>>,
 }
 
 impl Controller {
     /// Takes a snapshot of the recorder.
-    // Performs the traditional "upkeep" of a recorder i.e. clearing histogram buckets, etc.
+    /// Performs the traditional "upkeep" of a recorder i.e. clearing histogram buckets, etc.
     pub fn upkeep(&self) {
-        let handles = self.registry.get_handles();
+        let handles = self.registry.get_histogram_handles();
 
-        for ((kind, _), (_, handle)) in handles {
-            if matches!(kind, MetricKind::Histogram) {
-                handle.read_histogram_with_clear(|_| {});
-            }
+        for (_, histo) in handles {
+            histo.clear();
         }
     }
 }
@@ -40,14 +41,14 @@ impl Controller {
 ///
 /// Simulates typical recorder implementations by utilizing `Registry`, clearing histogram buckets, etc.
 pub struct BenchmarkingRecorder {
-    registry: Arc<Registry<Key, Handle, Tracked<Handle>>>,
+    registry: Arc<Registry<StandardPrimitives>>,
 }
 
 impl BenchmarkingRecorder {
     /// Creates a new `BenchmarkingRecorder`.
     pub fn new() -> BenchmarkingRecorder {
         BenchmarkingRecorder {
-            registry: Arc::new(Registry::<Key, Handle, Tracked<Handle>>::tracked()),
+            registry: Arc::new(Registry::new()),
         }
     }
 
@@ -65,51 +66,31 @@ impl BenchmarkingRecorder {
 }
 
 impl Recorder for BenchmarkingRecorder {
-    fn register_counter(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {
+    fn describe_counter(&self, key: &Key, _: Option<Unit>, _: Option<&'static str>) {
+        self.registry.get_or_create_counter(key, |_| {})
+    }
+
+    fn describe_gauge(&self, key: &Key, _: Option<Unit>, _: Option<&'static str>) {
+        self.registry.get_or_create_gauge(key, |_| {})
+    }
+
+    fn describe_histogram(&self, key: &Key, _: Option<Unit>, _: Option<&'static str>) {
+        self.registry.get_or_create_histogram(key, |_| {})
+    }
+
+    fn register_counter(&self, key: &Key) -> Counter {
         self.registry
-            .op(MetricKind::Counter, key, |_| {}, Handle::counter)
+            .get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
     }
 
-    fn register_gauge(&self, key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {
+    fn register_gauge(&self, key: &Key) -> Gauge {
         self.registry
-            .op(MetricKind::Gauge, key, |_| {}, Handle::gauge)
+            .get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
     }
 
-    fn register_histogram(
-        &self,
-        key: &Key,
-        _unit: Option<Unit>,
-        _description: Option<&'static str>,
-    ) {
+    fn register_histogram(&self, key: &Key) -> Histogram {
         self.registry
-            .op(MetricKind::Histogram, key, |_| {}, Handle::histogram)
-    }
-
-    fn increment_counter(&self, key: &Key, value: u64) {
-        self.registry.op(
-            MetricKind::Counter,
-            key,
-            |handle| handle.increment_counter(value),
-            Handle::counter,
-        )
-    }
-
-    fn update_gauge(&self, key: &Key, value: GaugeValue) {
-        self.registry.op(
-            MetricKind::Gauge,
-            key,
-            |handle| handle.update_gauge(value),
-            Handle::gauge,
-        )
-    }
-
-    fn record_histogram(&self, key: &Key, value: f64) {
-        self.registry.op(
-            MetricKind::Histogram,
-            key,
-            |handle| handle.record_histogram(value),
-            Handle::histogram,
-        )
+            .get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
     }
 }
 
@@ -122,7 +103,7 @@ impl Default for BenchmarkingRecorder {
 struct Generator {
     t0: Option<QuantaInstant>,
     gauge: i64,
-    hist: Histogram<u64>,
+    hist: HdrHistogram<u64>,
     done: Arc<AtomicBool>,
     rate_counter: Arc<AtomicU64>,
 }
@@ -132,24 +113,25 @@ impl Generator {
         Generator {
             t0: None,
             gauge: 0,
-            hist: Histogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap(),
+            hist: HdrHistogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap(),
             done,
             rate_counter,
         }
     }
 
-    fn run(&mut self) {
+    fn run_slow(&mut self) {
         let clock = Clock::new();
-        let mut counter = 0;
+        let mut loop_counter = 0;
+
         loop {
-            counter += 1;
+            loop_counter += 1;
 
             self.gauge += 1;
 
             let t1 = clock.recent();
 
             if let Some(t0) = self.t0 {
-                let start = if counter % LOOP_SAMPLE == 0 {
+                let start = if loop_counter % LOOP_SAMPLE == 0 {
                     Some(clock.now())
                 } else {
                     None
@@ -158,6 +140,50 @@ impl Generator {
                 increment_counter!("ok");
                 gauge!("total", self.gauge as f64);
                 histogram!("ok", t1.sub(t0));
+
+                if let Some(val) = start {
+                    let delta = clock.now() - val;
+                    self.hist.saturating_record(delta.as_nanos() as u64);
+
+                    // We also increment our global counter for the sample rate here.
+                    self.rate_counter
+                        .fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
+
+                    if self.done.load(Ordering::Relaxed) {
+                        break;
+                    }
+                }
+            }
+
+            self.t0 = Some(t1);
+        }
+    }
+
+    fn run_fast(&mut self) {
+        let clock = Clock::new();
+        let mut loop_counter = 0;
+
+        let counter = register_counter!("ok");
+        let gauge = register_gauge!("total");
+        let histogram = register_histogram!("ok");
+
+        loop {
+            loop_counter += 1;
+
+            self.gauge += 1;
+
+            let t1 = clock.recent();
+
+            if let Some(t0) = self.t0 {
+                let start = if loop_counter % LOOP_SAMPLE == 0 {
+                    Some(clock.now())
+                } else {
+                    None
+                };
+
+                counter.increment(1);
+                gauge.set(self.gauge as f64);
+                histogram.record(t1.sub(t0));
 
                 if let Some(val) = start {
                     let delta = clock.now() - val;
@@ -206,6 +232,12 @@ pub fn opts() -> Options {
         "number of seconds to run the benchmark",
         "INTEGER",
     );
+    opts.optopt(
+        "m",
+        "mode",
+        "whether or run the benchmark in slow or fast mode (static vs dynamic handles)",
+        "STRING",
+    );
     opts.optopt("p", "producers", "number of producers", "INTEGER");
     opts.optflag("h", "help", "print this help menu");
 
@@ -213,7 +245,7 @@ pub fn opts() -> Options {
 }
 
 fn main() {
-    env_logger::init();
+    pretty_env_logger::init();
 
     let args: Vec<String> = env::args().collect();
     let program = &args[0];
@@ -245,6 +277,17 @@ fn main() {
         .unwrap_or_else(|| "1".to_owned())
         .parse()
         .unwrap();
+    let mode = matches
+        .opt_str("mode")
+        .map(|s| {
+            if s.to_ascii_lowercase() == "fast" {
+                "fast"
+            } else {
+                "slow"
+            }
+        })
+        .unwrap_or_else(|| "slow")
+        .to_owned();
 
     info!("duration: {}s", seconds);
     info!("producers: {}", producers);
@@ -263,9 +306,14 @@ fn main() {
     for _ in 0..producers {
         let d = done.clone();
         let r = rate_counter.clone();
+        let mode = mode.clone();
         let handle = thread::spawn(move || {
             let mut gen = Generator::new(d, r);
-            gen.run();
+            if mode == "fast" {
+                gen.run_fast();
+            } else {
+                gen.run_slow();
+            }
         });
 
         handles.push(handle);
@@ -280,7 +328,7 @@ fn main() {
     let mut total = 0;
     let mut t0 = Instant::now();
 
-    let mut upkeep_hist = Histogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap();
+    let mut upkeep_hist = HdrHistogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap();
     for _ in 0..seconds {
         let t1 = Instant::now();
 

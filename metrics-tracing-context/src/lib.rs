@@ -95,7 +95,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
 
-use metrics::{GaugeValue, Key, Label, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, Label, Recorder, Unit};
 use metrics_util::layers::Layer;
 
 pub mod label_filter;
@@ -196,33 +196,33 @@ where
     R: Recorder,
     F: LabelFilter,
 {
-    fn register_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        self.inner.register_counter(key, unit, description)
+    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.describe_counter(key, unit, description)
     }
 
-    fn register_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        self.inner.register_gauge(key, unit, description)
+    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.describe_gauge(key, unit, description)
     }
 
-    fn register_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        self.inner.register_histogram(key, unit, description)
+    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+        self.inner.describe_histogram(key, unit, description)
     }
 
-    fn increment_counter(&self, key: &Key, value: u64) {
+    fn register_counter(&self, key: &Key) -> Counter {
         let new_key = self.enhance_key(key);
         let key = new_key.as_ref().unwrap_or(key);
-        self.inner.increment_counter(key, value);
+        self.inner.register_counter(key)
     }
 
-    fn update_gauge(&self, key: &Key, value: GaugeValue) {
+    fn register_gauge(&self, key: &Key) -> Gauge {
         let new_key = self.enhance_key(key);
         let key = new_key.as_ref().unwrap_or(key);
-        self.inner.update_gauge(key, value);
+        self.inner.register_gauge(key)
     }
 
-    fn record_histogram(&self, key: &Key, value: f64) {
+    fn register_histogram(&self, key: &Key) -> Histogram {
         let new_key = self.enhance_key(key);
         let key = new_key.as_ref().unwrap_or(key);
-        self.inner.record_histogram(key, value);
+        self.inner.register_histogram(key)
     }
 }

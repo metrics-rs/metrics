@@ -3,30 +3,24 @@ extern crate criterion;
 
 use criterion::Criterion;
 
-use metrics::{counter, GaugeValue, Key, Recorder, Unit};
+use metrics::{counter, Counter, Gauge, Histogram, Key, Recorder, Unit};
 use rand::{thread_rng, Rng};
 
 #[derive(Default)]
 struct TestRecorder;
 impl Recorder for TestRecorder {
-    fn register_counter(
-        &self,
-        _key: &Key,
-        _unit: Option<Unit>,
-        _description: Option<&'static str>,
-    ) {
+    fn describe_counter(&self, _: &Key, _: Option<Unit>, _: Option<&'static str>) {}
+    fn describe_gauge(&self, _: &Key, _: Option<Unit>, _: Option<&'static str>) {}
+    fn describe_histogram(&self, _: &Key, _: Option<Unit>, _: Option<&'static str>) {}
+    fn register_counter(&self, _: &Key) -> Counter {
+        Counter::noop()
     }
-    fn register_gauge(&self, _key: &Key, _unit: Option<Unit>, _description: Option<&'static str>) {}
-    fn register_histogram(
-        &self,
-        _key: &Key,
-        _unit: Option<Unit>,
-        _description: Option<&'static str>,
-    ) {
+    fn register_gauge(&self, _: &Key) -> Gauge {
+        Gauge::noop()
     }
-    fn increment_counter(&self, _key: &Key, _value: u64) {}
-    fn update_gauge(&self, _key: &Key, _value: GaugeValue) {}
-    fn record_histogram(&self, _key: &Key, _value: f64) {}
+    fn register_histogram(&self, _: &Key) -> Histogram {
+        Histogram::noop()
+    }
 }
 
 fn reset_recorder() {

@@ -1,41 +1,41 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use metrics::{Key, Label};
-use metrics_util::{MetricKind, NotTracked, Registry, Tracked};
+use metrics_util::{Registry, StandardPrimitives};
 
 fn registry_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("registry (not tracked)");
+    let mut group = c.benchmark_group("registry");
     group.bench_function("cached op (basic)", |b| {
-        let registry = Registry::<Key, (), NotTracked<()>>::untracked();
+        let registry = Registry::<StandardPrimitives>::new();
         static KEY_NAME: &'static str = "simple_key";
         static KEY_DATA: Key = Key::from_static_name(&KEY_NAME);
 
-        b.iter(|| registry.op(MetricKind::Counter, &KEY_DATA, |_| (), || ()))
+        b.iter(|| registry.get_or_create_counter(&KEY_DATA, |_| ()))
     });
     group.bench_function("cached op (labels)", |b| {
-        let registry = Registry::<Key, (), NotTracked<()>>::untracked();
+        let registry = Registry::<StandardPrimitives>::new();
         static KEY_NAME: &'static str = "simple_key";
         static KEY_LABELS: [Label; 1] = [Label::from_static_parts("type", "http")];
         static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
-        b.iter(|| registry.op(MetricKind::Counter, &KEY_DATA, |_| (), || ()))
+        b.iter(|| registry.get_or_create_counter(&KEY_DATA, |_| ()))
     });
     group.bench_function("uncached op (basic)", |b| {
         b.iter_batched_ref(
-            || Registry::<Key, (), NotTracked<()>>::untracked(),
+            || Registry::<StandardPrimitives>::new(),
             |registry| {
                 let key = "simple_key".into();
-                registry.op(MetricKind::Counter, &key, |_| (), || ())
+                registry.get_or_create_counter(&key, |_| ())
             },
             BatchSize::SmallInput,
         )
     });
     group.bench_function("uncached op (labels)", |b| {
         b.iter_batched_ref(
-            || Registry::<Key, (), NotTracked<()>>::untracked(),
+            || Registry::<StandardPrimitives>::new(),
             |registry| {
                 let labels = vec![Label::new("type", "http")];
                 let key = ("simple_key", labels).into();
-                registry.op(MetricKind::Counter, &key, |_| (), || ())
+                registry.get_or_create_counter(&key, |_| ())
             },
             BatchSize::SmallInput,
         )
@@ -43,59 +43,10 @@ fn registry_benchmark(c: &mut Criterion) {
     group.bench_function("creation overhead", |b| {
         b.iter_batched(
             || (),
-            |_| Registry::<Key, (), NotTracked<()>>::untracked(),
+            |_| Registry::<StandardPrimitives>::new(),
             BatchSize::NumIterations(1),
         )
     });
-    group.finish();
-
-    let mut group = c.benchmark_group("registry (tracked)");
-    group.bench_function("cached op (basic)", |b| {
-        let registry = Registry::<Key, (), Tracked<()>>::tracked();
-        static KEY_NAME: &'static str = "simple_key";
-        static KEY_DATA: Key = Key::from_static_name(&KEY_NAME);
-
-        b.iter(|| registry.op(MetricKind::Counter, &KEY_DATA, |_| (), || ()))
-    });
-    group.bench_function("cached op (labels)", |b| {
-        let registry = Registry::<Key, (), Tracked<()>>::tracked();
-        static KEY_NAME: &'static str = "simple_key";
-        static KEY_LABELS: [Label; 1] = [Label::from_static_parts("type", "http")];
-        static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
-
-        b.iter(|| registry.op(MetricKind::Counter, &KEY_DATA, |_| (), || ()))
-    });
-    group.bench_function("uncached op (basic)", |b| {
-        b.iter_batched_ref(
-            || Registry::<Key, (), Tracked<()>>::tracked(),
-            |registry| {
-                let key = "simple_key".into();
-                registry.op(MetricKind::Counter, &key, |_| (), || ())
-            },
-            BatchSize::SmallInput,
-        )
-    });
-    group.bench_function("uncached op (labels)", |b| {
-        b.iter_batched_ref(
-            || Registry::<Key, (), NotTracked<()>>::tracked(),
-            |registry| {
-                let labels = vec![Label::new("type", "http")];
-                let key = ("simple_key", labels).into();
-                registry.op(MetricKind::Counter, &key, |_| (), || ())
-            },
-            BatchSize::SmallInput,
-        )
-    });
-    group.bench_function("creation overhead", |b| {
-        b.iter_batched(
-            || (),
-            |_| Registry::<Key, (), Tracked<()>>::tracked(),
-            BatchSize::NumIterations(1),
-        )
-    });
-    group.finish();
-
-    let mut group = c.benchmark_group("registry (common)");
     group.bench_function("const key overhead (basic)", |b| {
         b.iter(|| {
             static KEY_NAME: &'static str = "simple_key";

@@ -164,6 +164,7 @@ fn visit_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct DebugStruct {
     field1: String,

@@ -17,7 +17,7 @@ fn layer_benchmark(c: &mut Criterion) {
         static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
         b.iter(|| {
-            recorder.increment_counter(&KEY_DATA, 1);
+            let _ = recorder.register_counter(&KEY_DATA);
         })
     });
     group.bench_function("no integration", |b| {
@@ -35,7 +35,7 @@ fn layer_benchmark(c: &mut Criterion) {
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
             b.iter(|| {
-                recorder.increment_counter(&KEY_DATA, 1);
+                let _ = recorder.register_counter(&KEY_DATA);
             })
         })
     });
@@ -54,7 +54,7 @@ fn layer_benchmark(c: &mut Criterion) {
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
             b.iter(|| {
-                recorder.increment_counter(&KEY_DATA, 1);
+                let _ = recorder.register_counter(&KEY_DATA);
             })
         })
     });
@@ -74,7 +74,7 @@ fn layer_benchmark(c: &mut Criterion) {
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
             b.iter(|| {
-                recorder.increment_counter(&KEY_DATA, 1);
+                let _ = recorder.register_counter(&KEY_DATA);
             })
         })
     });
@@ -94,7 +94,7 @@ fn layer_benchmark(c: &mut Criterion) {
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
 
             b.iter(|| {
-                recorder.increment_counter(&KEY_DATA, 1);
+                let _ = recorder.register_counter(&KEY_DATA);
             })
         })
     });
