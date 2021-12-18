@@ -290,7 +290,7 @@ impl PrometheusBuilder {
         let address = self.listen_address;
         let allow_ips = self.allow_ips.take();
         #[cfg(feature = "push-gateway")]
-        let push_gateway_config = self.push_gateway_config.clone();
+        let push_gateway_config = self.push_gateway_config.take();
         let recorder = self.build();
         let handle = recorder.handle();
 
@@ -333,15 +333,19 @@ impl PrometheusBuilder {
         }
 
         #[cfg(feature = "push-gateway")]
-        if let Some(push_gateway_config) = &push_gateway_config {
-            let push_interval = push_gateway_config.push_interval;
-            let push_address = push_gateway_config.address.to_string();
+        if let Some(push_gateway_config) = push_gateway_config {
+            //let push_interval = push_gateway_config.push_interval;
+            //let push_address = push_gateway_config.address;
             let exporter = async move {
                 let client = reqwest::Client::default();
                 loop {
-                    tokio::time::sleep(push_interval).await;
+                    tokio::time::sleep(push_gateway_config.push_interval).await;
                     let output = handle.render();
-                    let response = client.put(push_address.as_str()).body(output).send().await;
+                    let response = client
+                        .put(push_gateway_config.address.as_str())
+                        .body(output)
+                        .send()
+                        .await;
                     match response {
                         Ok(response) => {
                             if let Err(e) = response.error_for_status() {

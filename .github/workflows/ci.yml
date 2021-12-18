@@ -40,7 +40,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: hack
-        args: check --each-feature
+        args: check --each-feature --no-dev-deps
   test:
     name: Test ${{ matrix.rust_version }}/${{ matrix.os }}
     runs-on: ${{ matrix.os }}
