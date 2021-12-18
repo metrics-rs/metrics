@@ -1,6 +1,6 @@
 [package]
 name = "metrics-util"
-version = "0.10.1"
+version = "0.10.2"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 
@@ -40,9 +40,9 @@ harness = false
 
 [dependencies]
 metrics = { version = "^0.17", path = "../metrics" }
-crossbeam-epoch = "0.9.2"
-crossbeam-utils = { version = "0.8", default-features = false }
-atomic-shim = "0.1"
+crossbeam-epoch = { version = "0.9.2", optional = true }
+crossbeam-utils = { version = "0.8", default-features = false, optional = true }
+atomic-shim = { version = "0.2", optional = true }
 aho-corasick = { version = "0.7", optional = true }
 indexmap = "1.6"
 parking_lot = "0.11"
@@ -69,7 +69,7 @@ noisy_float = "0.2"
 pretty-bytes = "0.2"
 tracing = "0.1"
 tracing-appender = "0.1"
-tracing-subscriber = { version = "0.2", default-features = false, features = ["fmt", "ansi"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi"] }
 crossbeam-queue = "0.3"
 quickcheck = "1"
 quickcheck_macros = "1"
@@ -77,6 +77,7 @@ textplots = "0.6"
 mockall = "0.10"
 
 [features]
-default = ["layer-filter", "layer-router"]
+default = ["layer-filter", "layer-router", "registry"]
 layer-filter = ["aho-corasick"]
 layer-router = ["radix_trie"]
+registry = ["atomic-shim", "crossbeam-epoch", "crossbeam-utils"]

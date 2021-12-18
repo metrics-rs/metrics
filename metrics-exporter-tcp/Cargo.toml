@@ -31,5 +31,5 @@ built = "0.4"
 [dev-dependencies]
 quanta = "0.9.3"
 tracing = "0.1"
-tracing-subscriber = "0.2"
+tracing-subscriber = "0.3"
 rand = "0.8"

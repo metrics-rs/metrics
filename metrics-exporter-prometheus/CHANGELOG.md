@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.7.0] - 2021-12-16
+
+### Changed
+- Calling `PrometheusBuilder::install` inside a Tokio runtime will spawn the exporter on that
+  runtime rather than spawning a new runtime. ([#251](https://github.com/metrics-rs/metrics/pull/251))
+
 ## [0.6.1] - 2021-09-16
 
 ### Changed
