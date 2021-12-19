@@ -27,7 +27,7 @@ name = "layer"
 harness = false
 
 [dependencies]
-itoa = { version = "0.4.8", default-features = false }
+itoa = { version = "1.0.1", default-features = false }
 metrics = { version = "0.17", path = "../metrics" }
 metrics-util = { version = "0.10", path = "../metrics-util" }
 lockfree-object-pool = { version = "0.1.3", default-features = false }
