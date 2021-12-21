@@ -34,7 +34,7 @@ impl Default for Labels {
 
 impl Visit for Labels {
     fn record_str(&mut self, field: &Field, value: &str) {
-        let label = Label::new(field.name(), value.to_owned());
+        let label = Label::new(field.name(), value.to_string());
         self.0.push(label);
     }
 
@@ -44,18 +44,16 @@ impl Visit for Labels {
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
-        // Maximum length is 20 characters but 32 is a nice power-of-two number.
-        let mut s = String::with_capacity(20);
-        itoa::fmt(&mut s, value).expect("failed to format/write i64");
-        let label = Label::new(field.name(), s);
+        let mut buf = itoa::Buffer::new();
+        let s = buf.format(value);
+        let label = Label::new(field.name(), s.to_string());
         self.0.push(label);
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
-        // Maximum length is 20 characters but 32 is a nice power-of-two number.
-        let mut s = String::with_capacity(20);
-        itoa::fmt(&mut s, value).expect("failed to format/write u64");
-        let label = Label::new(field.name(), s);
+        let mut buf = itoa::Buffer::new();
+        let s = buf.format(value);
+        let label = Label::new(field.name(), s.to_string());
         self.0.push(label);
     }
 
