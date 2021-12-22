@@ -24,12 +24,12 @@ struct Block<T> {
 
     // Read bitmap.
     //
-    // Internally, we track the write index whicxh indicates what slot should be written by the next
+    // Internally, we track the write index which indicates what slot should be written by the next
     // writer.  This works fine as writers race via CAS to "acquire" a slot to write to.  The
     // trouble comes when attempting to read written values, as writers may still have writes
-    // in-flight, this leading to potential uninitialized reads, UB, and the world imploding.
+    // in-flight, thus leading to potential uninitialized reads, UB, and the world imploding.
     //
-    // We use a simplete scheme where writers acknowledge their writes by setting a bit in `read`
+    // We use a simple scheme where writers acknowledge their writes by setting a bit in `read`
     // that corresponds to the index that they've written.  For example, a write at index 5 being
     // complete can be verified by checking if `1 << 5` in `read` is set.  This allows writers to
     // concurrently update `read` despite non-sequential indexes.

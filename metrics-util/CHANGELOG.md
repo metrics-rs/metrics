@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+- Updated various dependencies in order to properly scope dependencies to only the necessary feature
+  flags, and thus optimize build times and reduce transitive dependencies.
+- Many types are now behind their own feature flags to allow for optimizing build times and
+  dependency tree.
+- Updated to the new handle-based design of `metrics`.
+- Updated `AtomicBucket` to use `MaybeUninit` and better documented the safety invariants in the
+  various areas that use `unsafe`.
+- `AtomicBucket` now correctly drops only initialized slots in a `Block`.
+
 ## [0.10.2] - 2021-12-12
 
 ### Changed
