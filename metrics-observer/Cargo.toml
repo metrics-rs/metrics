@@ -8,15 +8,15 @@ publish = false
 license = "MIT"
 
 [dependencies]
-bytes = "1"
-crossbeam-channel = "0.5"
-prost = "0.9"
-prost-types = "0.9"
-tui = "0.16"
-termion = "1.5"
-chrono = "0.4"
-metrics = { version = "^0.17", path = "../metrics" }
-metrics-util = { version = "^0.10", path = "../metrics-util" }
+metrics = { version = "^0.17", path = "../metrics", default-features = false }
+metrics-util = { version = "^0.10", path = "../metrics-util", default-features = false, features = ["summary"] }
+bytes = { version = "1", default-features = false }
+crossbeam-channel = { version = "0.5", default-features = false, features = ["std"] }
+prost = { version = "0.9", default-features = false }
+prost-types = { version = "0.9", default-features = false }
+tui = { version = "0.16", default-features = false, features = ["termion"] }
+termion = { version = "1.5", default-features = false }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [build-dependencies]
 prost-build = "0.9"

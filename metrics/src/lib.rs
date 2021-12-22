@@ -61,9 +61,15 @@
 //! ## Emission
 //! Metrics are emitted by utilizing the registration or emission macros.  There is a macro for
 //! registering and emitting each fundamental metric type:
-//! - [`describe_counter!`], [`counter!`], and [`increment_counter!`] for counters
-//! - [`describe_gauge!`], [`gauge!`], [`increment_gauge!`], and [`decrement_gauge!`] for gauges
-//! - [`describe_histogram!`] and [`histogram!`] for histograms
+//! - [`register_counter!`], [`counter!`], and [`increment_counter!`] for counters
+//! - [`register_gauge!`], [`gauge!`], [`increment_gauge!`], and [`decrement_gauge!`] for gauges
+//! - [`register_histogram!`] and [`histogram!`] for histograms
+//!
+//! Additionally, metrics can be described -- setting either the unit of measure or long-form
+//! description -- by using the `describe_*` macros:
+//! - [`describe_counter!`] for counters
+//! - [`describe_gauge!`] for gauges
+//! - [`describe_histogram!`] for histograms
 //!
 //! In order to register or emit a metric, you need a way to record these events, which is where
 //! [`Recorder`] comes into play.
@@ -624,13 +630,14 @@ pub use metrics_macros::increment_counter;
 /// Sets a counter to an absolute value.
 ///
 /// Counters represent a single monotonic value, which means the value can only be incremented, not
-/// decremented, and always starts out with an initial value of zero.
+/// decremented, and will always start out with an initial value of zero.
 ///
-/// Counters can be set to an absolute value, but users will observe the following: if a value is
-/// given that is less than the current value of the counter, then the change will not be mad.  In
-/// this way, counters can be set to an absolute value the counter itself will always uphold its
-/// monotonicity.  This can be useful for translating external metrics, where only the absolute
-/// value is available, into `metrics`, without having to manually keep track of changes over time.
+/// Using this macro, users can specify an absolute value for the counter instead of the typical
+/// delta.  This can be useful when dealing with forwarding metrics from an external system into the
+/// normal application metrics, without having to track the delta of the metrics from the external
+/// system.  Users should beware, though, that implementations will enforce the monotonicity
+/// property of counters by refusing to update the value unless it is greater than current value of
+/// the counter.
 ///
 /// Metric names are shown below using string literals, but they can also be owned `String` values,
 /// which includes using macros such as `format!` directly at the callsite. String literals are

@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+- Correctly scoped the required features of various dependencies to reduce build times/transitive dependencies.
+- Updated macros to coincide with the update to `metrics` for metric handles.  This includes
+  renaming `register_*` macros to `describe_*`, which are purely for providing data that describes a
+  metric but does not initialize it in any way, and providing new `register_*` macros which do
+  initialize a metric.
+
+### Removed
+- Two unecessary dependencies, `lazy_static` and `regex`.
+
 ## [0.4.1] - 2021-12-16
 
 ### Changed

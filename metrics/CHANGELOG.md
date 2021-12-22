@@ -8,8 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+- A new macro, `absolute_counter!`, for setting the value of a counter to an absolute value.
+
 ### Changed
-- Switched to metric handles through the `Recorder` API. ([#240](https://github.com/metrics-rs/metrics/pull/240))
+- Switched to metric handles through the `Recorder` API.
+  ([#240](https://github.com/metrics-rs/metrics/pull/240)).  Due to the size of this change, the
+  details are further documented and discussed in [RELEASES.md](RELEASES.md).
+- `Unit` is now `Copy`.
+- Removed the half-baked attempt to allow turning off `std` usage, as `metrics` is not meaningfully
+  usable (at the moment) without libstd support.
 
 ## [0.17.1] - 2021-12-16
 
