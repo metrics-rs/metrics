@@ -176,58 +176,41 @@ impl FanoutBuilder {
 #[cfg(test)]
 mod tests {
     use super::FanoutBuilder;
-    use crate::debugging::DebuggingRecorder;
-    use metrics::{Recorder, Unit};
+    use crate::test_util::*;
+    use metrics::{Counter, Gauge, Histogram, Unit};
 
     #[test]
     fn test_basic_functionality() {
-        let recorder1 = DebuggingRecorder::new();
-        let snapshotter1 = recorder1.snapshotter();
-        let recorder2 = DebuggingRecorder::new();
-        let snapshotter2 = recorder2.snapshotter();
+        let operations = vec![
+            RecorderOperation::DescribeCounter(
+                "counter_key".into(),
+                Some(Unit::Count),
+                Some("counter desc"),
+            ),
+            RecorderOperation::DescribeGauge(
+                "gauge_key".into(),
+                Some(Unit::Bytes),
+                Some("gauge desc"),
+            ),
+            RecorderOperation::DescribeHistogram(
+                "histogram_key".into(),
+                Some(Unit::Nanoseconds),
+                Some("histogram desc"),
+            ),
+            RecorderOperation::RegisterCounter("counter_key".into(), Counter::noop()),
+            RecorderOperation::RegisterGauge("gauge_key".into(), Gauge::noop()),
+            RecorderOperation::RegisterHistogram("histogram_key".into(), Histogram::noop()),
+        ];
+
+        let recorder1 = MockBasicRecorder::from_operations(operations.clone());
+        let recorder2 = MockBasicRecorder::from_operations(operations.clone());
         let fanout = FanoutBuilder::default()
             .add_recorder(recorder1)
             .add_recorder(recorder2)
             .build();
 
-        let tlkey = "tokio.loops".into();
-        let hsbkey = "hyper.sent.bytes".into();
-
-        let before1 = snapshotter1.snapshot().into_vec();
-        let before2 = snapshotter2.snapshot().into_vec();
-        assert_eq!(before1.len(), 0);
-        assert_eq!(before2.len(), 0);
-
-        let ud = &[(Unit::Count, "counter desc"), (Unit::Bytes, "gauge desc")];
-
-        fanout.describe_counter(&tlkey, Some(ud[0].0.clone()), Some(ud[0].1));
-        fanout.describe_gauge(&hsbkey, Some(ud[1].0.clone()), Some(ud[1].1));
-
-        let counter = fanout.register_counter(&tlkey);
-        counter.increment(47);
-        let gauge = fanout.register_gauge(&hsbkey);
-        gauge.set(12.0);
-
-        let after1 = snapshotter1.snapshot().into_vec();
-        let after2 = snapshotter2.snapshot().into_vec();
-        assert_eq!(after1.len(), 2);
-        assert_eq!(after2.len(), 2);
-
-        let after = after1
-            .into_iter()
-            .zip(after2)
-            .enumerate()
-            .collect::<Vec<_>>();
-
-        for (i, ((k1, u1, d1, v1), (k2, u2, d2, v2))) in after {
-            assert_eq!(k1, k2);
-            assert_eq!(u1, u2);
-            assert_eq!(d1, d2);
-            assert_eq!(v1, v2);
-            assert_eq!(Some(ud[i].0.clone()), u1);
-            assert_eq!(Some(ud[i].0.clone()), u2);
-            assert_eq!(Some(ud[i].1), d1);
-            assert_eq!(Some(ud[i].1), d2);
+        for operation in operations {
+            operation.apply_to_recorder(&fanout);
         }
     }
 }

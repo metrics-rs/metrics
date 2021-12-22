@@ -9,7 +9,7 @@
 //!
 //! ```rust
 //! # use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
-//! # use metrics_util::DebuggingRecorder;
+//! # use metrics::NoopRecorder as BasicRecorder;
 //! # use metrics_util::layers::{Layer, Stack, PrefixLayer};
 //! // A simple layer that denies any metrics that have "stairway" or "heaven" in their name.
 //! #[derive(Default)]
@@ -79,7 +79,7 @@
 //! // Now you can construct an instance of it to use it.  The layer will be wrapped around
 //! // our base recorder, which is a debugging recorder also supplied by `metrics_util`.
 //! # fn main() {
-//! let recorder = DebuggingRecorder::new();
+//! let recorder = BasicRecorder;
 //! let layer = StairwayDenyLayer::default();
 //! let layered = layer.layer(recorder);
 //! metrics::set_boxed_recorder(Box::new(layered)).expect("failed to install recorder");
@@ -87,7 +87,7 @@
 //! # metrics::clear_recorder();
 //!
 //! // Working with layers directly is a bit cumbersome, though, so let's use a `Stack`.
-//! let stack = Stack::new(DebuggingRecorder::new());
+//! let stack = Stack::new(BasicRecorder);
 //! stack.push(StairwayDenyLayer::default())
 //!     .install()
 //!     .expect("failed to install stack");
@@ -95,7 +95,7 @@
 //! # metrics::clear_recorder();
 //!
 //! // `Stack` makes it easy to chain layers together, as well.
-//! let stack = Stack::new(DebuggingRecorder::new());
+//! let stack = Stack::new(BasicRecorder);
 //! stack.push(PrefixLayer::new("app_name"))
 //!     .push(StairwayDenyLayer::default())
 //!     .install()

@@ -10,11 +10,7 @@ edition = "2018"
 metrics-util = { path = "../../metrics-util" }
 rand = { version = "0.7", features = ["small_rng"] }
 rand_distr = "0.3"
-hdrhistogram = "7.2"
-sketches-ddsketch = "0.1"
 ndarray = "0.13"
 ndarray-stats = "0.3"
 noisy_float = "0.1"
-pretty-bytes = "0.2"
-ordered-float = "2.0"
-textplots = "0.5"
+ordered-float = "2"

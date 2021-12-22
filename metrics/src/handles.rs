@@ -54,19 +54,19 @@ pub trait HistogramFn {
 /// A counter.
 #[derive(Clone)]
 pub struct Counter {
-    inner: Option<Arc<dyn CounterFn>>,
+    inner: Option<Arc<dyn CounterFn + Send + Sync>>,
 }
 
 /// A gauge.
 #[derive(Clone)]
 pub struct Gauge {
-    inner: Option<Arc<dyn GaugeFn>>,
+    inner: Option<Arc<dyn GaugeFn + Send + Sync>>,
 }
 
 /// A histogram.
 #[derive(Clone)]
 pub struct Histogram {
-    inner: Option<Arc<dyn HistogramFn>>,
+    inner: Option<Arc<dyn HistogramFn + Send + Sync>>,
 }
 
 impl Counter {
@@ -79,7 +79,7 @@ impl Counter {
     }
 
     /// Creates a `Counter` based on a shared handler.
-    pub fn from_arc<F: CounterFn + 'static>(a: Arc<F>) -> Self {
+    pub fn from_arc<F: CounterFn + Send + Sync + 'static>(a: Arc<F>) -> Self {
         Self { inner: Some(a) }
     }
 
@@ -108,7 +108,7 @@ impl Gauge {
     }
 
     /// Creates a `Gauge` based on a shared handler.
-    pub fn from_arc<F: GaugeFn + 'static>(a: Arc<F>) -> Self {
+    pub fn from_arc<F: GaugeFn + Send + Sync + 'static>(a: Arc<F>) -> Self {
         Self { inner: Some(a) }
     }
 
@@ -144,7 +144,7 @@ impl Histogram {
     }
 
     /// Creates a `Histogram` based on a shared handler.
-    pub fn from_arc<F: HistogramFn + 'static>(a: Arc<F>) -> Self {
+    pub fn from_arc<F: HistogramFn + Send + Sync + 'static>(a: Arc<F>) -> Self {
         Self { inner: Some(a) }
     }
 
@@ -240,7 +240,7 @@ where
 
 impl<T> From<Arc<T>> for Counter
 where
-    T: CounterFn + 'static,
+    T: CounterFn + Send + Sync + 'static,
 {
     fn from(inner: Arc<T>) -> Self {
         Counter::from_arc(inner)
@@ -249,7 +249,7 @@ where
 
 impl<T> From<Arc<T>> for Gauge
 where
-    T: GaugeFn + 'static,
+    T: GaugeFn + Send + Sync + 'static,
 {
     fn from(inner: Arc<T>) -> Self {
         Gauge::from_arc(inner)
@@ -258,7 +258,7 @@ where
 
 impl<T> From<Arc<T>> for Histogram
 where
-    T: HistogramFn + 'static,
+    T: HistogramFn + Send + Sync + 'static,
 {
     fn from(inner: Arc<T>) -> Self {
         Histogram::from_arc(inner)

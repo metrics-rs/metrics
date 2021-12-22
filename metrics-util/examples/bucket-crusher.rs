@@ -69,10 +69,10 @@ fn main() {
 
     let mut producer_handles = Vec::new();
     for _ in 0..producers {
-        let done = producer_done.clone();
-        let counter = producer_counter.clone();
-        let total = producer_total.clone();
-        let bucket = bucket.clone();
+        let done = Arc::clone(&producer_done);
+        let counter = Arc::clone(&producer_counter);
+        let total = Arc::clone(&producer_total);
+        let bucket = Arc::clone(&bucket);
 
         let handle = thread::spawn(move || run_producer(done, counter, total, bucket));
         producer_handles.push(handle)
