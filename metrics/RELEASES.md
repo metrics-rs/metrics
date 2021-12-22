@@ -54,7 +54,8 @@ Simply put, handles represent an incredibly thin layer over compatible implement
 metric type.  There are now three traits, one for each metric type, that must be implemented to
 satisfy being wrapped in the corresponding handle type.  Internally, this is wrapped in an [`Arc<T>`][arc] to make it usable in multi-threaded scenarios.
 
-Implementations of `Counter` and `Gauge` based on atomic integers can be found in [`metrics`][metrics], and an example of `Histogram` can be found in [`metrics-util`][metrics-util].
+Implementations of `Counter` and `Gauge` based on atomic integers can be found in
+[`metrics`][metrics], and an example of `Histogram` can be found in [`metrics-util`][metrics-util].
 
 #### Limitations of handles
 

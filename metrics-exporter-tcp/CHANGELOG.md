@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+- Updated various dependencies in order to properly scope dependencies to only the necessary feature
+  flags, and thus optimize build times and reduce transitive dependencies.
+- Updated to the new handle-based design of `metrics`.
+
 ## [0.5.1] - 2021-09-16
 
 ### Changed

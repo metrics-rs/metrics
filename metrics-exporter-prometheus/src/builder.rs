@@ -334,8 +334,6 @@ impl PrometheusBuilder {
 
         #[cfg(feature = "push-gateway")]
         if let Some(push_gateway_config) = push_gateway_config {
-            //let push_interval = push_gateway_config.push_interval;
-            //let push_address = push_gateway_config.address;
             let exporter = async move {
                 let client = reqwest::Client::default();
                 loop {
