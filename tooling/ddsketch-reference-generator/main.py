@@ -9,7 +9,7 @@ def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('input', type=argparse.FileType('r'))
     parser.add_argument('output', type=argparse.FileType('w'))
-    parser.add_argument('alpha', type=float, nargs='?', default=0.00015)
+    parser.add_argument('alpha', type=float, nargs='?', default=0.0001)
     parser.add_argument('max_bins', type=int, nargs='?', default=32768)
     args = parser.parse_args()
 

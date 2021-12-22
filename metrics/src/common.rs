@@ -59,7 +59,7 @@ impl GaugeValue {
 ///
 /// While metrics do not necessarily need to be tied to a particular unit to be recorded, some
 /// downstream systems natively support defining units and so they can be specified during registration.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Unit {
     /// Count.
     Count,

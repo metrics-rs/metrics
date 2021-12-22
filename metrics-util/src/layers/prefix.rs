@@ -78,46 +78,60 @@ impl<R> Layer<R> for PrefixLayer {
 #[cfg(test)]
 mod tests {
     use super::PrefixLayer;
-    use crate::debugging::DebuggingRecorder;
     use crate::layers::Layer;
-    use metrics::{Recorder, Unit};
+    use crate::test_util::*;
+    use metrics::{Counter, Gauge, Histogram, Unit};
 
     #[test]
     fn test_basic_functionality() {
-        let recorder = DebuggingRecorder::new();
-        let snapshotter = recorder.snapshotter();
-        let prefix = PrefixLayer::new("testing");
-        let layered = prefix.layer(recorder);
-
-        let ckey = "counter_metric".into();
-        let gkey = "gauge_metric".into();
-        let hkey = "histogram_metric".into();
-
-        let before = snapshotter.snapshot().into_vec();
-        assert_eq!(before.len(), 0);
-
-        let ud = &[
-            (Unit::Nanoseconds, "counter desc"),
-            (Unit::Microseconds, "gauge desc"),
-            (Unit::Milliseconds, "histogram desc"),
+        let inputs = vec![
+            RecorderOperation::DescribeCounter(
+                "counter_key".into(),
+                Some(Unit::Count),
+                Some("counter desc"),
+            ),
+            RecorderOperation::DescribeGauge(
+                "gauge_key".into(),
+                Some(Unit::Bytes),
+                Some("gauge desc"),
+            ),
+            RecorderOperation::DescribeHistogram(
+                "histogram_key".into(),
+                Some(Unit::Nanoseconds),
+                Some("histogram desc"),
+            ),
+            RecorderOperation::RegisterCounter("counter_key".into(), Counter::noop()),
+            RecorderOperation::RegisterGauge("gauge_key".into(), Gauge::noop()),
+            RecorderOperation::RegisterHistogram("histogram_key".into(), Histogram::noop()),
         ];
 
-        let _ = layered.describe_counter(&ckey, Some(ud[0].0.clone()), Some(ud[0].1));
-        let _ = layered.register_counter(&ckey);
-        let _ = layered.describe_gauge(&gkey, Some(ud[1].0.clone()), Some(ud[1].1));
-        let _ = layered.register_gauge(&gkey);
-        let _ = layered.describe_histogram(&hkey, Some(ud[2].0.clone()), Some(ud[2].1));
-        let _ = layered.register_histogram(&hkey);
+        let expectations = vec![
+            RecorderOperation::DescribeCounter(
+                "testing.counter_key".into(),
+                Some(Unit::Count),
+                Some("counter desc"),
+            ),
+            RecorderOperation::DescribeGauge(
+                "testing.gauge_key".into(),
+                Some(Unit::Bytes),
+                Some("gauge desc"),
+            ),
+            RecorderOperation::DescribeHistogram(
+                "testing.histogram_key".into(),
+                Some(Unit::Nanoseconds),
+                Some("histogram desc"),
+            ),
+            RecorderOperation::RegisterCounter("testing.counter_key".into(), Counter::noop()),
+            RecorderOperation::RegisterGauge("testing.gauge_key".into(), Gauge::noop()),
+            RecorderOperation::RegisterHistogram("testing.histogram_key".into(), Histogram::noop()),
+        ];
 
-        let after = snapshotter.snapshot().into_vec();
-        assert_eq!(after.len(), 3);
+        let recorder = MockBasicRecorder::from_operations(expectations);
+        let prefix = PrefixLayer::new("testing");
+        let prefix = prefix.layer(recorder);
 
-        println!("foo: {:?}", after);
-
-        for (i, (key, unit, desc, _value)) in after.into_iter().enumerate() {
-            assert!(key.key().name().to_string().starts_with("testing"));
-            assert_eq!(Some(ud[i].0.clone()), unit);
-            assert_eq!(Some(ud[i].1), desc);
+        for operation in inputs {
+            operation.apply_to_recorder(&prefix);
         }
     }
 }
