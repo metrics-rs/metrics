@@ -12,6 +12,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     StatusCode, {Body, Error as HyperError, Response},
 };
+use indexmap::IndexMap;
 use parking_lot::RwLock;
 use quanta::Clock;
 #[cfg(feature = "tokio-exporter")]
@@ -46,7 +47,7 @@ pub struct PrometheusBuilder {
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
     recency_mask: MetricKindMask,
-    global_labels: Option<HashMap<String, String>>,
+    global_labels: Option<IndexMap<String, String>>,
 }
 
 impl PrometheusBuilder {
@@ -189,7 +190,7 @@ impl PrometheusBuilder {
         K: Into<String>,
         V: Into<String>,
     {
-        let labels = self.global_labels.get_or_insert_with(HashMap::new);
+        let labels = self.global_labels.get_or_insert_with(IndexMap::new);
         labels.insert(key.into(), value.into());
         self
     }
@@ -586,6 +587,25 @@ mod tests {
         let handle = recorder.handle();
         let rendered = handle.render();
         let expected_counter = "# TYPE overridden counter\noverridden{foo=\"overridden\"} 1\n\n";
+
+        assert_eq!(rendered, expected_counter);
+    }
+
+    #[test]
+    pub fn test_sanitized_render() {
+        let recorder = PrometheusBuilder::new()
+            .add_global_label("foo:", "foo")
+            .build();
+
+        let key = Key::from_name("yee_haw:lets go")
+            .with_extra_labels(vec![Label::new("øhno", "\"yeet\nies\\\"")]);
+        recorder.describe_counter(&key, None, Some("\"Simplë stuff.\nRëally.\""));
+        let counter1 = recorder.register_counter(&key);
+        counter1.increment(1);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected_counter = "# HELP yee_haw:lets_go \"Simplë stuff.\\nRëally.\"\n# TYPE yee_haw:lets_go counter\nyee_haw:lets_go{foo_=\"foo\",_hno=\"\\\"yeet\\nies\\\"\"} 1\n\n";
 
         assert_eq!(rendered, expected_counter);
     }
