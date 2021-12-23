@@ -2,13 +2,16 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
+use indexmap::IndexMap;
 use metrics_util::recency::{GenerationalPrimitives, Recency};
 use metrics_util::Registry;
 use parking_lot::RwLock;
 
 use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 
-use crate::common::{sanitize_key_name, Snapshot};
+use crate::common::{
+    sanitize_description, sanitize_label_key, sanitize_label_value, sanitize_metric_name, Snapshot,
+};
 use crate::distribution::{Distribution, DistributionBuilder};
 
 pub(crate) struct Inner {
@@ -17,7 +20,7 @@ pub(crate) struct Inner {
     pub distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, &'static str>>,
-    pub global_labels: HashMap<String, String>,
+    pub global_labels: IndexMap<String, String>,
 }
 
 impl Inner {
@@ -221,9 +224,10 @@ impl PrometheusRecorder {
 
     fn add_description_if_missing(&self, key: &Key, description: Option<&'static str>) {
         if let Some(description) = description {
+            let sanitized = sanitize_metric_name(key.name());
             let mut descriptions = self.inner.descriptions.write();
-            if !descriptions.contains_key(key.name().to_string().as_str()) {
-                descriptions.insert(key.name().to_string(), description);
+            if !descriptions.contains_key(&sanitized) {
+                descriptions.insert(sanitized, description);
             }
         }
     }
@@ -289,23 +293,15 @@ impl PrometheusHandle {
     }
 }
 
-fn key_to_parts(key: &Key, defaults: &HashMap<String, String>) -> (String, Vec<String>) {
-    let name = sanitize_key_name(key.name());
+fn key_to_parts(key: &Key, defaults: &IndexMap<String, String>) -> (String, Vec<String>) {
+    let name = sanitize_metric_name(key.name());
     let mut values = defaults.clone();
     key.labels().into_iter().for_each(|label| {
-        values.insert(label.key().into(), label.value().into());
+        values.insert(label.key().to_string(), label.value().to_string());
     });
     let labels = values
         .iter()
-        .map(|(k, v)| {
-            format!(
-                "{}=\"{}\"",
-                k,
-                v.replace('\\', "\\\\")
-                    .replace('"', "\\\"")
-                    .replace('\n', "\\n")
-            )
-        })
+        .map(|(k, v)| format!("{}=\"{}\"", sanitize_label_key(k), sanitize_label_value(v)))
         .collect();
 
     (name, labels)
@@ -315,7 +311,8 @@ fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
     buffer.push_str("# HELP ");
     buffer.push_str(name);
     buffer.push(' ');
-    buffer.push_str(desc);
+    let desc = sanitize_description(desc);
+    buffer.push_str(&desc);
     buffer.push('\n');
 }
 
