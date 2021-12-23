@@ -24,8 +24,9 @@ push-gateway = ["reqwest", "tracing", "tokio-exporter"]
 metrics = { version = "^0.17", path = "../metrics" }
 metrics-util = { version = "^0.10", path = "../metrics-util", default-features = false, features = ["recency", "registry", "summary"] }
 parking_lot = { version = "0.11", default-features = false }
-thiserror = { version = "1.0", default-features = false }
+thiserror = { version = "1", default-features = false }
 quanta = { version = "0.9.3", default-features = false }
+indexmap = { version = "1", default-features = false }
 
 # Optional
 hyper = { version = "0.14", default-features = false, features = ["server", "tcp", "http1"], optional = true }
@@ -38,6 +39,7 @@ tracing = { version = "0.1.26", optional = true }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 rand = "0.8"
+proptest = "1"
 
 [[example]]
 name = "prometheus_push_gateway"
