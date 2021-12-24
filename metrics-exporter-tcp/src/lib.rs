@@ -45,7 +45,7 @@
 //!
 //! [metrics]: https://docs.rs/metrics
 #![deny(missing_docs)]
-#![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
+#![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 use std::io::{self, Write};
 use std::net::SocketAddr;
 use std::sync::{

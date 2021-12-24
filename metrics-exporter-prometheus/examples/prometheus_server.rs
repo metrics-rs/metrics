@@ -34,7 +34,7 @@ fn main() {
         "The iterations of the TCP server event loop so far."
     );
     describe_histogram!(
-        "tcp_server_loop_delta_ns",
+        "tcp_server_loop_delta_secs",
         "The time taken for iterations of the TCP server event loop."
     );
 
@@ -50,7 +50,7 @@ fn main() {
 
         if let Some(t) = last {
             let delta: Duration = clock.now() - t;
-            histogram!("tcp_server_loop_delta_ns", delta, "system" => "foo");
+            histogram!("tcp_server_loop_delta_secs", delta, "system" => "foo");
         }
 
         let increment_gauge = thread_rng().gen_bool(0.75);

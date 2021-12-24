@@ -20,23 +20,16 @@ use rand::{thread_rng, Rng};
 fn main() {
     tracing_subscriber::fmt::init();
 
-    #[allow(unused_mut)]
-    let mut builder = PrometheusBuilder::new()
-        .disable_http_listener()
+    PrometheusBuilder::new()
+        .with_push_gateway(
+            "http://127.0.0.1:9091/metrics/job/example",
+            Duration::from_secs(10),
+        )
+        .expect("push gateway endpoint should be valid")
         .idle_timeout(
             MetricKindMask::COUNTER | MetricKindMask::HISTOGRAM,
             Some(Duration::from_secs(10)),
-        );
-
-    #[cfg(feature = "push-gateway")]
-    {
-        builder = builder.push_gateway_config(
-            "http://127.0.0.1:9091/metrics/job/example",
-            Duration::from_secs(10),
-        );
-    }
-
-    builder
+        )
         .install()
         .expect("failed to install Prometheus recorder");
 
@@ -51,7 +44,7 @@ fn main() {
         "The iterations of the TCP server event loop so far."
     );
     describe_histogram!(
-        "tcp_server_loop_delta_ns",
+        "tcp_server_loop_delta_secs",
         "The time taken for iterations of the TCP server event loop."
     );
 
@@ -67,7 +60,7 @@ fn main() {
 
         if let Some(t) = last {
             let delta: Duration = clock.now() - t;
-            histogram!("tcp_server_loop_delta_ns", delta, "system" => "foo");
+            histogram!("tcp_server_loop_delta_secs", delta, "system" => "foo");
         }
 
         let increment_gauge = thread_rng().gen_bool(0.75);
