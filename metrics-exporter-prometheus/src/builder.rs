@@ -257,7 +257,7 @@ impl PrometheusBuilder {
     /// histograms that match will be rendered as true Prometheus histograms, instead of summaries.
     ///
     /// This option changes the observer's output of histogram-type metric into summaries.
-    /// It only affects matching metrics if [`set_buckets`] was not used.
+    /// It only affects matching metrics if [`set_buckets`][Self::set_buckets] was not used.
     ///
     /// ## Errors
     ///

@@ -198,7 +198,8 @@ impl Inner {
 /// [`metrics::set_boxed_recorder`].
 ///
 /// Most users will not need to interact directly with the recorder, and can simply deal with the
-/// builder methods on [`PrometheusBuilder`] for building and installing the recorder/exporter.
+/// builder methods on [`PrometheusBuilder`](crate::PrometheusBuilder) for building and installing
+/// the recorder/exporter.
 pub struct PrometheusRecorder {
     inner: Arc<Inner>,
 }
