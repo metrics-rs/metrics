@@ -32,7 +32,7 @@ indexmap = { version = "1", default-features = false }
 # Optional
 hyper = { version = "0.14", default-features = false, features = ["tcp", "http1"], optional = true }
 ipnet = { version = "2", optional = true }
-tokio = { version = "1", features = ["rt", "net", "time", "macros"], optional = true }
+tokio = { version = "1", features = ["rt", "net", "time"], optional = true }
 tracing = { version = "0.1.26", optional = true }
 
 [dev-dependencies]
