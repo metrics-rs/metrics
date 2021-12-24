@@ -8,10 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+- New builder method, `PrometheusBuilder::install_recorder`, which builds and installs the
+  recorder and returns a `PrometheusHandle` that can be used to interact with the recorder.
+
 ### Changed
 - Updated various dependencies in order to properly scope dependencies to only the necessary feature
   flags, and thus optimize build times and reduce transitive dependencies.
 - Updated to the new handle-based design of `metrics`.
+- Renamed `tokio-exporter` feature flag to `http-listener`.
+- Renamed `PrometheusBuilder::build` to `build_recorder`.
+- Renamed `PrometheusBuilder::build_with_exporter` to `build`.
+- `InstallError` is now `BuildError`, and contains many more variants with hopefully) better error
+  messages for understanding when something went wrong.
+- Most builder methods are now fallible to help avoid runtime panics for invalid data given when
+  building, and to better surface this upfront to users.
 
 ### Fixed
 - Label keys and values, as well as metric descriptions, are now correctly sanitized according to

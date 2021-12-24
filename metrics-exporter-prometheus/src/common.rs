@@ -1,10 +1,9 @@
 use std::collections::HashMap;
-use std::io;
 
 use crate::distribution::Distribution;
 
 use metrics::SetRecorderError;
-use thiserror::Error as ThisError;
+use thiserror::Error;
 
 /// Matches a metric name in a specific way.
 ///
@@ -40,21 +39,39 @@ impl Matcher {
     }
 }
 
-/// Errors that could occur while installing a Prometheus recorder/exporter.
-#[derive(Debug, ThisError)]
-pub enum InstallError {
-    /// Creating the networking event loop did not succeed.
-    #[error("failed to spawn Tokio runtime for endpoint: {0}")]
-    Io(#[from] io::Error),
+/// Errors that could occur while building or installing a Prometheus recorder/exporter.
+#[derive(Debug, Error)]
+pub enum BuildError {
+    /// There was an issue when creating the necessary Tokio runtime to launch the exporter.
+    #[error("failed to create Tokio runtime for exporter: {0}")]
+    FailedToCreateRuntime(String),
 
-    /// Binding/listening to the given address did not succeed.
-    #[cfg(feature = "tokio-exporter")]
-    #[error("failed to bind to given listen address: {0}")]
-    Hyper(#[from] hyper::Error),
+    /// There was an issue when creating the HTTP listener.
+    #[error("failed to create HTTP listener: {0}")]
+    FailedToCreateHTTPListener(String),
 
     /// Installing the recorder did not succeed.
     #[error("failed to install exporter as global recorder: {0}")]
-    Recorder(#[from] SetRecorderError),
+    FailedToSetGlobalRecorder(#[from] SetRecorderError),
+
+    /// The given address could not be parsed successfully as an IP address/subnet.
+    #[error("failed to parse address as a valid IP address/subnet: {0}")]
+    InvalidAllowlistAddress(String),
+
+    /// The given push gateway endpoint is not a valid URI.
+    #[error("push gateway endpoint is not valid: {0}")]
+    InvalidPushGatewayEndpoint(String),
+
+    /// No exporter configuration was present.
+    ///
+    /// This generally only occurs when HTTP listener support is disabled, but no push gateway
+    /// configuration was give to the builder.
+    #[error("attempted to build exporter with no exporters enabled; did you disable default features and forget to enable either the `http-listener` or `push-gateway` features?")]
+    MissingExporterConfiguration,
+
+    /// Bucket bounds or quantiles were empty.
+    #[error("bucket bounds/quantiles cannot be empty")]
+    EmptyBucketsOrQuantiles,
 }
 
 pub struct Snapshot {
@@ -97,6 +114,7 @@ pub fn sanitize_label_key(key: &str) -> String {
     // The first character must be [a-zA-Z_], and all subsequent characters must be [a-zA-Z0-9_].
     key.replacen(invalid_label_key_start_character, "_", 1)
         .replace(invalid_label_key_character, "_")
+        .replacen("__", "___", 1)
 }
 
 pub fn sanitize_label_value(value: &str) -> String {
@@ -127,20 +145,17 @@ fn sanitize_label_value_or_descpiption(value: &str, is_desc: bool) -> String {
             // backslash, then we know this one has already been escaped, and we just emit the
             // escaped backslash.
             '\\' => {
-                if !previous_backslash {
-                    // Either we have a backslash as the first character of the label value, or we're in
-                    // the middle of the value and we're seeing this backslash, which might be on its
-                    // own or might be escaping the next character.
-                    //
-                    // We're not yet sure since we haven't seen the next character, so we hold on to
-                    // this backslash and (potentially) use it in the next iteration.
-                    previous_backslash = true;
-                } else {
+                if previous_backslash {
                     // This backslash was preceded by another backslash, so we can safely emit an
                     // escaped backslash.
-                    previous_backslash = false;
                     sanitized.push_str("\\\\");
                 }
+
+                // This may or may not be a backslash that is about to escape something else, so if
+                // we toggle the value here: if it was false, then we're marking ourselves as having
+                // seen a previous backslash (duh) or we just emitted an escaped backslash and now
+                // we're clearing the flag.
+                previous_backslash = !previous_backslash;
             }
             c => {
                 // If we had a backslash in holding, and we're here, we know it wasn't escaping
@@ -191,6 +206,7 @@ mod tests {
             (":", "_"),
             ("foo_bar", "foo_bar"),
             ("1foobar", "_foobar"),
+            ("__foobar", "___foobar"),
         ];
 
         for (input, expected) in cases {
@@ -258,6 +274,16 @@ mod tests {
             if let Some(c) = as_chars.first() {
                 assert_eq!(false, invalid_label_key_start_character(*c),
                     "first character of label key was not valid");
+            }
+
+            // Label keys cannot begin with two underscores, as that format is reserved for internal
+            // use.
+            if as_chars.len() == 2 {
+                assert!(!(as_chars[0] == '_' && as_chars[1] == '_'));
+            } else if as_chars.len() == 3 {
+                if as_chars[0] == '_' && as_chars[1] == '_' {
+                    assert_eq!(as_chars[2], '_');
+                }
             }
 
             assert!(!as_chars.iter().any(|c| invalid_label_key_character(*c)),

@@ -256,7 +256,7 @@
 //! [AtomicBucket]: https://docs.rs/metrics-util/0.5.0/metrics_util/struct.AtomicBucket.html
 //! [Handle]: https://docs.rs/metrics-util/0.5.0/metrics_util/enum.Handle.html
 #![deny(missing_docs)]
-#![cfg_attr(docsrs, feature(doc_cfg), deny(broken_intra_doc_links))]
+#![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 
 extern crate alloc;
 
