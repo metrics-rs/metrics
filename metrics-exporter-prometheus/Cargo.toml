@@ -6,7 +6,7 @@ edition = "2018"
 
 license = "MIT"
 
-description = "A metrics-compatible exporter that serves a Prometheus scrape endpoint."
+description = "A metrics-compatible exporter for sending metrics to Prometheus."
 homepage = "https://github.com/metrics-rs/metrics"
 repository = "https://github.com/metrics-rs/metrics"
 documentation = "https://docs.rs/metrics-exporter-prometheus"
@@ -16,9 +16,10 @@ categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "prometheus"]
 
 [features]
-default = ["tokio-exporter"]
-tokio-exporter = ["hyper", "ipnet", "tokio"]
-push-gateway = ["reqwest", "tracing", "tokio-exporter"]
+default = ["http-listener", "push-gateway"]
+async-runtime = ["tokio", "hyper"]
+http-listener = ["async-runtime", "hyper/server", "ipnet"]
+push-gateway = ["async-runtime", "hyper/client", "tracing"]
 
 [dependencies]
 metrics = { version = "^0.17", path = "../metrics" }
@@ -29,10 +30,9 @@ quanta = { version = "0.9.3", default-features = false }
 indexmap = { version = "1", default-features = false }
 
 # Optional
-hyper = { version = "0.14", default-features = false, features = ["server", "tcp", "http1"], optional = true }
+hyper = { version = "0.14", default-features = false, features = ["tcp", "http1"], optional = true }
 ipnet = { version = "2", optional = true }
-tokio = { version = "1.0", features = ["rt", "net", "time", "macros"], optional = true }
-reqwest = { version = "0.11.4", optional = true }
+tokio = { version = "1", features = ["rt", "net", "time", "macros"], optional = true }
 tracing = { version = "0.1.26", optional = true }
 
 [dev-dependencies]
@@ -47,4 +47,8 @@ required-features = ["push-gateway"]
 
 [[example]]
 name = "prometheus_server"
-required-features = ["tokio-exporter"]
+required-features = ["http-listener"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

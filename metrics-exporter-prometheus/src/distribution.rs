@@ -21,14 +21,14 @@ pub enum Distribution {
 }
 
 impl Distribution {
-    pub fn new_histogram(buckets: &[f64]) -> Option<Distribution> {
-        let hist = Histogram::new(buckets)?;
-        Some(Distribution::Histogram(hist))
+    pub fn new_histogram(buckets: &[f64]) -> Distribution {
+        let hist = Histogram::new(buckets).expect("buckets should never be empty");
+        Distribution::Histogram(hist)
     }
 
-    pub fn new_summary(quantiles: Arc<Vec<Quantile>>) -> Option<Distribution> {
+    pub fn new_summary(quantiles: Arc<Vec<Quantile>>) -> Distribution {
         let summary = Summary::with_defaults();
-        Some(Distribution::Summary(summary, quantiles, 0.0))
+        Distribution::Summary(summary, quantiles, 0.0)
     }
 
     pub fn record_samples(&mut self, samples: &[f64]) {
@@ -69,7 +69,7 @@ impl DistributionBuilder {
         }
     }
 
-    pub fn get_distribution(&self, name: &str) -> Option<Distribution> {
+    pub fn get_distribution(&self, name: &str) -> Distribution {
         if let Some(ref overrides) = self.bucket_overrides {
             for (matcher, buckets) in overrides.iter() {
                 if matcher.matches(name) {

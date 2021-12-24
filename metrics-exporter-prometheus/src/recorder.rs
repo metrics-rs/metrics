@@ -3,11 +3,10 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
+use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 use metrics_util::recency::{GenerationalPrimitives, Recency};
 use metrics_util::Registry;
 use parking_lot::RwLock;
-
-use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
 
 use crate::common::{
     sanitize_description, sanitize_label_key, sanitize_label_value, sanitize_metric_name, Snapshot,
@@ -24,19 +23,12 @@ pub(crate) struct Inner {
 }
 
 impl Inner {
-    pub(crate) fn registry(&self) -> &Registry<GenerationalPrimitives> {
-        &self.registry
-    }
-
     fn get_recent_metrics(&self) -> Snapshot {
         let mut counters = HashMap::new();
         let counter_handles = self.registry.get_counter_handles();
         for (key, counter) in counter_handles {
             let gen = counter.get_generation();
-            if !self
-                .recency
-                .should_store_counter(&key, gen, self.registry())
-            {
+            if !self.recency.should_store_counter(&key, gen, &self.registry) {
                 continue;
             }
 
@@ -54,7 +46,7 @@ impl Inner {
         let gauge_handles = self.registry.get_gauge_handles();
         for (key, gauge) in gauge_handles {
             let gen = gauge.get_generation();
-            if !self.recency.should_store_gauge(&key, gen, self.registry()) {
+            if !self.recency.should_store_gauge(&key, gen, &self.registry) {
                 continue;
             }
 
@@ -71,7 +63,7 @@ impl Inner {
         let histogram_handles = self.registry.get_histogram_handles();
         for (key, histogram) in histogram_handles {
             let gen = histogram.get_generation();
-            if !self.recency.should_store_gauge(&key, gen, self.registry()) {
+            if !self.recency.should_store_gauge(&key, gen, &self.registry) {
                 continue;
             }
 
@@ -82,11 +74,7 @@ impl Inner {
                 .entry(name.clone())
                 .or_insert_with(HashMap::new)
                 .entry(labels)
-                .or_insert_with(|| {
-                    self.distribution_builder
-                        .get_distribution(name.as_str())
-                        .expect("failed to create distribution")
-                });
+                .or_insert_with(|| self.distribution_builder.get_distribution(name.as_str()));
 
             histogram
                 .get_inner()
@@ -102,7 +90,7 @@ impl Inner {
         }
     }
 
-    pub fn render(&self) -> String {
+    fn render(&self) -> String {
         let Snapshot {
             mut counters,
             mut distributions,
@@ -209,7 +197,8 @@ impl Inner {
 /// This recorder should be composed with other recorders or installed globally via
 /// [`metrics::set_boxed_recorder`].
 ///
-///
+/// Most users will not need to interact directly with the recorder, and can simply deal with the
+/// builder methods on [`PrometheusBuilder`] for building and installing the recorder/exporter.
 pub struct PrometheusRecorder {
     inner: Arc<Inner>,
 }
@@ -226,9 +215,7 @@ impl PrometheusRecorder {
         if let Some(description) = description {
             let sanitized = sanitize_metric_name(key.name());
             let mut descriptions = self.inner.descriptions.write();
-            if !descriptions.contains_key(&sanitized) {
-                descriptions.insert(sanitized, description);
-            }
+            descriptions.entry(sanitized).or_insert(description);
         }
     }
 }
@@ -278,16 +265,20 @@ impl Recorder for PrometheusRecorder {
     }
 }
 
-/// Handle to [`PrometheusRecorder`].
+/// Handle for accessing metrics stored via [`PrometheusRecorder`].
 ///
-/// Useful for exposing a scrape endpoint on an existing HTTP/HTTPS server.
+/// In certain scenarios, it may be necessary to directly handle requests that would otherwise be
+/// handled directly by the HTTP listener, or push gateway background task.  [`PrometheusHandle`]
+/// allows rendering a snapshot of the current metrics stored by an installed [`PrometheusRecorder`]
+/// as a payload conforming to the Prometheus exposition format.
 #[derive(Clone)]
 pub struct PrometheusHandle {
     inner: Arc<Inner>,
 }
 
 impl PrometheusHandle {
-    /// Returns the metrics in Prometheus accepted String format.
+    /// Takes a snapshot of the metrics held by the recorder and generates a payload conforming to
+    /// the Prometheus exposition format.
     pub fn render(&self) -> String {
         self.inner.render()
     }
@@ -338,7 +329,7 @@ fn write_metric_line<T, T2>(
     buffer.push_str(name);
     if let Some(suffix) = suffix {
         buffer.push('_');
-        buffer.push_str(suffix)
+        buffer.push_str(suffix);
     }
 
     if !labels.is_empty() || additional_label.is_some() {
