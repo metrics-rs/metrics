@@ -6,14 +6,17 @@ use super::*;
 #[test]
 fn test_get_describe_code() {
     // Basic registration.
-    let stream = get_describe_code("mytype", parse_quote! { "mykeyname" }, None, None, None);
+    let stream = get_describe_code(
+        "mytype",
+        parse_quote! { "mykeyname" },
+        None,
+        parse_quote! { "a counter" },
+    );
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
-        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . describe_mytype (& METRIC_KEY , None , None) ; ",
+        "recorder . describe_mytype (\"mykeyname\" . into () , None , \"a counter\") ; ",
         "} ",
         "}",
     );
@@ -22,23 +25,20 @@ fn test_get_describe_code() {
 }
 
 #[test]
-fn test_get_describe_code_with_unit() {
+fn test_get_describe_code_with_qualified_unit() {
     // Now with unit.
     let units: ExprPath = parse_quote! { metrics::Unit::Nanoseconds };
     let stream = get_describe_code(
         "mytype",
         parse_quote! { "mykeyname" },
         Some(Expr::Path(units)),
-        None,
-        None,
+        parse_quote! { "a counter" },
     );
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
-        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . describe_mytype (& METRIC_KEY , Some (metrics :: Unit :: Nanoseconds) , None) ; ",
+        "recorder . describe_mytype (\"mykeyname\" . into () , Some (metrics :: Unit :: Nanoseconds) , \"a counter\") ; ",
         "} ",
         "}",
     );
@@ -47,47 +47,81 @@ fn test_get_describe_code_with_unit() {
 }
 
 #[test]
-fn test_get_describe_code_with_description() {
-    // And with description.
-    let stream = get_describe_code(
-        "mytype",
-        parse_quote! { "mykeyname" },
-        None,
-        Some(parse_quote! { "flerkin" }),
-        None,
-    );
-
-    let expected = concat!(
-        "{ ",
-        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
-        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
-        "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . describe_mytype (& METRIC_KEY , None , Some (\"flerkin\")) ; ",
-        "} ",
-        "}",
-    );
-
-    assert_eq!(stream.to_string(), expected);
-}
-
-#[test]
-fn test_get_describe_code_with_unit_and_description() {
-    // And with unit and description.
-    let units: ExprPath = parse_quote! { metrics::Unit::Nanoseconds };
+fn test_get_describe_code_with_relative_unit() {
+    // Now with unit.
+    let units: ExprPath = parse_quote! { Unit::Nanoseconds };
     let stream = get_describe_code(
         "mytype",
         parse_quote! { "mykeyname" },
         Some(Expr::Path(units)),
-        Some(parse_quote! { "flerkin" }),
-        None,
+        parse_quote! { "a counter" },
     );
 
     let expected = concat!(
         "{ ",
-        "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
-        "static METRIC_KEY : metrics :: Key = metrics :: Key :: from_static_name (METRIC_NAME) ; ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . describe_mytype (& METRIC_KEY , Some (metrics :: Unit :: Nanoseconds) , Some (\"flerkin\")) ; ",
+        "recorder . describe_mytype (\"mykeyname\" . into () , Some (Unit :: Nanoseconds) , \"a counter\") ; ",
+        "} ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_describe_code_with_constants() {
+    // Basic registration.
+    let stream =
+        get_describe_code("mytype", parse_quote! { KEY_NAME }, None, parse_quote! { COUNTER_DESC });
+
+    let expected = concat!(
+        "{ ",
+        "if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . describe_mytype (KEY_NAME . into () , None , COUNTER_DESC) ; ",
+        "} ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_describe_code_with_constants_and_with_qualified_unit() {
+    // Now with unit.
+    let units: ExprPath = parse_quote! { metrics::Unit::Nanoseconds };
+    let stream = get_describe_code(
+        "mytype",
+        parse_quote! { KEY_NAME },
+        Some(Expr::Path(units)),
+        parse_quote! { COUNTER_DESC },
+    );
+
+    let expected = concat!(
+        "{ ",
+        "if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . describe_mytype (KEY_NAME . into () , Some (metrics :: Unit :: Nanoseconds) , COUNTER_DESC) ; ",
+        "} ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
+fn test_get_describe_code_with_constants_and_with_relative_unit() {
+    // Now with unit.
+    let units: ExprPath = parse_quote! { Unit::Nanoseconds };
+    let stream = get_describe_code(
+        "mytype",
+        parse_quote! { KEY_NAME },
+        Some(Expr::Path(units)),
+        parse_quote! { COUNTER_DESC },
+    );
+
+    let expected = concat!(
+        "{ ",
+        "if let Some (recorder) = metrics :: try_recorder () { ",
+        "recorder . describe_mytype (KEY_NAME . into () , Some (Unit :: Nanoseconds) , COUNTER_DESC) ; ",
         "} ",
         "}",
     );

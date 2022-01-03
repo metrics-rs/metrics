@@ -8,7 +8,7 @@
 //! Here's an example of a layer that filters out all metrics that start with a specific string:
 //!
 //! ```rust
-//! # use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
+//! # use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
 //! # use metrics::NoopRecorder as BasicRecorder;
 //! # use metrics_util::layers::{Layer, Stack, PrefixLayer};
 //! // A simple layer that denies any metrics that have "stairway" or "heaven" in their name.
@@ -16,53 +16,63 @@
 //! pub struct StairwayDeny<R>(pub(crate) R);
 //!
 //! impl<R> StairwayDeny<R> {
-//!     fn is_invalid_key(&self, key: &Key) -> bool {
-//!         key.name().contains("stairway") || key.name().contains("heaven")
+//!     fn is_invalid_key(&self, key: &str) -> bool {
+//!         key.contains("stairway") || key.contains("heaven")
 //!     }
 //! }
 //!
 //! impl<R: Recorder> Recorder for StairwayDeny<R> {
-//!    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-//!        if self.is_invalid_key(&key) {
-//!            return;
-//!        }
-//!        self.0.describe_counter(key, unit, description)
-//!    }
+//!     fn describe_counter(
+//!         &self,
+//!         key_name: KeyName,
+//!         unit: Option<Unit>,
+//!         description: &'static str,
+//!     ) {
+//!         if self.is_invalid_key(key_name.as_str()) {
+//!             return;
+//!         }
+//!         self.0.describe_counter(key_name, unit, description)
+//!     }
 //!
-//!    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-//!        if self.is_invalid_key(&key) {
-//!            return;
-//!        }
-//!        self.0.describe_gauge(key, unit, description)
-//!    }
+//!     fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+//!         if self.is_invalid_key(key_name.as_str()) {
+//!             return;
+//!         }
+//!         self.0.describe_gauge(key_name, unit, description)
+//!     }
 //!
-//!    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-//!        if self.is_invalid_key(&key) {
-//!            return;
-//!        }
-//!        self.0.describe_histogram(key, unit, description)
-//!    }
+//!     fn describe_histogram(
+//!         &self,
+//!         key_name: KeyName,
+//!         unit: Option<Unit>,
+//!         description: &'static str,
+//!     ) {
+//!         if self.is_invalid_key(key_name.as_str()) {
+//!             return;
+//!         }
+//!         self.0.describe_histogram(key_name, unit, description)
+//!     }
 //!
-//!    fn register_counter(&self, key: &Key) -> Counter {
-//!        if self.is_invalid_key(&key) {
-//!            return Counter::noop()
-//!        }
-//!        self.0.register_counter(key)
-//!    }
+//!     fn register_counter(&self, key: &Key) -> Counter {
+//!         if self.is_invalid_key(key.name()) {
+//!             return Counter::noop();
+//!         }
+//!         self.0.register_counter(key)
+//!     }
 //!
-//!    fn register_gauge(&self, key: &Key) -> Gauge {
-//!        if self.is_invalid_key(&key) {
-//!            return Gauge::noop()
-//!        }
-//!        self.0.register_gauge(key)
-//!    }
+//!     fn register_gauge(&self, key: &Key) -> Gauge {
+//!         if self.is_invalid_key(key.name()) {
+//!             return Gauge::noop();
+//!         }
+//!         self.0.register_gauge(key)
+//!     }
 //!
-//!    fn register_histogram(&self, key: &Key) -> Histogram {
-//!        if self.is_invalid_key(&key) {
-//!            return Histogram::noop()
-//!        }
-//!        self.0.register_histogram(key)
-//!    }
+//!     fn register_histogram(&self, key: &Key) -> Histogram {
+//!         if self.is_invalid_key(key.name()) {
+//!             return Histogram::noop();
+//!         }
+//!         self.0.register_histogram(key)
+//!     }
 //! }
 //!
 //! #[derive(Default)]
@@ -88,21 +98,20 @@
 //!
 //! // Working with layers directly is a bit cumbersome, though, so let's use a `Stack`.
 //! let stack = Stack::new(BasicRecorder);
-//! stack.push(StairwayDenyLayer::default())
-//!     .install()
-//!     .expect("failed to install stack");
+//! stack.push(StairwayDenyLayer::default()).install().expect("failed to install stack");
 //!
 //! # metrics::clear_recorder();
 //!
 //! // `Stack` makes it easy to chain layers together, as well.
 //! let stack = Stack::new(BasicRecorder);
-//! stack.push(PrefixLayer::new("app_name"))
+//! stack
+//!     .push(PrefixLayer::new("app_name"))
 //!     .push(StairwayDenyLayer::default())
 //!     .install()
 //!     .expect("failed to install stack");
 //! # }
 //! ```
-use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
 
 use metrics::SetRecorderError;
 
@@ -158,16 +167,16 @@ impl<R: Recorder + 'static> Stack<R> {
 }
 
 impl<R: Recorder> Recorder for Stack<R> {
-    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        self.inner.describe_counter(key, unit, description);
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+        self.inner.describe_counter(key_name, unit, description);
     }
 
-    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        self.inner.describe_gauge(key, unit, description);
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+        self.inner.describe_gauge(key_name, unit, description);
     }
 
-    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        self.inner.describe_histogram(key, unit, description);
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+        self.inner.describe_histogram(key_name, unit, description);
     }
 
     fn register_counter(&self, key: &Key) -> Counter {

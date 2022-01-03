@@ -78,10 +78,8 @@ where
     metrics::clear_recorder();
     metrics::set_boxed_recorder(Box::new(recorder)).expect("failed to install recorder");
 
-    let test_guard = TestGuard {
-        _test_mutex_guard: test_mutex_guard,
-        _tracing_guard: tracing_guard,
-    };
+    let test_guard =
+        TestGuard { _test_mutex_guard: test_mutex_guard, _tracing_guard: tracing_guard };
     (test_guard, snapshotter)
 }
 

@@ -29,11 +29,7 @@ where
     pub fn owned(val: T::Owned) -> Self {
         let (ptr, meta) = T::owned_into_parts(val);
 
-        Cow {
-            ptr,
-            meta,
-            marker: PhantomData,
-        }
+        Cow { ptr, meta, marker: PhantomData }
     }
 }
 
@@ -45,11 +41,7 @@ where
     pub fn borrowed(val: &'a T) -> Self {
         let (ptr, meta) = T::ref_into_parts(val);
 
-        Cow {
-            ptr,
-            meta,
-            marker: PhantomData,
-        }
+        Cow { ptr, meta, marker: PhantomData }
     }
 
     #[inline]

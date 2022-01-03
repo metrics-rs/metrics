@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, Recorder, Unit};
+use metrics::{
+    Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, KeyName, Recorder, Unit,
+};
 
 struct FanoutCounter {
     counters: Vec<Counter>,
@@ -98,50 +100,40 @@ pub struct Fanout {
 }
 
 impl Recorder for Fanout {
-    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
         for recorder in &self.recorders {
-            recorder.describe_counter(key, unit.clone(), description);
+            recorder.describe_counter(key_name.clone(), unit.clone(), description);
         }
     }
 
-    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
         for recorder in &self.recorders {
-            recorder.describe_gauge(key, unit.clone(), description);
+            recorder.describe_gauge(key_name.clone(), unit.clone(), description);
         }
     }
 
-    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
         for recorder in &self.recorders {
-            recorder.describe_histogram(key, unit.clone(), description);
+            recorder.describe_histogram(key_name.clone(), unit.clone(), description);
         }
     }
 
     fn register_counter(&self, key: &Key) -> Counter {
-        let counters = self
-            .recorders
-            .iter()
-            .map(|recorder| recorder.register_counter(key))
-            .collect();
+        let counters =
+            self.recorders.iter().map(|recorder| recorder.register_counter(key)).collect();
 
         FanoutCounter::from_counters(counters).into()
     }
 
     fn register_gauge(&self, key: &Key) -> Gauge {
-        let gauges = self
-            .recorders
-            .iter()
-            .map(|recorder| recorder.register_gauge(key))
-            .collect();
+        let gauges = self.recorders.iter().map(|recorder| recorder.register_gauge(key)).collect();
 
         FanoutGauge::from_gauges(gauges).into()
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
-        let histograms = self
-            .recorders
-            .iter()
-            .map(|recorder| recorder.register_histogram(key))
-            .collect();
+        let histograms =
+            self.recorders.iter().map(|recorder| recorder.register_histogram(key)).collect();
 
         FanoutHistogram::from_histograms(histograms).into()
     }
@@ -167,9 +159,7 @@ impl FanoutBuilder {
 
     /// Builds the `Fanout` layer.
     pub fn build(self) -> Fanout {
-        Fanout {
-            recorders: self.recorders,
-        }
+        Fanout { recorders: self.recorders }
     }
 }
 
@@ -185,17 +175,13 @@ mod tests {
             RecorderOperation::DescribeCounter(
                 "counter_key".into(),
                 Some(Unit::Count),
-                Some("counter desc"),
+                "counter desc",
             ),
-            RecorderOperation::DescribeGauge(
-                "gauge_key".into(),
-                Some(Unit::Bytes),
-                Some("gauge desc"),
-            ),
+            RecorderOperation::DescribeGauge("gauge_key".into(), Some(Unit::Bytes), "gauge desc"),
             RecorderOperation::DescribeHistogram(
                 "histogram_key".into(),
                 Some(Unit::Nanoseconds),
-                Some("histogram desc"),
+                "histogram desc",
             ),
             RecorderOperation::RegisterCounter("counter_key".into(), Counter::noop()),
             RecorderOperation::RegisterGauge("gauge_key".into(), Gauge::noop()),
@@ -204,10 +190,8 @@ mod tests {
 
         let recorder1 = MockBasicRecorder::from_operations(operations.clone());
         let recorder2 = MockBasicRecorder::from_operations(operations.clone());
-        let fanout = FanoutBuilder::default()
-            .add_recorder(recorder1)
-            .add_recorder(recorder2)
-            .build();
+        let fanout =
+            FanoutBuilder::default().add_recorder(recorder1).add_recorder(recorder2).build();
 
         for operation in operations {
             operation.apply_to_recorder(&fanout);

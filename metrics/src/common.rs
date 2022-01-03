@@ -199,10 +199,7 @@ impl Unit {
 
     /// Whether or not this unit relates to the measurement of time.
     pub fn is_time_based(&self) -> bool {
-        matches!(
-            self,
-            Unit::Seconds | Unit::Milliseconds | Unit::Microseconds | Unit::Nanoseconds
-        )
+        matches!(self, Unit::Seconds | Unit::Milliseconds | Unit::Microseconds | Unit::Nanoseconds)
     }
 
     /// Whether or not this unit relates to the measurement of data.

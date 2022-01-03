@@ -18,7 +18,11 @@ fn main() {
     let clock = Clock::new();
     let mut last = None;
 
-    describe_histogram!("tcp_server_loop_delta_secs", Unit::Seconds);
+    describe_histogram!(
+        "tcp_server_loop_delta_secs",
+        Unit::Seconds,
+        "amount of time spent in the core server loop["
+    );
 
     loop {
         increment_counter!("tcp_server_loops", "system" => "foo");

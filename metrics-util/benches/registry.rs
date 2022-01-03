@@ -60,9 +60,7 @@ fn registry_benchmark(c: &mut Criterion) {
             Key::from_static_parts(&KEY_NAME, &LABELS)
         })
     });
-    group.bench_function("owned key overhead (basic)", |b| {
-        b.iter(|| Key::from_name("simple_key"))
-    });
+    group.bench_function("owned key overhead (basic)", |b| b.iter(|| Key::from_name("simple_key")));
     group.bench_function("owned key overhead (labels)", |b| {
         b.iter(|| {
             let key = "simple_key";

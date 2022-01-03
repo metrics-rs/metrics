@@ -1,6 +1,6 @@
 use crate::layers::Layer;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
-use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
 
 /// Filters and discards metrics matching certain name patterns.
 ///
@@ -11,49 +11,49 @@ pub struct Filter<R> {
 }
 
 impl<R> Filter<R> {
-    fn should_filter(&self, key: &Key) -> bool {
-        self.automaton.is_match(key.name())
+    fn should_filter(&self, key: &str) -> bool {
+        self.automaton.is_match(key)
     }
 }
 
 impl<R: Recorder> Recorder for Filter<R> {
-    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        if self.should_filter(key) {
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+        if self.should_filter(key_name.as_str()) {
             return;
         }
-        self.inner.describe_counter(key, unit, description)
+        self.inner.describe_counter(key_name, unit, description)
     }
 
-    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        if self.should_filter(key) {
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+        if self.should_filter(key_name.as_str()) {
             return;
         }
-        self.inner.describe_gauge(key, unit, description)
+        self.inner.describe_gauge(key_name, unit, description)
     }
 
-    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        if self.should_filter(key) {
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+        if self.should_filter(key_name.as_str()) {
             return;
         }
-        self.inner.describe_histogram(key, unit, description)
+        self.inner.describe_histogram(key_name, unit, description)
     }
 
     fn register_counter(&self, key: &Key) -> Counter {
-        if self.should_filter(key) {
+        if self.should_filter(key.name()) {
             return Counter::noop();
         }
         self.inner.register_counter(key)
     }
 
     fn register_gauge(&self, key: &Key) -> Gauge {
-        if self.should_filter(key) {
+        if self.should_filter(key.name()) {
             return Gauge::noop();
         }
         self.inner.register_gauge(key)
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
-        if self.should_filter(key) {
+        if self.should_filter(key.name()) {
             return Histogram::noop();
         }
         self.inner.register_histogram(key)
@@ -88,10 +88,7 @@ impl FilterLayer {
         I: AsRef<str>,
     {
         FilterLayer {
-            patterns: patterns
-                .into_iter()
-                .map(|s| s.as_ref().to_string())
-                .collect(),
+            patterns: patterns.into_iter().map(|s| s.as_ref().to_string()).collect(),
             case_insensitive: false,
             use_dfa: true,
         }
@@ -162,27 +159,27 @@ mod tests {
             RecorderOperation::DescribeCounter(
                 "tokio.loops".into(),
                 Some(Unit::Count),
-                Some("counter desc"),
+                "counter desc",
             ),
             RecorderOperation::DescribeGauge(
                 "hyper.bytes_read".into(),
                 Some(Unit::Bytes),
-                Some("gauge desc"),
+                "gauge desc",
             ),
             RecorderOperation::DescribeHistogram(
                 "hyper.response_latency".into(),
                 Some(Unit::Nanoseconds),
-                Some("histogram desc"),
+                "histogram desc",
             ),
             RecorderOperation::DescribeCounter(
                 "tokio.spurious_wakeups".into(),
                 Some(Unit::Count),
-                Some("counter desc"),
+                "counter desc",
             ),
             RecorderOperation::DescribeGauge(
                 "bb8.pooled_conns".into(),
                 Some(Unit::Count),
-                Some("gauge desc"),
+                "gauge desc",
             ),
             RecorderOperation::RegisterCounter("tokio.loops".into(), Counter::noop()),
             RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop()),
@@ -198,12 +195,12 @@ mod tests {
             RecorderOperation::DescribeGauge(
                 "hyper.bytes_read".into(),
                 Some(Unit::Bytes),
-                Some("gauge desc"),
+                "gauge desc",
             ),
             RecorderOperation::DescribeHistogram(
                 "hyper.response_latency".into(),
                 Some(Unit::Nanoseconds),
-                Some("histogram desc"),
+                "histogram desc",
             ),
             RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop()),
             RecorderOperation::RegisterHistogram(
@@ -227,27 +224,27 @@ mod tests {
             RecorderOperation::DescribeCounter(
                 "tokiO.loops".into(),
                 Some(Unit::Count),
-                Some("counter desc"),
+                "counter desc",
             ),
             RecorderOperation::DescribeGauge(
                 "hyper.bytes_read".into(),
                 Some(Unit::Bytes),
-                Some("gauge desc"),
+                "gauge desc",
             ),
             RecorderOperation::DescribeHistogram(
                 "hyper.response_latency".into(),
                 Some(Unit::Nanoseconds),
-                Some("histogram desc"),
+                "histogram desc",
             ),
             RecorderOperation::DescribeCounter(
                 "Tokio.spurious_wakeups".into(),
                 Some(Unit::Count),
-                Some("counter desc"),
+                "counter desc",
             ),
             RecorderOperation::DescribeGauge(
                 "bB8.pooled_conns".into(),
                 Some(Unit::Count),
-                Some("gauge desc"),
+                "gauge desc",
             ),
             RecorderOperation::RegisterCounter("tokiO.loops".into(), Counter::noop()),
             RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop()),
@@ -263,12 +260,12 @@ mod tests {
             RecorderOperation::DescribeGauge(
                 "hyper.bytes_read".into(),
                 Some(Unit::Bytes),
-                Some("gauge desc"),
+                "gauge desc",
             ),
             RecorderOperation::DescribeHistogram(
                 "hyper.response_latency".into(),
                 Some(Unit::Nanoseconds),
-                Some("histogram desc"),
+                "histogram desc",
             ),
             RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop()),
             RecorderOperation::RegisterHistogram(

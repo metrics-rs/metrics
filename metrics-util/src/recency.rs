@@ -63,10 +63,7 @@ pub struct Generational<T> {
 impl<T> Generational<T> {
     /// Creates a new `Generational<T>`.
     fn new(inner: T) -> Generational<T> {
-        Generational {
-            inner,
-            gen: Arc::new(AtomicUsize::new(0)),
-        }
+        Generational { inner, gen: Arc::new(AtomicUsize::new(0)) }
     }
 
     /// Gets a reference to the inner value.
@@ -188,11 +185,7 @@ impl Recency {
     /// Refer to the documentation for [`MetricKindMask`](crate::MetricKindMask) for more
     /// information on defining a metric kind mask.
     pub fn new(clock: Clock, mask: MetricKindMask, idle_timeout: Option<Duration>) -> Recency {
-        Recency {
-            mask,
-            inner: Mutex::new((clock, HashMap::new())),
-            idle_timeout,
-        }
+        Recency { mask, inner: Mutex::new((clock, HashMap::new())), idle_timeout }
     }
 
     /// Checks if the given counter should be stored, based on its known recency.
@@ -241,13 +234,9 @@ impl Recency {
         gen: Generation,
         registry: &Registry<GenerationalPrimitives>,
     ) -> bool {
-        self.should_store(
-            key,
-            gen,
-            registry,
-            MetricKind::Histogram,
-            |registry, key| registry.delete_histogram(key),
-        )
+        self.should_store(key, gen, registry, MetricKind::Histogram, |registry, key| {
+            registry.delete_histogram(key)
+        })
     }
 
     fn should_store<F>(
