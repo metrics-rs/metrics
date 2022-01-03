@@ -10,7 +10,7 @@ use std::sync::Arc;
 use metrics::{
     absolute_counter, counter, decrement_gauge, describe_counter, describe_gauge,
     describe_histogram, gauge, histogram, increment_counter, increment_gauge, register_counter,
-    register_gauge, register_histogram,
+    register_gauge, register_histogram, KeyName,
 };
 use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, Recorder, Unit};
 
@@ -50,24 +50,30 @@ impl HistogramFn for PrintHandle {
 struct PrintRecorder;
 
 impl Recorder for PrintRecorder {
-    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
         println!(
             "(counter) registered key {} with unit {:?} and description {:?}",
-            key, unit, description
+            key_name.as_str(),
+            unit,
+            description
         );
     }
 
-    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
         println!(
             "(gauge) registered key {} with unit {:?} and description {:?}",
-            key, unit, description
+            key_name.as_str(),
+            unit,
+            description
         );
     }
 
-    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
         println!(
             "(histogram) registered key {} with unit {:?} and description {:?}",
-            key, unit, description
+            key_name.as_str(),
+            unit,
+            description
         );
     }
 
@@ -98,15 +104,19 @@ fn main() {
 
     // Go through describing the metrics:
     describe_counter!("requests_processed", "number of requests processed");
-    describe_counter!("bytes_sent", Unit::Bytes);
-    describe_gauge!("connection_count", common_labels);
+    describe_counter!("bytes_sent", Unit::Bytes, "total number of bytes sent");
+    describe_gauge!("connection_count", "current number of client connections");
     describe_histogram!(
         "svc.execution_time",
         Unit::Milliseconds,
         "execution time of request handler"
     );
-    describe_gauge!("unused_gauge", "service" => "backend");
-    describe_histogram!("unused_histogram", Unit::Seconds, "unused histo", "service" => "middleware");
+    describe_gauge!("unused_gauge", "some gauge we'll never use in this program");
+    describe_histogram!(
+        "unused_histogram",
+        Unit::Seconds,
+        "some histogram we'll also never use in this program"
+    );
 
     // And registering them:
     let counter1 = register_counter!("test_counter");

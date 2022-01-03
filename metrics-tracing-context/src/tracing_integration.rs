@@ -108,14 +108,9 @@ where
 {
     /// Create a new `MetricsLayer`.
     pub fn new() -> Self {
-        let ctx = WithContext {
-            with_labels: Self::with_labels,
-        };
+        let ctx = WithContext { with_labels: Self::with_labels };
 
-        Self {
-            ctx,
-            _subscriber: PhantomData,
-        }
+        Self { ctx, _subscriber: PhantomData }
     }
 
     fn with_labels(
@@ -126,15 +121,10 @@ where
         let subscriber = dispatch
             .downcast_ref::<S>()
             .expect("subscriber should downcast to expected type; this is a bug!");
-        let span = subscriber
-            .span(id)
-            .expect("registry should have a span for the current ID");
+        let span = subscriber.span(id).expect("registry should have a span for the current ID");
 
-        let result = if let Some(labels) = span.extensions().get::<Labels>() {
-            f(labels)
-        } else {
-            None
-        };
+        let result =
+            if let Some(labels) = span.extensions().get::<Labels>() { f(labels) } else { None };
         result
     }
 }

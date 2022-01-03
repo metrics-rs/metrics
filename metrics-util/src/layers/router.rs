@@ -1,4 +1,4 @@
-use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
 use radix_trie::{Trie, TrieCommon};
 
 use crate::{MetricKind, MetricKindMask};
@@ -19,7 +19,7 @@ impl Router {
     fn route(
         &self,
         kind: MetricKind,
-        key: &Key,
+        key: &str,
         search_routes: &Trie<String, usize>,
     ) -> &dyn Recorder {
         // The global mask is essentially a Bloom filter of overridden route types.  If it doesn't
@@ -31,7 +31,7 @@ impl Router {
             // length of `targets` itself before adding a new target.  Ergo, the index is provably
             // populated if the `idx` has been stored.
             search_routes
-                .get_ancestor(key.name())
+                .get_ancestor(key)
                 .map(|st| unsafe { self.targets.get_unchecked(*st.value().unwrap()).as_ref() })
                 .unwrap_or_else(|| self.default.as_ref())
         }
@@ -39,33 +39,33 @@ impl Router {
 }
 
 impl Recorder for Router {
-    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        let target = self.route(MetricKind::Counter, key, &self.counter_routes);
-        target.describe_counter(key, unit, description)
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+        let target = self.route(MetricKind::Counter, key_name.as_str(), &self.counter_routes);
+        target.describe_counter(key_name, unit, description)
     }
 
-    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        let target = self.route(MetricKind::Gauge, key, &self.gauge_routes);
-        target.describe_gauge(key, unit, description)
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+        let target = self.route(MetricKind::Gauge, key_name.as_str(), &self.gauge_routes);
+        target.describe_gauge(key_name, unit, description)
     }
 
-    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        let target = self.route(MetricKind::Histogram, key, &self.histogram_routes);
-        target.describe_histogram(key, unit, description)
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+        let target = self.route(MetricKind::Histogram, key_name.as_str(), &self.histogram_routes);
+        target.describe_histogram(key_name, unit, description)
     }
 
     fn register_counter(&self, key: &Key) -> Counter {
-        let target = self.route(MetricKind::Counter, key, &self.counter_routes);
+        let target = self.route(MetricKind::Counter, key.name(), &self.counter_routes);
         target.register_counter(key)
     }
 
     fn register_gauge(&self, key: &Key) -> Gauge {
-        let target = self.route(MetricKind::Gauge, key, &self.gauge_routes);
+        let target = self.route(MetricKind::Gauge, key.name(), &self.gauge_routes);
         target.register_gauge(key)
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
-        let target = self.route(MetricKind::Histogram, key, &self.histogram_routes);
+        let target = self.route(MetricKind::Histogram, key.name(), &self.histogram_routes);
         target.register_histogram(key)
     }
 }
@@ -128,30 +128,18 @@ impl RouterBuilder {
 
         match mask {
             MetricKindMask::ALL => {
-                let _ = self
-                    .counter_routes
-                    .insert(pattern.as_ref().to_string(), target_idx);
-                let _ = self
-                    .gauge_routes
-                    .insert(pattern.as_ref().to_string(), target_idx);
-                let _ = self
-                    .histogram_routes
-                    .insert(pattern.as_ref().to_string(), target_idx);
+                let _ = self.counter_routes.insert(pattern.as_ref().to_string(), target_idx);
+                let _ = self.gauge_routes.insert(pattern.as_ref().to_string(), target_idx);
+                let _ = self.histogram_routes.insert(pattern.as_ref().to_string(), target_idx);
             }
             MetricKindMask::COUNTER => {
-                let _ = self
-                    .counter_routes
-                    .insert(pattern.as_ref().to_string(), target_idx);
+                let _ = self.counter_routes.insert(pattern.as_ref().to_string(), target_idx);
             }
             MetricKindMask::GAUGE => {
-                let _ = self
-                    .gauge_routes
-                    .insert(pattern.as_ref().to_string(), target_idx);
+                let _ = self.gauge_routes.insert(pattern.as_ref().to_string(), target_idx);
             }
             MetricKindMask::HISTOGRAM => {
-                let _ = self
-                    .histogram_routes
-                    .insert(pattern.as_ref().to_string(), target_idx);
+                let _ = self.histogram_routes.insert(pattern.as_ref().to_string(), target_idx);
             }
             _ => panic!("cannot add route for unknown or empty metric kind mask"),
         };
@@ -178,16 +166,16 @@ mod tests {
 
     use super::RouterBuilder;
     use crate::MetricKindMask;
-    use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
+    use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
 
     mock! {
         pub TestRecorder {
         }
 
         impl Recorder for TestRecorder {
-            fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
-            fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
-            fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>);
+            fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str);
+            fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str);
+            fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str);
             fn register_counter(&self, key: &Key) -> Counter;
             fn register_gauge(&self, key: &Key) -> Gauge;
             fn register_histogram(&self, key: &Key) -> Histogram;
@@ -201,16 +189,8 @@ mod tests {
         let mut builder = RouterBuilder::from_recorder(MockTestRecorder::new());
         builder
             .add_route(MetricKindMask::COUNTER, "foo", MockTestRecorder::new())
-            .add_route(
-                MetricKindMask::GAUGE,
-                "bar".to_owned(),
-                MockTestRecorder::new(),
-            )
-            .add_route(
-                MetricKindMask::HISTOGRAM,
-                Cow::Borrowed("baz"),
-                MockTestRecorder::new(),
-            )
+            .add_route(MetricKindMask::GAUGE, "bar".to_owned(), MockTestRecorder::new())
+            .add_route(MetricKindMask::HISTOGRAM, Cow::Borrowed("baz"), MockTestRecorder::new())
             .add_route(MetricKindMask::ALL, "quux", MockTestRecorder::new());
         let _ = builder.build();
     }
@@ -264,9 +244,11 @@ mod tests {
             .returning(|_| Histogram::noop());
 
         let mut builder = RouterBuilder::from_recorder(default_mock);
-        builder
-            .add_route(MetricKindMask::COUNTER, "counter_override", counter_mock)
-            .add_route(MetricKindMask::ALL, "all_override", all_mock);
+        builder.add_route(MetricKindMask::COUNTER, "counter_override", counter_mock).add_route(
+            MetricKindMask::ALL,
+            "all_override",
+            all_mock,
+        );
         let recorder = builder.build();
 
         let _ = recorder.register_counter(&default_counter);

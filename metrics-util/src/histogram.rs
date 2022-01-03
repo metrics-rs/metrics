@@ -26,12 +26,7 @@ impl Histogram {
 
         let buckets = vec![0u64; bounds.len()];
 
-        Some(Histogram {
-            count: 0,
-            bounds: Vec::from(bounds),
-            buckets,
-            sum: 0.0,
-        })
+        Some(Histogram { count: 0, bounds: Vec::from(bounds), buckets, sum: 0.0 })
     }
 
     /// Gets the sum of all samples.
@@ -49,11 +44,7 @@ impl Histogram {
     /// Buckets are tuples, where the first element is the bucket limit itself, and the second
     /// element is the count of samples in that bucket.
     pub fn buckets(&self) -> Vec<(f64, u64)> {
-        self.bounds
-            .iter()
-            .cloned()
-            .zip(self.buckets.iter().cloned())
-            .collect()
+        self.bounds.iter().cloned().zip(self.buckets.iter().cloned()).collect()
     }
 
     /// Records a single sample.

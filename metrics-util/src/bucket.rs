@@ -122,11 +122,7 @@ impl<T> Block<T> {
         //   it, ensuring no uninitialized access.
         unsafe {
             // Update the slot.
-            self.slots
-                .get_unchecked(index)
-                .assume_init_ref()
-                .get()
-                .write(value);
+            self.slots.get_unchecked(index).assume_init_ref().get().write(value);
         }
 
         // Scoot our read index forward.
@@ -149,11 +145,7 @@ impl<T> Drop for Block<T> {
         unsafe {
             let len = self.len();
             for i in 0..len {
-                self.slots
-                    .get_unchecked(i)
-                    .assume_init_ref()
-                    .get()
-                    .drop_in_place();
+                self.slots.get_unchecked(i).assume_init_ref().get().drop_in_place();
             }
         }
     }
@@ -198,9 +190,7 @@ pub struct AtomicBucket<T> {
 impl<T> AtomicBucket<T> {
     /// Creates a new, empty bucket.
     pub fn new() -> Self {
-        AtomicBucket {
-            tail: Atomic::null(),
-        }
+        AtomicBucket { tail: Atomic::null() }
     }
 
     /// Checks whether or not this bucket is empty.
@@ -434,9 +424,7 @@ impl<T> AtomicBucket<T> {
 
 impl<T> Default for AtomicBucket<T> {
     fn default() -> Self {
-        Self {
-            tail: Atomic::null(),
-        }
+        Self { tail: Atomic::null() }
     }
 }
 

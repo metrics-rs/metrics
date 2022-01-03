@@ -21,10 +21,7 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     PrometheusBuilder::new()
-        .with_push_gateway(
-            "http://127.0.0.1:9091/metrics/job/example",
-            Duration::from_secs(10),
-        )
+        .with_push_gateway("http://127.0.0.1:9091/metrics/job/example", Duration::from_secs(10))
         .expect("push gateway endpoint should be valid")
         .idle_timeout(
             MetricKindMask::COUNTER | MetricKindMask::HISTOGRAM,
@@ -39,10 +36,7 @@ fn main() {
     //
     // Registering metrics ahead of using them is not required, but is the only way to specify the
     // description of a metric.
-    describe_counter!(
-        "tcp_server_loops",
-        "The iterations of the TCP server event loop so far."
-    );
+    describe_counter!("tcp_server_loops", "The iterations of the TCP server event loop so far.");
     describe_histogram!(
         "tcp_server_loop_delta_secs",
         "The time taken for iterations of the TCP server event loop."

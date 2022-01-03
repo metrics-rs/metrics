@@ -82,26 +82,14 @@ where
     pub fn new() -> Self {
         let shard_count = std::cmp::max(1, num_cpus::get()).next_power_of_two();
         let shard_mask = shard_count - 1;
-        let counters = repeat(())
-            .take(shard_count)
-            .map(|_| RwLock::new(RegistryHashMap::default()))
-            .collect();
-        let gauges = repeat(())
-            .take(shard_count)
-            .map(|_| RwLock::new(RegistryHashMap::default()))
-            .collect();
-        let histograms = repeat(())
-            .take(shard_count)
-            .map(|_| RwLock::new(RegistryHashMap::default()))
-            .collect();
+        let counters =
+            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+        let gauges =
+            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+        let histograms =
+            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
 
-        Self {
-            counters,
-            gauges,
-            histograms,
-            shard_mask,
-            _primitives: PhantomData,
-        }
+        Self { counters, gauges, histograms, shard_mask, _primitives: PhantomData }
     }
 
     #[inline]
@@ -142,10 +130,7 @@ where
         // `self.shard_mask` is `self.histograms.len() - 1`, thus we can never have a result from
         // the masking operation that results in a value which is not in bounds of our subshards
         // vector.
-        let shard = unsafe {
-            self.histograms
-                .get_unchecked(hash as usize & self.shard_mask)
-        };
+        let shard = unsafe { self.histograms.get_unchecked(hash as usize & self.shard_mask) };
 
         (hash, shard)
     }
@@ -274,9 +259,7 @@ where
     pub fn delete_counter(&self, key: &Key) -> bool {
         let (hash, shard) = self.get_hash_and_shard_for_counter(key);
         let mut shard_write = shard.write();
-        let entry = shard_write
-            .raw_entry_mut()
-            .from_key_hashed_nocheck(hash, key);
+        let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
         if let RawEntryMut::Occupied(entry) = entry {
             let _ = entry.remove_entry();
             return true;
@@ -291,9 +274,7 @@ where
     pub fn delete_gauge(&self, key: &Key) -> bool {
         let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
         let mut shard_write = shard.write();
-        let entry = shard_write
-            .raw_entry_mut()
-            .from_key_hashed_nocheck(hash, key);
+        let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
         if let RawEntryMut::Occupied(entry) = entry {
             let _ = entry.remove_entry();
             return true;
@@ -308,9 +289,7 @@ where
     pub fn delete_histogram(&self, key: &Key) -> bool {
         let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
         let mut shard_write = shard.write();
-        let entry = shard_write
-            .raw_entry_mut()
-            .from_key_hashed_nocheck(hash, key);
+        let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
         if let RawEntryMut::Occupied(entry) = entry {
             let _ = entry.remove_entry();
             return true;
@@ -434,10 +413,8 @@ mod tests {
         let initial_entries = registry.get_counter_handles();
         assert_eq!(initial_entries.len(), 1);
 
-        let initial_entry: (Key, Arc<AtomicU64>) = initial_entries
-            .into_iter()
-            .next()
-            .expect("failed to get first entry");
+        let initial_entry: (Key, Arc<AtomicU64>) =
+            initial_entries.into_iter().next().expect("failed to get first entry");
 
         let (ikey, ivalue) = initial_entry;
         assert_eq!(ikey, key);
@@ -448,10 +425,8 @@ mod tests {
         let updated_entries = registry.get_counter_handles();
         assert_eq!(updated_entries.len(), 1);
 
-        let updated_entry: (Key, Arc<AtomicU64>) = updated_entries
-            .into_iter()
-            .next()
-            .expect("failed to get updated entry");
+        let updated_entry: (Key, Arc<AtomicU64>) =
+            updated_entries.into_iter().next().expect("failed to get updated entry");
 
         let (ukey, uvalue) = updated_entry;
         assert_eq!(ukey, key);

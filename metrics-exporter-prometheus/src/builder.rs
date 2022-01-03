@@ -64,10 +64,7 @@ enum ExporterConfig {
 }
 
 impl ExporterConfig {
-    #[cfg_attr(
-        not(any(feature = "http-listener", feature = "push-gateway")),
-        allow(dead_code)
-    )]
+    #[cfg_attr(not(any(feature = "http-listener", feature = "push-gateway")), allow(dead_code))]
     fn as_type_str(&self) -> &'static str {
         match self {
             #[cfg(feature = "http-listener")]
@@ -81,10 +78,7 @@ impl ExporterConfig {
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
 pub struct PrometheusBuilder {
-    #[cfg_attr(
-        not(any(feature = "http-listener", feature = "push-gateway")),
-        allow(dead_code)
-    )]
+    #[cfg_attr(not(any(feature = "http-listener", feature = "push-gateway")), allow(dead_code))]
     exporter_config: ExporterConfig,
     #[cfg(feature = "http-listener")]
     allowed_addresses: Option<Vec<IpNet>>,
@@ -134,9 +128,7 @@ impl PrometheusBuilder {
     #[cfg(feature = "http-listener")]
     #[cfg_attr(docsrs, doc(cfg(feature = "http-listener")))]
     pub fn with_http_listener(mut self, addr: impl Into<SocketAddr>) -> Self {
-        self.exporter_config = ExporterConfig::HttpListener {
-            listen_address: addr.into(),
-        };
+        self.exporter_config = ExporterConfig::HttpListener { listen_address: addr.into() };
         self
     }
 
@@ -292,11 +284,7 @@ impl PrometheusBuilder {
     /// information on defining a metric kind mask.
     pub fn idle_timeout(mut self, mask: MetricKindMask, timeout: Option<Duration>) -> Self {
         self.idle_timeout = timeout;
-        self.recency_mask = if self.idle_timeout.is_none() {
-            MetricKindMask::NONE
-        } else {
-            mask
-        };
+        self.recency_mask = if self.idle_timeout.is_none() { MetricKindMask::NONE } else { mask };
         self
     }
 
@@ -326,10 +314,7 @@ impl PrometheusBuilder {
     /// If there is an error while either building the recorder and exporter, or installing the
     /// recorder and exporter, an error variant will be returned describing the error.
     #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(any(feature = "http-listener", feature = "push-gateway")))
-    )]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
     pub fn install(self) -> Result<(), BuildError> {
         let recorder = if let Ok(handle) = runtime::Handle::try_current() {
             let (recorder, exporter) = {
@@ -341,10 +326,8 @@ impl PrometheusBuilder {
 
             recorder
         } else {
-            let thread_name = format!(
-                "metrics-exporter-prometheus-{}",
-                self.exporter_config.as_type_str()
-            );
+            let thread_name =
+                format!("metrics-exporter-prometheus-{}", self.exporter_config.as_type_str());
 
             let runtime = runtime::Builder::new_current_thread()
                 .enable_all()
@@ -402,10 +385,7 @@ impl PrometheusBuilder {
     /// If there is an error while building the recorder and exporter, an error variant will be
     /// returned describing the error.
     #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(any(feature = "http-listener", feature = "push-gateway")))
-    )]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
     #[cfg_attr(not(feature = "http-listener"), allow(unused_mut))]
     pub fn build(mut self) -> Result<(PrometheusRecorder, ExporterFuture), BuildError> {
         #[cfg(feature = "http-listener")]
@@ -428,9 +408,7 @@ impl PrometheusBuilder {
                         // If the allowlist is empty, the request is allowed.  Otherwise, it must
                         // match one of the entries in the allowlist or it will be denied.
                         let is_allowed = allowed_addresses.as_ref().map_or(true, |addresses| {
-                            addresses
-                                .iter()
-                                .any(|address| address.contains(&remote_addr))
+                            addresses.iter().any(|address| address.contains(&remote_addr))
                         });
 
                         let handle = handle.clone();
@@ -551,7 +529,7 @@ mod tests {
 
     use quanta::Clock;
 
-    use metrics::{Key, Label, Recorder};
+    use metrics::{Key, KeyName, Label, Recorder};
     use metrics_util::MetricKindMask;
 
     use super::{Matcher, PrometheusBuilder};
@@ -751,9 +729,7 @@ mod tests {
 
     #[test]
     pub fn test_global_labels_overrides() {
-        let recorder = PrometheusBuilder::new()
-            .add_global_label("foo", "foo")
-            .build_recorder();
+        let recorder = PrometheusBuilder::new().add_global_label("foo", "foo").build_recorder();
 
         let key =
             Key::from_name("overridden").with_extra_labels(vec![Label::new("foo", "overridden")]);
@@ -769,13 +745,12 @@ mod tests {
 
     #[test]
     pub fn test_sanitized_render() {
-        let recorder = PrometheusBuilder::new()
-            .add_global_label("foo:", "foo")
-            .build_recorder();
+        let recorder = PrometheusBuilder::new().add_global_label("foo:", "foo").build_recorder();
 
-        let key = Key::from_name("yee_haw:lets go")
+        let key_name = KeyName::from("yee_haw:lets go");
+        let key = Key::from_name(key_name.clone())
             .with_extra_labels(vec![Label::new("øhno", "\"yeet\nies\\\"")]);
-        recorder.describe_counter(&key, None, Some("\"Simplë stuff.\nRëally.\""));
+        recorder.describe_counter(key_name, None, "\"Simplë stuff.\nRëally.\"");
         let counter1 = recorder.register_counter(&key);
         counter1.increment(1);
 
