@@ -16,7 +16,7 @@ use crate::distribution::{Distribution, DistributionBuilder};
 pub(crate) struct Inner {
     pub registry: Registry<GenerationalPrimitives>,
     pub recency: Recency,
-    pub distributions: RwLock<HashMap<String, HashMap<Vec<String>, Distribution>>>,
+    pub distributions: RwLock<HashMap<String, IndexMap<Vec<String>, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, &'static str>>,
     pub global_labels: IndexMap<String, String>,
@@ -57,7 +57,25 @@ impl Inner {
         let histogram_handles = self.registry.get_histogram_handles();
         for (key, histogram) in histogram_handles {
             let gen = histogram.get_generation();
-            if !self.recency.should_store_gauge(&key, gen, &self.registry) {
+            if !self.recency.should_store_histogram(&key, gen, &self.registry) {
+                // Since we store aggregated distributions directly, when we're told that a metric
+                // is not recent enough and should be/was deleted from the registry, we also need to
+                // delete it on our side as well.
+                let (name, labels) = key_to_parts(&key, &self.global_labels);
+                let mut wg = self.distributions.write();
+                let delete_by_name = if let Some(by_name) = wg.get_mut(&name) {
+                    by_name.remove(&labels);
+                    by_name.is_empty()
+                } else {
+                    false
+                };
+
+                // If there's no more variants in the per-metric-name distribution map, then delete
+                // it entirely, otherwise we end up with weird empty output during render.
+                if delete_by_name {
+                    wg.remove(&name);
+                }
+
                 continue;
             }
 
@@ -66,7 +84,7 @@ impl Inner {
             let mut wg = self.distributions.write();
             let entry = wg
                 .entry(name.clone())
-                .or_insert_with(HashMap::new)
+                .or_insert_with(IndexMap::new)
                 .entry(labels)
                 .or_insert_with(|| self.distribution_builder.get_distribution(name.as_str()));
 
@@ -115,7 +133,7 @@ impl Inner {
 
             let distribution_type = self.distribution_builder.get_distribution_type(name.as_str());
             write_type_line(&mut output, name.as_str(), distribution_type);
-            for (labels, distribution) in by_labels.drain() {
+            for (labels, distribution) in by_labels.drain(..) {
                 let (sum, count) = match distribution {
                     Distribution::Summary(summary, quantiles, sum) => {
                         for quantile in quantiles.iter() {

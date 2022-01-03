@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::distribution::Distribution;
 
+use indexmap::IndexMap;
 use metrics::SetRecorderError;
 use thiserror::Error;
 
@@ -77,7 +78,7 @@ pub enum BuildError {
 pub struct Snapshot {
     pub counters: HashMap<String, HashMap<Vec<String>, u64>>,
     pub gauges: HashMap<String, HashMap<Vec<String>, f64>>,
-    pub distributions: HashMap<String, HashMap<Vec<String>, Distribution>>,
+    pub distributions: HashMap<String, IndexMap<Vec<String>, Distribution>>,
 }
 
 #[inline]
