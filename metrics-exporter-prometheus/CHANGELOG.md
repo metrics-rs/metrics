@@ -23,13 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   messages for understanding when something went wrong.
 - Most builder methods are now fallible to help avoid runtime panics for invalid data given when
   building, and to better surface this upfront to users.
+- Rendered output for histograms is now stable, based on the order in which a given key
+  (name/labels) was recorded.
 
 ### Fixed
 - Label keys and values, as well as metric descriptions, are now correctly sanitized according to
   the Prometheus [data model](https://prometheus.io/docs/concepts/data_model/) and [exposition
   format](https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md).
   ([#248](https://github.com/metrics-rs/metrics/issues/248))
-- Metric descriptions are correctly mapped to metrics whose names have been modified during sanitization.
+- Metric descriptions are correctly mapped to metrics whose names have been modified during
+  sanitization.
+- Histograms are now correctly removed when they exceed the idle timeout.
 
 ## [0.7.0] - 2021-12-16
 

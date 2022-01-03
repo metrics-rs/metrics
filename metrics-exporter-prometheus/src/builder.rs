@@ -673,11 +673,11 @@ mod tests {
     }
 
     #[test]
-    fn test_idle_timeout() {
+    fn test_idle_timeout_all() {
         let (clock, mock) = Clock::mock();
 
         let recorder = PrometheusBuilder::new()
-            .idle_timeout(MetricKindMask::COUNTER, Some(Duration::from_secs(10)))
+            .idle_timeout(MetricKindMask::ALL, Some(Duration::from_secs(10)))
             .build_with_clock(clock);
 
         let key = Key::from_name("basic_counter");
@@ -688,6 +688,10 @@ mod tests {
         let gauge1 = recorder.register_gauge(&key);
         gauge1.set(-3.14);
 
+        let key = Key::from_name("basic_histogram");
+        let histo1 = recorder.register_histogram(&key);
+        histo1.record(1.0);
+
         let handle = recorder.handle();
         let rendered = handle.render();
         let expected = concat!(
@@ -695,6 +699,69 @@ mod tests {
             "basic_counter 42\n\n",
             "# TYPE basic_gauge gauge\n",
             "basic_gauge -3.14\n\n",
+            "# TYPE basic_histogram summary\n",
+            "basic_histogram{quantile=\"0\"} 1\n",
+            "basic_histogram{quantile=\"0.5\"} 1\n",
+            "basic_histogram{quantile=\"0.9\"} 1\n",
+            "basic_histogram{quantile=\"0.95\"} 1\n",
+            "basic_histogram{quantile=\"0.99\"} 1\n",
+            "basic_histogram{quantile=\"0.999\"} 1\n",
+            "basic_histogram{quantile=\"1\"} 1\n",
+            "basic_histogram_sum 1\n",
+            "basic_histogram_count 1\n\n",
+        );
+
+        assert_eq!(rendered, expected);
+
+        mock.increment(Duration::from_secs(9));
+        let rendered = handle.render();
+        assert_eq!(rendered, expected);
+
+        mock.increment(Duration::from_secs(2));
+        let rendered = handle.render();
+        assert_eq!(rendered, "");
+    }
+
+    #[test]
+    fn test_idle_timeout_partial() {
+        let (clock, mock) = Clock::mock();
+
+        let recorder = PrometheusBuilder::new()
+            .idle_timeout(
+                MetricKindMask::COUNTER | MetricKindMask::HISTOGRAM,
+                Some(Duration::from_secs(10)),
+            )
+            .build_with_clock(clock);
+
+        let key = Key::from_name("basic_counter");
+        let counter1 = recorder.register_counter(&key);
+        counter1.increment(42);
+
+        let key = Key::from_name("basic_gauge");
+        let gauge1 = recorder.register_gauge(&key);
+        gauge1.set(-3.14);
+
+        let key = Key::from_name("basic_histogram");
+        let histo1 = recorder.register_histogram(&key);
+        histo1.record(1.0);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# TYPE basic_counter counter\n",
+            "basic_counter 42\n\n",
+            "# TYPE basic_gauge gauge\n",
+            "basic_gauge -3.14\n\n",
+            "# TYPE basic_histogram summary\n",
+            "basic_histogram{quantile=\"0\"} 1\n",
+            "basic_histogram{quantile=\"0.5\"} 1\n",
+            "basic_histogram{quantile=\"0.9\"} 1\n",
+            "basic_histogram{quantile=\"0.95\"} 1\n",
+            "basic_histogram{quantile=\"0.99\"} 1\n",
+            "basic_histogram{quantile=\"0.999\"} 1\n",
+            "basic_histogram{quantile=\"1\"} 1\n",
+            "basic_histogram_sum 1\n",
+            "basic_histogram_count 1\n\n",
         );
 
         assert_eq!(rendered, expected);
@@ -708,6 +775,101 @@ mod tests {
 
         let expected = "# TYPE basic_gauge gauge\nbasic_gauge -3.14\n\n";
         assert_eq!(rendered, expected);
+    }
+
+    #[test]
+    fn test_idle_timeout_staggered_distributions() {
+        let (clock, mock) = Clock::mock();
+
+        let recorder = PrometheusBuilder::new()
+            .idle_timeout(MetricKindMask::ALL, Some(Duration::from_secs(10)))
+            .build_with_clock(clock);
+
+        let key = Key::from_name("basic_counter");
+        let counter1 = recorder.register_counter(&key);
+        counter1.increment(42);
+
+        let key = Key::from_name("basic_gauge");
+        let gauge1 = recorder.register_gauge(&key);
+        gauge1.set(-3.14);
+
+        let key = Key::from_name("basic_histogram");
+        let histo1 = recorder.register_histogram(&key);
+        histo1.record(1.0);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# TYPE basic_counter counter\n",
+            "basic_counter 42\n\n",
+            "# TYPE basic_gauge gauge\n",
+            "basic_gauge -3.14\n\n",
+            "# TYPE basic_histogram summary\n",
+            "basic_histogram{quantile=\"0\"} 1\n",
+            "basic_histogram{quantile=\"0.5\"} 1\n",
+            "basic_histogram{quantile=\"0.9\"} 1\n",
+            "basic_histogram{quantile=\"0.95\"} 1\n",
+            "basic_histogram{quantile=\"0.99\"} 1\n",
+            "basic_histogram{quantile=\"0.999\"} 1\n",
+            "basic_histogram{quantile=\"1\"} 1\n",
+            "basic_histogram_sum 1\n",
+            "basic_histogram_count 1\n\n",
+        );
+
+        assert_eq!(rendered, expected);
+
+        mock.increment(Duration::from_secs(9));
+        let rendered = handle.render();
+        assert_eq!(rendered, expected);
+
+        let key = Key::from_parts("basic_histogram", vec![Label::new("type", "special")]);
+        let histo2 = recorder.register_histogram(&key);
+        histo2.record(2.0);
+
+        let expected_second = concat!(
+            "# TYPE basic_counter counter\n",
+            "basic_counter 42\n\n",
+            "# TYPE basic_gauge gauge\n",
+            "basic_gauge -3.14\n\n",
+            "# TYPE basic_histogram summary\n",
+            "basic_histogram{quantile=\"0\"} 1\n",
+            "basic_histogram{quantile=\"0.5\"} 1\n",
+            "basic_histogram{quantile=\"0.9\"} 1\n",
+            "basic_histogram{quantile=\"0.95\"} 1\n",
+            "basic_histogram{quantile=\"0.99\"} 1\n",
+            "basic_histogram{quantile=\"0.999\"} 1\n",
+            "basic_histogram{quantile=\"1\"} 1\n",
+            "basic_histogram_sum 1\n",
+            "basic_histogram_count 1\n",
+            "basic_histogram{type=\"special\",quantile=\"0\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"0.5\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"0.9\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"0.95\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"0.99\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"0.999\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"1\"} 2\n",
+            "basic_histogram_sum{type=\"special\"} 2\n",
+            "basic_histogram_count{type=\"special\"} 1\n\n",
+        );
+        let rendered = handle.render();
+        assert_eq!(rendered, expected_second);
+
+        let expected_after = concat!(
+            "# TYPE basic_histogram summary\n",
+            "basic_histogram{type=\"special\",quantile=\"0\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"0.5\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"0.9\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"0.95\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"0.99\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"0.999\"} 2\n",
+            "basic_histogram{type=\"special\",quantile=\"1\"} 2\n",
+            "basic_histogram_sum{type=\"special\"} 2\n",
+            "basic_histogram_count{type=\"special\"} 1\n\n",
+        );
+
+        mock.increment(Duration::from_secs(2));
+        let rendered = handle.render();
+        assert_eq!(rendered, expected_after);
     }
 
     #[test]
