@@ -56,11 +56,7 @@ impl Client {
             })
         };
 
-        Client {
-            state,
-            metrics,
-            metadata,
-        }
+        Client { state, metrics, metadata }
     }
 
     pub fn state(&self) -> ClientState {
@@ -107,13 +103,7 @@ impl Runner {
         metrics: Arc<RwLock<BTreeMap<CompositeKey, MetricData>>>,
         metadata: Arc<RwLock<HashMap<(MetricKind, String), (Option<Unit>, Option<String>)>>>,
     ) -> Runner {
-        Runner {
-            state: RunnerState::Disconnected,
-            addr,
-            client_state: state,
-            metrics,
-            metadata,
-        }
+        Runner { state: RunnerState::Disconnected, addr, client_state: state, metrics, metadata }
     }
 
     pub fn run(&mut self) {

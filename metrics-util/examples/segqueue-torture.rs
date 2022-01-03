@@ -14,10 +14,7 @@ use tracing::{error, info};
 const COUNTER_LOOP: usize = 1024;
 
 fn main() {
-    tracing_subscriber::fmt()
-        .with_ansi(true)
-        .with_level(true)
-        .init();
+    tracing_subscriber::fmt().with_ansi(true).with_level(true).init();
 
     let args: Vec<String> = env::args().collect();
     let program = &args[0];
@@ -45,11 +42,7 @@ fn main() {
         .parse()
         .map(Duration::from_secs)
         .unwrap_or(Duration::from_secs(60));
-    let producers = matches
-        .opt_str("producers")
-        .unwrap_or_else(|| "1".to_owned())
-        .parse()
-        .unwrap();
+    let producers = matches.opt_str("producers").unwrap_or_else(|| "1".to_owned()).parse().unwrap();
 
     info!("duration: {:?}", duration);
     info!("producers: {}", producers);
@@ -95,14 +88,8 @@ fn main() {
             let ptotal = producer_total.load(Ordering::SeqCst);
             let pcounter = producer_counter.load(Ordering::SeqCst);
 
-            println!(
-                "Producer(s) reported: {} total, with {} values produced",
-                ptotal, pcounter
-            );
-            println!(
-                "Consumer reported:    {} total, with {} values consumed",
-                ctotal, ccounter
-            );
+            println!("Producer(s) reported: {} total, with {} values produced", ptotal, pcounter);
+            println!("Consumer reported:    {} total, with {} values consumed", ctotal, ccounter);
         }
     }
 }
@@ -178,12 +165,7 @@ fn print_usage(program: &str, opts: &Options) {
 pub fn opts() -> Options {
     let mut opts = Options::new();
 
-    opts.optopt(
-        "d",
-        "duration",
-        "number of seconds to run the crusher test",
-        "INTEGER",
-    );
+    opts.optopt("d", "duration", "number of seconds to run the crusher test", "INTEGER");
     opts.optopt("p", "producers", "number of producers", "INTEGER");
     opts.optflag("h", "help", "print this help menu");
 

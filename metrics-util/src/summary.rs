@@ -138,19 +138,14 @@ impl Summary {
         if rank < ncount {
             // Quantile lands in the negative side.
             let nq = 1.0 - (rank as f64 / ncount as f64);
-            self.negative
-                .quantile(nq)
-                .expect("quantile should be valid at this point")
-                .map(|v| -v)
+            self.negative.quantile(nq).expect("quantile should be valid at this point").map(|v| -v)
         } else if rank >= ncount && rank < (ncount + zcount) {
             // Quantile lands in the zero band.
             Some(0.0)
         } else {
             // Quantile lands in the positive side.
             let pq = (rank - (ncount + zcount)) as f64 / pcount as f64;
-            self.positive
-                .quantile(pq)
-                .expect("quantile should be valid at this point")
+            self.positive.quantile(pq).expect("quantile should be valid at this point")
         }
     }
 
@@ -229,15 +224,9 @@ mod tests {
         assert_eq!(summary.count(), 3);
         assert_relative_eq!(summary.min(), -420.42);
         assert_relative_eq!(summary.max(), 420.42);
-        assert_abs_diff_eq!(
-            summary.quantile(0.4999999999).expect("value should exist"),
-            -420.42
-        );
+        assert_abs_diff_eq!(summary.quantile(0.4999999999).expect("value should exist"), -420.42);
         assert_abs_diff_eq!(summary.quantile(0.5).expect("value should exist"), 42.42);
-        assert_abs_diff_eq!(
-            summary.quantile(0.9999999999).expect("value should exist"),
-            42.42
-        );
+        assert_abs_diff_eq!(summary.quantile(0.9999999999).expect("value should exist"), 42.42);
     }
 
     #[test]
@@ -265,13 +254,8 @@ mod tests {
             let aval_raw = true_histogram
                 .quantile_axis_mut(Axis(0), n64(*quantile), &Linear)
                 .expect("quantile should be in range");
-            let aval = aval_raw
-                .get(())
-                .expect("quantile value should be present")
-                .into_inner();
-            let sval = summary
-                .quantile(*quantile)
-                .expect("quantile value should be present");
+            let aval = aval_raw.get(()).expect("quantile value should be present").into_inner();
+            let sval = summary.quantile(*quantile).expect("quantile value should be present");
 
             // Multiply the true value by α, and double it to account from the -α/α swing.
             let distance = (aval * alpha) * 2.0;
@@ -307,13 +291,8 @@ mod tests {
             let aval_raw = true_histogram
                 .quantile_axis_mut(Axis(0), n64(*quantile), &Linear)
                 .expect("quantile should be in range");
-            let aval = aval_raw
-                .get(())
-                .expect("quantile value should be present")
-                .into_inner();
-            let sval = summary
-                .quantile(*quantile)
-                .expect("quantile value should be present");
+            let aval = aval_raw.get(()).expect("quantile value should be present").into_inner();
+            let sval = summary.quantile(*quantile).expect("quantile value should be present");
 
             // Multiply the true value by α, and quadruple it to account from the -α/α swing,
             // but also to account for the values sitting at the edge case quantiles.

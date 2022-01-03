@@ -4,7 +4,7 @@ use hdrhistogram::Histogram as HdrHistogram;
 use log::{error, info};
 use metrics::{
     gauge, histogram, increment_counter, register_counter, register_gauge, register_histogram,
-    Counter, Gauge, Histogram, Key, Recorder, Unit,
+    Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit,
 };
 use metrics_util::{Registry, StandardPrimitives};
 use quanta::{Clock, Instant as QuantaInstant};
@@ -47,16 +47,12 @@ pub struct BenchmarkingRecorder {
 impl BenchmarkingRecorder {
     /// Creates a new `BenchmarkingRecorder`.
     pub fn new() -> BenchmarkingRecorder {
-        BenchmarkingRecorder {
-            registry: Arc::new(Registry::new()),
-        }
+        BenchmarkingRecorder { registry: Arc::new(Registry::new()) }
     }
 
     /// Gets a `Controller` attached to this recorder.
     pub fn controller(&self) -> Controller {
-        Controller {
-            registry: self.registry.clone(),
-        }
+        Controller { registry: self.registry.clone() }
     }
 
     /// Installs this recorder as the global recorder.
@@ -66,31 +62,22 @@ impl BenchmarkingRecorder {
 }
 
 impl Recorder for BenchmarkingRecorder {
-    fn describe_counter(&self, key: &Key, _: Option<Unit>, _: Option<&'static str>) {
-        self.registry.get_or_create_counter(key, |_| {})
-    }
+    fn describe_counter(&self, _: KeyName, _: Option<Unit>, _: &'static str) {}
 
-    fn describe_gauge(&self, key: &Key, _: Option<Unit>, _: Option<&'static str>) {
-        self.registry.get_or_create_gauge(key, |_| {})
-    }
+    fn describe_gauge(&self, _: KeyName, _: Option<Unit>, _: &'static str) {}
 
-    fn describe_histogram(&self, key: &Key, _: Option<Unit>, _: Option<&'static str>) {
-        self.registry.get_or_create_histogram(key, |_| {})
-    }
+    fn describe_histogram(&self, _: KeyName, _: Option<Unit>, _: &'static str) {}
 
     fn register_counter(&self, key: &Key) -> Counter {
-        self.registry
-            .get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
+        self.registry.get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
     }
 
     fn register_gauge(&self, key: &Key) -> Gauge {
-        self.registry
-            .get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
+        self.registry.get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
-        self.registry
-            .get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
+        self.registry.get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
     }
 }
 
@@ -131,11 +118,7 @@ impl Generator {
             let t1 = clock.recent();
 
             if let Some(t0) = self.t0 {
-                let start = if loop_counter % LOOP_SAMPLE == 0 {
-                    Some(clock.now())
-                } else {
-                    None
-                };
+                let start = if loop_counter % LOOP_SAMPLE == 0 { Some(clock.now()) } else { None };
 
                 increment_counter!("ok");
                 gauge!("total", self.gauge as f64);
@@ -146,8 +129,7 @@ impl Generator {
                     self.hist.saturating_record(delta.as_nanos() as u64);
 
                     // We also increment our global counter for the sample rate here.
-                    self.rate_counter
-                        .fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
+                    self.rate_counter.fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
 
                     if self.done.load(Ordering::Relaxed) {
                         break;
@@ -175,11 +157,7 @@ impl Generator {
             let t1 = clock.recent();
 
             if let Some(t0) = self.t0 {
-                let start = if loop_counter % LOOP_SAMPLE == 0 {
-                    Some(clock.now())
-                } else {
-                    None
-                };
+                let start = if loop_counter % LOOP_SAMPLE == 0 { Some(clock.now()) } else { None };
 
                 counter.increment(1);
                 gauge.set(self.gauge as f64);
@@ -190,8 +168,7 @@ impl Generator {
                     self.hist.saturating_record(delta.as_nanos() as u64);
 
                     // We also increment our global counter for the sample rate here.
-                    self.rate_counter
-                        .fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
+                    self.rate_counter.fetch_add(LOOP_SAMPLE * 3, Ordering::AcqRel);
 
                     if self.done.load(Ordering::Relaxed) {
                         break;
@@ -226,12 +203,7 @@ fn print_usage(program: &str, opts: &Options) {
 pub fn opts() -> Options {
     let mut opts = Options::new();
 
-    opts.optopt(
-        "d",
-        "duration",
-        "number of seconds to run the benchmark",
-        "INTEGER",
-    );
+    opts.optopt("d", "duration", "number of seconds to run the benchmark", "INTEGER");
     opts.optopt(
         "m",
         "mode",
@@ -267,25 +239,11 @@ fn main() {
     info!("metrics benchmark");
 
     // Build our sink and configure the facets.
-    let seconds = matches
-        .opt_str("duration")
-        .unwrap_or_else(|| "60".to_owned())
-        .parse()
-        .unwrap();
-    let producers = matches
-        .opt_str("producers")
-        .unwrap_or_else(|| "1".to_owned())
-        .parse()
-        .unwrap();
+    let seconds = matches.opt_str("duration").unwrap_or_else(|| "60".to_owned()).parse().unwrap();
+    let producers = matches.opt_str("producers").unwrap_or_else(|| "1".to_owned()).parse().unwrap();
     let mode = matches
         .opt_str("mode")
-        .map(|s| {
-            if s.to_ascii_lowercase() == "fast" {
-                "fast"
-            } else {
-                "slow"
-            }
-        })
+        .map(|s| if s.to_ascii_lowercase() == "fast" { "fast" } else { "slow" })
         .unwrap_or_else(|| "slow")
         .to_owned();
 

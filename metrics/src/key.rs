@@ -9,7 +9,36 @@ use std::{
 
 const NO_LABELS: [Label; 0] = [];
 
+/// Name component of a key.
+#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+pub struct KeyName(SharedString);
+
+impl KeyName {
+    /// Creates a `KeyName` from a static string.
+    pub const fn from_const_str(name: &'static str) -> Self {
+        KeyName(SharedString::const_str(name))
+    }
+
+    /// Gets a reference to the strin used for this name.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<&'static str> for KeyName {
+    fn from(name: &'static str) -> Self {
+        KeyName(SharedString::from(name))
+    }
+}
+
+impl From<String> for KeyName {
+    fn from(name: String) -> Self {
+        KeyName(SharedString::from(name))
+    }
+}
 /// A metric identifier.
+///
+/// A key represents both the name and labels of a metric.
 ///
 /// # Safety
 /// Clippy will report any usage of `Key` as the key of a map/set as "mutable key type", meaning
@@ -25,7 +54,7 @@ const NO_LABELS: [Label; 0] = [];
 /// such a way as well.
 #[derive(Debug)]
 pub struct Key {
-    name: SharedString,
+    name: KeyName,
     labels: Cow<'static, [Label]>,
     hashed: AtomicBool,
     hash: AtomicU64,
@@ -35,7 +64,7 @@ impl Key {
     /// Creates a [`Key`] from a name.
     pub fn from_name<N>(name: N) -> Self
     where
-        N: Into<SharedString>,
+        N: Into<KeyName>,
     {
         let name = name.into();
         let labels = Cow::owned(Vec::new());
@@ -46,7 +75,7 @@ impl Key {
     /// Creates a [`Key`] from a name and set of labels.
     pub fn from_parts<N, L>(name: N, labels: L) -> Self
     where
-        N: Into<SharedString>,
+        N: Into<KeyName>,
         L: IntoLabels,
     {
         let name = name.into();
@@ -58,7 +87,7 @@ impl Key {
     /// Creates a [`Key`] from a non-static name and a static set of labels.
     pub fn from_static_labels<N>(name: N, labels: &'static [Label]) -> Self
     where
-        N: Into<SharedString>,
+        N: Into<KeyName>,
     {
         Self {
             name: name.into(),
@@ -80,27 +109,22 @@ impl Key {
     /// This function is `const`, so it can be used in a static context.
     pub const fn from_static_parts(name: &'static str, labels: &'static [Label]) -> Self {
         Self {
-            name: Cow::const_str(name),
+            name: KeyName::from_const_str(name),
             labels: Cow::<[Label]>::const_slice(labels),
             hashed: AtomicBool::new(false),
             hash: AtomicU64::new(0),
         }
     }
 
-    fn builder(name: SharedString, labels: Cow<'static, [Label]>) -> Self {
+    fn builder(name: KeyName, labels: Cow<'static, [Label]>) -> Self {
         let hash = generate_key_hash(&name, &labels);
 
-        Self {
-            name,
-            labels,
-            hashed: AtomicBool::new(true),
-            hash: AtomicU64::new(hash),
-        }
+        Self { name, labels, hashed: AtomicBool::new(true), hash: AtomicU64::new(hash) }
     }
 
     /// Name of this key.
     pub fn name(&self) -> &str {
-        self.name.as_ref()
+        self.name.0.as_ref()
     }
 
     /// Labels of this key, if they exist.
@@ -109,7 +133,7 @@ impl Key {
     }
 
     /// Consumes this [`Key`], returning the name parts and any labels.
-    pub fn into_parts(self) -> (SharedString, Vec<Label>) {
+    pub fn into_parts(self) -> (KeyName, Vec<Label>) {
         (self.name, self.labels.into_owned())
     }
 
@@ -139,14 +163,14 @@ impl Key {
     }
 }
 
-fn generate_key_hash(name: &SharedString, labels: &Cow<'static, [Label]>) -> u64 {
+fn generate_key_hash(name: &KeyName, labels: &Cow<'static, [Label]>) -> u64 {
     let mut hasher = KeyHasher::default();
     key_hasher_impl(&mut hasher, name, labels);
     hasher.finish()
 }
 
-fn key_hasher_impl<H: Hasher>(state: &mut H, name: &SharedString, labels: &Cow<'static, [Label]>) {
-    name.hash(state);
+fn key_hasher_impl<H: Hasher>(state: &mut H, name: &KeyName, labels: &Cow<'static, [Label]>) {
+    name.0.hash(state);
     labels.hash(state);
 }
 
@@ -190,9 +214,9 @@ impl Hash for Key {
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.labels.is_empty() {
-            write!(f, "Key({})", self.name)
+            write!(f, "Key({})", self.name.as_str())
         } else {
-            write!(f, "Key({}, [", self.name)?;
+            write!(f, "Key({}, [", self.name.as_str())?;
             let mut first = true;
             for label in self.labels.as_ref() {
                 if first {
@@ -221,7 +245,7 @@ impl From<&'static str> for Key {
 
 impl<N, L> From<(N, L)> for Key
 where
-    N: Into<SharedString>,
+    N: Into<KeyName>,
     L: IntoLabels,
 {
     fn from(parts: (N, L)) -> Self {
@@ -324,9 +348,6 @@ mod tests {
             ],
         );
         let result4 = key4.to_string();
-        assert_eq!(
-            result4,
-            "Key(foobar, [black = black, lives = lives, matter = matter])"
-        );
+        assert_eq!(result4, "Key(foobar, [black = black, lives = lives, matter = matter])");
     }
 }

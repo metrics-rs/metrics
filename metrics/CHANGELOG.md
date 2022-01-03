@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - A new macro, `absolute_counter!`, for setting the value of a counter to an absolute value.
+- A new wrapper type, `KeyName`, which encapsulates creating the name portion of a `Key`.  Existing
+  methods for building a `Key`, as well as implicit conversion trait implementations, allow this to
+  be a no-op.
 
 ### Changed
 - Switched to metric handles through the `Recorder` API.
@@ -18,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Unit` is now `Copy`.
 - Removed the half-baked attempt to allow turning off `std` usage, as `metrics` is not meaningfully
   usable (at the moment) without libstd support.
+- When describing a metric via the `describe_*` macros, the description is no longer optional.
 
 ## [0.17.1] - 2021-12-16
 

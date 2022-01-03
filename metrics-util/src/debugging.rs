@@ -6,8 +6,19 @@ use std::{collections::HashMap, fmt::Debug};
 use crate::{kind::MetricKind, registry::Registry, CompositeKey};
 
 use indexmap::IndexMap;
-use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
 use ordered_float::OrderedFloat;
+
+/// A composite key name that stores both the metric key name and the metric kind.
+#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+struct CompositeKeyName(MetricKind, KeyName);
+
+impl CompositeKeyName {
+    /// Creates a new `CompositeKeyName`.
+    pub const fn new(kind: MetricKind, key_name: KeyName) -> CompositeKeyName {
+        CompositeKeyName(kind, key_name)
+    }
+}
 
 pub struct Snapshot(Vec<(CompositeKey, Option<Unit>, Option<&'static str>, DebugValue)>);
 
@@ -41,10 +52,8 @@ pub enum DebugValue {
 /// Captures point-in-time snapshots of `DebuggingRecorder`.
 pub struct Snapshotter {
     registry: Arc<Registry>,
-    // TODO: unit/desc does actually have to be separate, because we might only describe, and not
-    // register, and then iterating snapshot data to get the value for that key will fail, so gotta
-    // track them separately and recombine when snapshotting
-    metrics: Arc<Mutex<IndexMap<CompositeKey, (Option<Unit>, Option<&'static str>)>>>,
+    seen: Arc<Mutex<IndexMap<CompositeKey, ()>>>,
+    metadata: Arc<Mutex<IndexMap<CompositeKeyName, (Option<Unit>, &'static str)>>>,
 }
 
 impl Snapshotter {
@@ -56,13 +65,14 @@ impl Snapshotter {
         let gauges = self.registry.get_gauge_handles();
         let histograms = self.registry.get_histogram_handles();
 
-        let metrics = self.metrics.lock().expect("metrics lock poisoned").clone();
+        let seen = self.seen.lock().expect("seen lock poisoned").clone();
+        let metadata = self.metadata.lock().expect("metadata lock poisoned").clone();
 
-        for (ck, (unit, desc)) in metrics.into_iter() {
+        for (ck, _) in seen.into_iter() {
             let value = match ck.kind() {
-                MetricKind::Counter => counters
-                    .get(ck.key())
-                    .map(|c| DebugValue::Counter(c.load(Ordering::SeqCst))),
+                MetricKind::Counter => {
+                    counters.get(ck.key()).map(|c| DebugValue::Counter(c.load(Ordering::SeqCst)))
+                }
                 MetricKind::Gauge => gauges.get(ck.key()).map(|g| {
                     let value = f64::from_bits(g.load(Ordering::SeqCst));
                     DebugValue::Gauge(value.into())
@@ -73,6 +83,13 @@ impl Snapshotter {
                     DebugValue::Histogram(values)
                 }),
             };
+
+            let ckn = CompositeKeyName::new(ck.kind(), ck.key().name().to_string().into());
+            let (unit, desc) = metadata
+                .get(&ckn)
+                .copied()
+                .map(|(u, d)| (u, Some(d)))
+                .unwrap_or_else(|| (None, None));
 
             // If there's no value for the key, that means the metric was only ever described, and
             // not registered, so don't emit it.
@@ -91,7 +108,8 @@ impl Snapshotter {
 /// to the raw values.
 pub struct DebuggingRecorder {
     registry: Arc<Registry>,
-    metrics: Arc<Mutex<IndexMap<CompositeKey, (Option<Unit>, Option<&'static str>)>>>,
+    seen: Arc<Mutex<IndexMap<CompositeKey, ()>>>,
+    metadata: Arc<Mutex<IndexMap<CompositeKeyName, (Option<Unit>, &'static str)>>>,
 }
 
 impl DebuggingRecorder {
@@ -99,7 +117,8 @@ impl DebuggingRecorder {
     pub fn new() -> DebuggingRecorder {
         DebuggingRecorder {
             registry: Arc::new(Registry::new()),
-            metrics: Arc::new(Mutex::new(IndexMap::new())),
+            seen: Arc::new(Mutex::new(IndexMap::new())),
+            metadata: Arc::new(Mutex::new(IndexMap::new())),
         }
     }
 
@@ -107,19 +126,23 @@ impl DebuggingRecorder {
     pub fn snapshotter(&self) -> Snapshotter {
         Snapshotter {
             registry: self.registry.clone(),
-            metrics: self.metrics.clone(),
+            seen: self.seen.clone(),
+            metadata: self.metadata.clone(),
         }
     }
 
-    fn describe_metric(&self, rkey: CompositeKey, unit: Option<Unit>, desc: Option<&'static str>) {
-        let mut metrics = self.metrics.lock().expect("metrics lock poisoned");
-        let (uentry, dentry) = metrics.entry(rkey).or_insert((None, None));
+    fn describe_metric(&self, rkey: CompositeKeyName, unit: Option<Unit>, desc: &'static str) {
+        let mut metadata = self.metadata.lock().expect("metadata lock poisoned");
+        let (uentry, dentry) = metadata.entry(rkey).or_insert((None, desc));
         if unit.is_some() {
             *uentry = unit;
         }
-        if desc.is_some() {
-            *dentry = desc;
-        }
+        *dentry = desc;
+    }
+
+    fn track_metric(&self, ckey: CompositeKey) {
+        let mut seen = self.seen.lock().expect("seen lock poisoned");
+        seen.insert(ckey, ());
     }
 
     /// Installs this recorder as the global recorder.
@@ -129,40 +152,37 @@ impl DebuggingRecorder {
 }
 
 impl Recorder for DebuggingRecorder {
-    fn describe_counter(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        let ckey = CompositeKey::new(MetricKind::Counter, key.clone());
+    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: &'static str) {
+        let ckey = CompositeKeyName::new(MetricKind::Counter, key);
         self.describe_metric(ckey, unit, description);
     }
 
-    fn describe_gauge(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        let ckey = CompositeKey::new(MetricKind::Gauge, key.clone());
+    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: &'static str) {
+        let ckey = CompositeKeyName::new(MetricKind::Gauge, key);
         self.describe_metric(ckey, unit, description);
     }
 
-    fn describe_histogram(&self, key: &Key, unit: Option<Unit>, description: Option<&'static str>) {
-        let ckey = CompositeKey::new(MetricKind::Histogram, key.clone());
+    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: &'static str) {
+        let ckey = CompositeKeyName::new(MetricKind::Histogram, key);
         self.describe_metric(ckey, unit, description);
     }
 
     fn register_counter(&self, key: &Key) -> Counter {
         let ckey = CompositeKey::new(MetricKind::Counter, key.clone());
-        self.describe_metric(ckey, None, None);
-        self.registry
-            .get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
+        self.track_metric(ckey);
+        self.registry.get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
     }
 
     fn register_gauge(&self, key: &Key) -> Gauge {
         let ckey = CompositeKey::new(MetricKind::Gauge, key.clone());
-        self.describe_metric(ckey, None, None);
-        self.registry
-            .get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
+        self.track_metric(ckey);
+        self.registry.get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
         let ckey = CompositeKey::new(MetricKind::Histogram, key.clone());
-        self.describe_metric(ckey, None, None);
-        self.registry
-            .get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
+        self.track_metric(ckey);
+        self.registry.get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
     }
 }
 

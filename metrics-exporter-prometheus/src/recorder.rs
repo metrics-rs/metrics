@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
-use metrics::{Counter, Gauge, Histogram, Key, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
 use metrics_util::recency::{GenerationalPrimitives, Recency};
 use metrics_util::Registry;
 use parking_lot::RwLock;
@@ -34,11 +34,8 @@ impl Inner {
 
             let (name, labels) = key_to_parts(&key, &self.global_labels);
             let value = counter.get_inner().load(Ordering::Acquire);
-            let entry = counters
-                .entry(name)
-                .or_insert_with(HashMap::new)
-                .entry(labels)
-                .or_insert(0);
+            let entry =
+                counters.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0);
             *entry = value;
         }
 
@@ -52,11 +49,8 @@ impl Inner {
 
             let (name, labels) = key_to_parts(&key, &self.global_labels);
             let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
-            let entry = gauges
-                .entry(name)
-                .or_insert_with(HashMap::new)
-                .entry(labels)
-                .or_insert(0.0);
+            let entry =
+                gauges.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0.0);
             *entry = value;
         }
 
@@ -76,26 +70,16 @@ impl Inner {
                 .entry(labels)
                 .or_insert_with(|| self.distribution_builder.get_distribution(name.as_str()));
 
-            histogram
-                .get_inner()
-                .clear_with(|samples| entry.record_samples(samples));
+            histogram.get_inner().clear_with(|samples| entry.record_samples(samples));
         }
 
         let distributions = self.distributions.read().clone();
 
-        Snapshot {
-            counters,
-            gauges,
-            distributions,
-        }
+        Snapshot { counters, gauges, distributions }
     }
 
     fn render(&self) -> String {
-        let Snapshot {
-            mut counters,
-            mut distributions,
-            mut gauges,
-        } = self.get_recent_metrics();
+        let Snapshot { mut counters, mut distributions, mut gauges } = self.get_recent_metrics();
 
         let mut output = String::new();
         let descriptions = self.descriptions.read();
@@ -129,9 +113,7 @@ impl Inner {
                 write_help_line(&mut output, name.as_str(), desc);
             }
 
-            let distribution_type = self
-                .distribution_builder
-                .get_distribution_type(name.as_str());
+            let distribution_type = self.distribution_builder.get_distribution_type(name.as_str());
             write_type_line(&mut output, name.as_str(), distribution_type);
             for (labels, distribution) in by_labels.drain() {
                 let (sum, count) = match distribution {
@@ -207,62 +189,50 @@ pub struct PrometheusRecorder {
 impl PrometheusRecorder {
     /// Gets a [`PrometheusHandle`] to this recorder.
     pub fn handle(&self) -> PrometheusHandle {
-        PrometheusHandle {
-            inner: self.inner.clone(),
-        }
+        PrometheusHandle { inner: self.inner.clone() }
     }
 
-    fn add_description_if_missing(&self, key: &Key, description: Option<&'static str>) {
-        if let Some(description) = description {
-            let sanitized = sanitize_metric_name(key.name());
-            let mut descriptions = self.inner.descriptions.write();
-            descriptions.entry(sanitized).or_insert(description);
-        }
+    fn add_description_if_missing(&self, key_name: KeyName, description: &'static str) {
+        let sanitized = sanitize_metric_name(key_name.as_str());
+        let mut descriptions = self.inner.descriptions.write();
+        descriptions.entry(sanitized).or_insert(description);
     }
 }
 
 impl From<Inner> for PrometheusRecorder {
     fn from(inner: Inner) -> Self {
-        PrometheusRecorder {
-            inner: Arc::new(inner),
-        }
+        PrometheusRecorder { inner: Arc::new(inner) }
     }
 }
 
 impl Recorder for PrometheusRecorder {
-    fn describe_counter(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
-        self.add_description_if_missing(key, description);
+    fn describe_counter(&self, key_name: KeyName, _unit: Option<Unit>, description: &'static str) {
+        self.add_description_if_missing(key_name, description);
     }
 
-    fn describe_gauge(&self, key: &Key, _unit: Option<Unit>, description: Option<&'static str>) {
-        self.add_description_if_missing(key, description);
+    fn describe_gauge(&self, key_name: KeyName, _unit: Option<Unit>, description: &'static str) {
+        self.add_description_if_missing(key_name, description);
     }
 
     fn describe_histogram(
         &self,
-        key: &Key,
+        key_name: KeyName,
         _unit: Option<Unit>,
-        description: Option<&'static str>,
+        description: &'static str,
     ) {
-        self.add_description_if_missing(key, description);
+        self.add_description_if_missing(key_name, description);
     }
 
     fn register_counter(&self, key: &Key) -> Counter {
-        self.inner
-            .registry
-            .get_or_create_counter(key, |c| c.get_inner().clone().into())
+        self.inner.registry.get_or_create_counter(key, |c| c.get_inner().clone().into())
     }
 
     fn register_gauge(&self, key: &Key) -> Gauge {
-        self.inner
-            .registry
-            .get_or_create_gauge(key, |c| c.get_inner().clone().into())
+        self.inner.registry.get_or_create_gauge(key, |c| c.get_inner().clone().into())
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
-        self.inner
-            .registry
-            .get_or_create_histogram(key, |c| c.get_inner().clone().into())
+        self.inner.registry.get_or_create_histogram(key, |c| c.get_inner().clone().into())
     }
 }
 

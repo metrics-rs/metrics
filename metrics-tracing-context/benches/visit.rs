@@ -33,11 +33,7 @@ static CALLSITE_METADATA: Metadata = metadata! {
 fn visit_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("visit");
     group.bench_function("record_str", |b| {
-        let field = CALLSITE
-            .metadata()
-            .fields()
-            .field("test")
-            .expect("test field missing");
+        let field = CALLSITE.metadata().fields().field("test").expect("test field missing");
         b.iter_batched_ref(
             || Labels(get_pool().pull_owned()),
             |labels| {
@@ -47,11 +43,7 @@ fn visit_benchmark(c: &mut Criterion) {
         )
     });
     group.bench_function("record_bool[true]", |b| {
-        let field = CALLSITE
-            .metadata()
-            .fields()
-            .field("test")
-            .expect("test field missing");
+        let field = CALLSITE.metadata().fields().field("test").expect("test field missing");
         b.iter_batched_ref(
             || Labels(get_pool().pull_owned()),
             |labels| {
@@ -61,11 +53,7 @@ fn visit_benchmark(c: &mut Criterion) {
         )
     });
     group.bench_function("record_bool[false]", |b| {
-        let field = CALLSITE
-            .metadata()
-            .fields()
-            .field("test")
-            .expect("test field missing");
+        let field = CALLSITE.metadata().fields().field("test").expect("test field missing");
         b.iter_batched_ref(
             || Labels(get_pool().pull_owned()),
             |labels| {
@@ -75,11 +63,7 @@ fn visit_benchmark(c: &mut Criterion) {
         )
     });
     group.bench_function("record_i64", |b| {
-        let field = CALLSITE
-            .metadata()
-            .fields()
-            .field("test")
-            .expect("test field missing");
+        let field = CALLSITE.metadata().fields().field("test").expect("test field missing");
         b.iter_batched_ref(
             || Labels(get_pool().pull_owned()),
             |labels| {
@@ -89,11 +73,7 @@ fn visit_benchmark(c: &mut Criterion) {
         )
     });
     group.bench_function("record_u64", |b| {
-        let field = CALLSITE
-            .metadata()
-            .fields()
-            .field("test")
-            .expect("test field missing");
+        let field = CALLSITE.metadata().fields().field("test").expect("test field missing");
         b.iter_batched_ref(
             || Labels(get_pool().pull_owned()),
             |labels| {
@@ -104,11 +84,7 @@ fn visit_benchmark(c: &mut Criterion) {
     });
     group.bench_function("record_debug", |b| {
         let debug_struct = DebugStruct::new();
-        let field = CALLSITE
-            .metadata()
-            .fields()
-            .field("test")
-            .expect("test field missing");
+        let field = CALLSITE.metadata().fields().field("test").expect("test field missing");
         b.iter_batched_ref(
             || Labels(get_pool().pull_owned()),
             |labels| {
@@ -118,11 +94,7 @@ fn visit_benchmark(c: &mut Criterion) {
         )
     });
     group.bench_function("record_debug[bool]", |b| {
-        let field = CALLSITE
-            .metadata()
-            .fields()
-            .field("test")
-            .expect("test field missing");
+        let field = CALLSITE.metadata().fields().field("test").expect("test field missing");
         b.iter_batched_ref(
             || Labels(get_pool().pull_owned()),
             |labels| {
@@ -133,11 +105,7 @@ fn visit_benchmark(c: &mut Criterion) {
     });
     group.bench_function("record_debug[i64]", |b| {
         let value: i64 = -3423432;
-        let field = CALLSITE
-            .metadata()
-            .fields()
-            .field("test")
-            .expect("test field missing");
+        let field = CALLSITE.metadata().fields().field("test").expect("test field missing");
         b.iter_batched_ref(
             || Labels(get_pool().pull_owned()),
             |labels| {
@@ -148,11 +116,7 @@ fn visit_benchmark(c: &mut Criterion) {
     });
     group.bench_function("record_debug[u64]", |b| {
         let value: u64 = 3423432;
-        let field = CALLSITE
-            .metadata()
-            .fields()
-            .field("test")
-            .expect("test field missing");
+        let field = CALLSITE.metadata().fields().field("test").expect("test field missing");
         b.iter_batched_ref(
             || Labels(get_pool().pull_owned()),
             |labels| {
@@ -173,10 +137,7 @@ struct DebugStruct {
 
 impl DebugStruct {
     pub fn new() -> DebugStruct {
-        DebugStruct {
-            field1: format!("yeehaw!"),
-            field2: 324242343243,
-        }
+        DebugStruct { field1: format!("yeehaw!"), field2: 324242343243 }
     }
 }
 
