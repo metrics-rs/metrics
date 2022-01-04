@@ -399,9 +399,14 @@ pub use metrics_macros::describe_histogram;
 /// let counter = register_counter!("some_metric_name");
 /// counter.increment(1);
 ///
-/// // Specifying labels:
+/// // Specifying labels inline, including using constants for either the key or value:
 /// let counter = register_counter!("some_metric_name", "service" => "http");
 /// counter.absolute(42);
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// let counter = register_counter!("some_metric_name", SERVICE_LABEL => SERVICE_HTTP);
+/// counter.increment(123);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs.  In this scenario,
 /// // a unit or description can still be passed in their respective positions:
@@ -439,9 +444,14 @@ pub use metrics_macros::register_counter;
 /// let gauge = register_gauge!("some_metric_name");
 /// gauge.increment(1.0);
 ///
-/// // Specifying labels:
+/// // Specifying labels inline, including using constants for either the key or value:
 /// let gauge = register_gauge!("some_metric_name", "service" => "http");
 /// gauge.decrement(42.0);
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// let gauge = register_gauge!("some_metric_name", SERVICE_LABEL => SERVICE_HTTP);
+/// gauge.increment(3.14);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs.  In this scenario,
 /// // a unit or description can still be passed in their respective positions:
@@ -480,8 +490,12 @@ pub use metrics_macros::register_gauge;
 /// let histogram = register_histogram!("some_metric_name");
 /// histogram.record(1.0);
 ///
-/// // Specifying labels:
+/// // Specifying labels inline, including using constants for either the key or value:
 /// let histogram = register_histogram!("some_metric_name", "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// let histogram = register_histogram!("some_metric_name", SERVICE_LABEL => SERVICE_HTTP);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs.  In this scenario,
 /// // a unit or description can still be passed in their respective positions:
@@ -515,8 +529,12 @@ pub use metrics_macros::register_histogram;
 /// // A basic counter:
 /// counter!("some_metric_name", 12);
 ///
-/// // Specifying labels:
+/// // Specifying labels inline, including using constants for either the key or value:
 /// counter!("some_metric_name", 12, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// counter!("some_metric_name", 12, SERVICE_LABEL => SERVICE_HTTP);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs:
 /// let dynamic_val = "woo";
@@ -549,8 +567,12 @@ pub use metrics_macros::counter;
 /// // A basic increment:
 /// increment_counter!("some_metric_name");
 ///
-/// // Specifying labels:
+/// // Specifying labels inline, including using constants for either the key or value:
 /// increment_counter!("some_metric_name", "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// increment_counter!("some_metric_name", SERVICE_LABEL => SERVICE_HTTP);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs:
 /// let dynamic_val = "woo";
@@ -590,8 +612,12 @@ pub use metrics_macros::increment_counter;
 /// // A basic counter:
 /// absolute_counter!("some_metric_name", 12);
 ///
-/// // Specifying labels:
+/// // Specifying labels inline, including using constants for either the key or value:
 /// absolute_counter!("some_metric_name", 13, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// absolute_counter!("some_metric_name", 13, SERVICE_LABEL => SERVICE_HTTP);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs:
 /// let dynamic_val = "woo";
@@ -624,8 +650,12 @@ pub use metrics_macros::absolute_counter;
 /// // A basic gauge:
 /// gauge!("some_metric_name", 42.2222);
 ///
-/// // Specifying labels:
+/// // Specifying labels inline, including using constants for either the key or value:
 /// gauge!("some_metric_name", 66.6666, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// gauge!("some_metric_name", 66.6666, SERVICE_LABEL => SERVICE_HTTP);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs:
 /// let dynamic_val = "woo";
@@ -658,8 +688,12 @@ pub use metrics_macros::gauge;
 /// // A basic gauge:
 /// increment_gauge!("some_metric_name", 42.2222);
 ///
-/// // Specifying labels:
+/// // Specifying labels inline, including using constants for either the key or value:
 /// increment_gauge!("some_metric_name", 66.6666, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// increment_gauge!("some_metric_name", 66.6666, SERVICE_LABEL => SERVICE_HTTP);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs:
 /// let dynamic_val = "woo";
@@ -692,8 +726,12 @@ pub use metrics_macros::increment_gauge;
 /// // A basic gauge:
 /// decrement_gauge!("some_metric_name", 42.2222);
 ///
-/// // Specifying labels:
+/// // Specifying labels inline, including using constants for either the key or value:
 /// decrement_gauge!("some_metric_name", 66.6666, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// decrement_gauge!("some_metric_name", 66.6666, SERVICE_LABEL => SERVICE_HTTP);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs:
 /// let dynamic_val = "woo";
@@ -740,8 +778,12 @@ pub use metrics_macros::decrement_gauge;
 /// let d = Duration::from_millis(17);
 /// histogram!("some_metric_name", d);
 ///
-/// // Specifying labels:
+/// // Specifying labels inline, including using constants for either the key or value:
 /// histogram!("some_metric_name", 38.0, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// histogram!("some_metric_name", 38.0, SERVICE_LABEL => SERVICE_HTTP);
 ///
 /// // We can also pass labels by giving a vector or slice of key/value pairs:
 /// let dynamic_val = "woo";

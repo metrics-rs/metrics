@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - When describing a metric, a constant can now be used for the description itself.
+- Label keys can now be general expressions i.e. constants or variables.  Due to limitations in
+  how procedural macros work, and the facilities available in stable Rust for const traits, even
+  `&'static str` constants will cause allocations when used for emitting a metric.
 
 ### Changed
 - Correctly scoped the required features of various dependencies to reduce build times/transitive dependencies.

@@ -469,6 +469,28 @@ fn test_get_register_and_op_code_op_owned_name_existing_labels() {
 }
 
 #[test]
+fn test_get_register_and_op_code_op_owned_name_constant_key_labels() {
+    let stream = get_register_and_op_code(
+        "mytype",
+        parse_quote! { String::from("owned") },
+        Some(Labels::Inline(vec![(parse_quote! { LABEL_KEY }, parse_quote! { "some_val" })])),
+        Some(("myop", quote! { 1 })),
+    );
+
+    let expected = concat!(
+        "{ ",
+        "if let Some (recorder) = metrics :: try_recorder () { ",
+        "let key = metrics :: Key :: from_parts (String :: from (\"owned\") , vec ! [metrics :: Label :: new (LABEL_KEY , \"some_val\")]) ; ",
+        "let handle = recorder . register_mytype (& key) ; ",
+        "handle . myop (1) ; ",
+        "} ",
+        "}",
+    );
+
+    assert_eq!(stream.to_string(), expected);
+}
+
+#[test]
 fn test_labels_to_quoted_existing_labels() {
     let labels = Labels::Existing(Expr::Path(parse_quote! { mylabels }));
     let stream = labels_to_quoted(&labels);
