@@ -6,14 +6,14 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Error, Parse, ParseStream, Result};
 use syn::{parse::discouraged::Speculative, Lit};
-use syn::{parse_macro_input, Expr, LitStr, Token};
+use syn::{parse_macro_input, Expr, Token};
 
 #[cfg(test)]
 mod tests;
 
 enum Labels {
     Existing(Expr),
-    Inline(Vec<(LitStr, Expr)>),
+    Inline(Vec<(Expr, Expr)>),
 }
 
 struct WithoutExpression {
@@ -47,7 +47,7 @@ impl Parse for WithExpression {
         let key = input.parse::<Expr>()?;
 
         input.parse::<Token![,]>()?;
-        let op_value: Expr = input.parse()?;
+        let op_value = input.parse::<Expr>()?;
 
         let labels = parse_labels(&mut input)?;
 
@@ -280,7 +280,9 @@ fn name_is_fast_path(name: &Expr) -> bool {
 fn labels_are_fast_path(labels: &Labels) -> bool {
     match labels {
         Labels::Existing(_) => false,
-        Labels::Inline(pairs) => pairs.iter().all(|(_, v)| matches!(v, Expr::Lit(_))),
+        Labels::Inline(pairs) => {
+            pairs.iter().all(|(k, v)| matches!((k, v), (Expr::Lit(_), Expr::Lit(_))))
+        }
     }
 }
 
@@ -426,7 +428,7 @@ fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
     // pairs.  If we don't have that, we check to see if we have a "`, <expr" part, which could us
     // getting handed a labels iterator.  The type checking for `IntoLabels` in `metrics::Recorder`
     // will do the heavy lifting from that point forward.
-    if input.peek(Token![,]) && input.peek2(LitStr) && input.peek3(Token![=>]) {
+    if input.peek(Token![,]) && input.peek3(Token![=>]) {
         let mut labels = Vec::new();
         loop {
             if input.is_empty() {
@@ -437,11 +439,11 @@ fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
                 break;
             }
 
-            let lkey: LitStr = input.parse()?;
+            let k = input.parse::<Expr>()?;
             input.parse::<Token![=>]>()?;
-            let lvalue: Expr = input.parse()?;
+            let v = input.parse::<Expr>()?;
 
-            labels.push((lkey, lvalue));
+            labels.push((k, v));
         }
 
         return Ok(Some(Labels::Inline(labels)));
@@ -455,14 +457,14 @@ fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
         return Ok(None);
     }
 
-    let lvalue: Expr = input
-        .parse()
-        .map_err(|e| Error::new(e.span(), "expected label expression, but expression not found"))?;
+    let existing = input.parse::<Expr>().map_err(|e| {
+        Error::new(e.span(), "expected labels expression, but expression not found")
+    })?;
 
     // Expression can end with a trailing comma, handle it.
     if input.peek(Token![,]) {
         input.parse::<Token![,]>()?;
     }
 
-    Ok(Some(Labels::Existing(lvalue)))
+    Ok(Some(Labels::Existing(existing)))
 }
