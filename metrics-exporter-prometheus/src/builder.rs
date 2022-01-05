@@ -914,10 +914,7 @@ mod tests {
 
         counter1.increment(1);
 
-        let expected_after = concat!(
-            "# TYPE basic_counter counter\n",
-            "basic_counter 43\n\n",
-        );
+        let expected_after = concat!("# TYPE basic_counter counter\n", "basic_counter 43\n\n",);
 
         mock.increment(Duration::from_secs(2));
         let rendered = handle.render();

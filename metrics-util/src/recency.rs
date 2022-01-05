@@ -33,7 +33,7 @@ use crate::registry::Primitives;
 use crate::StandardPrimitives;
 use crate::{kind::MetricKindMask, MetricKind, Registry};
 
-use metrics::{CounterFn, GaugeFn, HistogramFn, Key, Counter, Gauge, Histogram};
+use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key};
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
 
