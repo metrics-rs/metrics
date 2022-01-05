@@ -33,7 +33,7 @@ use crate::registry::Primitives;
 use crate::StandardPrimitives;
 use crate::{kind::MetricKindMask, MetricKind, Registry};
 
-use metrics::{CounterFn, GaugeFn, HistogramFn, Key};
+use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key};
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
 
@@ -41,7 +41,7 @@ use quanta::{Clock, Instant};
 ///
 /// Generations are opaque and are not meant to be used directly, but meant to be used as a
 /// comparison amongst each other in terms of ordering.
-#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Generation(usize);
 
 /// Generation tracking for a metric.
@@ -123,6 +123,33 @@ where
 {
     fn record(&self, value: f64) {
         self.with_increment(|h| h.record(value))
+    }
+}
+
+impl<T> From<Generational<T>> for Counter
+where
+    T: CounterFn + Send + Sync + 'static,
+{
+    fn from(inner: Generational<T>) -> Self {
+        Counter::from_arc(Arc::new(inner))
+    }
+}
+
+impl<T> From<Generational<T>> for Gauge
+where
+    T: GaugeFn + Send + Sync + 'static,
+{
+    fn from(inner: Generational<T>) -> Self {
+        Gauge::from_arc(Arc::new(inner))
+    }
+}
+
+impl<T> From<Generational<T>> for Histogram
+where
+    T: HistogramFn + Send + Sync + 'static,
+{
+    fn from(inner: Generational<T>) -> Self {
+        Histogram::from_arc(Arc::new(inner))
     }
 }
 
