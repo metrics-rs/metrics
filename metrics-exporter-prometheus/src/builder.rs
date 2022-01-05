@@ -873,6 +873,58 @@ mod tests {
     }
 
     #[test]
+    fn test_idle_timeout_doesnt_remove_recents() {
+        let (clock, mock) = Clock::mock();
+
+        let recorder = PrometheusBuilder::new()
+            .idle_timeout(MetricKindMask::ALL, Some(Duration::from_secs(10)))
+            .build_with_clock(clock);
+
+        let key = Key::from_name("basic_counter");
+        let counter1 = recorder.register_counter(&key);
+        counter1.increment(42);
+
+        let key = Key::from_name("basic_gauge");
+        let gauge1 = recorder.register_gauge(&key);
+        gauge1.set(-3.14);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# TYPE basic_counter counter\n",
+            "basic_counter 42\n\n",
+            "# TYPE basic_gauge gauge\n",
+            "basic_gauge -3.14\n\n",
+        );
+
+        assert_eq!(rendered, expected);
+
+        mock.increment(Duration::from_secs(9));
+        let rendered = handle.render();
+        assert_eq!(rendered, expected);
+
+        let expected_second = concat!(
+            "# TYPE basic_counter counter\n",
+            "basic_counter 42\n\n",
+            "# TYPE basic_gauge gauge\n",
+            "basic_gauge -3.14\n\n",
+        );
+        let rendered = handle.render();
+        assert_eq!(rendered, expected_second);
+
+        counter1.increment(1);
+
+        let expected_after = concat!(
+            "# TYPE basic_counter counter\n",
+            "basic_counter 43\n\n",
+        );
+
+        mock.increment(Duration::from_secs(2));
+        let rendered = handle.render();
+        assert_eq!(rendered, expected_after);
+    }
+
+    #[test]
     pub fn test_global_labels() {
         let recorder = PrometheusBuilder::new()
             .add_global_label("foo", "foo")

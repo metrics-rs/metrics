@@ -242,15 +242,15 @@ impl Recorder for PrometheusRecorder {
     }
 
     fn register_counter(&self, key: &Key) -> Counter {
-        self.inner.registry.get_or_create_counter(key, |c| c.get_inner().clone().into())
+        self.inner.registry.get_or_create_counter(key, |c| c.clone().into())
     }
 
     fn register_gauge(&self, key: &Key) -> Gauge {
-        self.inner.registry.get_or_create_gauge(key, |c| c.get_inner().clone().into())
+        self.inner.registry.get_or_create_gauge(key, |c| c.clone().into())
     }
 
     fn register_histogram(&self, key: &Key) -> Histogram {
-        self.inner.registry.get_or_create_histogram(key, |c| c.get_inner().clone().into())
+        self.inner.registry.get_or_create_histogram(key, |c| c.clone().into())
     }
 }
 
