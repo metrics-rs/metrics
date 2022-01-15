@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.8.0] - 2022-01-14
+
 ### Added
 - New builder method, `PrometheusBuilder::install_recorder`, which builds and installs the
   recorder and returns a `PrometheusHandle` that can be used to interact with the recorder.
