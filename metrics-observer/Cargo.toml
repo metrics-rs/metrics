@@ -9,7 +9,7 @@ license = "MIT"
 
 [dependencies]
 metrics = { version = "^0.18", path = "../metrics", default-features = false }
-metrics-util = { version = "^0.10", path = "../metrics-util", default-features = false, features = ["summary"] }
+metrics-util = { version = "^0.11", path = "../metrics-util", default-features = false, features = ["summary"] }
 bytes = { version = "1", default-features = false }
 crossbeam-channel = { version = "0.5", default-features = false, features = ["std"] }
 prost = { version = "0.9", default-features = false }
