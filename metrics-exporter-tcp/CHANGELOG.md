@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.6.0] - 2022-01-14
+
 ### Changed
 - Updated various dependencies in order to properly scope dependencies to only the necessary feature
   flags, and thus optimize build times and reduce transitive dependencies.
