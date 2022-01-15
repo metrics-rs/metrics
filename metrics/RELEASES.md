@@ -6,6 +6,10 @@ long-form description and would be too verbose for the changelog alone.
 
 ## [Unreleased] - ReleaseDate
 
+- No notable changes.
+
+## [0.18.0] - 2022-01-14
+
 ### Switch to metric handles
 `metrics` has now switched to "metric handles."  This requires a small amount of backstory.
 

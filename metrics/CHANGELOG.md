@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.18.0] - 2022-01-14
+
 ### Added
 - A new macro, `absolute_counter!`, for setting the value of a counter to an absolute value.
 - A new wrapper type, `KeyName`, which encapsulates creating the name portion of a `Key`.  Existing
