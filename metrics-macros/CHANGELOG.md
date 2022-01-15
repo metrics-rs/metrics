@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.5.0] - 2022-01-14
+
 ### Added
 - When describing a metric, a constant can now be used for the description itself.
 - Label keys can now be general expressions i.e. constants or variables.  Due to limitations in

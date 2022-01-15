@@ -25,7 +25,7 @@ name = "macros"
 harness = false
 
 [dependencies]
-metrics-macros = { version = "^0.4", path = "../metrics-macros" }
+metrics-macros = { version = "^0.5", path = "../metrics-macros" }
 ahash = { version = "0.7", default-features = false }
 
 [dev-dependencies]
