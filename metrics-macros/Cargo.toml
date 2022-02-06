@@ -19,9 +19,6 @@ keywords = ["metrics", "facade", "macros"]
 proc-macro = true
 
 [dependencies]
-syn = { version = "1", default-features = false, features = ["derive", "parsing", "printing", "proc-macro"] }
+syn = { version = "1", default-features = false, features = ["derive", "full", "parsing", "printing", "proc-macro"] }
 quote = { version = "1", default-features = false }
 proc-macro2 = { version = "1", default-features = false, features = ["proc-macro"] }
-
-[dev-dependencies]
-syn = { version = "1", features = ["full"] }
