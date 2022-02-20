@@ -1,49 +1,14 @@
 use std::marker::PhantomData;
-use std::sync::Arc;
 use std::{hash::BuildHasherDefault, iter::repeat};
 
-use atomic_shim::AtomicU64;
 use hashbrown::{hash_map::RawEntryMut, HashMap};
-use metrics::{CounterFn, GaugeFn, HistogramFn, Key, KeyHasher};
+use metrics::{Key, KeyHasher};
 use parking_lot::RwLock;
 
-use crate::{AtomicBucket, Hashable};
+use crate::{Hashable, registry::{Storage, AtomicStorage}};
 
 type RegistryHasher = KeyHasher;
 type RegistryHashMap<V> = HashMap<Key, V, BuildHasherDefault<RegistryHasher>>;
-
-pub trait Primitives {
-    type Counter: CounterFn + Clone;
-    type Gauge: GaugeFn + Clone;
-    type Histogram: HistogramFn + Clone;
-
-    fn counter() -> Self::Counter;
-    fn gauge() -> Self::Gauge;
-    fn histogram() -> Self::Histogram;
-}
-
-/// Standard metric primitives that fit most use cases.
-///
-/// The primitives used provide shared atomic access utilizing atomic storage and shared access via `Arc`.
-pub struct StandardPrimitives;
-
-impl Primitives for StandardPrimitives {
-    type Counter = Arc<AtomicU64>;
-    type Gauge = Arc<AtomicU64>;
-    type Histogram = Arc<AtomicBucket<f64>>;
-
-    fn counter() -> Self::Counter {
-        Arc::new(AtomicU64::new(0))
-    }
-
-    fn gauge() -> Self::Gauge {
-        Arc::new(AtomicU64::new(0))
-    }
-
-    fn histogram() -> Self::Histogram {
-        Arc::new(AtomicBucket::new())
-    }
-}
 
 /// A high-performance metric registry.
 ///
@@ -63,9 +28,9 @@ impl Primitives for StandardPrimitives {
 /// over time.
 ///
 /// `Registry` is optimized for reads.  
-pub struct Registry<P = StandardPrimitives>
+pub struct Registry<P = AtomicStorage>
 where
-    P: Primitives,
+    P: Storage,
 {
     counters: Vec<RwLock<RegistryHashMap<P::Counter>>>,
     gauges: Vec<RwLock<RegistryHashMap<P::Gauge>>>,
@@ -76,7 +41,7 @@ where
 
 impl<P> Registry<P>
 where
-    P: Primitives,
+    P: Storage,
 {
     /// Creates a new `Registry`.
     pub fn new() -> Self {
@@ -396,13 +361,13 @@ mod tests {
 
     //use super::Generational;
     use super::Registry;
-    use crate::registry::StandardPrimitives;
+    use crate::registry::AtomicStorage;
     //use crate::registry::Tracked;
     use std::sync::{atomic::Ordering, Arc};
 
     #[test]
     fn test_registry() {
-        let registry = Registry::<StandardPrimitives>::new();
+        let registry = Registry::<AtomicStorage>::new();
         let key = Key::from_name("foobar");
 
         let entries = registry.get_counter_handles();

@@ -4,8 +4,7 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
-use metrics_util::recency::{GenerationalPrimitives, Recency};
-use metrics_util::Registry;
+use metrics_util::registry::{GenerationalAtomicStorage, Recency, Registry};
 use parking_lot::RwLock;
 
 use crate::common::{
@@ -14,7 +13,7 @@ use crate::common::{
 use crate::distribution::{Distribution, DistributionBuilder};
 
 pub(crate) struct Inner {
-    pub registry: Registry<GenerationalPrimitives>,
+    pub registry: Registry<GenerationalAtomicStorage>,
     pub recency: Recency,
     pub distributions: RwLock<HashMap<String, IndexMap<Vec<String>, Distribution>>>,
     pub distribution_builder: DistributionBuilder,

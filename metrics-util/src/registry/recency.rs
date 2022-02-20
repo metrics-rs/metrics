@@ -29,13 +29,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{collections::HashMap, ops::DerefMut};
 
-use crate::registry::Primitives;
-use crate::StandardPrimitives;
-use crate::{kind::MetricKindMask, MetricKind, Registry};
-
 use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key};
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
+
+use crate::{kind::MetricKindMask, MetricKind, registry::{Storage, Registry, AtomicStorage}};
 
 /// The generation of a metric.
 ///
@@ -153,28 +151,31 @@ where
     }
 }
 
-/// Primitives for tracking the generation of metrics.
+/// Generational atomic metric storage.
+/// 
+/// `GenerationalAtomicStorage` is based on [`AtomicStorage`], but additionally tracks the
+/// "generation" of a metric such that 
 ///
 /// [`Generational<T>`] explains more about the purpose of generation tracking.
-pub struct GenerationalPrimitives;
+pub struct GenerationalAtomicStorage;
 
-impl Primitives for GenerationalPrimitives {
-    type Counter = Generational<<StandardPrimitives as Primitives>::Counter>;
-    type Gauge = Generational<<StandardPrimitives as Primitives>::Gauge>;
-    type Histogram = Generational<<StandardPrimitives as Primitives>::Histogram>;
+impl Storage for GenerationalAtomicStorage {
+    type Counter = Generational<<AtomicStorage as Storage>::Counter>;
+    type Gauge = Generational<<AtomicStorage as Storage>::Gauge>;
+    type Histogram = Generational<<AtomicStorage as Storage>::Histogram>;
 
     fn counter() -> Self::Counter {
-        let counter = <StandardPrimitives as Primitives>::counter();
+        let counter = <AtomicStorage as Storage>::counter();
         Generational::new(counter)
     }
 
     fn gauge() -> Self::Gauge {
-        let gauge = <StandardPrimitives as Primitives>::gauge();
+        let gauge = <AtomicStorage as Storage>::gauge();
         Generational::new(gauge)
     }
 
     fn histogram() -> Self::Histogram {
-        let histogram = <StandardPrimitives as Primitives>::histogram();
+        let histogram = <AtomicStorage as Storage>::histogram();
         Generational::new(histogram)
     }
 }
@@ -225,7 +226,7 @@ impl Recency {
         &self,
         key: &Key,
         gen: Generation,
-        registry: &Registry<GenerationalPrimitives>,
+        registry: &Registry<GenerationalAtomicStorage>,
     ) -> bool {
         self.should_store(key, gen, registry, MetricKind::Counter, |registry, key| {
             registry.delete_counter(key)
@@ -242,7 +243,7 @@ impl Recency {
         &self,
         key: &Key,
         gen: Generation,
-        registry: &Registry<GenerationalPrimitives>,
+        registry: &Registry<GenerationalAtomicStorage>,
     ) -> bool {
         self.should_store(key, gen, registry, MetricKind::Gauge, |registry, key| {
             registry.delete_gauge(key)
@@ -259,7 +260,7 @@ impl Recency {
         &self,
         key: &Key,
         gen: Generation,
-        registry: &Registry<GenerationalPrimitives>,
+        registry: &Registry<GenerationalAtomicStorage>,
     ) -> bool {
         self.should_store(key, gen, registry, MetricKind::Histogram, |registry, key| {
             registry.delete_histogram(key)
@@ -270,12 +271,12 @@ impl Recency {
         &self,
         key: &Key,
         gen: Generation,
-        registry: &Registry<GenerationalPrimitives>,
+        registry: &Registry<GenerationalAtomicStorage>,
         kind: MetricKind,
         delete_op: F,
     ) -> bool
     where
-        F: Fn(&Registry<GenerationalPrimitives>, &Key) -> bool,
+        F: Fn(&Registry<GenerationalAtomicStorage>, &Key) -> bool,
     {
         if let Some(idle_timeout) = self.idle_timeout {
             if self.mask.matches(kind) {
