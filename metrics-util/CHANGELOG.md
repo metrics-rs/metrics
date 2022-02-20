@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.11.1] - 2022-02-20
+
 ### Fixed
 - `Recency` incorrectly failed to keep track of the latest generation when a previously-observed
   metric had changed generations since the first time it was observed.
