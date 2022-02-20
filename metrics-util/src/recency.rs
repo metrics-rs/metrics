@@ -298,6 +298,7 @@ impl Recency {
                     } else {
                         // Value has changed, so mark it such.
                         *last_update = now;
+                        *last_gen = gen;
                     }
                 } else {
                     entries.insert(key.clone(), (gen, now));
