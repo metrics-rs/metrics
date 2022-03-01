@@ -1,6 +1,6 @@
 //! Metric recency.
 //!
-//! Recency deals with the concept of removing metrics that have not been updated for a certain
+//! `Recency` deals with the concept of removing metrics that have not been updated for a certain
 //! amount of time.  In some use cases, metrics are tied to specific labels which are short-lived,
 //! such as labels referencing a date or a version of software.  When these labels change, exporters
 //! may still be emitting those older metrics which are no longer relevant.  In many cases, a
@@ -8,34 +8,35 @@
 //! grows until a significant portion of memory is required to track them all, even if the majority
 //! of them are no longer used.
 //!
-//! This module contains the building blocks to both track recency and act on it.
+//! As metrics are typically backed by atomic storage, exporters don't see the individual changes to
+//! a metric, and so need a way to measure if a metric has changed since the last time it was
+//! observed.  This could potentially be achieved by observing the value directly, but metrics like
+//! gauges can be updated in such a way that their value is the same between two observations even
+//! though it had actually been changed in between.
 //!
-//! ## `Generation`, `Generational<T>`, and `GenerationalPrimitives`
+//! We solve for this by tracking the generation of a metric, which represents the number of times
+//! it has been modified. In doing so, we can compare the generation of a metric between
+//! observations, which only ever increases monotonically.  This provides a universal mechanism that
+//! works for all metric types.
 //!
-//! These three types form the basis of wrapping metrics so that they can be tracked with a
-//! generation counter.  This counter is incremented every time a mutating operation is performed.
-//! In tracking the generation of a metric, it can be determined whether or not a metric has changed
-//! between two observations, even if the value of the metric is identical between the two
-//! observations.
-//!
-//! ## `Recency`
-//!
-//! This type provides the tracking of metrics, and their generations, so that exporters can quickly
-//! determine if a metric that has just been observed has been "idle" for a given amount of time or
-//! longer.  This provides the final piece that allows exporters to remove metrics which are no
-//! longer relevant to the application.
+//! `Recency` uses the generation of a metric, along with a measurement of time when a metric is
+//! observed, to build a complete picture that allows deciding if a given metric has gone "idle" or
+//! not, and thus whether it should actually be deleted.
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use std::{collections::HashMap, ops::DerefMut};
 
-use crate::registry::Primitives;
-use crate::StandardPrimitives;
-use crate::{kind::MetricKindMask, MetricKind, Registry};
-
-use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key};
+use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn};
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
+
+use crate::Hashable;
+use crate::{
+    kind::MetricKindMask,
+    registry::{AtomicStorage, Registry, Storage},
+    MetricKind,
+};
 
 /// The generation of a metric.
 ///
@@ -153,28 +154,30 @@ where
     }
 }
 
-/// Primitives for tracking the generation of metrics.
+/// Generational atomic metric storage.
 ///
-/// [`Generational<T>`] explains more about the purpose of generation tracking.
-pub struct GenerationalPrimitives;
+/// `GenerationalAtomicStorage` is based on [`AtomicStorage`], but additionally tracks the
+/// "generation" of a metric, which is used to detect updates to metrics where the value otherwise
+/// would not be sufficient to use as an indicator.
+pub struct GenerationalAtomicStorage;
 
-impl Primitives for GenerationalPrimitives {
-    type Counter = Generational<<StandardPrimitives as Primitives>::Counter>;
-    type Gauge = Generational<<StandardPrimitives as Primitives>::Gauge>;
-    type Histogram = Generational<<StandardPrimitives as Primitives>::Histogram>;
+impl Storage for GenerationalAtomicStorage {
+    type Counter = Generational<<AtomicStorage as Storage>::Counter>;
+    type Gauge = Generational<<AtomicStorage as Storage>::Gauge>;
+    type Histogram = Generational<<AtomicStorage as Storage>::Histogram>;
 
     fn counter() -> Self::Counter {
-        let counter = <StandardPrimitives as Primitives>::counter();
+        let counter = <AtomicStorage as Storage>::counter();
         Generational::new(counter)
     }
 
     fn gauge() -> Self::Gauge {
-        let gauge = <StandardPrimitives as Primitives>::gauge();
+        let gauge = <AtomicStorage as Storage>::gauge();
         Generational::new(gauge)
     }
 
     fn histogram() -> Self::Histogram {
-        let histogram = <StandardPrimitives as Primitives>::histogram();
+        let histogram = <AtomicStorage as Storage>::histogram();
         Generational::new(histogram)
     }
 }
@@ -186,19 +189,22 @@ impl Primitives for GenerationalPrimitives {
 /// labels that are no longer relevant to the current process state.  This can lead to cases where
 /// metrics that no longer matter are still present in rendered output, adding bloat.
 ///
-/// When coupled with [`Registry`](crate::Registry), [`Recency`] can be used to track when the last
-/// update to a metric has occurred for the purposes of removing idle metrics from the registry.  In
-/// addition, it will remove the value from the registry itself to reduce the aforementioned bloat.
+/// When coupled with [`Registry`], [`Recency`] can be used to track when the last update to a
+/// metric has occurred for the purposes of removing idle metrics from the registry.  In addition,
+/// it will remove the value from the registry itself to reduce the aforementioned bloat.
 ///
-/// [`Recency`] is separate from [`Registry`](crate::Registry) specifically to avoid imposing any
-/// slowdowns when tracking recency does not matter, despite their otherwise tight coupling.
-pub struct Recency {
+/// [`Recency`] is separate from [`Registry`] specifically to avoid imposing any slowdowns when
+/// tracking recency does not matter, despite their otherwise tight coupling.
+pub struct Recency<K> {
     mask: MetricKindMask,
-    inner: Mutex<(Clock, HashMap<Key, (Generation, Instant)>)>,
+    inner: Mutex<(Clock, HashMap<K, (Generation, Instant)>)>,
     idle_timeout: Option<Duration>,
 }
 
-impl Recency {
+impl<K> Recency<K>
+where
+    K: Clone + Eq + Hashable,
+{
     /// Creates a new [`Recency`].
     ///
     /// If `idle_timeout` is `None`, no recency checking will occur.  Otherwise, any metric that has
@@ -211,7 +217,7 @@ impl Recency {
     ///
     /// Refer to the documentation for [`MetricKindMask`](crate::MetricKindMask) for more
     /// information on defining a metric kind mask.
-    pub fn new(clock: Clock, mask: MetricKindMask, idle_timeout: Option<Duration>) -> Recency {
+    pub fn new(clock: Clock, mask: MetricKindMask, idle_timeout: Option<Duration>) -> Self {
         Recency { mask, inner: Mutex::new((clock, HashMap::new())), idle_timeout }
     }
 
@@ -223,9 +229,9 @@ impl Recency {
     /// given generation also matches.
     pub fn should_store_counter(
         &self,
-        key: &Key,
+        key: &K,
         gen: Generation,
-        registry: &Registry<GenerationalPrimitives>,
+        registry: &Registry<K, GenerationalAtomicStorage>,
     ) -> bool {
         self.should_store(key, gen, registry, MetricKind::Counter, |registry, key| {
             registry.delete_counter(key)
@@ -240,9 +246,9 @@ impl Recency {
     /// given generation also matches.
     pub fn should_store_gauge(
         &self,
-        key: &Key,
+        key: &K,
         gen: Generation,
-        registry: &Registry<GenerationalPrimitives>,
+        registry: &Registry<K, GenerationalAtomicStorage>,
     ) -> bool {
         self.should_store(key, gen, registry, MetricKind::Gauge, |registry, key| {
             registry.delete_gauge(key)
@@ -257,9 +263,9 @@ impl Recency {
     /// given generation also matches.
     pub fn should_store_histogram(
         &self,
-        key: &Key,
+        key: &K,
         gen: Generation,
-        registry: &Registry<GenerationalPrimitives>,
+        registry: &Registry<K, GenerationalAtomicStorage>,
     ) -> bool {
         self.should_store(key, gen, registry, MetricKind::Histogram, |registry, key| {
             registry.delete_histogram(key)
@@ -268,14 +274,14 @@ impl Recency {
 
     fn should_store<F>(
         &self,
-        key: &Key,
+        key: &K,
         gen: Generation,
-        registry: &Registry<GenerationalPrimitives>,
+        registry: &Registry<K, GenerationalAtomicStorage>,
         kind: MetricKind,
         delete_op: F,
     ) -> bool
     where
-        F: Fn(&Registry<GenerationalPrimitives>, &Key) -> bool,
+        F: Fn(&Registry<K, GenerationalAtomicStorage>, &K) -> bool,
     {
         if let Some(idle_timeout) = self.idle_timeout {
             if self.mask.matches(kind) {

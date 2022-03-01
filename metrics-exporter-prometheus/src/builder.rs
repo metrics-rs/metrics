@@ -38,7 +38,11 @@ use tokio::runtime;
 #[cfg(feature = "push-gateway")]
 use tracing::error;
 
-use metrics_util::{parse_quantiles, recency::Recency, MetricKindMask, Quantile, Registry};
+use metrics_util::{
+    parse_quantiles,
+    registry::{Recency, Registry},
+    MetricKindMask, Quantile,
+};
 
 use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;

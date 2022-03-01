@@ -19,9 +19,7 @@ mod quantile;
 pub use quantile::{parse_quantiles, Quantile};
 
 #[cfg(feature = "registry")]
-mod registry;
-#[cfg(feature = "registry")]
-pub use registry::{Registry, StandardPrimitives};
+pub mod registry;
 
 mod common;
 pub use common::*;
@@ -41,9 +39,6 @@ mod summary;
 pub use summary::Summary;
 
 pub mod layers;
-
-#[cfg(feature = "recency")]
-pub mod recency;
 
 #[cfg(test)]
 mod test_util;
