@@ -3,6 +3,7 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, fmt::Debug};
 
+use crate::registry::AtomicStorage;
 use crate::{kind::MetricKind, registry::Registry, CompositeKey};
 
 use indexmap::IndexMap;
@@ -51,7 +52,7 @@ pub enum DebugValue {
 
 /// Captures point-in-time snapshots of `DebuggingRecorder`.
 pub struct Snapshotter {
-    registry: Arc<Registry>,
+    registry: Arc<Registry<Key, AtomicStorage>>,
     seen: Arc<Mutex<IndexMap<CompositeKey, ()>>>,
     metadata: Arc<Mutex<IndexMap<CompositeKeyName, (Option<Unit>, &'static str)>>>,
 }
@@ -107,7 +108,7 @@ impl Snapshotter {
 /// Callers can easily take snapshots of the metrics at any given time and get access
 /// to the raw values.
 pub struct DebuggingRecorder {
-    registry: Arc<Registry>,
+    registry: Arc<Registry<Key, AtomicStorage>>,
     seen: Arc<Mutex<IndexMap<CompositeKey, ()>>>,
     metadata: Arc<Mutex<IndexMap<CompositeKeyName, (Option<Unit>, &'static str)>>>,
 }

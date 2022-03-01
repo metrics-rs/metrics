@@ -1,49 +1,17 @@
 use std::marker::PhantomData;
-use std::sync::Arc;
 use std::{hash::BuildHasherDefault, iter::repeat};
 
-use atomic_shim::AtomicU64;
 use hashbrown::{hash_map::RawEntryMut, HashMap};
-use metrics::{CounterFn, GaugeFn, HistogramFn, Key, KeyHasher};
+use metrics::{Key, KeyHasher};
 use parking_lot::RwLock;
 
-use crate::{AtomicBucket, Hashable};
+use crate::{
+    registry::{AtomicStorage, Storage},
+    Hashable,
+};
 
 type RegistryHasher = KeyHasher;
-type RegistryHashMap<V> = HashMap<Key, V, BuildHasherDefault<RegistryHasher>>;
-
-pub trait Primitives {
-    type Counter: CounterFn + Clone;
-    type Gauge: GaugeFn + Clone;
-    type Histogram: HistogramFn + Clone;
-
-    fn counter() -> Self::Counter;
-    fn gauge() -> Self::Gauge;
-    fn histogram() -> Self::Histogram;
-}
-
-/// Standard metric primitives that fit most use cases.
-///
-/// The primitives used provide shared atomic access utilizing atomic storage and shared access via `Arc`.
-pub struct StandardPrimitives;
-
-impl Primitives for StandardPrimitives {
-    type Counter = Arc<AtomicU64>;
-    type Gauge = Arc<AtomicU64>;
-    type Histogram = Arc<AtomicBucket<f64>>;
-
-    fn counter() -> Self::Counter {
-        Arc::new(AtomicU64::new(0))
-    }
-
-    fn gauge() -> Self::Gauge {
-        Arc::new(AtomicU64::new(0))
-    }
-
-    fn histogram() -> Self::Histogram {
-        Arc::new(AtomicBucket::new())
-    }
-}
+type RegistryHashMap<K, V> = HashMap<K, V, BuildHasherDefault<RegistryHasher>>;
 
 /// A high-performance metric registry.
 ///
@@ -63,20 +31,38 @@ impl Primitives for StandardPrimitives {
 /// over time.
 ///
 /// `Registry` is optimized for reads.  
-pub struct Registry<P = StandardPrimitives>
+pub struct Registry<K, S>
 where
-    P: Primitives,
+    K: Hashable,
+    S: Storage,
 {
-    counters: Vec<RwLock<RegistryHashMap<P::Counter>>>,
-    gauges: Vec<RwLock<RegistryHashMap<P::Gauge>>>,
-    histograms: Vec<RwLock<RegistryHashMap<P::Histogram>>>,
+    counters: Vec<RwLock<RegistryHashMap<K, S::Counter>>>,
+    gauges: Vec<RwLock<RegistryHashMap<K, S::Gauge>>>,
+    histograms: Vec<RwLock<RegistryHashMap<K, S::Histogram>>>,
     shard_mask: usize,
-    _primitives: PhantomData<P>,
+    _storage: PhantomData<S>,
 }
 
-impl<P> Registry<P>
+impl Registry<Key, AtomicStorage> {
+    /// Creates a new `Registry` using a regular [`Key`] and atomic storage.
+    pub fn atomic() -> Self {
+        let shard_count = std::cmp::max(1, num_cpus::get()).next_power_of_two();
+        let shard_mask = shard_count - 1;
+        let counters =
+            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+        let gauges =
+            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+        let histograms =
+            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+
+        Self { counters, gauges, histograms, shard_mask, _storage: PhantomData }
+    }
+}
+
+impl<K, S> Registry<K, S>
 where
-    P: Primitives,
+    K: Clone + Eq + Hashable,
+    S: Storage,
 {
     /// Creates a new `Registry`.
     pub fn new() -> Self {
@@ -89,14 +75,14 @@ where
         let histograms =
             repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
 
-        Self { counters, gauges, histograms, shard_mask, _primitives: PhantomData }
+        Self { counters, gauges, histograms, shard_mask, _storage: PhantomData }
     }
 
     #[inline]
     fn get_hash_and_shard_for_counter(
         &self,
-        key: &Key,
-    ) -> (u64, &RwLock<RegistryHashMap<P::Counter>>) {
+        key: &K,
+    ) -> (u64, &RwLock<RegistryHashMap<K, S::Counter>>) {
         let hash = key.hashable();
 
         // SAFETY: We initialize vector of subshards with a power-of-two value, and
@@ -108,7 +94,10 @@ where
     }
 
     #[inline]
-    fn get_hash_and_shard_for_gauge(&self, key: &Key) -> (u64, &RwLock<RegistryHashMap<P::Gauge>>) {
+    fn get_hash_and_shard_for_gauge(
+        &self,
+        key: &K,
+    ) -> (u64, &RwLock<RegistryHashMap<K, S::Gauge>>) {
         let hash = key.hashable();
 
         // SAFETY: We initialize the vector of subshards with a power-of-two value, and
@@ -122,8 +111,8 @@ where
     #[inline]
     fn get_hash_and_shard_for_histogram(
         &self,
-        key: &Key,
-    ) -> (u64, &RwLock<RegistryHashMap<P::Histogram>>) {
+        key: &K,
+    ) -> (u64, &RwLock<RegistryHashMap<K, S::Histogram>>) {
         let hash = key.hashable();
 
         // SAFETY: We initialize the vector of subshards with a power-of-two value, and
@@ -155,9 +144,9 @@ where
     ///
     /// The `op` function will be called for the counter under the given `key`, with the counter
     /// first being created if it does not already exist.
-    pub fn get_or_create_counter<O, V>(&self, key: &Key, op: O) -> V
+    pub fn get_or_create_counter<O, V>(&self, key: &K, op: O) -> V
     where
-        O: FnOnce(&P::Counter) -> V,
+        O: FnOnce(&S::Counter) -> V,
     {
         let (hash, shard) = self.get_hash_and_shard_for_counter(key);
 
@@ -176,7 +165,7 @@ where
                 let (_, v) = shard_write
                     .raw_entry_mut()
                     .from_key_hashed_nocheck(hash, key)
-                    .or_insert_with(|| (key.clone(), P::counter()));
+                    .or_insert_with(|| (key.clone(), S::counter()));
 
                 v
             };
@@ -189,9 +178,9 @@ where
     ///
     /// The `op` function will be called for the gauge under the given `key`, with the gauge
     /// first being created if it does not already exist.
-    pub fn get_or_create_gauge<O, V>(&self, key: &Key, op: O) -> V
+    pub fn get_or_create_gauge<O, V>(&self, key: &K, op: O) -> V
     where
-        O: FnOnce(&P::Gauge) -> V,
+        O: FnOnce(&S::Gauge) -> V,
     {
         let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
 
@@ -210,7 +199,7 @@ where
                 let (_, v) = shard_write
                     .raw_entry_mut()
                     .from_key_hashed_nocheck(hash, key)
-                    .or_insert_with(|| (key.clone(), P::gauge()));
+                    .or_insert_with(|| (key.clone(), S::gauge()));
 
                 v
             };
@@ -223,9 +212,9 @@ where
     ///
     /// The `op` function will be called for the histogram under the given `key`, with the histogram
     /// first being created if it does not already exist.
-    pub fn get_or_create_histogram<O, V>(&self, key: &Key, op: O) -> V
+    pub fn get_or_create_histogram<O, V>(&self, key: &K, op: O) -> V
     where
-        O: FnOnce(&P::Histogram) -> V,
+        O: FnOnce(&S::Histogram) -> V,
     {
         let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
 
@@ -244,7 +233,7 @@ where
                 let (_, v) = shard_write
                     .raw_entry_mut()
                     .from_key_hashed_nocheck(hash, key)
-                    .or_insert_with(|| (key.clone(), P::histogram()));
+                    .or_insert_with(|| (key.clone(), S::histogram()));
 
                 v
             };
@@ -256,7 +245,7 @@ where
     /// Deletes a counter from the registry.
     ///
     /// Returns `true` if the counter existed and was removed, `false` otherwise.
-    pub fn delete_counter(&self, key: &Key) -> bool {
+    pub fn delete_counter(&self, key: &K) -> bool {
         let (hash, shard) = self.get_hash_and_shard_for_counter(key);
         let mut shard_write = shard.write();
         let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
@@ -271,7 +260,7 @@ where
     /// Deletes a gauge from the registry.
     ///
     /// Returns `true` if the gauge existed and was removed, `false` otherwise.
-    pub fn delete_gauge(&self, key: &Key) -> bool {
+    pub fn delete_gauge(&self, key: &K) -> bool {
         let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
         let mut shard_write = shard.write();
         let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
@@ -286,7 +275,7 @@ where
     /// Deletes a histogram from the registry.
     ///
     /// Returns `true` if the histogram existed and was removed, `false` otherwise.
-    pub fn delete_histogram(&self, key: &Key) -> bool {
+    pub fn delete_histogram(&self, key: &K) -> bool {
         let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
         let mut shard_write = shard.write();
         let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
@@ -307,7 +296,7 @@ where
     /// the call to `visit_counters`, but before `visit_counters` finishes, may also not be observed.
     pub fn visit_counters<F>(&self, mut collect: F)
     where
-        F: FnMut(&Key, &P::Counter),
+        F: FnMut(&K, &S::Counter),
     {
         for subshard in self.counters.iter() {
             let shard_read = subshard.read();
@@ -326,7 +315,7 @@ where
     /// the call to `visit_gauges`, but before `visit_gauges` finishes, may also not be observed.
     pub fn visit_gauges<F>(&self, mut collect: F)
     where
-        F: FnMut(&Key, &P::Gauge),
+        F: FnMut(&K, &S::Gauge),
     {
         for subshard in self.gauges.iter() {
             let shard_read = subshard.read();
@@ -345,7 +334,7 @@ where
     /// the call to `visit_histograms`, but before `visit_histograms` finishes, may also not be observed.
     pub fn visit_histograms<F>(&self, mut collect: F)
     where
-        F: FnMut(&Key, &P::Histogram),
+        F: FnMut(&K, &S::Histogram),
     {
         for subshard in self.histograms.iter() {
             let shard_read = subshard.read();
@@ -358,7 +347,7 @@ where
     /// Gets a map of all present counters, mapped by key.
     ///
     /// This map is a point-in-time snapshot of the registry.
-    pub fn get_counter_handles(&self) -> HashMap<Key, P::Counter> {
+    pub fn get_counter_handles(&self) -> HashMap<K, S::Counter> {
         let mut counters = HashMap::new();
         self.visit_counters(|k, v| {
             counters.insert(k.clone(), v.clone());
@@ -369,7 +358,7 @@ where
     /// Gets a map of all present gauges, mapped by key.
     ///
     /// This map is a point-in-time snapshot of the registry.
-    pub fn get_gauge_handles(&self) -> HashMap<Key, P::Gauge> {
+    pub fn get_gauge_handles(&self) -> HashMap<K, S::Gauge> {
         let mut gauges = HashMap::new();
         self.visit_gauges(|k, v| {
             gauges.insert(k.clone(), v.clone());
@@ -380,7 +369,7 @@ where
     /// Gets a map of all present histograms, mapped by key.
     ///
     /// This map is a point-in-time snapshot of the registry.
-    pub fn get_histogram_handles(&self) -> HashMap<Key, P::Histogram> {
+    pub fn get_histogram_handles(&self) -> HashMap<K, S::Histogram> {
         let mut histograms = HashMap::new();
         self.visit_histograms(|k, v| {
             histograms.insert(k.clone(), v.clone());
@@ -394,15 +383,12 @@ mod tests {
     use atomic_shim::AtomicU64;
     use metrics::{CounterFn, Key};
 
-    //use super::Generational;
     use super::Registry;
-    use crate::registry::StandardPrimitives;
-    //use crate::registry::Tracked;
     use std::sync::{atomic::Ordering, Arc};
 
     #[test]
     fn test_registry() {
-        let registry = Registry::<StandardPrimitives>::new();
+        let registry = Registry::atomic();
         let key = Key::from_name("foobar");
 
         let entries = registry.get_counter_handles();
