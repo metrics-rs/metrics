@@ -8,8 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
-## [0.11.0] - 2022-01-14
+### Changed
 
+- Renamed `Primitives` to `Storage`, and publicly exposed it so that users can implement their own
+  storage strategies.
+- Renamed `StandardPrimitives` and `GenerationalPrimitives` to `AtomicStorage` and
+  `GenerationalAtomicStorage`, respectively.
+- Created a new top-level module, `registry`, that encompasses `Registry` and all `Registry`-related
+  and dependent types.
+
+## [0.11.0] - 2022-01-14
 ### Changed
 - Updated various dependencies in order to properly scope dependencies to only the necessary feature
   flags, and thus optimize build times and reduce transitive dependencies.

@@ -6,7 +6,7 @@ use metrics::{
     gauge, histogram, increment_counter, register_counter, register_gauge, register_histogram,
     Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit,
 };
-use metrics_util::registry::{Registry, AtomicStorage};
+use metrics_util::registry::{AtomicStorage, Registry};
 use quanta::{Clock, Instant as QuantaInstant};
 use std::{
     env,
@@ -22,7 +22,7 @@ use std::{
 const LOOP_SAMPLE: u64 = 1000;
 
 pub struct Controller {
-    registry: Arc<Registry<AtomicStorage>>,
+    registry: Arc<Registry<Key, AtomicStorage>>,
 }
 
 impl Controller {
@@ -41,7 +41,7 @@ impl Controller {
 ///
 /// Simulates typical recorder implementations by utilizing `Registry`, clearing histogram buckets, etc.
 pub struct BenchmarkingRecorder {
-    registry: Arc<Registry<AtomicStorage>>,
+    registry: Arc<Registry<Key, AtomicStorage>>,
 }
 
 impl BenchmarkingRecorder {

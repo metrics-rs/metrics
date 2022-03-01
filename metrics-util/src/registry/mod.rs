@@ -1,7 +1,7 @@
 //! High-performance metrics storage.
 
 mod storage;
-pub use storage::{Storage, AtomicStorage};
+pub use storage::{AtomicStorage, Storage};
 
 #[cfg(feature = "recency")]
 mod recency;

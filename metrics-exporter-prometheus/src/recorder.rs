@@ -13,8 +13,8 @@ use crate::common::{
 use crate::distribution::{Distribution, DistributionBuilder};
 
 pub(crate) struct Inner {
-    pub registry: Registry<GenerationalAtomicStorage>,
-    pub recency: Recency,
+    pub registry: Registry<Key, GenerationalAtomicStorage>,
+    pub recency: Recency<Key>,
     pub distributions: RwLock<HashMap<String, IndexMap<Vec<String>, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, &'static str>>,

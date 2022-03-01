@@ -10,15 +10,28 @@ use metrics::{Key, KeyHasher};
 /// `Hash` trait, `Hashable` exposes an interface that forces objects to hash themselves entirely,
 /// providing only the resulting 8-byte hash.
 ///
-/// For all implementations of `Hashable`, you _must_ utilize `metrics::KeyHasher`.  Usage of
-/// another hasher will lead to inconsistency in places where `Hashable` is used, specifically
-/// `Registry`.  You can wrap items in `DefaultHashable` to ensure they utilize the correct hasher.
+/// As a key may sometimes need to be rehashed, we need to ensure that the same hashing algorithm
+/// used to pre-generate the hash for this value is used when rehashing it.  All implementors must
+/// define the hashing algorithm used by specifying the `Hasher` associated type.
+///
+/// A default implementation, `DefaultHashable`, is provided that utilizes the same hashing
+/// algorithm that `metrics::Key` uses, which is high-performance.  This type can be used to satisfy
+/// `Hashable` so long as the type itself is already `Hash`.
 pub trait Hashable: Hash {
+    /// The hasher implementation used internally.
+    type Hasher: Hasher + Default;
+
     /// Generate the hash of this object.
-    fn hashable(&self) -> u64;
+    fn hashable(&self) -> u64 {
+        let mut hasher = Self::Hasher::default();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
 }
 
 impl Hashable for Key {
+    type Hasher = KeyHasher;
+
     fn hashable(&self) -> u64 {
         self.get_hash()
     }
@@ -28,6 +41,8 @@ impl Hashable for Key {
 pub(crate) struct DefaultHashable<H: Hash>(pub H);
 
 impl<H: Hash> Hashable for DefaultHashable<H> {
+    type Hasher = KeyHasher;
+
     fn hashable(&self) -> u64 {
         let mut hasher = KeyHasher::default();
         self.hash(&mut hasher);
