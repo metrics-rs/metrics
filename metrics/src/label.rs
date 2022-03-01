@@ -75,12 +75,29 @@ impl IntoLabels for Iter<'_, Label> {
     }
 }
 
-impl<T, L> IntoLabels for &T
+impl<T: ?Sized, L> IntoLabels for &T
 where
     Self: IntoIterator<Item = L>,
     L: Into<Label>,
 {
     fn into_labels(self) -> Vec<Label> {
         self.into_iter().map(|l| l.into()).collect()
+    }
+}
+
+#[cfg(test)]
+mod label_tests {
+    use super::*;
+
+    #[test]
+    fn slice_labels() {
+        let labels = [("x", "a"), ("y", "b")];
+
+        fn from_slice_to_labels(labels: &[(&'static str, &'static str)]) -> Vec<Label> {
+            labels.into_labels()
+        }
+
+        let expected = vec![Label::new("x", "a"), Label::new("y", "b")];
+        assert_eq!(from_slice_to_labels(&labels), expected);
     }
 }

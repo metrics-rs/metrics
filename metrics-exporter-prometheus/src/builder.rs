@@ -926,6 +926,47 @@ mod tests {
     }
 
     #[test]
+    fn test_idle_timeout_catches_delayed_idle() {
+        let (clock, mock) = Clock::mock();
+
+        let recorder = PrometheusBuilder::new()
+            .idle_timeout(MetricKindMask::ALL, Some(Duration::from_secs(10)))
+            .build_with_clock(clock);
+
+        let key = Key::from_name("basic_counter");
+        let counter1 = recorder.register_counter(&key);
+        counter1.increment(42);
+
+        // First render, which starts tracking the counter in the recency state.
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!("# TYPE basic_counter counter\n", "basic_counter 42\n\n",);
+
+        assert_eq!(rendered, expected);
+
+        // Now go forward by 9 seconds, which is close but still right unfer the idle timeout.
+        mock.increment(Duration::from_secs(9));
+        let rendered = handle.render();
+        assert_eq!(rendered, expected);
+
+        // Now increment the counter and advance time by two seconds: this pushes it over the idle
+        // timeout threshold, but it should not be removed since it has been updated.
+        counter1.increment(1);
+
+        let expected_after = concat!("# TYPE basic_counter counter\n", "basic_counter 43\n\n",);
+
+        mock.increment(Duration::from_secs(2));
+        let rendered = handle.render();
+        assert_eq!(rendered, expected_after);
+
+        // Now advance by 11 seconds, right past the idle timeout threshold.  We've made no further
+        // updates to the counter so it should be properly removed this time.
+        mock.increment(Duration::from_secs(11));
+        let rendered = handle.render();
+        assert_eq!(rendered, "");
+    }
+
+    #[test]
     pub fn test_global_labels() {
         let recorder = PrometheusBuilder::new()
             .add_global_label("foo", "foo")

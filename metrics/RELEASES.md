@@ -46,9 +46,9 @@ the operation on the handle.  If the metric has already been registered, similar
 copy of the handle is simply returned and can be operated as normally.
 
 On the flipside, though, users can use directly acquire these handles using the `register_*` macros.
-The macros for adding descriptive informat have been renamed to `describe_*`.  Thus, when there is
-an aopportunity to register metrics and store their handles somewhere for later reuse, users can use
-the `register_*` macros to do so.
+The macros for adding descriptive information have been renamed to `describe_*`.  Thus, when there
+is an opportunity to register metrics and store their handles somewhere for later reuse, users can
+use the `register_*` macros to do so.
 
 #### Implementation of handles
 
