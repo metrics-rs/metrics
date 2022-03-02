@@ -289,25 +289,28 @@ where
                 let (clock, entries) = guard.deref_mut();
 
                 let now = clock.now();
-                if let Some((last_gen, last_update)) = entries.get_mut(key) {
+                let deleted = if let Some((last_gen, last_update)) = entries.get_mut(key) {
                     // If the value is the same as the latest value we have internally, and
                     // we're over the idle timeout period, then remove it and continue.
                     if *last_gen == gen {
-                        if (now - *last_update) > idle_timeout {
-                            // If the delete returns false, that means that our generation counter is
-                            // out-of-date, and that the metric has been updated since, so we don't
-                            // actually want to delete it yet.
-                            if delete_op(registry, key) {
-                                return false;
-                            }
-                        }
+                        // If the delete returns false, that means that our generation counter is
+                        // out-of-date, and that the metric has been updated since, so we don't
+                        // actually want to delete it yet.
+                        (now - *last_update) > idle_timeout && delete_op(registry, key)
                     } else {
                         // Value has changed, so mark it such.
                         *last_update = now;
                         *last_gen = gen;
+                        false
                     }
                 } else {
                     entries.insert(key.clone(), (gen, now));
+                    false
+                };
+
+                if deleted {
+                    entries.remove(key);
+                    return false;
                 }
             }
         }
