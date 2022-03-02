@@ -14,7 +14,7 @@ use metrics::{Key, KeyHasher};
 /// used to pre-generate the hash for this value is used when rehashing it.  All implementors must
 /// define the hashing algorithm used by specifying the `Hasher` associated type.
 ///
-/// A default implementation, `DefaultHashable`, is provided that utilizes the same hashing
+/// A default implementation, [`DefaultHashable`], is provided that utilizes the same hashing
 /// algorithm that `metrics::Key` uses, which is high-performance.  This type can be used to satisfy
 /// `Hashable` so long as the type itself is already `Hash`.
 pub trait Hashable: Hash {
@@ -37,8 +37,14 @@ impl Hashable for Key {
     }
 }
 
+/// A wrapper type that provides `Hashable` for any type that is `Hash`.
+///
+/// As part of using [`Registry`][crate::registry::Registry], the chosen key type must implement
+/// [`Hashable`].  For use cases where performance is not the utmost concern and there is no desire
+/// to deal with pre-hashing keys, `DefaultHashable` can be used to wrap the key type and provide
+/// the implementation of `Hashable` so long as `H` itself is `Hash`.
 #[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct DefaultHashable<H: Hash>(pub H);
+pub struct DefaultHashable<H: Hash>(pub H);
 
 impl<H: Hash> Hashable for DefaultHashable<H> {
     type Hasher = KeyHasher;

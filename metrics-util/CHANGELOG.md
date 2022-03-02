@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `GenerationalAtomicStorage`, respectively.
 - Created a new top-level module, `registry`, that encompasses `Registry` and all `Registry`-related
   and dependent types.
+- Exposed `DefaultHashable` publicly.
 
 ## [0.11.1] - 2022-02-20
 
