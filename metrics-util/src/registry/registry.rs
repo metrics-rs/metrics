@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::{hash::BuildHasherDefault, iter::repeat};
 
 use hashbrown::{hash_map::RawEntryMut, HashMap};
@@ -20,27 +19,23 @@ type RegistryHashMap<K, V> = HashMap<K, V, BuildHasherDefault<RegistryHasher>>;
 /// In many cases, `K` will be a composite key, where the fundamental `Key` type from `metrics` is
 /// present, and differentiation is provided by storing the metric type alongside.
 ///
-/// Metrics themselves are represented opaquely behind `H`.  In most cases, this would be a
-/// thread-safe handle to the underlying metrics storage that the owner of the registry can use to
-/// update the actual metric value(s) as needed.  `Handle`, from this crate, is a solid default
+/// Metrics themselves are stored in the objects returned by `S`. In
+/// most cases this would be thread-safe objects that the owner of the
+/// `Registry` can use to update the metric value(s) as
+/// needed. [`AtomicStorage`], from this crate is a solid default
 /// choice.
 ///
-/// As well, handles have an associated generation counter which is incremented any time an entry is
-/// operated on.  This generation is returned with the handle when querying the registry, and can be
-/// used in order to delete a handle from the registry, allowing callers to prune old/stale handles
-/// over time.
-///
-/// `Registry` is optimized for reads.  
+/// `Registry` is optimized for reads.
 pub struct Registry<K, S>
 where
     K: Hashable,
-    S: Storage,
+    S: Storage<K>,
 {
     counters: Vec<RwLock<RegistryHashMap<K, S::Counter>>>,
     gauges: Vec<RwLock<RegistryHashMap<K, S::Gauge>>>,
     histograms: Vec<RwLock<RegistryHashMap<K, S::Histogram>>>,
     shard_mask: usize,
-    _storage: PhantomData<S>,
+    storage: S,
 }
 
 impl Registry<Key, AtomicStorage> {
@@ -55,17 +50,17 @@ impl Registry<Key, AtomicStorage> {
         let histograms =
             repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
 
-        Self { counters, gauges, histograms, shard_mask, _storage: PhantomData }
+        Self { counters, gauges, histograms, shard_mask, storage: AtomicStorage }
     }
 }
 
 impl<K, S> Registry<K, S>
 where
     K: Clone + Eq + Hashable,
-    S: Storage,
+    S: Storage<K>,
 {
-    /// Creates a new `Registry`.
-    pub fn new() -> Self {
+    /// Creates a new `Registry` with a custom [`Storage`].
+    pub fn new(storage: S) -> Self {
         let shard_count = std::cmp::max(1, num_cpus::get()).next_power_of_two();
         let shard_mask = shard_count - 1;
         let counters =
@@ -75,7 +70,7 @@ where
         let histograms =
             repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
 
-        Self { counters, gauges, histograms, shard_mask, _storage: PhantomData }
+        Self { counters, gauges, histograms, shard_mask, storage }
     }
 
     #[inline]
@@ -165,7 +160,7 @@ where
                 let (_, v) = shard_write
                     .raw_entry_mut()
                     .from_key_hashed_nocheck(hash, key)
-                    .or_insert_with(|| (key.clone(), S::counter()));
+                    .or_insert_with(|| (key.clone(), self.storage.counter(key)));
 
                 v
             };
@@ -199,7 +194,7 @@ where
                 let (_, v) = shard_write
                     .raw_entry_mut()
                     .from_key_hashed_nocheck(hash, key)
-                    .or_insert_with(|| (key.clone(), S::gauge()));
+                    .or_insert_with(|| (key.clone(), self.storage.gauge(key)));
 
                 v
             };
@@ -233,7 +228,7 @@ where
                 let (_, v) = shard_write
                     .raw_entry_mut()
                     .from_key_hashed_nocheck(hash, key)
-                    .or_insert_with(|| (key.clone(), S::histogram()));
+                    .or_insert_with(|| (key.clone(), self.storage.histogram(key)));
 
                 v
             };

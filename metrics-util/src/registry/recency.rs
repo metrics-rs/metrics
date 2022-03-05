@@ -27,7 +27,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{collections::HashMap, ops::DerefMut};
 
-use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn};
+use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key};
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
 
@@ -154,31 +154,53 @@ where
     }
 }
 
+/// Generational metric storage.
+///
+/// Tracks the `generation` of a metric, which is used to detect
+/// updates to metrics where the value otherwise would not be
+/// sufficient to use as an indicator.
+pub struct GenerationalStorage<S> {
+    inner: S,
+}
+
+impl<S> GenerationalStorage<S> {
+    /// Enhance `storage` by giving it the ability to track the
+    /// `generation` of a metric.
+    pub fn new(storage: S) -> Self {
+        Self { inner: storage }
+    }
+}
+
+impl<K, S: Storage<K>> Storage<K> for GenerationalStorage<S> {
+    type Counter = Generational<S::Counter>;
+    type Gauge = Generational<S::Gauge>;
+    type Histogram = Generational<S::Histogram>;
+
+    fn counter(&self, key: &K) -> Self::Counter {
+        Generational::new(self.inner.counter(key))
+    }
+
+    fn gauge(&self, key: &K) -> Self::Gauge {
+        Generational::new(self.inner.gauge(key))
+    }
+
+    fn histogram(&self, key: &K) -> Self::Histogram {
+        Generational::new(self.inner.histogram(key))
+    }
+}
+
 /// Generational atomic metric storage.
 ///
 /// `GenerationalAtomicStorage` is based on [`AtomicStorage`], but additionally tracks the
 /// "generation" of a metric, which is used to detect updates to metrics where the value otherwise
 /// would not be sufficient to use as an indicator.
-pub struct GenerationalAtomicStorage;
+pub type GenerationalAtomicStorage = GenerationalStorage<AtomicStorage>;
 
-impl Storage for GenerationalAtomicStorage {
-    type Counter = Generational<<AtomicStorage as Storage>::Counter>;
-    type Gauge = Generational<<AtomicStorage as Storage>::Gauge>;
-    type Histogram = Generational<<AtomicStorage as Storage>::Histogram>;
-
-    fn counter() -> Self::Counter {
-        let counter = <AtomicStorage as Storage>::counter();
-        Generational::new(counter)
-    }
-
-    fn gauge() -> Self::Gauge {
-        let gauge = <AtomicStorage as Storage>::gauge();
-        Generational::new(gauge)
-    }
-
-    fn histogram() -> Self::Histogram {
-        let histogram = <AtomicStorage as Storage>::histogram();
-        Generational::new(histogram)
+impl GenerationalAtomicStorage {
+    /// Creates a `GenerationalStorage` that uses [`AtomicStorage`] as
+    /// its underlying [`Storage`]
+    pub fn atomic() -> Self {
+        Self { inner: AtomicStorage }
     }
 }
 
@@ -316,5 +338,12 @@ where
         }
 
         true
+    }
+}
+
+impl Registry<Key, GenerationalAtomicStorage> {
+    /// Creates a new `Registry` using a regular [`Key`] and a generational atomic storage.
+    pub fn generational_atomic() -> Self {
+        Registry::new(GenerationalStorage::atomic())
     }
 }

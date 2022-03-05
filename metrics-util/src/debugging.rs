@@ -117,7 +117,7 @@ impl DebuggingRecorder {
     /// Creates a new `DebuggingRecorder`.
     pub fn new() -> DebuggingRecorder {
         DebuggingRecorder {
-            registry: Arc::new(Registry::new()),
+            registry: Arc::new(Registry::atomic()),
             seen: Arc::new(Mutex::new(IndexMap::new())),
             metadata: Arc::new(Mutex::new(IndexMap::new())),
         }

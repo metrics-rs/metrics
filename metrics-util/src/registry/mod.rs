@@ -7,7 +7,7 @@ pub use storage::{AtomicStorage, Storage};
 mod recency;
 
 #[cfg(feature = "recency")]
-pub use recency::{Generation, GenerationalAtomicStorage, Recency};
+pub use recency::{Generation, GenerationalAtomicStorage, GenerationalStorage, Recency};
 
 mod registry;
 pub use registry::Registry;
