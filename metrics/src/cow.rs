@@ -283,14 +283,19 @@ where
 unsafe impl<T: Cowable + Sync + ?Sized> Sync for Cow<'_, T> {}
 unsafe impl<T: Cowable + Send + ?Sized> Send for Cow<'_, T> {}
 
-/// Helper trait required by `Cow<T>` to extract capacity of owned
-/// variant of `T`, and manage conversions.
+/// Helper trait required by `Cow<T>` to extract capacity of owned variant of `T`, and manage
+/// conversions.
 ///
 /// This can be only implemented on types that match requirements:
 ///
 /// + `T::Owned` has a `capacity`, which is an extra word that is absent in `T`.
 /// + `T::Owned` with `capacity` of `0` does not allocate memory.
 /// + `T::Owned` can be reconstructed from `*mut T` borrowed out of it, plus capacity.
+///
+/// # Safety
+///
+/// - While mutable pointers are used, no mutable reference is ever taken against it, whether the
+///   string is borrowed or owned.
 pub unsafe trait Cowable {
     type Pointer;
     type Owned;

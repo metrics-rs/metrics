@@ -209,7 +209,7 @@ impl PrometheusRecorder {
         PrometheusHandle { inner: self.inner.clone() }
     }
 
-    fn add_description_if_missing(&self, key_name: KeyName, description: &'static str) {
+    fn add_description_if_missing(&self, key_name: &KeyName, description: &'static str) {
         let sanitized = sanitize_metric_name(key_name.as_str());
         let mut descriptions = self.inner.descriptions.write();
         descriptions.entry(sanitized).or_insert(description);
@@ -224,11 +224,11 @@ impl From<Inner> for PrometheusRecorder {
 
 impl Recorder for PrometheusRecorder {
     fn describe_counter(&self, key_name: KeyName, _unit: Option<Unit>, description: &'static str) {
-        self.add_description_if_missing(key_name, description);
+        self.add_description_if_missing(&key_name, description);
     }
 
     fn describe_gauge(&self, key_name: KeyName, _unit: Option<Unit>, description: &'static str) {
-        self.add_description_if_missing(key_name, description);
+        self.add_description_if_missing(&key_name, description);
     }
 
     fn describe_histogram(
@@ -237,7 +237,7 @@ impl Recorder for PrometheusRecorder {
         _unit: Option<Unit>,
         description: &'static str,
     ) {
-        self.add_description_if_missing(key_name, description);
+        self.add_description_if_missing(&key_name, description);
     }
 
     fn register_counter(&self, key: &Key) -> Counter {
