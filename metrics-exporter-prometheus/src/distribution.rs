@@ -4,6 +4,7 @@ use crate::common::Matcher;
 
 use metrics_util::{Histogram, Quantile, Summary};
 
+/// Distribution type.
 #[derive(Clone)]
 pub enum Distribution {
     /// A Prometheus histogram.

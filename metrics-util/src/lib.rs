@@ -8,9 +8,7 @@ mod bucket;
 pub use bucket::AtomicBucket;
 
 #[cfg(feature = "debugging")]
-mod debugging;
-#[cfg(feature = "debugging")]
-pub use debugging::{DebugValue, DebuggingRecorder, Snapshotter, Snapshot};
+pub mod debugging;
 
 #[cfg(feature = "handles")]
 mod handles;

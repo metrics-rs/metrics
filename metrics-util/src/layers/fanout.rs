@@ -102,19 +102,19 @@ pub struct Fanout {
 impl Recorder for Fanout {
     fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
         for recorder in &self.recorders {
-            recorder.describe_counter(key_name.clone(), unit.clone(), description);
+            recorder.describe_counter(key_name.clone(), unit, description);
         }
     }
 
     fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
         for recorder in &self.recorders {
-            recorder.describe_gauge(key_name.clone(), unit.clone(), description);
+            recorder.describe_gauge(key_name.clone(), unit, description);
         }
     }
 
     fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
         for recorder in &self.recorders {
-            recorder.describe_histogram(key_name.clone(), unit.clone(), description);
+            recorder.describe_histogram(key_name.clone(), unit, description);
         }
     }
 

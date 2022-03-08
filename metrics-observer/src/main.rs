@@ -120,10 +120,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                         format!(
                             "min: {} p50: {} p99: {} p999: {} max: {}",
-                            f64_to_displayable(min, unit.clone()),
-                            f64_to_displayable(p50, unit.clone()),
-                            f64_to_displayable(p99, unit.clone()),
-                            f64_to_displayable(p999, unit.clone()),
+                            f64_to_displayable(min, unit),
+                            f64_to_displayable(p50, unit),
+                            f64_to_displayable(p99, unit),
+                            f64_to_displayable(p999, unit),
                             f64_to_displayable(max, unit),
                         )
                     }

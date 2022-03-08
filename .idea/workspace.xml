@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CMakeSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" />
+    </configurations>
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="1899a593-a0ab-42d2-9b03-1f2ea98b8a4a" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/metrics-exporter-prometheus/src/builder.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-exporter-prometheus/src/builder.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-exporter-prometheus/src/distribution.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-exporter-prometheus/src/distribution.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-exporter-prometheus/src/recorder.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-exporter-prometheus/src/recorder.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-exporter-tcp/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-exporter-tcp/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-observer/src/input.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-observer/src/input.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-observer/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-observer/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-observer/src/metrics.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-observer/src/metrics.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-tracing-context/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-tracing-context/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-tracing-context/tests/integration.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-tracing-context/tests/integration.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-util/CHANGELOG.md" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-util/CHANGELOG.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-util/src/debugging.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-util/src/debugging.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-util/src/layers/fanout.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-util/src/layers/fanout.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-util/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-util/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-util/src/quantile.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-util/src/quantile.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-util/src/registry/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-util/src/registry/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-util/src/registry/registry.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics/src/cow.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics/src/cow.rs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="vjcp570a" />
+  </component>
+  <component name="ProjectId" id="25rzfwdby66sOdjRQzSs33XV6ui" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="RunOnceActivity.cidr.known.project.marker" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="cf.first.check.clang-format" value="false" />
+    <property name="cidr.known.project.marker" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="nodejs_package_manager_path" value="npm" />
+    <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+    <option name="version" value="2" />
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="1899a593-a0ab-42d2-9b03-1f2ea98b8a4a" name="Changes" comment="" />
+      <created>1646300100066</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1646300100066</updated>
+      <workItem from="1646300101520" duration="1306000" />
+      <workItem from="1646380016600" duration="36000" />
+      <workItem from="1646770826198" duration="1738000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

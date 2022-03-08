@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created a new top-level module, `registry`, that encompasses `Registry` and all `Registry`-related
   and dependent types.
 - Exposed `DefaultHashable` publicly.
+- Debugging utilities have been moved to a new `debugging` module, and `Snapshot` is now public.
 
 ## [0.11.1] - 2022-02-20
 

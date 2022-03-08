@@ -505,7 +505,7 @@ fn generate_metadata_messages(
 ) -> VecDeque<Bytes> {
     let mut bufs = VecDeque::new();
     for (key_name, (metric_type, unit, desc)) in metadata.iter() {
-        let msg = convert_metadata_to_protobuf_encoded(key_name, *metric_type, unit.clone(), *desc)
+        let msg = convert_metadata_to_protobuf_encoded(key_name, *metric_type, *unit, *desc)
             .expect("failed to encode metadata buffer");
         bufs.push_back(msg);
     }
