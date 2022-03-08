@@ -1,0 +1,365 @@
+//! This module contains some formatting and string sanitizing functions that can be used to parse metric keys, labels, metrics to prometheus supported formats.
+
+use indexmap::IndexMap;
+use metrics::Key;
+
+/// Breaks down the key into the key name and its label names.
+/// This also sanitizes the returned strings.
+pub fn key_to_parts(key: &Key, defaults: &IndexMap<String, String>) -> (String, Vec<String>) {
+    let name = sanitize_metric_name(key.name());
+    let mut values = defaults.clone();
+    key.labels().into_iter().for_each(|label| {
+        values.insert(label.key().to_string(), label.value().to_string());
+    });
+    let labels = values
+        .iter()
+        .map(|(k, v)| format!("{}=\"{}\"", sanitize_label_key(k), sanitize_label_value(v)))
+        .collect();
+
+    (name, labels)
+}
+
+/// Writes a prometheus help line to the given buffer.
+pub fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
+    buffer.push_str("# HELP ");
+    buffer.push_str(name);
+    buffer.push(' ');
+    let desc = sanitize_description(desc);
+    buffer.push_str(&desc);
+    buffer.push('\n');
+}
+
+/// Writes a prometheus metric type line to the given buffer.
+pub fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
+    buffer.push_str("# TYPE ");
+    buffer.push_str(name);
+    buffer.push(' ');
+    buffer.push_str(metric_type);
+    buffer.push('\n');
+}
+
+/// Writes a prometheus metric line to the given buffer.
+pub fn write_metric_line<T, T2>(
+    buffer: &mut String,
+    name: &str,
+    suffix: Option<&'static str>,
+    labels: &[String],
+    additional_label: Option<(&'static str, T)>,
+    value: T2,
+) where
+    T: std::fmt::Display,
+    T2: std::fmt::Display,
+{
+    buffer.push_str(name);
+    if let Some(suffix) = suffix {
+        buffer.push('_');
+        buffer.push_str(suffix);
+    }
+
+    if !labels.is_empty() || additional_label.is_some() {
+        buffer.push('{');
+
+        let mut first = true;
+        for label in labels {
+            if first {
+                first = false;
+            } else {
+                buffer.push(',');
+            }
+            buffer.push_str(label);
+        }
+
+        if let Some((name, value)) = additional_label {
+            if !first {
+                buffer.push(',');
+            }
+            buffer.push_str(name);
+            buffer.push_str("=\"");
+            buffer.push_str(value.to_string().as_str());
+            buffer.push('"');
+        }
+
+        buffer.push('}');
+    }
+
+    buffer.push(' ');
+    buffer.push_str(value.to_string().as_str());
+    buffer.push('\n');
+}
+
+/// Sanitizes a metric name to be prometheus compatible.
+pub fn sanitize_metric_name(name: &str) -> String {
+    // The first character must be [a-zA-Z_:], and all subsequent characters must be [a-zA-Z0-9_:].
+    name.replacen(invalid_metric_name_start_character, "_", 1)
+        .replace(invalid_metric_name_character, "_")
+}
+
+/// Sanitizes an label key to be prometheus compatible.
+pub fn sanitize_label_key(key: &str) -> String {
+    // The first character must be [a-zA-Z_], and all subsequent characters must be [a-zA-Z0-9_].
+    key.replacen(invalid_label_key_start_character, "_", 1)
+        .replace(invalid_label_key_character, "_")
+        .replacen("__", "___", 1)
+}
+
+/// Sanitizes an label value to be prometheus compatible.
+pub fn sanitize_label_value(value: &str) -> String {
+    sanitize_label_value_or_descpiption(value, false)
+}
+
+/// Sanitizes a description string to be prometheus compatible.
+pub fn sanitize_description(value: &str) -> String {
+    sanitize_label_value_or_descpiption(value, true)
+}
+
+fn sanitize_label_value_or_descpiption(value: &str, is_desc: bool) -> String {
+    // All Unicode characters are valid, but backslashes, double quotes, and line feeds must be
+    // escaped.
+    let mut sanitized = String::with_capacity(value.as_bytes().len());
+
+    let mut previous_backslash = false;
+    for c in value.chars() {
+        match c {
+            // Any raw newlines get escaped, period.
+            '\n' => sanitized.push_str("\\n"),
+            // Any double quote we see gets escaped, but only for label values, not descriptions.
+            '"' if !is_desc => {
+                previous_backslash = false;
+                sanitized.push_str("\\\"");
+            }
+            // If we see a backslash, we might be either seeing one that is being used to escape
+            // something, or seeing one that has being escaped. If our last character was a
+            // backslash, then we know this one has already been escaped, and we just emit the
+            // escaped backslash.
+            '\\' => {
+                if previous_backslash {
+                    // This backslash was preceded by another backslash, so we can safely emit an
+                    // escaped backslash.
+                    sanitized.push_str("\\\\");
+                }
+
+                // This may or may not be a backslash that is about to escape something else, so if
+                // we toggle the value here: if it was false, then we're marking ourselves as having
+                // seen a previous backslash (duh) or we just emitted an escaped backslash and now
+                // we're clearing the flag.
+                previous_backslash = !previous_backslash;
+            }
+            c => {
+                // If we had a backslash in holding, and we're here, we know it wasn't escaping
+                // something we care about, so it's on its own, and we emit an escaped backslash,
+                // before emitting the actual character we're handling.
+                if previous_backslash {
+                    previous_backslash = false;
+                    sanitized.push_str("\\\\");
+                }
+                sanitized.push(c);
+            }
+        }
+    }
+
+    // Handle any dangling backslash by writing it out in an escaped fashion.
+    if previous_backslash {
+        sanitized.push_str("\\\\");
+    }
+
+    sanitized
+}
+
+#[inline]
+fn invalid_metric_name_start_character(c: char) -> bool {
+    // Essentially, needs to match the regex pattern of [a-zA-Z_:].
+    !(c.is_ascii_alphabetic() || c == '_' || c == ':')
+}
+
+#[inline]
+fn invalid_metric_name_character(c: char) -> bool {
+    // Essentially, needs to match the regex pattern of [a-zA-Z0-9_:].
+    !(c.is_ascii_alphanumeric() || c == '_' || c == ':')
+}
+
+#[inline]
+fn invalid_label_key_start_character(c: char) -> bool {
+    // Essentially, needs to match the regex pattern of [a-zA-Z_].
+    !(c.is_ascii_alphabetic() || c == '_')
+}
+
+#[inline]
+fn invalid_label_key_character(c: char) -> bool {
+    // Essentially, needs to match the regex pattern of [a-zA-Z0-9_].
+    !(c.is_ascii_alphanumeric() || c == '_')
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::common::*;
+    use proptest::prelude::*;
+    use crate::formatting::{sanitize_description, sanitize_label_key, sanitize_label_value, sanitize_metric_name};
+
+    #[test]
+    fn test_sanitize_metric_name_known_cases() {
+        let cases = &[("*", "_"), ("\"", "_"), ("foo_bar", "foo_bar"), ("1foobar", "_foobar")];
+
+        for (input, expected) in cases {
+            let result = sanitize_metric_name(input);
+            assert_eq!(expected, &result);
+        }
+    }
+
+    #[test]
+    fn test_sanitize_label_key_known_cases() {
+        let cases = &[
+            ("*", "_"),
+            ("\"", "_"),
+            (":", "_"),
+            ("foo_bar", "foo_bar"),
+            ("1foobar", "_foobar"),
+            ("__foobar", "___foobar"),
+        ];
+
+        for (input, expected) in cases {
+            let result = sanitize_label_key(input);
+            assert_eq!(expected, &result);
+        }
+    }
+
+    #[test]
+    fn test_sanitize_label_value_known_cases() {
+        let cases = &[
+            ("*", "*"),
+            ("\"", "\\\""),
+            ("\\", "\\\\"),
+            ("\\\\", "\\\\"),
+            ("\n", "\\n"),
+            ("foo_bar", "foo_bar"),
+            ("1foobar", "1foobar"),
+        ];
+
+        for (input, expected) in cases {
+            let result = sanitize_label_value(input);
+            assert_eq!(expected, &result);
+        }
+    }
+
+    #[test]
+    fn test_sanitize_description_known_cases() {
+        let cases = &[
+            ("*", "*"),
+            ("\"", "\""),
+            ("\\", "\\\\"),
+            ("\\\\", "\\\\"),
+            ("\n", "\\n"),
+            ("foo_bar", "foo_bar"),
+            ("1foobar", "1foobar"),
+        ];
+
+        for (input, expected) in cases {
+            let result = sanitize_description(input);
+            assert_eq!(expected, &result);
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_sanitize_metric_name(input in "[\n\"\\\\]?.*[\n\"\\\\]?") {
+            let result = sanitize_metric_name(&input);
+            let as_chars = result.chars().collect::<Vec<_>>();
+
+            if let Some(c) = as_chars.first() {
+                assert_eq!(false, invalid_metric_name_start_character(*c),
+                    "first character of metric name was not valid");
+            }
+
+            assert!(!as_chars.iter().any(|c| invalid_metric_name_character(*c)),
+                "invalid character in metric name");
+        }
+
+        #[test]
+        fn test_sanitize_label_key(input in "[\n\"\\\\:]?.*[\n\"\\\\:]?") {
+            let result = sanitize_label_key(&input);
+            let as_chars = result.chars().collect::<Vec<_>>();
+
+            if let Some(c) = as_chars.first() {
+                assert_eq!(false, invalid_label_key_start_character(*c),
+                    "first character of label key was not valid");
+            }
+
+            // Label keys cannot begin with two underscores, as that format is reserved for internal
+            // use.
+            if as_chars.len() == 2 {
+                assert!(!(as_chars[0] == '_' && as_chars[1] == '_'));
+            } else if as_chars.len() == 3 {
+                if as_chars[0] == '_' && as_chars[1] == '_' {
+                    assert_eq!(as_chars[2], '_');
+                }
+            }
+
+            assert!(!as_chars.iter().any(|c| invalid_label_key_character(*c)),
+                "invalid character in label key");
+        }
+
+        #[test]
+        fn test_sanitize_label_value(input in "[\n\"\\\\]?.*[\n\"\\\\]?") {
+            let result = sanitize_label_value(&input);
+
+            // If any raw newlines are still present, then we messed up.
+            assert!(!result.contains('\n'), "raw/unescaped newlines present");
+
+            // We specifically remove instances of "\\" because we only care about dangling backslashes.
+            let delayered_backslashes = result.replace("\\\\", "");
+            let as_chars = delayered_backslashes.chars().collect::<Vec<_>>();
+
+            // If the first character is a double quote, then we messed up.
+            assert!(as_chars.first().map(|c| *c != '"').unwrap_or(true),
+                "first character cannot be a double quote: {}", result);
+
+            // Now look for unescaped characters in the rest of the string, in a windowed fashion.
+            let contained_unescaped_chars = as_chars.as_slice()
+                .windows(2)
+                .any(|s| {
+                    let first = s[0];
+                    let second = s[1];
+
+                    match (first, second) {
+                        // If there's a double quote, it has to have been preceded by an escaping
+                        // backslash.
+                        (c, '"') => c != '\\',
+                        // If there's a backslash, it can only be in front of an 'n' for escaping
+                        // newlines.
+                        ('\\', c) => c != 'n',
+                        // Everything else is valid.
+                        _ => false,
+                    }
+                });
+            assert!(!contained_unescaped_chars, "invalid or missing escape detected");
+        }
+
+        #[test]
+        fn test_sanitize_description(input in "[\n\"\\\\]?.*[\n\"\\\\]?") {
+            let result = sanitize_description(&input);
+
+            // If any raw newlines are still present, then we messed up.
+            assert!(!result.contains('\n'), "raw/unescaped newlines present");
+
+            // We specifically remove instances of "\\" because we only care about dangling backslashes.
+            let delayered_backslashes = result.replace("\\\\", "");
+            let as_chars = delayered_backslashes.chars().collect::<Vec<_>>();
+
+            // Now look for unescaped characters in the rest of the string, in a windowed fashion.
+            let contained_unescaped_chars = as_chars.as_slice()
+                .windows(2)
+                .any(|s| {
+                    let first = s[0];
+                    let second = s[1];
+
+                    match (first, second) {
+                        // If there's a backslash, it can only be in front of an 'n' for escaping
+                        // newlines.
+                        ('\\', c) => c != 'n',
+                        // Everything else is valid.
+                        _ => false,
+                    }
+                });
+            assert!(!contained_unescaped_chars, "invalid or missing escape detected");
+        }
+    }
+}

@@ -10,9 +10,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1899a593-a0ab-42d2-9b03-1f2ea98b8a4a" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/metrics-exporter-prometheus/src/formatting.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/metrics-exporter-prometheus/src/common.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-exporter-prometheus/src/common.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/metrics-exporter-prometheus/src/distribution.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-exporter-prometheus/src/distribution.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-exporter-prometheus/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-exporter-prometheus/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metrics-exporter-prometheus/src/recorder.rs" beforeDir="false" afterPath="$PROJECT_DIR$/metrics-exporter-prometheus/src/recorder.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -21,6 +23,13 @@
   </component>
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -66,7 +75,7 @@
       <updated>1646300100066</updated>
       <workItem from="1646300101520" duration="1306000" />
       <workItem from="1646380016600" duration="36000" />
-      <workItem from="1646770826198" duration="2237000" />
+      <workItem from="1646770826198" duration="2742000" />
     </task>
     <servers />
   </component>
