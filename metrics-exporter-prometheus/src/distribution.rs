@@ -22,16 +22,19 @@ pub enum Distribution {
 }
 
 impl Distribution {
+    /// Creates a histogram distribution.
     pub fn new_histogram(buckets: &[f64]) -> Distribution {
         let hist = Histogram::new(buckets).expect("buckets should never be empty");
         Distribution::Histogram(hist)
     }
 
+    /// Creates a summary distribution.
     pub fn new_summary(quantiles: Arc<Vec<Quantile>>) -> Distribution {
         let summary = Summary::with_defaults();
         Distribution::Summary(summary, quantiles, 0.0)
     }
 
+    /// Records the given `samples` in the current distribution.
     pub fn record_samples(&mut self, samples: &[f64]) {
         match self {
             Distribution::Histogram(hist) => hist.record_many(samples),
@@ -54,6 +57,7 @@ pub struct DistributionBuilder {
 }
 
 impl DistributionBuilder {
+    /// Creates a new instance of `DistributionBuilder`.
     pub fn new(
         quantiles: Vec<Quantile>,
         buckets: Option<Vec<f64>>,
@@ -70,6 +74,7 @@ impl DistributionBuilder {
         }
     }
 
+    /// Returns a distribution for the given metric key.
     pub fn get_distribution(&self, name: &str) -> Distribution {
         if let Some(ref overrides) = self.bucket_overrides {
             for (matcher, buckets) in overrides.iter() {
@@ -86,6 +91,7 @@ impl DistributionBuilder {
         Distribution::new_summary(self.quantiles.clone())
     }
 
+    /// Returns the distribution type for the given metric key.
     pub fn get_distribution_type(&self, name: &str) -> &str {
         if self.buckets.is_some() {
             return "histogram";

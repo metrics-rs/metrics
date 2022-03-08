@@ -105,12 +105,14 @@ fn invalid_label_key_character(c: char) -> bool {
     !(c.is_ascii_alphanumeric() || c == '_')
 }
 
+/// Sanitizes a metric name to be prometheus compatible.
 pub fn sanitize_metric_name(name: &str) -> String {
     // The first character must be [a-zA-Z_:], and all subsequent characters must be [a-zA-Z0-9_:].
     name.replacen(invalid_metric_name_start_character, "_", 1)
         .replace(invalid_metric_name_character, "_")
 }
 
+/// Sanitizes an label key to be prometheus compatible.
 pub fn sanitize_label_key(key: &str) -> String {
     // The first character must be [a-zA-Z_], and all subsequent characters must be [a-zA-Z0-9_].
     key.replacen(invalid_label_key_start_character, "_", 1)
@@ -118,10 +120,12 @@ pub fn sanitize_label_key(key: &str) -> String {
         .replacen("__", "___", 1)
 }
 
+/// Sanitizes an label value to be prometheus compatible.
 pub fn sanitize_label_value(value: &str) -> String {
     sanitize_label_value_or_descpiption(value, false)
 }
 
+/// Sanitizes a description string to be prometheus compatible.
 pub fn sanitize_description(value: &str) -> String {
     sanitize_label_value_or_descpiption(value, true)
 }
