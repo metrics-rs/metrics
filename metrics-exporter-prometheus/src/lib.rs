@@ -101,9 +101,10 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 mod common;
-pub use self::common::{BuildError, Matcher};
+pub use self::common::{BuildError, Matcher, sanitize_description, sanitize_label_key, sanitize_label_value, sanitize_metric_name};
 
 mod distribution;
+pub use distribution::{Distribution, DistributionBuilder};
 
 mod builder;
 pub use self::builder::PrometheusBuilder;

@@ -10,7 +10,7 @@ pub use bucket::AtomicBucket;
 #[cfg(feature = "debugging")]
 mod debugging;
 #[cfg(feature = "debugging")]
-pub use debugging::{DebugValue, DebuggingRecorder, Snapshotter};
+pub use debugging::{DebugValue, DebuggingRecorder, Snapshotter, Snapshot};
 
 #[cfg(feature = "handles")]
 mod handles;
