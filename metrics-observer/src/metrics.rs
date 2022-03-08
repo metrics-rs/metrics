@@ -72,7 +72,7 @@ impl Client {
             .map(|(k, v)| {
                 let metakey = (k.kind(), k.key().name().to_string());
                 let (unit, desc) = match metadata.get(&metakey) {
-                    Some((unit, desc)) => (unit.clone(), desc.clone()),
+                    Some((unit, desc)) => (*unit, desc.clone()),
                     None => (None, None),
                 };
 

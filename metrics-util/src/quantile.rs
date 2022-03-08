@@ -26,7 +26,7 @@ impl Quantile {
             "1" => "max".to_string(),
             _ => {
                 let raw = format!("p{}", display);
-                raw.replace(".", "")
+                raw.replace('.', "")
             }
         };
 

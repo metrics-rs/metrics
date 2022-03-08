@@ -131,6 +131,7 @@ impl PrometheusBuilder {
     /// [scrape endpoint]: https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format
     #[cfg(feature = "http-listener")]
     #[cfg_attr(docsrs, doc(cfg(feature = "http-listener")))]
+    #[must_use]
     pub fn with_http_listener(mut self, addr: impl Into<SocketAddr>) -> Self {
         self.exporter_config = ExporterConfig::HttpListener { listen_address: addr.into() };
         self
@@ -286,6 +287,7 @@ impl PrometheusBuilder {
     ///
     /// Refer to the documentation for [`MetricKindMask`](metrics_util::MetricKindMask) for more
     /// information on defining a metric kind mask.
+    #[must_use]
     pub fn idle_timeout(mut self, mask: MetricKindMask, timeout: Option<Duration>) -> Self {
         self.idle_timeout = timeout;
         self.recency_mask = if self.idle_timeout.is_none() { MetricKindMask::NONE } else { mask };
@@ -297,6 +299,7 @@ impl PrometheusBuilder {
     /// Global labels are applied to all metrics.  Labels defined on the metric key itself have precedence
     /// over any global labels.  If this method is called multiple times, the latest value for a given label
     /// key will be used.
+    #[must_use]
     pub fn add_global_label<K, V>(mut self, key: K, value: V) -> Self
     where
         K: Into<String>,
