@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use crate::distribution::Distribution;
 
+use crate::formatting::sanitize_metric_name;
 use indexmap::IndexMap;
 use metrics::SetRecorderError;
 use thiserror::Error;
-use crate::formatting::sanitize_metric_name;
 
 /// Matches a metric name in a specific way.
 ///

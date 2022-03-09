@@ -191,9 +191,10 @@ fn invalid_label_key_character(c: char) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::*;
+    use crate::formatting::{
+        sanitize_description, sanitize_label_key, sanitize_label_value, sanitize_metric_name,
+    };
     use proptest::prelude::*;
-    use crate::formatting::{sanitize_description, sanitize_label_key, sanitize_label_value, sanitize_metric_name};
 
     #[test]
     fn test_sanitize_metric_name_known_cases() {

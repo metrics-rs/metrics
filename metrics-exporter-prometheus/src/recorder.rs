@@ -7,11 +7,11 @@ use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
 use metrics_util::registry::{GenerationalAtomicStorage, Recency, Registry};
 use parking_lot::RwLock;
 
-use crate::common::{
-    Snapshot,
-};
+use crate::common::Snapshot;
 use crate::distribution::{Distribution, DistributionBuilder};
-use crate::formatting::{key_to_parts, sanitize_metric_name, write_help_line, write_metric_line, write_type_line};
+use crate::formatting::{
+    key_to_parts, sanitize_metric_name, write_help_line, write_metric_line, write_type_line,
+};
 
 pub(crate) struct Inner {
     pub registry: Registry<Key, GenerationalAtomicStorage>,

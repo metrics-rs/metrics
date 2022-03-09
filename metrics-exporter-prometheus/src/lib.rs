@@ -109,7 +109,7 @@ pub use distribution::{Distribution, DistributionBuilder};
 mod builder;
 pub use self::builder::PrometheusBuilder;
 
-mod recorder;
 pub mod formatting;
+mod recorder;
 
 pub use self::recorder::{PrometheusHandle, PrometheusRecorder};
