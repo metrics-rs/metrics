@@ -192,7 +192,9 @@ fn invalid_label_key_character(c: char) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::formatting::{
-        sanitize_description, sanitize_label_key, sanitize_label_value, sanitize_metric_name,
+        invalid_label_key_character, invalid_label_key_start_character,
+        invalid_metric_name_character, invalid_metric_name_start_character, sanitize_description,
+        sanitize_label_key, sanitize_label_value, sanitize_metric_name,
     };
     use proptest::prelude::*;
 
