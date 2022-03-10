@@ -6,10 +6,6 @@ use metrics::{CounterFn, GaugeFn, HistogramFn};
 use crate::AtomicBucket;
 
 /// Defines the underlying storage for metrics as well as how to create them.
-///
-/// The key (see [`super::Registry`]) is passed into all of its
-/// creation methods in case the creation of the underying storage is
-/// dependent on what metric is being stored.
 pub trait Storage<K> {
     /// The type used for counters.
     type Counter: CounterFn + Clone;

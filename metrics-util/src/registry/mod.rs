@@ -24,15 +24,24 @@ type RegistryHashMap<K, V> = HashMap<K, V, BuildHasherDefault<RegistryHasher>>;
 /// A high-performance metric registry.
 ///
 /// `Registry` provides the ability to maintain a central listing of metrics mapped by a given key.
+/// Metrics themselves are stored in the objects returned by `S`.
 ///
-/// In many cases, `K` will be a composite key, where the fundamental `Key` type from `metrics` is
-/// present, and differentiation is provided by storing the metric type alongside.
+/// ## Using `Registry` as the basis of an exporter
 ///
-/// Metrics themselves are stored in the objects returned by `S`. In
-/// most cases this would be thread-safe objects that the owner of the
-/// `Registry` can use to update the metric value(s) as
-/// needed. [`AtomicStorage`], from this crate is a solid default
-/// choice.
+/// As a reusable building blocking for building exporter implementations, users should look at
+/// [`Key`] and [`AtomicStorage`][crate::registry::AtomicStorage] to use for their key and storage,
+/// respectively.
+///
+/// These two implementations provide behavior that is suitable for most exporters, providing
+/// seamless integration with the existing key type used by the core
+/// [`Recorder`][metrics::Recorder] trait, as well as atomic storage for metrics.
+///
+/// In some cases, users may prefer
+/// [`GenerationalAtomicStorage`][crate::registry::GenerationalAtomicStorage] when know if a metric
+/// has been touched, even if its value has not changed since the last time it was observed, is
+/// necessary.
+///
+/// ## Performance
 ///
 /// `Registry` is optimized for reads.
 pub struct Registry<K, S>

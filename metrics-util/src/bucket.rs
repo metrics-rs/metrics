@@ -178,7 +178,9 @@ impl<T> std::fmt::Debug for Block<T> {
 /// For example, in a scenario where an internal block can hold 4 elements, and the caller has
 /// written 10 elements to the bucket, you would expect to see the values in this order when iterating:
 ///
+/// ```text
 /// [6 7 8 9] [2 3 4 5] [0 1]
+/// ```
 ///
 /// Block sizes are dependent on the target architecture, where each block can hold N items, and N
 /// is the number of bits in the target architecture's pointer width.

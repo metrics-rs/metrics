@@ -15,8 +15,8 @@ use metrics::{Key, KeyHasher};
 /// define the hashing algorithm used by specifying the `Hasher` associated type.
 ///
 /// A default implementation, [`DefaultHashable`], is provided that utilizes the same hashing
-/// algorithm that `metrics::Key` uses, which is high-performance.  This type can be used to satisfy
-/// `Hashable` so long as the type itself is already `Hash`.
+/// algorithm that [`Key`][metrics::Key] uses, which is high-performance.  This type can be used to
+/// satisfy `Hashable` so long as the type itself is already [`Hash`].
 pub trait Hashable: Hash {
     /// The hasher implementation used internally.
     type Hasher: Hasher + Default;

@@ -156,9 +156,8 @@ where
 
 /// Generational metric storage.
 ///
-/// Tracks the "generation" of a metric, which is used to detect
-/// updates to metrics where the value otherwise would not be
-/// sufficient to be used as an indicator.
+/// Tracks the "generation" of a metric, which is used to detect updates to metrics where the value
+/// otherwise would not be sufficient to be used as an indicator.
 pub struct GenerationalStorage<S> {
     inner: S,
 }
@@ -166,8 +165,7 @@ pub struct GenerationalStorage<S> {
 impl<S> GenerationalStorage<S> {
     /// Creates a new [`GenerationalStorage`].
     ///
-    /// This wraps the given `storage` and provides generational
-    /// semantics on top of it
+    /// This wraps the given `storage` and provides generational semantics on top of it.
     pub fn new(storage: S) -> Self {
         Self { inner: storage }
     }
@@ -193,15 +191,13 @@ impl<K, S: Storage<K>> Storage<K> for GenerationalStorage<S> {
 
 /// Generational atomic metric storage.
 ///
-/// `GenerationalAtomicStorage` is based on [`AtomicStorage`], but
-/// additionally tracks the "generation" of a metric, which is used to
-/// detect updates to metrics where the value otherwise would not be
-/// sufficient to be used as an indicator.
+/// `GenerationalAtomicStorage` is based on [`AtomicStorage`], but additionally tracks the
+/// "generation" of a metric, which is used to detect updates to metrics where the value otherwise
+/// would not be sufficient to be used as an indicator.
 pub type GenerationalAtomicStorage = GenerationalStorage<AtomicStorage>;
 
 impl GenerationalAtomicStorage {
-    /// Creates a `GenerationalStorage` that uses [`AtomicStorage`] as
-    /// its underlying [`Storage`]
+    /// Creates a [`GenerationalStorage`] that uses [`AtomicStorage`] as its underlying storage.
     pub fn atomic() -> Self {
         Self { inner: AtomicStorage }
     }
