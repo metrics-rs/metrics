@@ -26,7 +26,7 @@ pub fn key_to_parts(key: &Key, default_labels: &IndexMap<String, String>) -> (St
 
 /// Writes a help (description) line in the Prometheus [exposition format].
 ///
-/// [exposition_format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
+/// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
 pub fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
     buffer.push_str("# HELP ");
     buffer.push_str(name);
@@ -38,7 +38,7 @@ pub fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
 
 /// Writes a metric type line in the Prometheus [exposition format].
 ///
-/// [exposition_format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
+/// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
 pub fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
     buffer.push_str("# TYPE ");
     buffer.push_str(name);
@@ -54,7 +54,7 @@ pub fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
 /// `additional_label` would typically be used to specify a data type-specific label, such as `le` for
 /// for aggregated histograms, or `quantile` for aggregated summaries.
 ///
-/// [exposition_format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
+/// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
 pub fn write_metric_line<T, T2>(
     buffer: &mut String,
     name: &str,
@@ -105,7 +105,7 @@ pub fn write_metric_line<T, T2>(
 
 /// Sanitizes a metric name to be valid under the Prometheus [data model].
 ///
-/// [data_model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
+/// [data model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_metric_name(name: &str) -> String {
     // The first character must be [a-zA-Z_:], and all subsequent characters must be [a-zA-Z0-9_:].
     name.replacen(invalid_metric_name_start_character, "_", 1)
@@ -114,7 +114,7 @@ pub fn sanitize_metric_name(name: &str) -> String {
 
 /// Sanitizes a label key to be valid under the Prometheus [data model].
 ///
-/// [data_model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
+/// [data model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_label_key(key: &str) -> String {
     // The first character must be [a-zA-Z_], and all subsequent characters must be [a-zA-Z0-9_].
     key.replacen(invalid_label_key_start_character, "_", 1)
@@ -124,14 +124,14 @@ pub fn sanitize_label_key(key: &str) -> String {
 
 /// Sanitizes a label value to be valid under the Prometheus [data model].
 ///
-/// [data_model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
+/// [data model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_label_value(value: &str) -> String {
     sanitize_label_value_or_description(value, false)
 }
 
 /// Sanitizes a metric description to be valid under the Prometheus [exposition format].
 ///
-/// [exposition_format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
+/// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
 pub fn sanitize_description(value: &str) -> String {
     sanitize_label_value_or_description(value, true)
 }
