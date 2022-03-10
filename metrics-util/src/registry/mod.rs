@@ -12,7 +12,9 @@ pub use storage::{AtomicStorage, Storage};
 mod recency;
 
 #[cfg(feature = "recency")]
-pub use recency::{Generation, Generational, GenerationalAtomicStorage, GenerationalStorage, Recency};
+pub use recency::{
+    Generation, Generational, GenerationalAtomicStorage, GenerationalStorage, Recency,
+};
 
 use crate::Hashable;
 
