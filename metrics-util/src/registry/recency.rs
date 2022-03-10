@@ -27,7 +27,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{collections::HashMap, ops::DerefMut};
 
-use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key};
+use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn};
 use parking_lot::Mutex;
 use quanta::{Clock, Instant};
 
@@ -156,16 +156,18 @@ where
 
 /// Generational metric storage.
 ///
-/// Tracks the `generation` of a metric, which is used to detect
+/// Tracks the "generation" of a metric, which is used to detect
 /// updates to metrics where the value otherwise would not be
-/// sufficient to use as an indicator.
+/// sufficient to be used as an indicator.
 pub struct GenerationalStorage<S> {
     inner: S,
 }
 
 impl<S> GenerationalStorage<S> {
-    /// Enhance `storage` by giving it the ability to track the
-    /// `generation` of a metric.
+    /// Creates a new [`GenerationalStorage`].
+    ///
+    /// This wraps the given `storage` and provides generational
+    /// semantics on top of it
     pub fn new(storage: S) -> Self {
         Self { inner: storage }
     }
@@ -191,9 +193,10 @@ impl<K, S: Storage<K>> Storage<K> for GenerationalStorage<S> {
 
 /// Generational atomic metric storage.
 ///
-/// `GenerationalAtomicStorage` is based on [`AtomicStorage`], but additionally tracks the
-/// "generation" of a metric, which is used to detect updates to metrics where the value otherwise
-/// would not be sufficient to use as an indicator.
+/// `GenerationalAtomicStorage` is based on [`AtomicStorage`], but
+/// additionally tracks the "generation" of a metric, which is used to
+/// detect updates to metrics where the value otherwise would not be
+/// sufficient to be used as an indicator.
 pub type GenerationalAtomicStorage = GenerationalStorage<AtomicStorage>;
 
 impl GenerationalAtomicStorage {
@@ -338,12 +341,5 @@ where
         }
 
         true
-    }
-}
-
-impl Registry<Key, GenerationalAtomicStorage> {
-    /// Creates a new `Registry` using a regular [`Key`] and a generational atomic storage.
-    pub fn generational_atomic() -> Self {
-        Registry::new(GenerationalStorage::atomic())
     }
 }

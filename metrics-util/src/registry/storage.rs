@@ -9,7 +9,7 @@ use crate::AtomicBucket;
 ///
 /// The key (see [`super::Registry`]) is passed into all of its
 /// creation methods in case the creation of the underying storage is
-/// dependant on what metric is being stored.
+/// dependent on what metric is being stored.
 pub trait Storage<K> {
     /// The type used for counters.
     type Counter: CounterFn + Clone;
