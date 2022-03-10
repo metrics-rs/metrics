@@ -3,16 +3,15 @@
 use indexmap::IndexMap;
 use metrics::Key;
 
-/// Breaks a key into the name and label components, with optional default.
+/// Breaks a key into the name and label components, with optional default labels.
 ///
-/// Default labels can be passed in, and if any of the default labels are not already present, they
-/// will be added to the overall list of labels.
+/// If any of the default labels are not already present, they will be added to the overall list of labels.
 ///
 /// Both the metric name, and labels, are sanitized. See [`sanitize_metric_name`], [`sanitize_label_key`],
 /// and [`sanitize_label_value`] for more information.
-pub fn key_to_parts(key: &Key, default_labels: &IndexMap<String, String>) -> (String, Vec<String>) {
+pub fn key_to_parts(key: &Key, default_labels: Option<&IndexMap<String, String>>) -> (String, Vec<String>) {
     let name = sanitize_metric_name(key.name());
-    let mut values = default_labels.clone();
+    let mut values = default_labels.cloned().unwrap_or_default();
     key.labels().into_iter().for_each(|label| {
         values.insert(label.key().to_string(), label.value().to_string());
     });

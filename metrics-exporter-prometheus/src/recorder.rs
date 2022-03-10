@@ -32,7 +32,7 @@ impl Inner {
                 continue;
             }
 
-            let (name, labels) = key_to_parts(&key, &self.global_labels);
+            let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
             let value = counter.get_inner().load(Ordering::Acquire);
             let entry =
                 counters.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0);
@@ -47,7 +47,7 @@ impl Inner {
                 continue;
             }
 
-            let (name, labels) = key_to_parts(&key, &self.global_labels);
+            let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
             let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
             let entry =
                 gauges.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0.0);
@@ -61,7 +61,7 @@ impl Inner {
                 // Since we store aggregated distributions directly, when we're told that a metric
                 // is not recent enough and should be/was deleted from the registry, we also need to
                 // delete it on our side as well.
-                let (name, labels) = key_to_parts(&key, &self.global_labels);
+                let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
                 let mut wg = self.distributions.write();
                 let delete_by_name = if let Some(by_name) = wg.get_mut(&name) {
                     by_name.remove(&labels);
@@ -79,7 +79,7 @@ impl Inner {
                 continue;
             }
 
-            let (name, labels) = key_to_parts(&key, &self.global_labels);
+            let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
 
             let mut wg = self.distributions.write();
             let entry = wg
