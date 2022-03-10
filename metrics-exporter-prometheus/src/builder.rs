@@ -40,7 +40,7 @@ use tracing::error;
 
 use metrics_util::{
     parse_quantiles,
-    registry::{Recency, Registry},
+    registry::{GenerationalStorage, Recency, Registry},
     MetricKindMask, Quantile,
 };
 
@@ -508,7 +508,7 @@ impl PrometheusBuilder {
 
     pub(crate) fn build_with_clock(self, clock: Clock) -> PrometheusRecorder {
         let inner = Inner {
-            registry: Registry::new(),
+            registry: Registry::new(GenerationalStorage::atomic()),
             recency: Recency::new(clock, self.recency_mask, self.idle_timeout),
             distributions: RwLock::new(HashMap::new()),
             distribution_builder: DistributionBuilder::new(
