@@ -1,13 +1,18 @@
-//! This module contains some formatting and string sanitizing functions that can be used to parse metric keys, labels, metrics to prometheus supported formats.
+//! Helpers for rendering metrics in the Prometheus exposition format.
 
 use indexmap::IndexMap;
 use metrics::Key;
 
-/// Breaks down the key into the key name and its label names.
-/// This also sanitizes the returned strings.
-pub fn key_to_parts(key: &Key, defaults: &IndexMap<String, String>) -> (String, Vec<String>) {
+/// Breaks a key into the name and label components, with optional default.
+///
+/// Default labels can be passed in, and if any of the default labels are not already present, they
+/// will be added to the overall list of labels.
+///
+/// Both the metric name, and labels, are sanitized. See [`sanitize_metric_name`], [`sanitize_label_key`],
+/// and [`sanitize_label_value`] for more information.
+pub fn key_to_parts(key: &Key, default_labels: &IndexMap<String, String>) -> (String, Vec<String>) {
     let name = sanitize_metric_name(key.name());
-    let mut values = defaults.clone();
+    let mut values = default_labels.clone();
     key.labels().into_iter().for_each(|label| {
         values.insert(label.key().to_string(), label.value().to_string());
     });
@@ -19,7 +24,9 @@ pub fn key_to_parts(key: &Key, defaults: &IndexMap<String, String>) -> (String, 
     (name, labels)
 }
 
-/// Writes a prometheus help line to the given buffer.
+/// Writes a help (description) line in the Prometheus [exposition format].
+///
+/// [exposition_format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
 pub fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
     buffer.push_str("# HELP ");
     buffer.push_str(name);
@@ -29,7 +36,9 @@ pub fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
     buffer.push('\n');
 }
 
-/// Writes a prometheus metric type line to the given buffer.
+/// Writes a metric type line in the Prometheus [exposition format].
+///
+/// [exposition_format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
 pub fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
     buffer.push_str("# TYPE ");
     buffer.push_str(name);
@@ -38,7 +47,14 @@ pub fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
     buffer.push('\n');
 }
 
-/// Writes a prometheus metric line to the given buffer.
+/// Writes a metric in the Prometheus [exposition format].
+///
+/// When `suffix` is specified, it is appended to the `name`, which is useful for writing summary
+/// statistics, such as the sum or total of an aggregated histogram or aggregated summary.  Likewise,
+/// `additional_label` would typically be used to specify a data type-specific label, such as `le` for
+/// for aggregated histograms, or `quantile` for aggregated summaries.
+///
+/// [exposition_format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
 pub fn write_metric_line<T, T2>(
     buffer: &mut String,
     name: &str,
@@ -87,14 +103,18 @@ pub fn write_metric_line<T, T2>(
     buffer.push('\n');
 }
 
-/// Sanitizes a metric name to be prometheus compatible.
+/// Sanitizes a metric name to be valid under the Prometheus [data model].
+///
+/// [data_model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_metric_name(name: &str) -> String {
     // The first character must be [a-zA-Z_:], and all subsequent characters must be [a-zA-Z0-9_:].
     name.replacen(invalid_metric_name_start_character, "_", 1)
         .replace(invalid_metric_name_character, "_")
 }
 
-/// Sanitizes an label key to be prometheus compatible.
+/// Sanitizes a label key to be valid under the Prometheus [data model].
+///
+/// [data_model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_label_key(key: &str) -> String {
     // The first character must be [a-zA-Z_], and all subsequent characters must be [a-zA-Z0-9_].
     key.replacen(invalid_label_key_start_character, "_", 1)
@@ -102,17 +122,21 @@ pub fn sanitize_label_key(key: &str) -> String {
         .replacen("__", "___", 1)
 }
 
-/// Sanitizes an label value to be prometheus compatible.
+/// Sanitizes a label value to be valid under the Prometheus [data model].
+///
+/// [data_model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_label_value(value: &str) -> String {
-    sanitize_label_value_or_descpiption(value, false)
+    sanitize_label_value_or_description(value, false)
 }
 
-/// Sanitizes a description string to be prometheus compatible.
+/// Sanitizes a metric description to be valid under the Prometheus [exposition format].
+///
+/// [exposition_format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
 pub fn sanitize_description(value: &str) -> String {
-    sanitize_label_value_or_descpiption(value, true)
+    sanitize_label_value_or_description(value, true)
 }
 
-fn sanitize_label_value_or_descpiption(value: &str, is_desc: bool) -> String {
+fn sanitize_label_value_or_description(value: &str, is_desc: bool) -> String {
     // All Unicode characters are valid, but backslashes, double quotes, and line feeds must be
     // escaped.
     let mut sanitized = String::with_capacity(value.as_bytes().len());
