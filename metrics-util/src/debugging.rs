@@ -1,3 +1,9 @@
+//! Debugging utilities.
+//!
+//! While these utilities are primarily designed to help aid with testing and debugging of exporters
+//! and core parts of the `metrics` ecosystem, they can be beneficial for in-process collecting of
+//! metrics in some limited cases.
+
 use core::hash::Hash;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
@@ -21,9 +27,11 @@ impl CompositeKeyName {
     }
 }
 
+/// A point-in-time snapshot of all metrics in [`DebuggingRecorder`].
 pub struct Snapshot(Vec<(CompositeKey, Option<Unit>, Option<&'static str>, DebugValue)>);
 
 impl Snapshot {
+    /// Converts this snapshot to a mapping of metric data, keyed by the metric key itself.
     #[allow(clippy::mutable_key_type)]
     pub fn into_hashmap(
         self,
@@ -34,6 +42,7 @@ impl Snapshot {
             .collect::<HashMap<_, _>>()
     }
 
+    /// Converts this snapshot to a vector of metric data tuples.
     pub fn into_vec(self) -> Vec<(CompositeKey, Option<Unit>, Option<&'static str>, DebugValue)> {
         self.0
     }
@@ -50,7 +59,7 @@ pub enum DebugValue {
     Histogram(Vec<OrderedFloat<f64>>),
 }
 
-/// Captures point-in-time snapshots of `DebuggingRecorder`.
+/// Captures point-in-time snapshots of [`DebuggingRecorder`].
 pub struct Snapshotter {
     registry: Arc<Registry<Key, AtomicStorage>>,
     seen: Arc<Mutex<IndexMap<CompositeKey, ()>>>,

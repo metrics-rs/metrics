@@ -15,13 +15,11 @@ impl InputEvents {
         let (tx, rx) = bounded(1);
         thread::spawn(move || {
             let stdin = io::stdin();
-            for evt in stdin.keys() {
-                if let Ok(key) = evt {
-                    // If our queue is full, we don't care.  The user can just press the key again.
-                    if let Err(TrySendError::Disconnected(_)) = tx.try_send(key) {
-                        eprintln!("input event channel disconnected");
-                        return;
-                    }
+            for key in stdin.keys().flatten() {
+                // If our queue is full, we don't care.  The user can just press the key again.
+                if let Err(TrySendError::Disconnected(_)) = tx.try_send(key) {
+                    eprintln!("input event channel disconnected");
+                    return;
                 }
             }
         });
