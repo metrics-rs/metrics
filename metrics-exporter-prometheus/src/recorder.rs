@@ -7,10 +7,11 @@ use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
 use metrics_util::registry::{GenerationalAtomicStorage, Recency, Registry};
 use parking_lot::RwLock;
 
-use crate::common::{
-    sanitize_description, sanitize_label_key, sanitize_label_value, sanitize_metric_name, Snapshot,
-};
+use crate::common::Snapshot;
 use crate::distribution::{Distribution, DistributionBuilder};
+use crate::formatting::{
+    key_to_parts, sanitize_metric_name, write_help_line, write_metric_line, write_type_line,
+};
 
 pub(crate) struct Inner {
     pub registry: Registry<Key, GenerationalAtomicStorage>,
@@ -270,83 +271,4 @@ impl PrometheusHandle {
     pub fn render(&self) -> String {
         self.inner.render()
     }
-}
-
-fn key_to_parts(key: &Key, defaults: &IndexMap<String, String>) -> (String, Vec<String>) {
-    let name = sanitize_metric_name(key.name());
-    let mut values = defaults.clone();
-    key.labels().into_iter().for_each(|label| {
-        values.insert(label.key().to_string(), label.value().to_string());
-    });
-    let labels = values
-        .iter()
-        .map(|(k, v)| format!("{}=\"{}\"", sanitize_label_key(k), sanitize_label_value(v)))
-        .collect();
-
-    (name, labels)
-}
-
-fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
-    buffer.push_str("# HELP ");
-    buffer.push_str(name);
-    buffer.push(' ');
-    let desc = sanitize_description(desc);
-    buffer.push_str(&desc);
-    buffer.push('\n');
-}
-
-fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
-    buffer.push_str("# TYPE ");
-    buffer.push_str(name);
-    buffer.push(' ');
-    buffer.push_str(metric_type);
-    buffer.push('\n');
-}
-
-fn write_metric_line<T, T2>(
-    buffer: &mut String,
-    name: &str,
-    suffix: Option<&'static str>,
-    labels: &[String],
-    additional_label: Option<(&'static str, T)>,
-    value: T2,
-) where
-    T: std::fmt::Display,
-    T2: std::fmt::Display,
-{
-    buffer.push_str(name);
-    if let Some(suffix) = suffix {
-        buffer.push('_');
-        buffer.push_str(suffix);
-    }
-
-    if !labels.is_empty() || additional_label.is_some() {
-        buffer.push('{');
-
-        let mut first = true;
-        for label in labels {
-            if first {
-                first = false;
-            } else {
-                buffer.push(',');
-            }
-            buffer.push_str(label);
-        }
-
-        if let Some((name, value)) = additional_label {
-            if !first {
-                buffer.push(',');
-            }
-            buffer.push_str(name);
-            buffer.push_str("=\"");
-            buffer.push_str(value.to_string().as_str());
-            buffer.push('"');
-        }
-
-        buffer.push('}');
-    }
-
-    buffer.push(' ');
-    buffer.push_str(value.to_string().as_str());
-    buffer.push('\n');
 }
