@@ -47,7 +47,7 @@ pub struct BenchmarkingRecorder {
 impl BenchmarkingRecorder {
     /// Creates a new `BenchmarkingRecorder`.
     pub fn new() -> BenchmarkingRecorder {
-        BenchmarkingRecorder { registry: Arc::new(Registry::new()) }
+        BenchmarkingRecorder { registry: Arc::new(Registry::atomic()) }
     }
 
     /// Gets a `Controller` attached to this recorder.
