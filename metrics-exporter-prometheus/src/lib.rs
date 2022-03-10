@@ -104,9 +104,12 @@ mod common;
 pub use self::common::{BuildError, Matcher};
 
 mod distribution;
+pub use distribution::{Distribution, DistributionBuilder};
 
 mod builder;
 pub use self::builder::PrometheusBuilder;
 
+pub mod formatting;
 mod recorder;
+
 pub use self::recorder::{PrometheusHandle, PrometheusRecorder};
