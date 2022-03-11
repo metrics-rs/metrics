@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.0] - 2022-03-10
+
 ## Added
 - New top-level module, `formatting`, which exposes many of the helper methods used to sanitize and
   render the actual Prometheus exposition format. ([#285](https://github.com/metrics-rs/metrics/pull/285))
