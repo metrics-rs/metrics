@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- New storage type, `GenerationalStorage`, that provides the generational behavior of
+  `GenerationalAtomicStorage`, nee `GenerationalPrimitives`, without being inherently coupled to
+  using atomic storage.
 ### Changed
 
 - Renamed `Primitives` to `Storage`, and publicly exposed it so that users can implement their own
