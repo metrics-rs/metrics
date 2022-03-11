@@ -8,6 +8,10 @@ long-form description and would be too verbose for the changelog alone.
 
 - No notable changes.
 
+## [0.18.1] - 2022-03-10
+
+- No notable changes.
+
 ## [0.18.0] - 2022-01-14
 
 ### Switch to metric handles
