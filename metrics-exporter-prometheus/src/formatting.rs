@@ -9,7 +9,10 @@ use metrics::Key;
 ///
 /// Both the metric name, and labels, are sanitized. See [`sanitize_metric_name`], [`sanitize_label_key`],
 /// and [`sanitize_label_value`] for more information.
-pub fn key_to_parts(key: &Key, default_labels: Option<&IndexMap<String, String>>) -> (String, Vec<String>) {
+pub fn key_to_parts(
+    key: &Key,
+    default_labels: Option<&IndexMap<String, String>>,
+) -> (String, Vec<String>) {
     let name = sanitize_metric_name(key.name());
     let mut values = default_labels.cloned().unwrap_or_default();
     key.labels().into_iter().for_each(|label| {
