@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+- Slices of string key/value tuples can now be passed as the labels expression in macros. ([#277](https://github.com/metrics-rs/metrics/pull/277))
+
 ## [0.18.0] - 2022-01-14
 
 ### Added
