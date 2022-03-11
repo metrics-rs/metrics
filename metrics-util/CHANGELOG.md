@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.12.0] - 2022-03-10
+
 ### Added
 
 - New storage type, `GenerationalStorage`, that provides the generational behavior of
