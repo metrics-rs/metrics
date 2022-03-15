@@ -3,7 +3,7 @@ use std::slice::Iter;
 use crate::SharedString;
 use alloc::vec::Vec;
 
-/// Metadata for a metric key in the for of a key/value pair.
+/// Metadata for a metric key in the form of a key/value pair.
 ///
 /// Metrics are always defined by a name, but can optionally be assigned "labels", which are
 /// key/value pairs that provide metadata about the key.  Labels are typically used for
