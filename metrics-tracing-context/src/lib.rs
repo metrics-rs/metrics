@@ -125,6 +125,14 @@ impl TracingContextLayer<label_filter::IncludeAll> {
     }
 }
 
+impl TracingContextLayer<label_filter::Allowlist> {
+    /// Creates a new [`TracingContextLayer`] with an allowed list of label
+    /// names.
+    pub fn allowlist(label_names: &[&str]) -> Self {
+        Self { label_filter: label_filter::Allowlist::new(label_names) }
+    }
+}
+
 impl<R, F> Layer<R> for TracingContextLayer<F>
 where
     F: Clone,
