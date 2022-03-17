@@ -35,15 +35,7 @@ impl Allowlist {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        Self {
-            label_names: allowed
-                .into_iter()
-                .map(|s| s.as_ref().to_string())
-                .collect(),
-        }
-    }
-        let set: HashSet<String> = label_names.iter().map(|l| l.to_string()).collect();
-        Allowlist { label_names: set }
+        Self { label_names: allowed.into_iter().map(|s| s.as_ref().to_string()).collect() }
     }
 }
 

@@ -133,7 +133,7 @@ impl TracingContextLayer<label_filter::Allowlist> {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        Self { label_filter: label_filter::Allowlist::new(label_names) }
+        Self { label_filter: label_filter::Allowlist::new(allowed) }
     }
 }
 
