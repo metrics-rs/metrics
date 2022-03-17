@@ -351,7 +351,7 @@ fn test_label_filtering() {
 
 #[test]
 fn test_label_allowlist() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::allowlist(&["env", "service"]));
+    let (_guard, snapshotter) = setup(TracingContextLayer::only_allow(&["env", "service"]));
 
     let user = "ferris";
     let email = "ferris@rust-lang.org";

@@ -126,9 +126,13 @@ impl TracingContextLayer<label_filter::IncludeAll> {
 }
 
 impl TracingContextLayer<label_filter::Allowlist> {
-    /// Creates a new [`TracingContextLayer`] with an allowed list of label
-    /// names.
-    pub fn allowlist(label_names: &[&str]) -> Self {
+    /// Creates a new [`TracingContextLayer`] that only allows labels contained
+    /// in a predefined list.
+    pub fn only_allow<I, S>(allowed: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
         Self { label_filter: label_filter::Allowlist::new(label_names) }
     }
 }

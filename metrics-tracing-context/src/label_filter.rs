@@ -21,7 +21,7 @@ impl LabelFilter for IncludeAll {
     }
 }
 
-/// A [`LabelFilter`] that allows an allowed list of label names.
+/// A [`LabelFilter`] that only allows labels contained in a predefined list.
 #[derive(Debug, Clone)]
 pub struct Allowlist {
     /// The set of allowed label names.
@@ -29,8 +29,19 @@ pub struct Allowlist {
 }
 
 impl Allowlist {
-    /// Create a [`Allowlist`] filter with the provide label names.
-    pub fn new(label_names: &[&str]) -> Allowlist {
+    /// Create a [`Allowlist`] filter with the provided label names.
+    pub fn new<I, S>(allowed: I) -> Allowlist
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        Self {
+            label_names: allowed
+                .into_iter()
+                .map(|s| s.as_ref().to_string())
+                .collect(),
+        }
+    }
         let set: HashSet<String> = label_names.iter().map(|l| l.to_string()).collect();
         Allowlist { label_names: set }
     }
