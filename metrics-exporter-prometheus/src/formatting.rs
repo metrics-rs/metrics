@@ -226,7 +226,13 @@ mod tests {
 
     #[test]
     fn test_sanitize_metric_name_known_cases() {
-        let cases = &[("*", "_"), ("\"", "_"), ("foo_bar", "foo_bar"), ("1foobar", "_foobar")];
+        let cases = &[
+            ("*", "_"),
+            ("\"", "_"),
+            ("foo_bar", "foo_bar"),
+            ("foo1_bar", "foo1_bar"),
+            ("1foobar", "_foobar"),
+        ];
 
         for (input, expected) in cases {
             let result = sanitize_metric_name(input);
