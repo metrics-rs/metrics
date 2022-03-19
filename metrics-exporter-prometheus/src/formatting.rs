@@ -120,7 +120,7 @@ pub fn sanitize_metric_name(name: &str) -> String {
         }
         is_invalid = invalid_metric_name_character;
     }
-    return out;
+    out
 }
 
 /// Sanitizes a label key to be valid under the Prometheus [data model].
