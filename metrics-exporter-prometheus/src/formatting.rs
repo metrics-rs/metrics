@@ -110,8 +110,17 @@ pub fn write_metric_line<T, T2>(
 /// [data model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_metric_name(name: &str) -> String {
     // The first character must be [a-zA-Z_:], and all subsequent characters must be [a-zA-Z0-9_:].
-    name.replacen(invalid_metric_name_start_character, "_", 1)
-        .replace(invalid_metric_name_character, "_")
+    let mut out = String::with_capacity(name.len());
+    let mut is_invalid: fn(char) -> bool = invalid_metric_name_start_character;
+    for c in name.chars() {
+        if is_invalid(c) {
+            out.push('_');
+        } else {
+            out.push(c);
+        }
+        is_invalid = invalid_metric_name_character;
+    }
+    out
 }
 
 /// Sanitizes a label key to be valid under the Prometheus [data model].
@@ -226,7 +235,13 @@ mod tests {
 
     #[test]
     fn test_sanitize_metric_name_known_cases() {
-        let cases = &[("*", "_"), ("\"", "_"), ("foo_bar", "foo_bar"), ("1foobar", "_foobar")];
+        let cases = &[
+            ("*", "_"),
+            ("\"", "_"),
+            ("foo_bar", "foo_bar"),
+            ("foo1_bar", "foo1_bar"),
+            ("1foobar", "_foobar"),
+        ];
 
         for (input, expected) in cases {
             let result = sanitize_metric_name(input);
