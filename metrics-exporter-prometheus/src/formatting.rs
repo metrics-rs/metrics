@@ -128,31 +128,17 @@ pub fn sanitize_metric_name(name: &str) -> String {
 /// [data model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_label_key(key: &str) -> String {
     // The first character must be [a-zA-Z_], and all subsequent characters must be [a-zA-Z0-9_].
-    let mut ret = key
-        .chars()
-        .enumerate()
-        .map(|(idx, ch)| {
-            if idx == 0 {
-                if invalid_label_key_start_character(ch) {
-                    '_'
-                } else {
-                    ch
-                }
-            } else {
-                if invalid_label_key_character(ch) {
-                    '_'
-                } else {
-                    ch
-                }
-            }
-        })
-        .collect::<String>();
-
-    if key.starts_with("__") && !key.starts_with("___") {
-        ret = "_".to_string() + &ret;
+    let mut out = String::with_capacity(key.len());
+    let mut is_invalid: fn(char) -> bool = invalid_label_key_start_character;
+    for c in key.chars() {
+        if is_invalid(c) {
+            out.push('_');
+        } else {
+            out.push(c);
+        }
+        is_invalid = invalid_label_key_character;
     }
-
-    ret
+    out
 }
 
 /// Sanitizes a label value to be valid under the Prometheus [data model].
@@ -263,6 +249,8 @@ mod tests {
             ("foo_bar", "foo_bar"),
             ("foo1_bar", "foo1_bar"),
             ("1foobar", "_foobar"),
+            ("foo1:bar2", "foo1:bar2"),
+            ("123", "_23"),
         ];
 
         for (input, expected) in cases {
@@ -279,7 +267,9 @@ mod tests {
             (":", "_"),
             ("foo_bar", "foo_bar"),
             ("1foobar", "_foobar"),
-            ("__foobar", "___foobar"),
+            ("__foobar", "__foobar"),
+            ("foo1bar2", "foo1bar2"),
+            ("123", "_23"),
         ];
 
         for (input, expected) in cases {
