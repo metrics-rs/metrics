@@ -128,9 +128,31 @@ pub fn sanitize_metric_name(name: &str) -> String {
 /// [data model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_label_key(key: &str) -> String {
     // The first character must be [a-zA-Z_], and all subsequent characters must be [a-zA-Z0-9_].
-    key.replacen(invalid_label_key_start_character, "_", 1)
-        .replace(invalid_label_key_character, "_")
-        .replacen("__", "___", 1)
+    let mut ret = key
+        .chars()
+        .enumerate()
+        .map(|(idx, ch)| {
+            if idx == 0 {
+                if invalid_label_key_start_character(ch) {
+                    '_'
+                } else {
+                    ch
+                }
+            } else {
+                if invalid_label_key_character(ch) {
+                    '_'
+                } else {
+                    ch
+                }
+            }
+        })
+        .collect::<String>();
+
+    if key.starts_with("__") && !key.starts_with("___") {
+        ret = "_".to_string() + &ret;
+    }
+
+    ret
 }
 
 /// Sanitizes a label value to be valid under the Prometheus [data model].
