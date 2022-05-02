@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.12.1] - 2022-05-02
+
 ### Added
 
 - A new per-thread mode for `DebuggingRecorder` that allows recording metrics on a per-thread basis to better supporting
