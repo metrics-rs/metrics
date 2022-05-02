@@ -59,7 +59,7 @@ radix_trie = { version = "0.2", default-features = false, optional = true }
 ordered-float = { version = "2.0", default-features = false, optional = true }
 num_cpus = { version = "1", default-features = false, optional = true }
 ahash = { version = "0.7", default-features = false, optional = true }
-hashbrown = { version = "0.11", default-features = false, optional = true, features = ["ahash"] }
+hashbrown = { version = "0.12", default-features = false, optional = true, features = ["ahash"] }
 
 [dev-dependencies]
 approx = "0.5"
