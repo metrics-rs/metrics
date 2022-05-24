@@ -225,17 +225,14 @@ pub unsafe fn set_recorder_racy(recorder: &'static dyn Recorder) -> Result<(), S
 ///
 /// This method is typically only useful for testing or benchmarking.
 ///
-/// # Warning
+/// # Safety
 ///
-/// This function is unsound and must not be called during any readers reading or writers writing.
+/// This function must not be called during any readers reading or writers writing.
 /// The caller can cause readers and writers to race if they are in reading/writing while
 /// this function is called.
 #[doc(hidden)]
-pub fn clear_recorder() {
-    // FIXME: Make this an unsafe function
-    unsafe {
-        RECORDER.clear();
-    }
+pub unsafe fn clear_recorder() {
+    RECORDER.clear();
 }
 
 /// The type returned by [`set_recorder`] if [`set_recorder`] has already been called.
