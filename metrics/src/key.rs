@@ -25,21 +25,12 @@ impl KeyName {
     }
 }
 
-impl From<&'static str> for KeyName {
-    fn from(name: &'static str) -> Self {
-        KeyName(SharedString::from(name))
-    }
-}
-
-impl From<String> for KeyName {
-    fn from(name: String) -> Self {
-        KeyName(SharedString::from(name))
-    }
-}
-
-impl From<std::borrow::Cow<'static, str>> for KeyName {
-    fn from(name: std::borrow::Cow<'static, str>) -> Self {
-        KeyName(SharedString::from(name))
+impl<T> From<T> for KeyName
+where
+    T: Into<SharedString>,
+{
+    fn from(name: T) -> Self {
+        KeyName(name.into())
     }
 }
 
@@ -80,7 +71,7 @@ impl Key {
         N: Into<KeyName>,
     {
         let name = name.into();
-        let labels = Cow::owned(Vec::new());
+        let labels = Cow::from_owned(Vec::new());
 
         Self::builder(name, labels)
     }
@@ -92,7 +83,7 @@ impl Key {
         L: IntoLabels,
     {
         let name = name.into();
-        let labels = Cow::owned(labels.into_labels());
+        let labels = Cow::from_owned(labels.into_labels());
 
         Self::builder(name, labels)
     }
@@ -104,7 +95,7 @@ impl Key {
     {
         Self {
             name: name.into(),
-            labels: Cow::<[Label]>::const_slice(labels),
+            labels: Cow::const_slice(labels),
             hashed: AtomicBool::new(false),
             hash: AtomicU64::new(0),
         }
@@ -123,7 +114,7 @@ impl Key {
     pub const fn from_static_parts(name: &'static str, labels: &'static [Label]) -> Self {
         Self {
             name: KeyName::from_const_str(name),
-            labels: Cow::<[Label]>::const_slice(labels),
+            labels: Cow::const_slice(labels),
             hashed: AtomicBool::new(false),
             hash: AtomicU64::new(0),
         }
@@ -244,14 +235,11 @@ impl fmt::Display for Key {
     }
 }
 
-impl From<String> for Key {
-    fn from(name: String) -> Self {
-        Self::from_name(name)
-    }
-}
-
-impl From<&'static str> for Key {
-    fn from(name: &'static str) -> Self {
+impl<T> From<T> for Key
+where
+    T: Into<KeyName>,
+{
+    fn from(name: T) -> Self {
         Self::from_name(name)
     }
 }
@@ -269,8 +257,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::Key;
-    use crate::Label;
-    use std::collections::HashMap;
+    use crate::{KeyName, Label};
+    use std::{collections::HashMap, ops::Deref, sync::Arc};
 
     static BORROWED_NAME: &'static str = "name";
     static FOOBAR_NAME: &'static str = "foobar";
@@ -362,5 +350,49 @@ mod tests {
         );
         let result4 = key4.to_string();
         assert_eq!(result4, "Key(foobar, [black = black, lives = lives, matter = matter])");
+    }
+
+    #[test]
+    fn test_key_name_equality() {
+        static KEY_NAME: &'static str = "key_name";
+
+        let borrowed_const = KeyName::from_const_str(KEY_NAME);
+        let borrowed_nonconst = KeyName::from(KEY_NAME);
+        let owned = KeyName::from(KEY_NAME.to_owned());
+
+        let shared_arc = Arc::from(KEY_NAME);
+        let shared = KeyName::from(Arc::clone(&shared_arc));
+
+        assert_eq!(borrowed_const, borrowed_nonconst);
+        assert_eq!(borrowed_const.as_str(), borrowed_nonconst.as_str());
+        assert_eq!(borrowed_const, owned);
+        assert_eq!(borrowed_const.as_str(), owned.as_str());
+        assert_eq!(borrowed_const, shared);
+        assert_eq!(borrowed_const.as_str(), shared.as_str());
+    }
+
+    #[test]
+    fn test_shared_key_name_drop_logic() {
+        let shared_arc = Arc::from("foo");
+        let shared = KeyName::from(Arc::clone(&shared_arc));
+
+        assert_eq!(shared_arc.deref(), shared.as_str());
+
+        assert_eq!(Arc::strong_count(&shared_arc), 2);
+        drop(shared);
+        assert_eq!(Arc::strong_count(&shared_arc), 1);
+
+        let shared_weak = Arc::downgrade(&shared_arc);
+        assert_eq!(Arc::strong_count(&shared_arc), 1);
+
+        let shared = KeyName::from(Arc::clone(&shared_arc));
+        assert_eq!(shared_arc.deref(), shared.as_str());
+        assert_eq!(Arc::strong_count(&shared_arc), 2);
+
+        drop(shared_arc);
+        assert_eq!(shared_weak.strong_count(), 1);
+
+        drop(shared);
+        assert_eq!(shared_weak.strong_count(), 0);
     }
 }
