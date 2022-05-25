@@ -375,7 +375,7 @@ mod tests {
         let recorder = DebuggingRecorder::per_thread();
         let snapshotter = recorder.snapshotter();
 
-        metrics::clear_recorder();
+        unsafe { metrics::clear_recorder() };
         recorder.install().expect("installing debugging recorder should not fail");
 
         let t1 = std::thread::spawn(|| {
