@@ -94,13 +94,13 @@
 //! let layered = layer.layer(recorder);
 //! metrics::set_boxed_recorder(Box::new(layered)).expect("failed to install recorder");
 //!
-//! # metrics::clear_recorder();
+//! # unsafe { metrics::clear_recorder() };
 //!
 //! // Working with layers directly is a bit cumbersome, though, so let's use a `Stack`.
 //! let stack = Stack::new(BasicRecorder);
 //! stack.push(StairwayDenyLayer::default()).install().expect("failed to install stack");
 //!
-//! # metrics::clear_recorder();
+//! # unsafe { metrics::clear_recorder() };
 //!
 //! // `Stack` makes it easy to chain layers together, as well.
 //! let stack = Stack::new(BasicRecorder);
