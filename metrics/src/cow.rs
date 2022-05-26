@@ -330,7 +330,9 @@ unsafe impl Cowable for str {
 
     #[inline]
     fn owned_into_parts(owned: String) -> (NonNull<u8>, Metadata) {
-        let mut owned = ManuallyDrop::new(owned);
+        // We need to go through Vec here to get provenance for the entire allocation
+        // instead of just the initialized parts.
+        let mut owned = ManuallyDrop::new(owned.into_bytes());
         let ptr = unsafe { NonNull::new_unchecked(owned.as_mut_ptr()) };
         let metadata = Metadata::from_owned(owned.len(), owned.capacity());
         (ptr, metadata)
