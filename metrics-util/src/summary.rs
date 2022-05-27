@@ -133,22 +133,22 @@ impl Summary {
             return Some(self.max());
         }
 
-        let ncount = self.negative.count();
-        let pcount = self.positive.count();
-        let zcount = self.zeroes;
-        let total = ncount + pcount + zcount;
-        let rank = (q * (total - 1) as f64) as usize;
+        let ncount = self.negative.count() as f64;
+        let pcount = self.positive.count() as f64;
+        let zcount = self.zeroes as f64;
+        // Defer rounding to the underlying sketch
+        let rank = q * (ncount + pcount + zcount);
 
-        if rank < ncount {
+        if rank <= ncount {
             // Quantile lands in the negative side.
-            let nq = 1.0 - (rank as f64 / ncount as f64);
+            let nq = 1.0 - (rank / ncount as f64);
             self.negative.quantile(nq).expect("quantile should be valid at this point").map(|v| -v)
-        } else if rank >= ncount && rank < (ncount + zcount) {
+        } else if rank <= (ncount + zcount) {
             // Quantile lands in the zero band.
             Some(0.0)
         } else {
             // Quantile lands in the positive side.
-            let pq = (rank - (ncount + zcount)) as f64 / pcount as f64;
+            let pq = (rank - (ncount + zcount)) / pcount;
             self.positive.quantile(pq).expect("quantile should be valid at this point")
         }
     }
@@ -206,7 +206,10 @@ mod tests {
 
     #[test]
     fn test_basics() {
-        let mut summary = Summary::with_defaults();
+        let alpha = 0.0001;
+        let max_bins = 32_768;
+        let min_value = 1.0e-9;
+        let mut summary = Summary::new(alpha, max_bins, min_value);
         assert!(summary.is_empty());
 
         // Stretch the legs with a single value.
@@ -214,23 +217,51 @@ mod tests {
         assert_eq!(summary.count(), 1);
         assert_relative_eq!(summary.min(), -420.42);
         assert_relative_eq!(summary.max(), -420.42);
-        assert_abs_diff_eq!(summary.quantile(0.1).expect("value should exist"), -420.42);
-        assert_abs_diff_eq!(summary.quantile(0.5).expect("value should exist"), -420.42);
-        assert_abs_diff_eq!(summary.quantile(0.99).expect("value should exist"), -420.42);
+        let alpha = 0.001;
+
+        let test_cases = vec![(0.1, -420.42), (0.5, -420.42), (0.9, -420.42)];
+        for (q, val) in test_cases {
+            assert_relative_eq!(
+                summary.quantile(q).expect("value should exist"),
+                val,
+                max_relative = 2.0 * alpha * val
+            );
+        }
 
         summary.add(420.42);
         assert_eq!(summary.count(), 2);
         assert_relative_eq!(summary.min(), -420.42);
         assert_relative_eq!(summary.max(), 420.42);
-        assert_abs_diff_eq!(summary.quantile(0.49).expect("value should exist"), -420.42);
+        assert_relative_eq!(
+            summary.quantile(0.5).expect("value should exist"),
+            -420.42,
+            max_relative = 2.0 * alpha * 420.42
+        );
+        assert_relative_eq!(
+            summary.quantile(0.51).expect("value should exist"),
+            420.42,
+            max_relative = 2.0 * alpha * 420.42
+        );
 
         summary.add(42.42);
         assert_eq!(summary.count(), 3);
         assert_relative_eq!(summary.min(), -420.42);
         assert_relative_eq!(summary.max(), 420.42);
-        assert_abs_diff_eq!(summary.quantile(0.4999999999).expect("value should exist"), -420.42);
-        assert_abs_diff_eq!(summary.quantile(0.5).expect("value should exist"), 42.42);
-        assert_abs_diff_eq!(summary.quantile(0.9999999999).expect("value should exist"), 42.42);
+
+        let test_cases = vec![
+            (0.333333, -420.42),
+            (0.333334, 42.42),
+            (0.666666, 42.42),
+            (0.666667, 420.42),
+            (0.999999, 420.42),
+        ];
+        for (q, val) in test_cases {
+            assert_relative_eq!(
+                summary.quantile(q).expect("value should exist"),
+                val,
+                max_relative = 2.0 * alpha * val
+            );
+        }
     }
 
     #[test]
