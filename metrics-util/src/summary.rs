@@ -122,11 +122,15 @@ impl Summary {
     /// If the sketch is empty, or if the quantile is less than 0.0 or greater than 1.0, then the
     /// result will be `None`.
     ///
-    /// While `q` can be either 0.0 or 1.0, callers should prefer to use [`Summary::min`] and
-    /// [`Summary::max`] as the values will be the true values, and not an estimation.
+    /// If the 0.0 or 1.0 quantile is requested, this function will return self.min() or self.max()
+    /// instead of the estimated value.
     pub fn quantile(&self, q: f64) -> Option<f64> {
         if !(0.0..=1.0).contains(&q) || self.count() == 0 {
             return None;
+        } else if q == 0.0 {
+            return Some(self.min());
+        } else if q == 1.0 {
+            return Some(self.max());
         }
 
         let ncount = self.negative.count();
