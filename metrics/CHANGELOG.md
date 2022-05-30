@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.19.0] - 2022-05-30
+
 ### Fixed
 
 - Small typo in the documentation. ([#286](https://github.com/metrics-rs/metrics/pull/286))
