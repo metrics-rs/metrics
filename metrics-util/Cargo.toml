@@ -46,7 +46,7 @@ name = "bucket-crusher"
 required-features = ["handles"]
 
 [dependencies]
-metrics = { version = "^0.18", path = "../metrics" }
+metrics = { version = "^0.19", path = "../metrics" }
 crossbeam-epoch = { version = "0.9.2", default-features = false, optional = true, features = ["alloc", "std"] }
 crossbeam-utils = { version = "0.8", default-features = false, optional = true }
 atomic-shim = { version = "0.2", default-features = false, optional = true }
