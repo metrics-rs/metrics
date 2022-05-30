@@ -24,7 +24,7 @@ push-gateway = ["async-runtime", "hyper/client", "tracing"]
 [dependencies]
 metrics = { version = "^0.19", path = "../metrics" }
 metrics-util = { version = "^0.13", path = "../metrics-util", default-features = false, features = ["recency", "registry", "summary"] }
-parking_lot = { version = "0.11", default-features = false }
+parking_lot = { version = "0.12", default-features = false }
 thiserror = { version = "1", default-features = false }
 quanta = { version = "0.9.3", default-features = false }
 indexmap = { version = "1", default-features = false }

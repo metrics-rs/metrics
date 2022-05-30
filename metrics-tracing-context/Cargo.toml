@@ -38,6 +38,6 @@ tracing-subscriber = { version = "0.3.1", default-features = false, features = [
 
 [dev-dependencies]
 criterion = "0.3"
-parking_lot = "0.11"
+parking_lot = "0.12"
 tracing = { version = "0.1.29", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3.1", default-features = false, features = ["registry"] }
