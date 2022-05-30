@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.13.0] - 2022-05-30
+
 ### Fixed
 
 - In `Summary`, some quantiles were previously mapped to an incorrect rank at low sample counts, leading to large swings
