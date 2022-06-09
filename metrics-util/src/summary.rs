@@ -1,4 +1,5 @@
 use sketches_ddsketch::{Config, DDSketch};
+use std::fmt;
 
 /// A quantile sketch with relative-error guarantees.
 ///
@@ -153,6 +154,22 @@ impl Summary {
         }
     }
 
+    /// Merge another Summary into this one.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the other Summary was not created with the same
+    /// parameters.
+    pub fn merge(&mut self, other: &Summary) -> Result<(), MergeError> {
+        self.negative.merge(&other.negative).map_err(|_| MergeError {})?;
+        self.positive.merge(&other.positive).map_err(|_| MergeError {})?;
+        self.min_value = f64::min(self.min_value, other.min_value);
+        self.zeroes += other.zeroes;
+        self.min = f64::min(self.min, other.min);
+        self.max = f64::max(self.max, other.max);
+        Ok(())
+    }
+
     /// Gets the minimum value this summary has seen so far.
     pub fn min(&self) -> f64 {
         self.min
@@ -186,6 +203,17 @@ impl Summary {
         std::mem::size_of::<Self>() + ((self.positive.length() + self.negative.length()) * 8)
     }
 }
+
+#[derive(Copy, Clone, Debug)]
+pub struct MergeError {}
+
+impl fmt::Display for MergeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "merge error")
+    }
+}
+
+impl std::error::Error for MergeError {}
 
 #[cfg(test)]
 mod tests {
