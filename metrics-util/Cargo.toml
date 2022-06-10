@@ -81,7 +81,7 @@ quickcheck_macros = "1"
 mockall = "0.11"
 
 [features]
-handles = ["crossbeam-epoch", "crossbeam-utils"]
+handles = ["crossbeam-epoch", "crossbeam-utils", "quanta"]
 debugging = ["indexmap", "ordered-float", "registry"]
 default = ["debugging", "handles", "layers", "summary", "recency", "registry"]
 layers = ["layer-filter", "layer-router"]
