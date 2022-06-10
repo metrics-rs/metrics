@@ -121,7 +121,7 @@ struct Bucket {
     summary: Summary,
 }
 
-/// A RollingSummary manages a list of [Summary] so that old results can be expired.
+/// A `RollingSummary` manages a list of [Summary] so that old results can be expired.
 #[derive(Clone)]
 pub struct RollingSummary {
     // Buckets are ordered with the latest buckets first.  The buckets are kept in alignment based
@@ -146,7 +146,7 @@ impl Default for RollingSummary {
 }
 
 impl RollingSummary {
-    /// Create a new RollingSummary with the given number of `buckets` and `bucket-duration`.
+    /// Create a new `RollingSummary` with the given number of `buckets` and `bucket-duration`.
     ///
     /// The summary will store quantiles over `buckets * bucket_duration` seconds.
     pub fn new(buckets: std::num::NonZeroU32, bucket_duration: Duration) -> RollingSummary {
@@ -163,9 +163,9 @@ impl RollingSummary {
         }
     }
 
-    /// Add a sample `value` to the RollingSummary at the time `now`.
+    /// Add a sample `value` to the `RollingSummary` at the time `now`.
     ///
-    /// Any values that expire at the `value_ts` are removed from the RollingSummary.
+    /// Any values that expire at the `value_ts` are removed from the `RollingSummary`.
     pub fn add(&mut self, value: f64, now: Instant) {
         // The count is incremented even if this value is too old to be saved in any bucket.
         self.count += 1;
@@ -235,7 +235,7 @@ impl RollingSummary {
     /// # Warning
     ///
     /// The snapshot `Summary::count()` contains the total number of values considered in the
-    /// Snapshot, which is not the full count of the RollingSummary.  Use `RollingSummary::count()`
+    /// Snapshot, which is not the full count of the `RollingSummary`.  Use `RollingSummary::count()`
     /// instead.
     pub fn snapshot(&self, now: Instant) -> Summary {
         let cutoff = now.checked_sub(self.max_bucket_duration);
