@@ -109,7 +109,9 @@ impl Snapshotter {
                 }),
                 MetricKind::Histogram => histograms.get(ck.key()).map(|h| {
                     let mut values = Vec::new();
-                    h.clear_with(|xs| values.extend(xs.iter().map(|(f, _)| OrderedFloat::from(*f))));
+                    h.clear_with(|xs| {
+                        values.extend(xs.iter().map(|(f, _)| OrderedFloat::from(*f)))
+                    });
                     DebugValue::Histogram(values)
                 }),
             };
