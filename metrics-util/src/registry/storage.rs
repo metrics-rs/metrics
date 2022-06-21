@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use atomic_shim::AtomicU64;
 use metrics::{CounterFn, GaugeFn, HistogramFn};
-use quanta::Instant;
 
 use crate::AtomicBucket;
 
@@ -36,7 +35,7 @@ pub struct AtomicStorage;
 impl<K> Storage<K> for AtomicStorage {
     type Counter = Arc<AtomicU64>;
     type Gauge = Arc<AtomicU64>;
-    type Histogram = Arc<AtomicBucket<(f64, Instant)>>;
+    type Histogram = Arc<AtomicBucket<f64>>;
 
     fn counter(&self, _: &K) -> Self::Counter {
         Arc::new(AtomicU64::new(0))

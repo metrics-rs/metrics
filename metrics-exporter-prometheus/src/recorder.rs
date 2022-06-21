@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
-use metrics_util::registry::{GenerationalAtomicStorage, Recency, Registry};
+use metrics_util::registry::{Recency, Registry};
 use parking_lot::RwLock;
 use quanta::Instant;
 
@@ -13,6 +13,7 @@ use crate::distribution::{Distribution, DistributionBuilder};
 use crate::formatting::{
     key_to_parts, sanitize_metric_name, write_help_line, write_metric_line, write_type_line,
 };
+use crate::registry::GenerationalAtomicStorage;
 
 pub(crate) struct Inner {
     pub registry: Registry<Key, GenerationalAtomicStorage>,

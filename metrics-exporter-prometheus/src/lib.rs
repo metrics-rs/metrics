@@ -112,4 +112,6 @@ pub use self::builder::PrometheusBuilder;
 pub mod formatting;
 mod recorder;
 
+mod registry;
+
 pub use self::recorder::{PrometheusHandle, PrometheusRecorder};

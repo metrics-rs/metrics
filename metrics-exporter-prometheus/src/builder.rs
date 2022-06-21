@@ -47,6 +47,7 @@ use metrics_util::{
 use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;
 use crate::recorder::{Inner, PrometheusRecorder};
+use crate::registry::AtomicStorage;
 use crate::{common::BuildError, PrometheusHandle};
 
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
@@ -508,7 +509,7 @@ impl PrometheusBuilder {
 
     pub(crate) fn build_with_clock(self, clock: Clock) -> PrometheusRecorder {
         let inner = Inner {
-            registry: Registry::new(GenerationalStorage::atomic()),
+            registry: Registry::new(GenerationalStorage::new(AtomicStorage)),
             recency: Recency::new(clock, self.recency_mask, self.idle_timeout),
             distributions: RwLock::new(HashMap::new()),
             distribution_builder: DistributionBuilder::new(
