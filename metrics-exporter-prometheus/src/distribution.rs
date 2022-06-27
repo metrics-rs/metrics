@@ -310,7 +310,9 @@ mod tests {
 
         assert_eq!(42.0, snapshot.min());
         assert_eq!(42.0, snapshot.max());
-        assert_eq!(Some(42.0), snapshot.quantile(0.5));
+        // 42 +/- (42 * 0.0001)
+        assert!(Some(41.9958) < snapshot.quantile(0.5));
+        assert!(Some(42.0042) > snapshot.quantile(0.5));
     }
 
     #[test]
