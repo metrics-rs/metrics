@@ -1,4 +1,5 @@
 use sketches_ddsketch::{Config, DDSketch};
+use std::fmt;
 
 /// A quantile sketch with relative-error guarantees.
 ///
@@ -41,12 +42,7 @@ use sketches_ddsketch::{Config, DDSketch};
 /// [hdrhistogram]: https://docs.rs/hdrhistogram
 #[derive(Clone)]
 pub struct Summary {
-    negative: DDSketch,
-    positive: DDSketch,
-    min_value: f64,
-    zeroes: usize,
-    min: f64,
-    max: f64,
+    sketch: DDSketch,
 }
 
 impl Summary {
@@ -68,14 +64,7 @@ impl Summary {
     pub fn new(alpha: f64, max_buckets: u32, min_value: f64) -> Summary {
         let config = Config::new(alpha, max_buckets, min_value.abs());
 
-        Summary {
-            negative: DDSketch::new(config),
-            positive: DDSketch::new(config),
-            min_value: min_value.abs(),
-            zeroes: 0,
-            min: f64::INFINITY,
-            max: f64::NEG_INFINITY,
-        }
+        Summary { sketch: DDSketch::new(config) }
     }
 
     /// Creates a new [`Summary`] with default values.
@@ -100,21 +89,7 @@ impl Summary {
             return;
         }
 
-        if value < self.min {
-            self.min = value;
-        }
-
-        if value > self.max {
-            self.max = value;
-        }
-
-        if value > self.min_value {
-            self.positive.add(value);
-        } else if value < -self.min_value {
-            self.negative.add(-value);
-        } else {
-            self.zeroes += 1;
-        }
+        self.sketch.add(value);
     }
 
     /// Gets the estimated value at the given quantile.
@@ -127,40 +102,30 @@ impl Summary {
     pub fn quantile(&self, q: f64) -> Option<f64> {
         if !(0.0..=1.0).contains(&q) || self.count() == 0 {
             return None;
-        } else if q == 0.0 {
-            return Some(self.min());
-        } else if q == 1.0 {
-            return Some(self.max());
         }
 
-        let ncount = self.negative.count() as f64;
-        let pcount = self.positive.count() as f64;
-        let zcount = self.zeroes as f64;
-        // Defer rounding to the underlying sketch
-        let rank = q * (ncount + pcount + zcount);
+        self.sketch.quantile(q).expect("quantile should be valid at this point")
+    }
 
-        if rank <= ncount {
-            // Quantile lands in the negative side.
-            let nq = 1.0 - (rank / ncount as f64);
-            self.negative.quantile(nq).expect("quantile should be valid at this point").map(|v| -v)
-        } else if rank <= (ncount + zcount) {
-            // Quantile lands in the zero band.
-            Some(0.0)
-        } else {
-            // Quantile lands in the positive side.
-            let pq = (rank - (ncount + zcount)) / pcount;
-            self.positive.quantile(pq).expect("quantile should be valid at this point")
-        }
+    /// Merge another Summary into this one.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the other Summary was not created with the same
+    /// parameters.
+    pub fn merge(&mut self, other: &Summary) -> Result<(), MergeError> {
+        self.sketch.merge(&other.sketch).map_err(|_| MergeError {})?;
+        Ok(())
     }
 
     /// Gets the minimum value this summary has seen so far.
     pub fn min(&self) -> f64 {
-        self.min
+        self.sketch.min().unwrap_or(f64::INFINITY)
     }
 
     /// Gets the maximum value this summary has seen so far.
     pub fn max(&self) -> f64 {
-        self.max
+        self.sketch.max().unwrap_or(f64::NEG_INFINITY)
     }
 
     /// Whether or not this summary is empty.
@@ -170,12 +135,7 @@ impl Summary {
 
     /// Gets the number of samples in this summary.
     pub fn count(&self) -> usize {
-        self.negative.count() + self.positive.count() + self.zeroes
-    }
-
-    /// Gets the number of samples in this summary by zeroes, negative, and positive counts.
-    pub fn detailed_count(&self) -> (usize, usize, usize) {
-        (self.zeroes, self.negative.count(), self.positive.count())
+        self.sketch.count()
     }
 
     /// Gets the estimized size of this summary, in bytes.
@@ -183,9 +143,20 @@ impl Summary {
     /// In practice, this value should be very close to the actual size, but will not be entirely
     /// precise.
     pub fn estimated_size(&self) -> usize {
-        std::mem::size_of::<Self>() + ((self.positive.length() + self.negative.length()) * 8)
+        std::mem::size_of::<Self>() + (self.sketch.length() * 8)
     }
 }
+
+#[derive(Copy, Clone, Debug)]
+pub struct MergeError {}
+
+impl fmt::Display for MergeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "merge error")
+    }
+}
+
+impl std::error::Error for MergeError {}
 
 #[cfg(test)]
 mod tests {
@@ -217,30 +188,30 @@ mod tests {
         assert_eq!(summary.count(), 1);
         assert_relative_eq!(summary.min(), -420.42);
         assert_relative_eq!(summary.max(), -420.42);
-        let alpha = 0.001;
 
         let test_cases = vec![(0.1, -420.42), (0.5, -420.42), (0.9, -420.42)];
         for (q, val) in test_cases {
             assert_relative_eq!(
                 summary.quantile(q).expect("value should exist"),
                 val,
-                max_relative = 2.0 * alpha * val
+                max_relative = alpha
             );
         }
 
         summary.add(420.42);
+
         assert_eq!(summary.count(), 2);
         assert_relative_eq!(summary.min(), -420.42);
         assert_relative_eq!(summary.max(), 420.42);
         assert_relative_eq!(
             summary.quantile(0.5).expect("value should exist"),
             -420.42,
-            max_relative = 2.0 * alpha * 420.42
+            max_relative = alpha
         );
         assert_relative_eq!(
             summary.quantile(0.51).expect("value should exist"),
-            420.42,
-            max_relative = 2.0 * alpha * 420.42
+            -420.42,
+            max_relative = alpha
         );
 
         summary.add(42.42);
@@ -250,16 +221,16 @@ mod tests {
 
         let test_cases = vec![
             (0.333333, -420.42),
-            (0.333334, 42.42),
+            (0.333334, -420.42),
             (0.666666, 42.42),
-            (0.666667, 420.42),
-            (0.999999, 420.42),
+            (0.666667, 42.42),
+            (0.999999, 42.42),
         ];
         for (q, val) in test_cases {
             assert_relative_eq!(
                 summary.quantile(q).expect("value should exist"),
                 val,
-                max_relative = 2.0 * alpha * val
+                max_relative = alpha
             );
         }
     }
