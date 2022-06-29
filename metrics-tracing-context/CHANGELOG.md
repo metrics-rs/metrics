@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.11.0] - 2022-05-30
+
+### Added
+
+- A new label filter, `Allowlist`, to only collect labels which are present in the list. ([#288](https://github.com/metrics-rs/metrics/pull/288))
+
+### Changed
+
+- Bumped the dependency on `metrics` to deal with a public API change.
+
 ## [0.10.0] - 2022-01-14
 
 ### Changed

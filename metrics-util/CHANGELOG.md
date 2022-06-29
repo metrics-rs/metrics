@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.13.0] - 2022-05-30
+
+### Fixed
+
+- In `Summary`, some quantiles were previously mapped to an incorrect rank at low sample counts, leading to large swings
+  in estimated values. ([#304](https://github.com/metrics-rs/metrics/pull/304))
+
+### Changed
+
+- Bumped the dependency on `metrics` to deal with a public API change.
+
 ## [0.12.1] - 2022-05-02
 
 ### Added

@@ -78,7 +78,7 @@ where
     let snapshotter = recorder.snapshotter();
     let recorder = layer.layer(recorder);
 
-    metrics::clear_recorder();
+    unsafe { metrics::clear_recorder() };
     metrics::set_boxed_recorder(Box::new(recorder)).expect("failed to install recorder");
 
     let test_guard =

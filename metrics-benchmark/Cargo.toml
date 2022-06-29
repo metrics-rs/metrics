@@ -12,5 +12,5 @@ getopts = "0.2"
 hdrhistogram = { version = "7.2", default-features = false }
 quanta = "0.9.3"
 atomic-shim = "0.2"
-metrics = { version = "^0.18", path = "../metrics" }
-metrics-util = { version = "^0.12", path = "../metrics-util" }
+metrics = { version = "^0.19", path = "../metrics" }
+metrics-util = { version = "^0.13", path = "../metrics-util" }

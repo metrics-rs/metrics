@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.19.0] - 2022-05-30
+
+### Fixed
+
+- Small typo in the documentation. ([#286](https://github.com/metrics-rs/metrics/pull/286))
+
+### Changed
+
+- Refactored the global recorder instance, namely around how it gets set and documenting the safety guarantees of
+  methods related to setting and unsetting it. ([#302](https://github.com/metrics-rs/metrics/pull/302))
+- Fixed an issue with pointer provenance in `metrics::Cow`. ([#303](https://github.com/metrics-rs/metrics/pull/303))
+
 ## [0.18.1] - 2022-03-10
 
 ### Added
