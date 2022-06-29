@@ -47,6 +47,7 @@ use metrics_util::{
 use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;
 use crate::recorder::{Inner, PrometheusRecorder};
+use crate::registry::AtomicStorage;
 use crate::{common::BuildError, PrometheusHandle};
 
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
@@ -508,7 +509,7 @@ impl PrometheusBuilder {
 
     pub(crate) fn build_with_clock(self, clock: Clock) -> PrometheusRecorder {
         let inner = Inner {
-            registry: Registry::new(GenerationalStorage::atomic()),
+            registry: Registry::new(GenerationalStorage::new(AtomicStorage)),
             recency: Recency::new(clock, self.recency_mask, self.idle_timeout),
             distributions: RwLock::new(HashMap::new()),
             distribution_builder: DistributionBuilder::new(
@@ -543,7 +544,8 @@ mod tests {
 
     #[test]
     fn test_render() {
-        let recorder = PrometheusBuilder::new().build_recorder();
+        let recorder =
+            PrometheusBuilder::new().set_quantiles(&[0.0, 1.0]).unwrap().build_recorder();
 
         let key = Key::from_name("basic_counter");
         let counter1 = recorder.register_counter(&key);
@@ -575,11 +577,6 @@ mod tests {
         let histogram_data = concat!(
             "# TYPE basic_histogram summary\n",
             "basic_histogram{quantile=\"0\"} 12\n",
-            "basic_histogram{quantile=\"0.5\"} 12\n",
-            "basic_histogram{quantile=\"0.9\"} 12\n",
-            "basic_histogram{quantile=\"0.95\"} 12\n",
-            "basic_histogram{quantile=\"0.99\"} 12\n",
-            "basic_histogram{quantile=\"0.999\"} 12\n",
             "basic_histogram{quantile=\"1\"} 12\n",
             "basic_histogram_sum 12\n",
             "basic_histogram_count 1\n",
@@ -685,6 +682,8 @@ mod tests {
 
         let recorder = PrometheusBuilder::new()
             .idle_timeout(MetricKindMask::ALL, Some(Duration::from_secs(10)))
+            .set_quantiles(&[0.0, 1.0])
+            .unwrap()
             .build_with_clock(clock);
 
         let key = Key::from_name("basic_counter");
@@ -708,11 +707,6 @@ mod tests {
             "basic_gauge -3.14\n\n",
             "# TYPE basic_histogram summary\n",
             "basic_histogram{quantile=\"0\"} 1\n",
-            "basic_histogram{quantile=\"0.5\"} 1\n",
-            "basic_histogram{quantile=\"0.9\"} 1\n",
-            "basic_histogram{quantile=\"0.95\"} 1\n",
-            "basic_histogram{quantile=\"0.99\"} 1\n",
-            "basic_histogram{quantile=\"0.999\"} 1\n",
             "basic_histogram{quantile=\"1\"} 1\n",
             "basic_histogram_sum 1\n",
             "basic_histogram_count 1\n\n",
@@ -738,6 +732,8 @@ mod tests {
                 MetricKindMask::COUNTER | MetricKindMask::HISTOGRAM,
                 Some(Duration::from_secs(10)),
             )
+            .set_quantiles(&[0.0, 1.0])
+            .unwrap()
             .build_with_clock(clock);
 
         let key = Key::from_name("basic_counter");
@@ -761,11 +757,6 @@ mod tests {
             "basic_gauge -3.14\n\n",
             "# TYPE basic_histogram summary\n",
             "basic_histogram{quantile=\"0\"} 1\n",
-            "basic_histogram{quantile=\"0.5\"} 1\n",
-            "basic_histogram{quantile=\"0.9\"} 1\n",
-            "basic_histogram{quantile=\"0.95\"} 1\n",
-            "basic_histogram{quantile=\"0.99\"} 1\n",
-            "basic_histogram{quantile=\"0.999\"} 1\n",
             "basic_histogram{quantile=\"1\"} 1\n",
             "basic_histogram_sum 1\n",
             "basic_histogram_count 1\n\n",
@@ -790,6 +781,8 @@ mod tests {
 
         let recorder = PrometheusBuilder::new()
             .idle_timeout(MetricKindMask::ALL, Some(Duration::from_secs(10)))
+            .set_quantiles(&[0.0, 1.0])
+            .unwrap()
             .build_with_clock(clock);
 
         let key = Key::from_name("basic_counter");
@@ -813,11 +806,6 @@ mod tests {
             "basic_gauge -3.14\n\n",
             "# TYPE basic_histogram summary\n",
             "basic_histogram{quantile=\"0\"} 1\n",
-            "basic_histogram{quantile=\"0.5\"} 1\n",
-            "basic_histogram{quantile=\"0.9\"} 1\n",
-            "basic_histogram{quantile=\"0.95\"} 1\n",
-            "basic_histogram{quantile=\"0.99\"} 1\n",
-            "basic_histogram{quantile=\"0.999\"} 1\n",
             "basic_histogram{quantile=\"1\"} 1\n",
             "basic_histogram_sum 1\n",
             "basic_histogram_count 1\n\n",
@@ -840,20 +828,10 @@ mod tests {
             "basic_gauge -3.14\n\n",
             "# TYPE basic_histogram summary\n",
             "basic_histogram{quantile=\"0\"} 1\n",
-            "basic_histogram{quantile=\"0.5\"} 1\n",
-            "basic_histogram{quantile=\"0.9\"} 1\n",
-            "basic_histogram{quantile=\"0.95\"} 1\n",
-            "basic_histogram{quantile=\"0.99\"} 1\n",
-            "basic_histogram{quantile=\"0.999\"} 1\n",
             "basic_histogram{quantile=\"1\"} 1\n",
             "basic_histogram_sum 1\n",
             "basic_histogram_count 1\n",
             "basic_histogram{type=\"special\",quantile=\"0\"} 2\n",
-            "basic_histogram{type=\"special\",quantile=\"0.5\"} 2\n",
-            "basic_histogram{type=\"special\",quantile=\"0.9\"} 2\n",
-            "basic_histogram{type=\"special\",quantile=\"0.95\"} 2\n",
-            "basic_histogram{type=\"special\",quantile=\"0.99\"} 2\n",
-            "basic_histogram{type=\"special\",quantile=\"0.999\"} 2\n",
             "basic_histogram{type=\"special\",quantile=\"1\"} 2\n",
             "basic_histogram_sum{type=\"special\"} 2\n",
             "basic_histogram_count{type=\"special\"} 1\n\n",
@@ -864,11 +842,6 @@ mod tests {
         let expected_after = concat!(
             "# TYPE basic_histogram summary\n",
             "basic_histogram{type=\"special\",quantile=\"0\"} 2\n",
-            "basic_histogram{type=\"special\",quantile=\"0.5\"} 2\n",
-            "basic_histogram{type=\"special\",quantile=\"0.9\"} 2\n",
-            "basic_histogram{type=\"special\",quantile=\"0.95\"} 2\n",
-            "basic_histogram{type=\"special\",quantile=\"0.99\"} 2\n",
-            "basic_histogram{type=\"special\",quantile=\"0.999\"} 2\n",
             "basic_histogram{type=\"special\",quantile=\"1\"} 2\n",
             "basic_histogram_sum{type=\"special\"} 2\n",
             "basic_histogram_count{type=\"special\"} 1\n\n",
