@@ -3,15 +3,15 @@ extern crate criterion;
 
 use criterion::Criterion;
 
-use metrics::{counter, Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
+use metrics::{counter, Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
 use rand::{thread_rng, Rng};
 
 #[derive(Default)]
 struct TestRecorder;
 impl Recorder for TestRecorder {
-    fn describe_counter(&self, _: KeyName, _: Option<Unit>, _: &'static str) {}
-    fn describe_gauge(&self, _: KeyName, _: Option<Unit>, _: &'static str) {}
-    fn describe_histogram(&self, _: KeyName, _: Option<Unit>, _: &'static str) {}
+    fn describe_counter(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
+    fn describe_gauge(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
+    fn describe_histogram(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
     fn register_counter(&self, _: &Key) -> Counter {
         Counter::noop()
     }
