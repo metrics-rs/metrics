@@ -66,8 +66,14 @@ As well, there are also some community-maintained exporters and other integratio
 
 ## MSRV
 
-Minimum Supported Rust version is **1.56.1**
+Minimum Supported Rust version is **1.56.1**.
 It is enforced in CI.
+
+### policy for bumping MSRV
+
+* The last 4 stable releases must always be supported
+* Goal is to try and support older versions where possible (not opting in to newer versions just to use a new helper method on standard library types, etc)
+* Do not bump the MSRV for newer versions of dependencies in core crates (metrics and metrics-util)
 
 # contributing
 
