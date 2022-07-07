@@ -16,7 +16,7 @@ fn test_get_describe_code() {
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . describe_mytype (\"mykeyname\" . into () , None , \"a counter\") ; ",
+        "recorder . describe_mytype (\"mykeyname\" . into () , None , \"a counter\" . into ()) ; ",
         "} ",
         "}",
     );
@@ -38,7 +38,7 @@ fn test_get_describe_code_with_qualified_unit() {
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . describe_mytype (\"mykeyname\" . into () , Some (metrics :: Unit :: Nanoseconds) , \"a counter\") ; ",
+        "recorder . describe_mytype (\"mykeyname\" . into () , Some (metrics :: Unit :: Nanoseconds) , \"a counter\" . into ()) ; ",
         "} ",
         "}",
     );
@@ -60,7 +60,7 @@ fn test_get_describe_code_with_relative_unit() {
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . describe_mytype (\"mykeyname\" . into () , Some (Unit :: Nanoseconds) , \"a counter\") ; ",
+        "recorder . describe_mytype (\"mykeyname\" . into () , Some (Unit :: Nanoseconds) , \"a counter\" . into ()) ; ",
         "} ",
         "}",
     );
@@ -77,7 +77,7 @@ fn test_get_describe_code_with_constants() {
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . describe_mytype (KEY_NAME . into () , None , COUNTER_DESC) ; ",
+        "recorder . describe_mytype (KEY_NAME . into () , None , COUNTER_DESC . into ()) ; ",
         "} ",
         "}",
     );
@@ -99,7 +99,7 @@ fn test_get_describe_code_with_constants_and_with_qualified_unit() {
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . describe_mytype (KEY_NAME . into () , Some (metrics :: Unit :: Nanoseconds) , COUNTER_DESC) ; ",
+        "recorder . describe_mytype (KEY_NAME . into () , Some (metrics :: Unit :: Nanoseconds) , COUNTER_DESC . into ()) ; ",
         "} ",
         "}",
     );
@@ -121,7 +121,7 @@ fn test_get_describe_code_with_constants_and_with_relative_unit() {
     let expected = concat!(
         "{ ",
         "if let Some (recorder) = metrics :: try_recorder () { ",
-        "recorder . describe_mytype (KEY_NAME . into () , Some (Unit :: Nanoseconds) , COUNTER_DESC) ; ",
+        "recorder . describe_mytype (KEY_NAME . into () , Some (Unit :: Nanoseconds) , COUNTER_DESC . into ()) ; ",
         "} ",
         "}",
     );

@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
 use metrics_util::registry::{Recency, Registry};
 use parking_lot::RwLock;
 use quanta::Instant;
@@ -20,7 +20,7 @@ pub(crate) struct Inner {
     pub recency: Recency<Key>,
     pub distributions: RwLock<HashMap<String, IndexMap<Vec<String>, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
-    pub descriptions: RwLock<HashMap<String, &'static str>>,
+    pub descriptions: RwLock<HashMap<String, SharedString>>,
     pub global_labels: IndexMap<String, String>,
 }
 
@@ -213,7 +213,7 @@ impl PrometheusRecorder {
         PrometheusHandle { inner: self.inner.clone() }
     }
 
-    fn add_description_if_missing(&self, key_name: &KeyName, description: &'static str) {
+    fn add_description_if_missing(&self, key_name: &KeyName, description: SharedString) {
         let sanitized = sanitize_metric_name(key_name.as_str());
         let mut descriptions = self.inner.descriptions.write();
         descriptions.entry(sanitized).or_insert(description);
@@ -227,11 +227,11 @@ impl From<Inner> for PrometheusRecorder {
 }
 
 impl Recorder for PrometheusRecorder {
-    fn describe_counter(&self, key_name: KeyName, _unit: Option<Unit>, description: &'static str) {
+    fn describe_counter(&self, key_name: KeyName, _unit: Option<Unit>, description: SharedString) {
         self.add_description_if_missing(&key_name, description);
     }
 
-    fn describe_gauge(&self, key_name: KeyName, _unit: Option<Unit>, description: &'static str) {
+    fn describe_gauge(&self, key_name: KeyName, _unit: Option<Unit>, description: SharedString) {
         self.add_description_if_missing(&key_name, description);
     }
 
@@ -239,7 +239,7 @@ impl Recorder for PrometheusRecorder {
         &self,
         key_name: KeyName,
         _unit: Option<Unit>,
-        description: &'static str,
+        description: SharedString,
     ) {
         self.add_description_if_missing(&key_name, description);
     }

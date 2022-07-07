@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use metrics::{
-    Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, KeyName, Recorder, Unit,
+    Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, KeyName, Recorder,
+    SharedString, Unit,
 };
 
 struct FanoutCounter {
@@ -100,21 +101,21 @@ pub struct Fanout {
 }
 
 impl Recorder for Fanout {
-    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         for recorder in &self.recorders {
-            recorder.describe_counter(key_name.clone(), unit, description);
+            recorder.describe_counter(key_name.clone(), unit, description.clone());
         }
     }
 
-    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         for recorder in &self.recorders {
-            recorder.describe_gauge(key_name.clone(), unit, description);
+            recorder.describe_gauge(key_name.clone(), unit, description.clone());
         }
     }
 
-    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         for recorder in &self.recorders {
-            recorder.describe_histogram(key_name.clone(), unit, description);
+            recorder.describe_histogram(key_name.clone(), unit, description.clone());
         }
     }
 
@@ -175,13 +176,17 @@ mod tests {
             RecorderOperation::DescribeCounter(
                 "counter_key".into(),
                 Some(Unit::Count),
-                "counter desc",
+                "counter desc".into(),
             ),
-            RecorderOperation::DescribeGauge("gauge_key".into(), Some(Unit::Bytes), "gauge desc"),
+            RecorderOperation::DescribeGauge(
+                "gauge_key".into(),
+                Some(Unit::Bytes),
+                "gauge desc".into(),
+            ),
             RecorderOperation::DescribeHistogram(
                 "histogram_key".into(),
                 Some(Unit::Nanoseconds),
-                "histogram desc",
+                "histogram desc".into(),
             ),
             RecorderOperation::RegisterCounter("counter_key".into(), Counter::noop()),
             RecorderOperation::RegisterGauge("gauge_key".into(), Gauge::noop()),

@@ -30,17 +30,17 @@ impl<R> Prefix<R> {
 }
 
 impl<R: Recorder> Recorder for Prefix<R> {
-    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         let new_key_name = self.prefix_key_name(key_name);
         self.inner.describe_counter(new_key_name, unit, description)
     }
 
-    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         let new_key_name = self.prefix_key_name(key_name);
         self.inner.describe_gauge(new_key_name, unit, description)
     }
 
-    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         let new_key_name = self.prefix_key_name(key_name);
         self.inner.describe_histogram(new_key_name, unit, description)
     }
@@ -94,13 +94,17 @@ mod tests {
             RecorderOperation::DescribeCounter(
                 "counter_key".into(),
                 Some(Unit::Count),
-                "counter desc",
+                "counter desc".into(),
             ),
-            RecorderOperation::DescribeGauge("gauge_key".into(), Some(Unit::Bytes), "gauge desc"),
+            RecorderOperation::DescribeGauge(
+                "gauge_key".into(),
+                Some(Unit::Bytes),
+                "gauge desc".into(),
+            ),
             RecorderOperation::DescribeHistogram(
                 "histogram_key".into(),
                 Some(Unit::Nanoseconds),
-                "histogram desc",
+                "histogram desc".into(),
             ),
             RecorderOperation::RegisterCounter("counter_key".into(), Counter::noop()),
             RecorderOperation::RegisterGauge("gauge_key".into(), Gauge::noop()),
@@ -111,17 +115,17 @@ mod tests {
             RecorderOperation::DescribeCounter(
                 "testing.counter_key".into(),
                 Some(Unit::Count),
-                "counter desc",
+                "counter desc".into(),
             ),
             RecorderOperation::DescribeGauge(
                 "testing.gauge_key".into(),
                 Some(Unit::Bytes),
-                "gauge desc",
+                "gauge desc".into(),
             ),
             RecorderOperation::DescribeHistogram(
                 "testing.histogram_key".into(),
                 Some(Unit::Nanoseconds),
-                "histogram desc",
+                "histogram desc".into(),
             ),
             RecorderOperation::RegisterCounter("testing.counter_key".into(), Counter::noop()),
             RecorderOperation::RegisterGauge("testing.gauge_key".into(), Gauge::noop()),

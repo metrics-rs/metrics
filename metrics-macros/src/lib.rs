@@ -215,7 +215,7 @@ fn get_describe_code(
         {
             // Only do this work if there's a recorder installed.
             if let Some(recorder) = metrics::try_recorder() {
-                recorder.#describe_ident(#name.into(), #unit, #description);
+                recorder.#describe_ident(#name.into(), #unit, #description.into());
             }
         }
     }
