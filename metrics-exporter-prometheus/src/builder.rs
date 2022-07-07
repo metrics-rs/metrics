@@ -982,7 +982,7 @@ mod tests {
         let key_name = KeyName::from("yee_haw:lets go");
         let key = Key::from_name(key_name.clone())
             .with_extra_labels(vec![Label::new("øhno", "\"yeet\nies\\\"")]);
-        recorder.describe_counter(key_name, None, "\"Simplë stuff.\nRëally.\"");
+        recorder.describe_counter(key_name, None, "\"Simplë stuff.\nRëally.\"".into());
         let counter1 = recorder.register_counter(&key);
         counter1.increment(1);
 

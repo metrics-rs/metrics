@@ -95,7 +95,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Label, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Label, Recorder, SharedString, Unit};
 use metrics_util::layers::Layer;
 
 pub mod label_filter;
@@ -203,15 +203,15 @@ where
     R: Recorder,
     F: LabelFilter,
 {
-    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         self.inner.describe_counter(key_name, unit, description)
     }
 
-    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         self.inner.describe_gauge(key_name, unit, description)
     }
 
-    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         self.inner.describe_histogram(key_name, unit, description)
     }
 

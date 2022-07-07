@@ -1,5 +1,5 @@
 use self::cell::RecorderOnceCell;
-use crate::{Counter, Gauge, Histogram, Key, KeyName, Unit};
+use crate::{Counter, Gauge, Histogram, Key, KeyName, SharedString, Unit};
 use core::fmt;
 
 mod cell {
@@ -116,7 +116,7 @@ pub trait Recorder {
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
-    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: &'static str);
+    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: SharedString);
 
     /// Describes a gauge.
     ///
@@ -124,7 +124,7 @@ pub trait Recorder {
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
-    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: &'static str);
+    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: SharedString);
 
     /// Describes a histogram.
     ///
@@ -132,7 +132,7 @@ pub trait Recorder {
     /// not a metric can be reregistered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
-    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: &'static str);
+    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString);
 
     /// Registers a counter.
     fn register_counter(&self, key: &Key) -> Counter;
@@ -151,9 +151,9 @@ pub trait Recorder {
 pub struct NoopRecorder;
 
 impl Recorder for NoopRecorder {
-    fn describe_counter(&self, _key: KeyName, _unit: Option<Unit>, _description: &'static str) {}
-    fn describe_gauge(&self, _key: KeyName, _unit: Option<Unit>, _description: &'static str) {}
-    fn describe_histogram(&self, _key: KeyName, _unit: Option<Unit>, _description: &'static str) {}
+    fn describe_counter(&self, _key: KeyName, _unit: Option<Unit>, _description: SharedString) {}
+    fn describe_gauge(&self, _key: KeyName, _unit: Option<Unit>, _description: SharedString) {}
+    fn describe_histogram(&self, _key: KeyName, _unit: Option<Unit>, _description: SharedString) {}
     fn register_counter(&self, _key: &Key) -> Counter {
         Counter::noop()
     }
