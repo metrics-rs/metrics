@@ -1,4 +1,3 @@
-use atomic_shim::AtomicU64;
 use getopts::Options;
 use hdrhistogram::Histogram as HdrHistogram;
 use log::{error, info};
@@ -7,6 +6,7 @@ use metrics::{
     Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit,
 };
 use metrics_util::registry::{AtomicStorage, Registry};
+use portable_atomic::AtomicU64;
 use quanta::{Clock, Instant as QuantaInstant};
 use std::{
     env,
