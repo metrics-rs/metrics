@@ -1,4 +1,4 @@
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
 use mockall::{
     mock,
     predicate::{self, eq},
@@ -7,9 +7,9 @@ use mockall::{
 
 #[derive(Clone)]
 pub enum RecorderOperation {
-    DescribeCounter(KeyName, Option<Unit>, &'static str),
-    DescribeGauge(KeyName, Option<Unit>, &'static str),
-    DescribeHistogram(KeyName, Option<Unit>, &'static str),
+    DescribeCounter(KeyName, Option<Unit>, SharedString),
+    DescribeGauge(KeyName, Option<Unit>, SharedString),
+    DescribeHistogram(KeyName, Option<Unit>, SharedString),
     RegisterCounter(Key, Counter),
     RegisterGauge(Key, Gauge),
     RegisterHistogram(Key, Histogram),
@@ -68,9 +68,9 @@ mock! {
     pub BasicRecorder {}
 
     impl Recorder for BasicRecorder {
-        fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str);
-        fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str);
-        fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str);
+        fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
+        fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
+        fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
         fn register_counter(&self, key: &Key) -> Counter;
         fn register_gauge(&self, key: &Key) -> Gauge;
         fn register_histogram(&self, key: &Key) -> Histogram;
@@ -94,7 +94,7 @@ pub fn expect_describe_counter(
     mock: &mut MockBasicRecorder,
     key_name: KeyName,
     unit: Option<Unit>,
-    description: &'static str,
+    description: SharedString,
 ) {
     mock.expect_describe_counter()
         .times(1)
@@ -106,7 +106,7 @@ pub fn expect_describe_gauge(
     mock: &mut MockBasicRecorder,
     key_name: KeyName,
     unit: Option<Unit>,
-    description: &'static str,
+    description: SharedString,
 ) {
     mock.expect_describe_gauge()
         .times(1)
@@ -118,7 +118,7 @@ pub fn expect_describe_histogram(
     mock: &mut MockBasicRecorder,
     key_name: KeyName,
     unit: Option<Unit>,
-    description: &'static str,
+    description: SharedString,
 ) {
     mock.expect_describe_histogram()
         .times(1)

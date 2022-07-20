@@ -1,12 +1,12 @@
-use atomic_shim::AtomicU64;
 use getopts::Options;
 use hdrhistogram::Histogram as HdrHistogram;
 use log::{error, info};
 use metrics::{
     gauge, histogram, increment_counter, register_counter, register_gauge, register_histogram,
-    Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit,
+    Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit,
 };
 use metrics_util::registry::{AtomicStorage, Registry};
+use portable_atomic::AtomicU64;
 use quanta::{Clock, Instant as QuantaInstant};
 use std::{
     env,
@@ -62,11 +62,11 @@ impl BenchmarkingRecorder {
 }
 
 impl Recorder for BenchmarkingRecorder {
-    fn describe_counter(&self, _: KeyName, _: Option<Unit>, _: &'static str) {}
+    fn describe_counter(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
 
-    fn describe_gauge(&self, _: KeyName, _: Option<Unit>, _: &'static str) {}
+    fn describe_gauge(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
 
-    fn describe_histogram(&self, _: KeyName, _: Option<Unit>, _: &'static str) {}
+    fn describe_histogram(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
 
     fn register_counter(&self, key: &Key) -> Counter {
         self.registry.get_or_create_counter(key, |c| Counter::from_arc(c.clone()))

@@ -3,6 +3,7 @@ name = "metrics-benchmark"
 version = "0.1.1-alpha.5"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
+rust-version = "1.56.1"
 publish = false
 
 [dependencies]
@@ -10,7 +11,7 @@ log = "0.4"
 pretty_env_logger = "0.4"
 getopts = "0.2"
 hdrhistogram = { version = "7.2", default-features = false }
-quanta = "0.9.3"
-atomic-shim = "0.2"
+quanta = "0.10.0"
+portable-atomic = "0.3"
 metrics = { version = "^0.19", path = "../metrics" }
 metrics-util = { version = "^0.13", path = "../metrics-util" }

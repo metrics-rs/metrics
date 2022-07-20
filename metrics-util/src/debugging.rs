@@ -14,7 +14,7 @@ use crate::registry::AtomicStorage;
 use crate::{kind::MetricKind, registry::Registry, CompositeKey};
 
 use indexmap::IndexMap;
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
 use ordered_float::OrderedFloat;
 
 thread_local! {
@@ -34,14 +34,14 @@ impl CompositeKeyName {
 }
 
 /// A point-in-time snapshot of all metrics in [`DebuggingRecorder`].
-pub struct Snapshot(Vec<(CompositeKey, Option<Unit>, Option<&'static str>, DebugValue)>);
+pub struct Snapshot(Vec<(CompositeKey, Option<Unit>, Option<SharedString>, DebugValue)>);
 
 impl Snapshot {
     /// Converts this snapshot to a mapping of metric data, keyed by the metric key itself.
     #[allow(clippy::mutable_key_type)]
     pub fn into_hashmap(
         self,
-    ) -> HashMap<CompositeKey, (Option<Unit>, Option<&'static str>, DebugValue)> {
+    ) -> HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)> {
         self.0
             .into_iter()
             .map(|(k, unit, desc, value)| (k, (unit, desc, value)))
@@ -49,7 +49,7 @@ impl Snapshot {
     }
 
     /// Converts this snapshot to a vector of metric data tuples.
-    pub fn into_vec(self) -> Vec<(CompositeKey, Option<Unit>, Option<&'static str>, DebugValue)> {
+    pub fn into_vec(self) -> Vec<(CompositeKey, Option<Unit>, Option<SharedString>, DebugValue)> {
         self.0
     }
 }
@@ -68,7 +68,7 @@ pub enum DebugValue {
 struct Inner {
     registry: Registry<Key, AtomicStorage>,
     seen: Mutex<IndexMap<CompositeKey, ()>>,
-    metadata: Mutex<IndexMap<CompositeKeyName, (Option<Unit>, &'static str)>>,
+    metadata: Mutex<IndexMap<CompositeKeyName, (Option<Unit>, SharedString)>>,
 }
 
 impl Inner {
@@ -117,8 +117,7 @@ impl Snapshotter {
             let ckn = CompositeKeyName::new(ck.kind(), ck.key().name().to_string().into());
             let (unit, desc) = metadata
                 .get(&ckn)
-                .copied()
-                .map(|(u, d)| (u, Some(d)))
+                .map(|(u, d)| (u.to_owned(), Some(d.to_owned())))
                 .unwrap_or_else(|| (None, None));
 
             // If there's no value for the key, that means the metric was only ever described, and
@@ -168,8 +167,7 @@ impl Snapshotter {
                     let ckn = CompositeKeyName::new(ck.kind(), ck.key().name().to_string().into());
                     let (unit, desc) = metadata
                         .get(&ckn)
-                        .copied()
-                        .map(|(u, d)| (u, Some(d)))
+                        .map(|(u, d)| (u.to_owned(), Some(d.to_owned())))
                         .unwrap_or_else(|| (None, None));
 
                     // If there's no value for the key, that means the metric was only ever described, and
@@ -219,7 +217,7 @@ impl DebuggingRecorder {
         Snapshotter { inner: Arc::clone(&self.inner) }
     }
 
-    fn describe_metric(&self, rkey: CompositeKeyName, unit: Option<Unit>, desc: &'static str) {
+    fn describe_metric(&self, rkey: CompositeKeyName, unit: Option<Unit>, desc: SharedString) {
         if self.is_per_thread {
             PER_THREAD_INNER.with(|cell| {
                 // Create the inner state if it doesn't yet exist.
@@ -231,15 +229,15 @@ impl DebuggingRecorder {
                 let inner = maybe_inner.get_or_insert_with(Inner::new);
 
                 let mut metadata = inner.metadata.lock().expect("metadata lock poisoned");
-                let (uentry, dentry) = metadata.entry(rkey).or_insert((None, desc));
+                let (uentry, dentry) = metadata.entry(rkey).or_insert((None, desc.to_owned()));
                 if unit.is_some() {
                     *uentry = unit;
                 }
-                *dentry = desc;
+                *dentry = desc.to_owned();
             });
         } else {
             let mut metadata = self.inner.metadata.lock().expect("metadata lock poisoned");
-            let (uentry, dentry) = metadata.entry(rkey).or_insert((None, desc));
+            let (uentry, dentry) = metadata.entry(rkey).or_insert((None, desc.to_owned()));
             if unit.is_some() {
                 *uentry = unit;
             }
@@ -274,17 +272,17 @@ impl DebuggingRecorder {
 }
 
 impl Recorder for DebuggingRecorder {
-    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
         let ckey = CompositeKeyName::new(MetricKind::Counter, key);
         self.describe_metric(ckey, unit, description);
     }
 
-    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
         let ckey = CompositeKeyName::new(MetricKind::Gauge, key);
         self.describe_metric(ckey, unit, description);
     }
 
-    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
         let ckey = CompositeKeyName::new(MetricKind::Histogram, key);
         self.describe_metric(ckey, unit, description);
     }

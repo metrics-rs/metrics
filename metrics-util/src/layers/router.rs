@@ -1,4 +1,4 @@
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
 use radix_trie::{Trie, TrieCommon};
 
 use crate::{MetricKind, MetricKindMask};
@@ -39,17 +39,17 @@ impl Router {
 }
 
 impl Recorder for Router {
-    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         let target = self.route(MetricKind::Counter, key_name.as_str(), &self.counter_routes);
         target.describe_counter(key_name, unit, description)
     }
 
-    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         let target = self.route(MetricKind::Gauge, key_name.as_str(), &self.gauge_routes);
         target.describe_gauge(key_name, unit, description)
     }
 
-    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         let target = self.route(MetricKind::Histogram, key_name.as_str(), &self.histogram_routes);
         target.describe_histogram(key_name, unit, description)
     }
@@ -166,16 +166,16 @@ mod tests {
 
     use super::RouterBuilder;
     use crate::MetricKindMask;
-    use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
+    use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
 
     mock! {
         pub TestRecorder {
         }
 
         impl Recorder for TestRecorder {
-            fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str);
-            fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str);
-            fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str);
+            fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
+            fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
+            fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
             fn register_counter(&self, key: &Key) -> Counter;
             fn register_gauge(&self, key: &Key) -> Gauge;
             fn register_histogram(&self, key: &Key) -> Histogram;

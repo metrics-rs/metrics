@@ -3,6 +3,7 @@ name = "metrics"
 version = "0.19.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
+rust-version = "1.56.1"
 
 license = "MIT"
 
@@ -27,6 +28,7 @@ harness = false
 [dependencies]
 metrics-macros = { version = "^0.5", path = "../metrics-macros" }
 ahash = { version = "0.7", default-features = false }
+portable-atomic = "0.3"
 
 [dev-dependencies]
 log = "0.4"

@@ -3,6 +3,7 @@ name = "metrics-util"
 version = "0.13.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
+rust-version = "1.56.1"
 
 license = "MIT"
 
@@ -49,17 +50,17 @@ required-features = ["handles"]
 metrics = { version = "^0.19", path = "../metrics" }
 crossbeam-epoch = { version = "0.9.2", default-features = false, optional = true, features = ["alloc", "std"] }
 crossbeam-utils = { version = "0.8", default-features = false, optional = true }
-atomic-shim = { version = "0.2", default-features = false, optional = true }
+portable-atomic = { version = "0.3", optional = true }
 aho-corasick = { version = "0.7", default-features = false, optional = true, features = ["std"] }
 indexmap = { version = "1", default-features = false, optional = true }
 parking_lot = { version = "0.12", default-features = false, optional = true }
-quanta = { version = "0.9.3", default-features = false, optional = true }
+quanta = { version = "0.10.0", default-features = false, optional = true }
 sketches-ddsketch = { version = "0.2.0", default-features = false, optional = true }
 radix_trie = { version = "0.2", default-features = false, optional = true }
 ordered-float = { version = "2.0", default-features = false, optional = true }
 num_cpus = { version = "1", default-features = false, optional = true }
 ahash = { version = "0.7", default-features = false, optional = true }
-hashbrown = { version = "0.11", default-features = false, optional = true, features = ["ahash"] }
+hashbrown = { version = "0.12", default-features = false, optional = true, features = ["ahash"] }
 
 [dev-dependencies]
 approx = "0.5"
@@ -89,4 +90,4 @@ layer-filter = ["aho-corasick"]
 layer-router = ["radix_trie"]
 summary = ["sketches-ddsketch"]
 recency = ["parking_lot", "registry", "quanta"]
-registry = ["atomic-shim", "crossbeam-epoch", "crossbeam-utils", "handles", "hashbrown", "num_cpus", "parking_lot"]
+registry = ["portable-atomic", "crossbeam-epoch", "crossbeam-utils", "handles", "hashbrown", "num_cpus", "parking_lot"]
