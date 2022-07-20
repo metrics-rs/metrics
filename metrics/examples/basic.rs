@@ -10,7 +10,7 @@ use std::sync::Arc;
 use metrics::{
     absolute_counter, counter, decrement_gauge, describe_counter, describe_gauge,
     describe_histogram, gauge, histogram, increment_counter, increment_gauge, register_counter,
-    register_gauge, register_histogram, KeyName,
+    register_gauge, register_histogram, KeyName, SharedString,
 };
 use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, Recorder, Unit};
 
@@ -50,7 +50,7 @@ impl HistogramFn for PrintHandle {
 struct PrintRecorder;
 
 impl Recorder for PrintRecorder {
-    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         println!(
             "(counter) registered key {} with unit {:?} and description {:?}",
             key_name.as_str(),
@@ -59,7 +59,7 @@ impl Recorder for PrintRecorder {
         );
     }
 
-    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         println!(
             "(gauge) registered key {} with unit {:?} and description {:?}",
             key_name.as_str(),
@@ -68,7 +68,7 @@ impl Recorder for PrintRecorder {
         );
     }
 
-    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         println!(
             "(histogram) registered key {} with unit {:?} and description {:?}",
             key_name.as_str(),

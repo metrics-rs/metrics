@@ -8,7 +8,7 @@
 //! Here's an example of a layer that filters out all metrics that start with a specific string:
 //!
 //! ```rust
-//! # use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
+//! # use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
 //! # use metrics::NoopRecorder as BasicRecorder;
 //! # use metrics_util::layers::{Layer, Stack, PrefixLayer};
 //! // A simple layer that denies any metrics that have "stairway" or "heaven" in their name.
@@ -26,7 +26,7 @@
 //!         &self,
 //!         key_name: KeyName,
 //!         unit: Option<Unit>,
-//!         description: &'static str,
+//!         description: SharedString,
 //!     ) {
 //!         if self.is_invalid_key(key_name.as_str()) {
 //!             return;
@@ -34,7 +34,7 @@
 //!         self.0.describe_counter(key_name, unit, description)
 //!     }
 //!
-//!     fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+//!     fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
 //!         if self.is_invalid_key(key_name.as_str()) {
 //!             return;
 //!         }
@@ -45,7 +45,7 @@
 //!         &self,
 //!         key_name: KeyName,
 //!         unit: Option<Unit>,
-//!         description: &'static str,
+//!         description: SharedString,
 //!     ) {
 //!         if self.is_invalid_key(key_name.as_str()) {
 //!             return;
@@ -111,7 +111,7 @@
 //!     .expect("failed to install stack");
 //! # }
 //! ```
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
 
 use metrics::SetRecorderError;
 
@@ -167,15 +167,15 @@ impl<R: Recorder + 'static> Stack<R> {
 }
 
 impl<R: Recorder> Recorder for Stack<R> {
-    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         self.inner.describe_counter(key_name, unit, description);
     }
 
-    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         self.inner.describe_gauge(key_name, unit, description);
     }
 
-    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: &'static str) {
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         self.inner.describe_histogram(key_name, unit, description);
     }
 
