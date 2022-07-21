@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Aggregated summaries are now rolling, allowing oldering data points to expire and quantile values
+  to reflect the recent past rather than the lifetime of a histogram. (#306)
+
+  They have a default width of three buckets, with each bucket being 20 seconds wide. This means
+  only the last 60 seconds of a histogram -- in 20 second granularity -- will contribute to the
+  quantiles emitted.
+
+  We'll expose the ability to tune these values in the future.
+
 ## [0.10.0] - 2022-05-30
 
 ### Fixed

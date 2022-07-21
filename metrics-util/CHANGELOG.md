@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Updated `sketches-ddsketch` to `0.2.0`.
+
 ## [0.13.0] - 2022-05-30
 
 ### Fixed
