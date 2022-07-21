@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.11.0] - 2022-07-20
+
 ### Changed
 
 - Aggregated summaries are now rolling, allowing oldering data points to expire and quantile values
