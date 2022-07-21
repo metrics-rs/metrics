@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   quantiles emitted.
 
   We'll expose the ability to tune these values in the future.
+- Switched to using `portable_atomic` for 64-bit atomics on more architectures. (#313)
 
 ## [0.10.0] - 2022-05-30
 

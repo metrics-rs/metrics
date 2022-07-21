@@ -25,6 +25,10 @@ bench = false
 name = "macros"
 harness = false
 
+[features]
+default = ["std-atomics"]
+std-atomics = []
+
 [dependencies]
 metrics-macros = { version = "^0.5", path = "../metrics-macros" }
 ahash = { version = "0.7", default-features = false }

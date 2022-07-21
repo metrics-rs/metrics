@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Changed `Recorder::describe_*` to take `SharedString` instead of `&'static str` for descriptions. (#312)
+- Implemented `CounterFn` and `GaugeFn` for `portable_atomic::AtomicU64` (#313)
+- Moved implementations of `CounterFn` and `GaugeFn` for `std::sync::atomic::AtomicU64` behind a
+  default feature flag.
+
 ## [0.19.0] - 2022-05-30
 
 ### Fixed
