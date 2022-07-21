@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Update `metrics` to `0.20`.
+
 ## [0.11.0] - 2022-05-30
 
 ### Added
