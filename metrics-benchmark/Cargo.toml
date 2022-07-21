@@ -14,4 +14,4 @@ hdrhistogram = { version = "7.2", default-features = false }
 quanta = "0.10.0"
 portable-atomic = "0.3"
 metrics = { version = "^0.20", path = "../metrics" }
-metrics-util = { version = "^0.13", path = "../metrics-util" }
+metrics-util = { version = "^0.14", path = "../metrics-util" }
