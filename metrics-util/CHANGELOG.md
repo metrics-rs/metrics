@@ -9,11 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
-## [0.13.1] - 2022-07-20
-
 ### Changed
 
 - Updated `sketches-ddsketch` to `0.2.0`.
+- Switched to using `portable_atomic` for 64-bit atomics on more architectures. (#313)
 
 ## [0.13.0] - 2022-05-30
 
