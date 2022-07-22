@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.20.1] - 2022-07-22
+
 ### Changed
 
 - Bumped the dependency on `metrics-macros` to correctly use the updated versions that are necessary
