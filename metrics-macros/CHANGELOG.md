@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Updated the describe macros to support the recent change to taking `metrics::SharedString` instead
+  of `&'static str` for description strings.
+
 ## [0.5.1] - 2022-02-06
+
+Maintenance release.
 
 ## [0.5.0] - 2022-01-14
 
