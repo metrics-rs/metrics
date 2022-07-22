@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Bumped the dependency on `metrics-macros` to correctly use the updated versions that are necessary
+  for handling the recent `&'static str` -> `SharedString` change to `Recorder::descrfibe_*`.
+
+  We'll also yank 0.20.0 once this is released to avoid the patch version triggering a breaking
+  change jump in transitive dependencies, and so people can't pick up a version of `metrics` that
+  doesn't actually work as it should.
+
 ## [0.20.0] - 2022-07-20
 
 ### Changed
