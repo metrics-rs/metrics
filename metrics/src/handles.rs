@@ -6,8 +6,6 @@ use crate::IntoF64;
 /// A counter handler.
 pub trait CounterFn {
     /// Increments the counter by the given amount.
-    ///
-    /// Returns the previous value.
     fn increment(&self, value: u64);
 
     /// Sets the counter to at least the given amount.
@@ -20,26 +18,18 @@ pub trait CounterFn {
     ///
     /// This method must cope with those cases.  An example of doing so atomically can be found in
     /// `AtomicCounter`.
-    ///
-    /// Returns the previous value.
     fn absolute(&self, value: u64);
 }
 
 /// A gauge handler.
 pub trait GaugeFn {
     /// Increments the gauge by the given amount.
-    ///
-    /// Returns the previous value.
     fn increment(&self, value: f64);
 
     /// Decrements the gauge by the given amount.
-    ///
-    /// Returns the previous value.
     fn decrement(&self, value: f64);
 
     /// Sets the gauge to the given amount.
-    ///
-    /// Returns the previous value.
     fn set(&self, value: f64);
 }
 
