@@ -26,7 +26,7 @@ mio = { version = "0.8", default-features = false, features = ["os-poll", "net"]
 tracing = { version = "0.1", default-features = false, features = ["attributes"] }
 
 [build-dependencies]
-prost-build = "0.9"
+prost-build = "0.11"
 
 [dev-dependencies]
 quanta = "0.10.0"
