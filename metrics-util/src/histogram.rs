@@ -60,6 +60,16 @@ impl Histogram {
         }
     }
 
+    /// Find the upper bucket for sample
+    pub fn bucket_index(&self, sample: f64) -> usize {
+        self.bounds
+            .iter()
+            .enumerate()
+            .find(|(_, bucket)| **bucket >= sample)
+            .map(|(idx, _)| idx)
+            .unwrap_or_else(|| self.bounds.len()) // TODO(fredr): is this inf+? or how does that work?
+    }
+
     /// Records multiple samples.
     pub fn record_many<'a, S>(&mut self, samples: S)
     where

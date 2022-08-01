@@ -13,12 +13,14 @@ use crate::distribution::{Distribution, DistributionBuilder};
 use crate::formatting::{
     key_to_parts, sanitize_metric_name, write_help_line, write_metric_line, write_type_line,
 };
-use crate::registry::GenerationalAtomicStorage;
+use crate::registry::{Exemplar, GenerationalAtomicStorage};
 
 pub(crate) struct Inner {
     pub registry: Registry<Key, GenerationalAtomicStorage>,
     pub recency: Recency<Key>,
-    pub distributions: RwLock<HashMap<String, IndexMap<Vec<String>, Distribution>>>,
+    pub distributions: RwLock<
+        HashMap<String, IndexMap<Vec<String>, (Distribution, HashMap<usize, Exemplar<f64>>)>>,
+    >,
     pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, SharedString>>,
     pub global_labels: IndexMap<String, String>,
@@ -35,10 +37,17 @@ impl Inner {
             }
 
             let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
-            let value = counter.get_inner().load(Ordering::Acquire);
-            let entry =
-                counters.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0);
-            *entry = value;
+
+            let inner = &counter.get_inner().get_inner();
+            let value = inner.0.load(Ordering::Acquire);
+            let exemplar = inner.1.read().clone();
+
+            let entry = counters
+                .entry(name)
+                .or_insert_with(HashMap::new)
+                .entry(labels)
+                .or_insert((0, None));
+            *entry = (value, exemplar);
         }
 
         let mut gauges = HashMap::new();
@@ -50,10 +59,17 @@ impl Inner {
             }
 
             let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
-            let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
-            let entry =
-                gauges.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0.0);
-            *entry = value;
+
+            let inner = &gauge.get_inner().get_inner();
+            let value = f64::from_bits(inner.0.load(Ordering::Acquire));
+            let exemplar = inner.1.read().clone();
+
+            let entry = gauges
+                .entry(name)
+                .or_insert_with(HashMap::new)
+                .entry(labels)
+                .or_insert((0.0, None));
+            *entry = (value, exemplar);
         }
 
         let histogram_handles = self.registry.get_histogram_handles();
@@ -84,13 +100,17 @@ impl Inner {
             let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
 
             let mut wg = self.distributions.write();
-            let entry = wg
-                .entry(name.clone())
-                .or_insert_with(IndexMap::new)
-                .entry(labels)
-                .or_insert_with(|| self.distribution_builder.get_distribution(name.as_str()));
+            let entry =
+                wg.entry(name.clone()).or_insert_with(IndexMap::new).entry(labels).or_insert_with(
+                    || (self.distribution_builder.get_distribution(name.as_str()), HashMap::new()),
+                );
 
-            histogram.get_inner().clear_with(|samples| entry.record_samples(samples));
+            let (histogram, exemplars) = &histogram.get_inner().get_inner();
+
+            histogram.clear_with(|samples| {
+                entry.0.record_samples(samples);
+                entry.1 = exemplars.read().clone();
+            });
         }
 
         let distributions = self.distributions.read().clone();
@@ -110,8 +130,16 @@ impl Inner {
             }
 
             write_type_line(&mut output, name.as_str(), "counter");
-            for (labels, value) in by_labels.drain() {
-                write_metric_line::<&str, u64>(&mut output, &name, None, &labels, None, value);
+            for (labels, (value, exemplar)) in by_labels.drain() {
+                write_metric_line::<&str, u64, _>(
+                    &mut output,
+                    &name,
+                    None,
+                    &labels,
+                    None,
+                    value,
+                    exemplar,
+                );
             }
             output.push('\n');
         }
@@ -122,8 +150,16 @@ impl Inner {
             }
 
             write_type_line(&mut output, name.as_str(), "gauge");
-            for (labels, value) in by_labels.drain() {
-                write_metric_line::<&str, f64>(&mut output, &name, None, &labels, None, value);
+            for (labels, (value, exemplar)) in by_labels.drain() {
+                write_metric_line::<&str, f64, _>(
+                    &mut output,
+                    &name,
+                    None,
+                    &labels,
+                    None,
+                    value,
+                    exemplar,
+                );
             }
             output.push('\n');
         }
@@ -136,25 +172,28 @@ impl Inner {
             let distribution_type = self.distribution_builder.get_distribution_type(name.as_str());
             write_type_line(&mut output, name.as_str(), distribution_type);
             for (labels, distribution) in by_labels.drain(..) {
-                let (sum, count) = match distribution {
+                let (sum, count) = match distribution.0 {
                     Distribution::Summary(summary, quantiles, sum) => {
                         let snapshot = summary.snapshot(Instant::now());
                         for quantile in quantiles.iter() {
                             let value = snapshot.quantile(quantile.value()).unwrap_or(0.0);
-                            write_metric_line(
+                            write_metric_line::<_, _, f64>(
                                 &mut output,
                                 &name,
                                 None,
                                 &labels,
                                 Some(("quantile", quantile.value())),
                                 value,
+                                None, // TODO(fredr): should quantile also have exemplar?
                             );
                         }
 
                         (sum, summary.count() as u64)
                     }
                     Distribution::Histogram(histogram) => {
-                        for (le, count) in histogram.buckets() {
+                        let exemplars = distribution.1;
+                        for (idx, (le, count)) in histogram.buckets().iter().enumerate() {
+                            let exemplar = exemplars.get(&idx).cloned();
                             write_metric_line(
                                 &mut output,
                                 &name,
@@ -162,8 +201,12 @@ impl Inner {
                                 &labels,
                                 Some(("le", le)),
                                 count,
+                                exemplar,
                             );
                         }
+
+                        let inf = histogram.buckets().len();
+                        let exemplar = exemplars.get(&inf).cloned();
                         write_metric_line(
                             &mut output,
                             &name,
@@ -171,20 +214,30 @@ impl Inner {
                             &labels,
                             Some(("le", "+Inf")),
                             histogram.count(),
+                            exemplar,
                         );
 
                         (histogram.sum(), histogram.count())
                     }
                 };
 
-                write_metric_line::<&str, f64>(&mut output, &name, Some("sum"), &labels, None, sum);
-                write_metric_line::<&str, u64>(
+                write_metric_line::<&str, f64, f64>(
+                    &mut output,
+                    &name,
+                    Some("sum"),
+                    &labels,
+                    None,
+                    sum,
+                    None,
+                );
+                write_metric_line::<&str, u64, f64>(
                     &mut output,
                     &name,
                     Some("count"),
                     &labels,
                     None,
                     count,
+                    None,
                 );
             }
 
@@ -213,10 +266,28 @@ impl PrometheusRecorder {
         PrometheusHandle { inner: self.inner.clone() }
     }
 
+    /// Get distribution for metric name
+    pub fn get_distribution(&self, key_name: &str) -> Distribution {
+        self.inner.distribution_builder.get_distribution(key_name)
+    }
+
     fn add_description_if_missing(&self, key_name: &KeyName, description: SharedString) {
         let sanitized = sanitize_metric_name(key_name.as_str());
         let mut descriptions = self.inner.descriptions.write();
         descriptions.entry(sanitized).or_insert(description);
+    }
+
+    /// Get a handler to a counter with exemplars.
+    pub fn register_counter_with_exemplar(&self, key: &Key) -> crate::registry::Counter {
+        self.inner.registry.get_or_create_counter(key, |c| c.clone().into())
+    }
+    /// Get a handler to a counter with exemplars.
+    pub fn register_gauge_with_exemplar(&self, key: &Key) -> crate::registry::Gauge {
+        self.inner.registry.get_or_create_gauge(key, |c| c.clone().into())
+    }
+    /// Get a handler to a counter with exemplars.
+    pub fn register_histogram_with_exemplar(&self, key: &Key) -> crate::registry::Histogram {
+        self.inner.registry.get_or_create_histogram(key, |c| c.clone().into())
     }
 }
 

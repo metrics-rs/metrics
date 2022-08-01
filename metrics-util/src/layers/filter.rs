@@ -16,7 +16,7 @@ impl<R> Filter<R> {
     }
 }
 
-impl<R: Recorder> Recorder for Filter<R> {
+impl<R: Recorder + 'static> Recorder for Filter<R> {
     fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         if self.should_filter(key_name.as_str()) {
             return;

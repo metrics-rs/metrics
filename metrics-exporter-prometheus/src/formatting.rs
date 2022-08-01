@@ -1,7 +1,11 @@
 //! Helpers for rendering metrics in the Prometheus exposition format.
 
+use std::time::SystemTime;
+
 use indexmap::IndexMap;
 use metrics::Key;
+
+use crate::registry::Exemplar;
 
 /// Breaks a key into the name and label components, with optional default labels.
 ///
@@ -57,16 +61,18 @@ pub fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
 /// for aggregated histograms, or `quantile` for aggregated summaries.
 ///
 /// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
-pub fn write_metric_line<T, T2>(
+pub fn write_metric_line<T, T2, E>(
     buffer: &mut String,
     name: &str,
     suffix: Option<&'static str>,
     labels: &[String],
     additional_label: Option<(&'static str, T)>,
     value: T2,
+    exemplar: Option<Exemplar<E>>,
 ) where
     T: std::fmt::Display,
     T2: std::fmt::Display,
+    E: std::fmt::Display,
 {
     buffer.push_str(name);
     if let Some(suffix) = suffix {
@@ -102,6 +108,27 @@ pub fn write_metric_line<T, T2>(
 
     buffer.push(' ');
     buffer.push_str(value.to_string().as_str());
+
+    if let Some(exemplar) = exemplar {
+        buffer.push_str(" # ");
+        buffer.push('{');
+        for label in exemplar.labels {
+            buffer.push_str(label.key());
+            buffer.push_str("=\"");
+            buffer.push_str(label.value());
+            buffer.push('"');
+        }
+        buffer.push('}');
+
+        buffer.push(' ');
+        buffer.push_str(exemplar.value.to_string().as_str());
+
+        if let Ok(ts) = exemplar.timestamp.duration_since(SystemTime::UNIX_EPOCH) {
+            buffer.push(' ');
+            buffer.push_str(ts.as_secs_f64().to_string().as_str());
+        }
+    }
+
     buffer.push('\n');
 }
 

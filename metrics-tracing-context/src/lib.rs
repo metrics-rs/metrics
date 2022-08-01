@@ -200,8 +200,8 @@ where
 
 impl<R, F> Recorder for TracingContext<R, F>
 where
-    R: Recorder,
-    F: LabelFilter,
+    R: Recorder + 'static,
+    F: LabelFilter + 'static,
 {
     fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         self.inner.describe_counter(key_name, unit, description)

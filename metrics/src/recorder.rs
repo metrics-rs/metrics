@@ -1,6 +1,10 @@
 use self::cell::RecorderOnceCell;
 use crate::{Counter, Gauge, Histogram, Key, KeyName, SharedString, Unit};
 use core::fmt;
+use std::{
+    any::{Any, TypeId},
+    ptr::NonNull,
+};
 
 mod cell {
     use super::{Recorder, SetRecorderError};
@@ -109,7 +113,7 @@ static SET_RECORDER_ERROR: &str =
 ///
 /// This is the core trait that allows interoperability between exporter implementations and the
 /// macros provided by `metrics`.
-pub trait Recorder {
+pub trait Recorder: 'static {
     /// Describes a counter.
     ///
     /// Callers may provide the unit or a description of the counter being registered. Whether or
@@ -142,6 +146,31 @@ pub trait Recorder {
 
     /// Registers a histogram.
     fn register_histogram(&self, key: &Key) -> Histogram;
+
+    /// Downcast to a specific recorder type
+    unsafe fn downcast_raw(&self, id: TypeId) -> Option<NonNull<()>> {
+        if id == TypeId::of::<Self>() {
+            Some(NonNull::from(self).cast())
+        } else {
+            None
+        }
+    }
+}
+
+impl dyn Recorder {
+    /// Returns `true` if this `Recorder` is the same type as `T`.
+    pub fn is<T: Any>(&self) -> bool {
+        self.downcast_ref::<T>().is_some()
+    }
+
+    /// Returns some reference to this `Recorder` value if it is of type `T`,
+    /// or `None` if it isn't.
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        unsafe {
+            let raw = self.downcast_raw(TypeId::of::<T>())?;
+            Some(&*(raw.cast().as_ptr()))
+        }
+    }
 }
 
 /// A no-op recorder.

@@ -115,3 +115,7 @@ mod recorder;
 mod registry;
 
 pub use self::recorder::{PrometheusHandle, PrometheusRecorder};
+
+pub use self::registry::Counter;
+pub use self::registry::Gauge;
+pub use self::registry::Histogram;

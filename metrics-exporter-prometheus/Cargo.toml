@@ -51,6 +51,10 @@ required-features = ["push-gateway"]
 name = "prometheus_server"
 required-features = ["http-listener"]
 
+[[example]]
+name = "exemplars"
+required-features = ["http-listener"]
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

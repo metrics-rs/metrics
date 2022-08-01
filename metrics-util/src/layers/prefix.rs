@@ -29,7 +29,7 @@ impl<R> Prefix<R> {
     }
 }
 
-impl<R: Recorder> Recorder for Prefix<R> {
+impl<R: Recorder + 'static> Recorder for Prefix<R> {
     fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         let new_key_name = self.prefix_key_name(key_name);
         self.inner.describe_counter(new_key_name, unit, description)

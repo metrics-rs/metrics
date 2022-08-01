@@ -21,7 +21,7 @@
 //!     }
 //! }
 //!
-//! impl<R: Recorder> Recorder for StairwayDeny<R> {
+//! impl<R: Recorder + 'static> Recorder for StairwayDeny<R> {
 //!     fn describe_counter(
 //!         &self,
 //!         key_name: KeyName,
@@ -166,7 +166,7 @@ impl<R: Recorder + 'static> Stack<R> {
     }
 }
 
-impl<R: Recorder> Recorder for Stack<R> {
+impl<R: Recorder + 'static> Recorder for Stack<R> {
     fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
         self.inner.describe_counter(key_name, unit, description);
     }

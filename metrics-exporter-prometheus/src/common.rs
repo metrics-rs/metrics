@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::distribution::Distribution;
 
 use crate::formatting::sanitize_metric_name;
+use crate::registry::Exemplar;
 use indexmap::IndexMap;
 use metrics::SetRecorderError;
 use thiserror::Error;
@@ -77,7 +78,8 @@ pub enum BuildError {
 }
 
 pub struct Snapshot {
-    pub counters: HashMap<String, HashMap<Vec<String>, u64>>,
-    pub gauges: HashMap<String, HashMap<Vec<String>, f64>>,
-    pub distributions: HashMap<String, IndexMap<Vec<String>, Distribution>>,
+    pub counters: HashMap<String, HashMap<Vec<String>, (u64, Option<Exemplar<u64>>)>>,
+    pub gauges: HashMap<String, HashMap<Vec<String>, (f64, Option<Exemplar<f64>>)>>,
+    pub distributions:
+        HashMap<String, IndexMap<Vec<String>, (Distribution, HashMap<usize, Exemplar<f64>>)>>,
 }
