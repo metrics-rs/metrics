@@ -31,7 +31,7 @@ std-atomics = []
 
 [dependencies]
 metrics-macros = { version = "^0.6", path = "../metrics-macros" }
-ahash = { version = "0.7", default-features = false }
+ahash = { version = "0.8", default-features = false }
 portable-atomic = "0.3"
 
 [dev-dependencies]
