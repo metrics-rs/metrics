@@ -188,52 +188,6 @@ impl GaugeFn for AtomicU64 {
     }
 }
 
-#[cfg(feature = "std-atomics")]
-impl CounterFn for std::sync::atomic::AtomicU64 {
-    fn increment(&self, value: u64) {
-        let _ = self.fetch_add(value, Ordering::Release);
-    }
-
-    fn absolute(&self, value: u64) {
-        let _ = self.fetch_max(value, Ordering::AcqRel);
-    }
-}
-
-#[cfg(feature = "std-atomics")]
-impl GaugeFn for std::sync::atomic::AtomicU64 {
-    fn increment(&self, value: f64) {
-        loop {
-            let result = self.fetch_update(Ordering::AcqRel, Ordering::Relaxed, |curr| {
-                let input = f64::from_bits(curr);
-                let output = input + value;
-                Some(output.to_bits())
-            });
-
-            if result.is_ok() {
-                break;
-            }
-        }
-    }
-
-    fn decrement(&self, value: f64) {
-        loop {
-            let result = self.fetch_update(Ordering::AcqRel, Ordering::Relaxed, |curr| {
-                let input = f64::from_bits(curr);
-                let output = input - value;
-                Some(output.to_bits())
-            });
-
-            if result.is_ok() {
-                break;
-            }
-        }
-    }
-
-    fn set(&self, value: f64) {
-        let _ = self.swap(value.to_bits(), Ordering::AcqRel);
-    }
-}
-
 impl<T> CounterFn for Arc<T>
 where
     T: CounterFn,
