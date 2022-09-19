@@ -57,7 +57,7 @@ parking_lot = { version = "0.12", default-features = false, optional = true }
 quanta = { version = "0.10.0", default-features = false, optional = true }
 sketches-ddsketch = { version = "0.2.0", default-features = false, optional = true }
 radix_trie = { version = "0.2", default-features = false, optional = true }
-ordered-float = { version = "2.0", default-features = false, optional = true }
+ordered-float = { version = "3.1", default-features = false, optional = true }
 num_cpus = { version = "1", default-features = false, optional = true }
 ahash = { version = "0.7", default-features = false, optional = true }
 hashbrown = { version = "0.12", default-features = false, optional = true, features = ["ahash"] }
@@ -73,7 +73,7 @@ sketches-ddsketch = "0.2.0"
 ndarray = "0.15"
 ndarray-stats = "0.5"
 noisy_float = "0.2"
-ordered-float = "2.0"
+ordered-float = "3.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi"] }
 crossbeam-queue = "0.3"
