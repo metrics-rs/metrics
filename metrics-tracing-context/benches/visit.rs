@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use lockfree_object_pool::LinearObjectPool;
-use metrics_tracing_context::{Inner, Labels};
+use metrics::Label;
+use metrics_tracing_context::Labels;
 use once_cell::sync::OnceCell;
 use tracing::Metadata;
 use tracing_core::{
@@ -12,9 +13,9 @@ use tracing_core::{
     Callsite, Interest,
 };
 
-fn get_pool() -> &'static Arc<LinearObjectPool<Inner>> {
-    static POOL: OnceCell<Arc<LinearObjectPool<Inner>>> = OnceCell::new();
-    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(Inner::new, Inner::clear)))
+fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
+    static POOL: OnceCell<Arc<LinearObjectPool<Vec<Label>>>> = OnceCell::new();
+    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(|| Vec::new(), |vec| vec.clear())))
 }
 
 const BATCH_SIZE: usize = 1000;

@@ -102,10 +102,8 @@ pub mod label_filter;
 mod tracing_integration;
 
 pub use label_filter::LabelFilter;
-pub use tracing_integration::MetricsLayer;
 use tracing_integration::WithContext;
-#[doc(hidden)]
-pub use tracing_integration::{Inner, Labels};
+pub use tracing_integration::{Labels, MetricsLayer};
 
 /// [`TracingContextLayer`] provides an implementation of a [`Layer`][metrics_util::layers::Layer]
 /// for [`TracingContext`].

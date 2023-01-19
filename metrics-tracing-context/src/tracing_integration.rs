@@ -3,32 +3,26 @@
 use lockfree_object_pool::{LinearObjectPool, LinearOwnedReusable};
 use metrics::{Key, Label};
 use once_cell::sync::OnceCell;
-use smallvec::SmallVec;
 use std::sync::Arc;
 use std::{any::TypeId, marker::PhantomData};
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{field::Visit, Dispatch, Field, Subscriber};
 use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 
-fn get_pool() -> &'static Arc<LinearObjectPool<Inner>> {
-    static POOL: OnceCell<Arc<LinearObjectPool<Inner>>> = OnceCell::new();
-    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(Inner::new, Inner::clear)))
+fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
+    static POOL: OnceCell<Arc<LinearObjectPool<Vec<Label>>>> = OnceCell::new();
+    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(Vec::new, Vec::clear)))
 }
-
-/// Type of [`Labels`] inner storage.
-#[doc(hidden)]
-pub type Inner = SmallVec<[Label; 5]>;
-
 /// Span fields mapped as metrics labels.
 ///
 /// Hidden from documentation as there is no need for end users to ever touch this type, but it must
 /// be public in order to be pulled in by external benchmark code.
 #[doc(hidden)]
-pub struct Labels(pub LinearOwnedReusable<Inner>);
+pub struct Labels(pub LinearOwnedReusable<Vec<Label>>);
 
 impl Labels {
     pub(crate) fn extend_from_labels(&mut self, other: &Labels) {
-        self.0.extend(other.as_ref().iter().cloned());
+        self.0.extend_from_slice(other.as_ref());
     }
 }
 
