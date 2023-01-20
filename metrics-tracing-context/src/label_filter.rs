@@ -7,7 +7,8 @@ use metrics::{KeyName, Label};
 /// [`LabelFilter`] trait encapsulates the ability to filter labels, i.e.
 /// determining whether a particular span field should be included as a label or not.
 pub trait LabelFilter {
-    /// Returns `true` if the passed label should be included in the key.
+    /// Returns `true` if the passed `label` of the metric named `name` should
+    /// be included in the key.
     fn should_include_label(&self, name: &KeyName, label: &Label) -> bool;
 }
 
