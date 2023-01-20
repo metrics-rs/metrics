@@ -179,7 +179,7 @@ where
                             let filtered_labels = new_labels
                                 .iter()
                                 .filter(|label| {
-                                    self.label_filter.should_include_label_by_name(&name, label)
+                                    self.label_filter.should_include_label(&name, label)
                                 })
                                 .cloned();
                             labels.extend(filtered_labels);
