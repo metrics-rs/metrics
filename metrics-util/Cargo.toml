@@ -50,7 +50,7 @@ required-features = ["handles"]
 metrics = { version = "^0.20", path = "../metrics" }
 crossbeam-epoch = { version = "0.9.2", default-features = false, optional = true, features = ["alloc", "std"] }
 crossbeam-utils = { version = "0.8", default-features = false, optional = true }
-portable-atomic = { version = "0.3", optional = true }
+portable-atomic = { version = "1.0", optional = true }
 aho-corasick = { version = "0.7", default-features = false, optional = true, features = ["std"] }
 indexmap = { version = "1", default-features = false, optional = true }
 parking_lot = { version = "0.12", default-features = false, optional = true }

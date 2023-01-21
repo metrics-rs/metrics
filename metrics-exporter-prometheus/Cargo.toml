@@ -29,7 +29,7 @@ parking_lot = { version = "0.12", default-features = false }
 thiserror = { version = "1", default-features = false }
 quanta = { version = "0.10.0", default-features = false }
 indexmap = { version = "1", default-features = false }
-portable-atomic = "0.3"
+portable-atomic = "1.0"
 
 # Optional
 hyper = { version = "0.14", default-features = false, features = ["tcp", "http1"], optional = true }
