@@ -1,4 +1,4 @@
-use metrics::{counter, Key, Label};
+use metrics::{counter, Key, KeyName, Label};
 use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::debugging::{DebugValue, DebuggingRecorder, Snapshotter};
 use metrics_util::{layers::Layer, CompositeKey, MetricKind};
@@ -317,7 +317,7 @@ fn test_nested_spans() {
 struct OnlyUser;
 
 impl LabelFilter for OnlyUser {
-    fn should_include_label(&self, label: &Label) -> bool {
+    fn should_include_label(&self, _name: &KeyName, label: &Label) -> bool {
         label.key() == "user"
     }
 }
