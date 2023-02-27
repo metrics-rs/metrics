@@ -23,12 +23,11 @@
 //! observed, to build a complete picture that allows deciding if a given metric has gone "idle" or
 //! not, and thus whether it should actually be deleted.
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 use std::{collections::HashMap, ops::DerefMut};
 
 use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn};
-use parking_lot::Mutex;
 use quanta::{Clock, Instant};
 
 use crate::Hashable;
@@ -311,7 +310,7 @@ where
     {
         if let Some(idle_timeout) = self.idle_timeout {
             if self.mask.matches(kind) {
-                let mut guard = self.inner.lock();
+                let mut guard = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
                 let (clock, entries) = guard.deref_mut();
 
                 let now = clock.now();
