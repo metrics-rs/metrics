@@ -3,10 +3,9 @@ use hdrhistogram::Histogram as HdrHistogram;
 use log::{error, info};
 use metrics::{
     gauge, histogram, increment_counter, register_counter, register_gauge, register_histogram,
-    Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit,
+    AtomicU64, Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit,
 };
 use metrics_util::registry::{AtomicStorage, Registry};
-use portable_atomic::AtomicU64;
 use quanta::{Clock, Instant as QuantaInstant};
 use std::{
     env,

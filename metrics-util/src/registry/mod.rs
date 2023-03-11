@@ -393,8 +393,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use metrics::{CounterFn, Key};
-    use portable_atomic::AtomicU64;
+    use metrics::{AtomicU64, CounterFn, Key};
 
     use super::Registry;
     use std::sync::{atomic::Ordering, Arc};

@@ -799,3 +799,8 @@ pub use metrics_macros::decrement_gauge;
 /// # }
 /// ```
 pub use metrics_macros::histogram;
+
+#[cfg(target_pointer_width = "32")]
+pub use portable_atomic::AtomicU64;
+#[cfg(target_pointer_width = "64")]
+pub use std::sync::atomic::AtomicU64;

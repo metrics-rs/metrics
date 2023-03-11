@@ -1,7 +1,6 @@
-use portable_atomic::AtomicU64;
 use std::sync::Arc;
 
-use metrics::HistogramFn;
+use metrics::{AtomicU64, HistogramFn};
 use metrics_util::registry::GenerationalStorage;
 use metrics_util::AtomicBucket;
 use quanta::Instant;
