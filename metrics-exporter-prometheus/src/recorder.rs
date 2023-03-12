@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::{PoisonError, RwLock};
 
 use indexmap::IndexMap;
 use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
 use metrics_util::registry::{Recency, Registry};
-use parking_lot::RwLock;
 use quanta::Instant;
 
 use crate::common::Snapshot;
@@ -64,7 +64,7 @@ impl Inner {
                 // is not recent enough and should be/was deleted from the registry, we also need to
                 // delete it on our side as well.
                 let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
-                let mut wg = self.distributions.write();
+                let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
                 let delete_by_name = if let Some(by_name) = wg.get_mut(&name) {
                     by_name.remove(&labels);
                     by_name.is_empty()
@@ -83,7 +83,7 @@ impl Inner {
 
             let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
 
-            let mut wg = self.distributions.write();
+            let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
             let entry = wg
                 .entry(name.clone())
                 .or_insert_with(IndexMap::new)
@@ -93,7 +93,8 @@ impl Inner {
             histogram.get_inner().clear_with(|samples| entry.record_samples(samples));
         }
 
-        let distributions = self.distributions.read().clone();
+        let distributions =
+            self.distributions.read().unwrap_or_else(PoisonError::into_inner).clone();
 
         Snapshot { counters, gauges, distributions }
     }
@@ -102,7 +103,7 @@ impl Inner {
         let Snapshot { mut counters, mut distributions, mut gauges } = self.get_recent_metrics();
 
         let mut output = String::new();
-        let descriptions = self.descriptions.read();
+        let descriptions = self.descriptions.read().unwrap_or_else(PoisonError::into_inner);
 
         for (name, mut by_labels) in counters.drain() {
             if let Some(desc) = descriptions.get(name.as_str()) {
@@ -215,7 +216,8 @@ impl PrometheusRecorder {
 
     fn add_description_if_missing(&self, key_name: &KeyName, description: SharedString) {
         let sanitized = sanitize_metric_name(key_name.as_str());
-        let mut descriptions = self.inner.descriptions.write();
+        let mut descriptions =
+            self.inner.descriptions.write().unwrap_or_else(PoisonError::into_inner);
         descriptions.entry(sanitized).or_insert(description);
     }
 }
