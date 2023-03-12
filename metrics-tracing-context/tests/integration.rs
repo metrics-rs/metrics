@@ -2,12 +2,12 @@ use metrics::{counter, Key, KeyName, Label};
 use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::debugging::{DebugValue, DebuggingRecorder, Snapshotter};
 use metrics_util::{layers::Layer, CompositeKey, MetricKind};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use parking_lot::{const_mutex, Mutex, MutexGuard};
 use tracing::dispatcher::{set_default, DefaultGuard, Dispatch};
 use tracing::{span, Level};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
 
-static TEST_MUTEX: Mutex<()> = Mutex::new(());
+static TEST_MUTEX: Mutex<()> = const_mutex(());
 static LOGIN_ATTEMPTS: &'static str = "login_attempts";
 static LOGIN_ATTEMPTS_NONE: &'static str = "login_attempts_no_labels";
 static LOGIN_ATTEMPTS_STATIC: &'static str = "login_attempts_static_labels";
@@ -70,7 +70,7 @@ fn setup<F>(layer: TracingContextLayer<F>) -> (TestGuard, Snapshotter)
 where
     F: LabelFilter + Clone + 'static,
 {
-    let test_mutex_guard = TEST_MUTEX.lock().unwrap_or_else(PoisonError::into_inner);
+    let test_mutex_guard = TEST_MUTEX.lock();
     let subscriber = Registry::default().with(MetricsLayer::new());
     let tracing_guard = set_default(&Dispatch::new(subscriber));
 
