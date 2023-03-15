@@ -1,11 +1,14 @@
 //! High-performance metrics storage.
 
 mod storage;
-use std::{hash::BuildHasherDefault, iter::repeat};
+use std::{
+    hash::BuildHasherDefault,
+    iter::repeat,
+    sync::{PoisonError, RwLock},
+};
 
 use hashbrown::{hash_map::RawEntryMut, HashMap};
 use metrics::{Key, KeyHasher};
-use parking_lot::RwLock;
 pub use storage::{AtomicStorage, Storage};
 
 #[cfg(feature = "recency")]
@@ -143,13 +146,13 @@ where
     /// does not ensure that callers will see the registry as entirely empty at any given point.
     pub fn clear(&self) {
         for shard in &self.counters {
-            shard.write().clear();
+            shard.write().unwrap_or_else(PoisonError::into_inner).clear();
         }
         for shard in &self.gauges {
-            shard.write().clear();
+            shard.write().unwrap_or_else(PoisonError::into_inner).clear();
         }
         for shard in &self.histograms {
-            shard.write().clear();
+            shard.write().unwrap_or_else(PoisonError::into_inner).clear();
         }
     }
 
@@ -164,13 +167,13 @@ where
         let (hash, shard) = self.get_hash_and_shard_for_counter(key);
 
         // Try and get the handle if it exists, running our operation if we succeed.
-        let shard_read = shard.read();
+        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
         if let Some((_, v)) = shard_read.raw_entry().from_key_hashed_nocheck(hash, key) {
             op(v)
         } else {
             // Switch to write guard and insert the handle first.
             drop(shard_read);
-            let mut shard_write = shard.write();
+            let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
             let v = if let Some((_, v)) = shard_write.raw_entry().from_key_hashed_nocheck(hash, key)
             {
                 v
@@ -198,13 +201,13 @@ where
         let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
 
         // Try and get the handle if it exists, running our operation if we succeed.
-        let shard_read = shard.read();
+        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
         if let Some((_, v)) = shard_read.raw_entry().from_key_hashed_nocheck(hash, key) {
             op(v)
         } else {
             // Switch to write guard and insert the handle first.
             drop(shard_read);
-            let mut shard_write = shard.write();
+            let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
             let v = if let Some((_, v)) = shard_write.raw_entry().from_key_hashed_nocheck(hash, key)
             {
                 v
@@ -232,13 +235,13 @@ where
         let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
 
         // Try and get the handle if it exists, running our operation if we succeed.
-        let shard_read = shard.read();
+        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
         if let Some((_, v)) = shard_read.raw_entry().from_key_hashed_nocheck(hash, key) {
             op(v)
         } else {
             // Switch to write guard and insert the handle first.
             drop(shard_read);
-            let mut shard_write = shard.write();
+            let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
             let v = if let Some((_, v)) = shard_write.raw_entry().from_key_hashed_nocheck(hash, key)
             {
                 v
@@ -260,7 +263,7 @@ where
     /// Returns `true` if the counter existed and was removed, `false` otherwise.
     pub fn delete_counter(&self, key: &K) -> bool {
         let (hash, shard) = self.get_hash_and_shard_for_counter(key);
-        let mut shard_write = shard.write();
+        let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
         let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
         if let RawEntryMut::Occupied(entry) = entry {
             let _ = entry.remove_entry();
@@ -275,7 +278,7 @@ where
     /// Returns `true` if the gauge existed and was removed, `false` otherwise.
     pub fn delete_gauge(&self, key: &K) -> bool {
         let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
-        let mut shard_write = shard.write();
+        let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
         let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
         if let RawEntryMut::Occupied(entry) = entry {
             let _ = entry.remove_entry();
@@ -290,7 +293,7 @@ where
     /// Returns `true` if the histogram existed and was removed, `false` otherwise.
     pub fn delete_histogram(&self, key: &K) -> bool {
         let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
-        let mut shard_write = shard.write();
+        let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
         let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
         if let RawEntryMut::Occupied(entry) = entry {
             let _ = entry.remove_entry();
@@ -312,7 +315,7 @@ where
         F: FnMut(&K, &S::Counter),
     {
         for subshard in self.counters.iter() {
-            let shard_read = subshard.read();
+            let shard_read = subshard.read().unwrap_or_else(PoisonError::into_inner);
             for (key, counter) in shard_read.iter() {
                 collect(key, counter);
             }
@@ -331,7 +334,7 @@ where
         F: FnMut(&K, &S::Gauge),
     {
         for subshard in self.gauges.iter() {
-            let shard_read = subshard.read();
+            let shard_read = subshard.read().unwrap_or_else(PoisonError::into_inner);
             for (key, gauge) in shard_read.iter() {
                 collect(key, gauge);
             }
@@ -350,7 +353,7 @@ where
         F: FnMut(&K, &S::Histogram),
     {
         for subshard in self.histograms.iter() {
-            let shard_read = subshard.read();
+            let shard_read = subshard.read().unwrap_or_else(PoisonError::into_inner);
             for (key, histogram) in shard_read.iter() {
                 collect(key, histogram);
             }

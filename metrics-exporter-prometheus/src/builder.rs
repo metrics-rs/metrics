@@ -7,6 +7,7 @@ use std::future::Future;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::pin::Pin;
+use std::sync::RwLock;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::thread;
 use std::time::Duration;
@@ -31,7 +32,6 @@ use hyper::{
 use indexmap::IndexMap;
 #[cfg(feature = "http-listener")]
 use ipnet::IpNet;
-use parking_lot::RwLock;
 use quanta::Clock;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use tokio::runtime;
@@ -480,7 +480,7 @@ impl PrometheusBuilder {
                                     let body = body
                                         .map_err(|_| ())
                                         .map(|mut b| b.copy_to_bytes(b.remaining()))
-                                        .map(|b| (&b[..]).to_vec())
+                                        .map(|b| b[..].to_vec())
                                         .and_then(|s| String::from_utf8(s).map_err(|_| ()))
                                         .unwrap_or_else(|_| {
                                             String::from("<failed to read response body>")
