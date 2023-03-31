@@ -26,7 +26,7 @@ push-gateway = ["async-runtime", "hyper/client", "tracing"]
 metrics = { version = "^0.20", path = "../metrics" }
 metrics-util = { version = "^0.14", path = "../metrics-util", default-features = false, features = ["recency", "registry", "summary"] }
 thiserror = { version = "1", default-features = false }
-quanta = { version = "0.10.0", default-features = false }
+quanta = { version = "0.11.0", default-features = false }
 indexmap = { version = "1", default-features = false }
 portable-atomic = "0.3"
 

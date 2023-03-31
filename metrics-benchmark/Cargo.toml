@@ -11,7 +11,7 @@ log = "0.4"
 pretty_env_logger = "0.4"
 getopts = "0.2"
 hdrhistogram = { version = "7.2", default-features = false }
-quanta = "0.10.0"
+quanta = "0.11.0"
 portable-atomic = "0.3"
 metrics = { version = "^0.20", path = "../metrics" }
 metrics-util = { version = "^0.14", path = "../metrics-util" }
