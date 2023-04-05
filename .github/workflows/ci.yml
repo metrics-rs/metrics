@@ -18,7 +18,7 @@ jobs:
   feature-check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/ciheckout@v3
+    - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
