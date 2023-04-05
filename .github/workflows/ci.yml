@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
       run: rustup default stable
     - name: Install cargo-hack
@@ -26,14 +28,15 @@ jobs:
     - name: Check Feature Matrix
       run: cargo hack build --all --all-targets --feature-powerset
   test:
-    name: Test ${{ matrix.rust_version }}/${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: Test ${{ matrix.rust_version }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         rust_version: ['1.61.0', 'stable', 'nightly']
-        os: [ubuntu-latest, windows-latest, macOS-latest]
     steps:
     - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install protobuf-compiler
     - name: Install Rust ${{ matrix.rust_version }}
       run: rustup default ${{ matrix.rust_version }}
     - name: Run Tests
@@ -44,18 +47,19 @@ jobs:
       RUSTDOCFLAGS: -Dwarnings
     steps:
     - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Nightly
       run: rustup default nightly
     - name: Check Docs
       run: cargo doc --all-features --workspace --exclude=metrics-observer --no-deps
   bench:
-    name: Bench ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+    name: Bench
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
       run: rustup default stable
     - name: Run Benchmarks
