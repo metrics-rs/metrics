@@ -9,14 +9,14 @@ publish = false
 license = "MIT"
 
 [dependencies]
-metrics = { version = "^0.20", path = "../metrics", default-features = false }
-metrics-util = { version = "^0.14", path = "../metrics-util", default-features = false, features = ["summary"] }
+metrics = { version = "0.20", path = "../metrics", default-features = false }
+metrics-util = { version = "0.14", path = "../metrics-util", default-features = false, features = ["summary"] }
 bytes = { version = "1", default-features = false }
 crossbeam-channel = { version = "0.5", default-features = false, features = ["std"] }
 prost = { version = "0.11", default-features = false }
 prost-types = { version = "0.11", default-features = false }
 tui = { version = "0.16", default-features = false, features = ["termion"] }
-termion = { version = "2.0", default-features = false }
+termion = { version = "2", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [build-dependencies]
