@@ -63,7 +63,7 @@ hashbrown = { version = "0.13", default-features = false, optional = true, featu
 
 [dev-dependencies]
 approx = "0.5"
-criterion = { version = "=0.3.3", default-features = false }
+criterion = { version = "=0.4.0", default-features = false }
 rand = { version = "0.8", features = ["small_rng"] }
 rand_distr = "0.4"
 getopts = "0.2"
