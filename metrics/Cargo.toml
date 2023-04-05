@@ -30,9 +30,9 @@ default = ["std-atomics"]
 std-atomics = []
 
 [dependencies]
-metrics-macros = { version = "^0.6", path = "../metrics-macros" }
+metrics-macros = { version = "0.6", path = "../metrics-macros" }
 ahash = { version = "0.8", default-features = false }
-portable-atomic = { version = "1.0", default-features = false, features = ["fallback"] }
+portable-atomic = { version = "1", default-features = false, features = ["fallback"] }
 
 [dev-dependencies]
 log = "0.4"
