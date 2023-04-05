@@ -18,7 +18,9 @@ jobs:
   feature-check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/ciheckout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
       run: rustup default stable
     - name: Install cargo-hack
@@ -34,6 +36,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOS-latest]
     steps:
     - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install protobuf-compiler
     - name: Install Rust ${{ matrix.rust_version }}
       run: rustup default ${{ matrix.rust_version }}
     - name: Run Tests
@@ -56,6 +60,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOS-latest]
     steps:
     - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
       run: rustup default stable
     - name: Run Benchmarks
