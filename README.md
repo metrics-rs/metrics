@@ -68,10 +68,11 @@ As well, there are also some community-maintained exporters and other integratio
 
 Minimum supported Rust version (MSRV) is currently **1.61.0**, enforced by CI.
 
-`metrics` will always support _at least_ the last four versions of stable Rust, based on minor
+`metrics` will always support _at least_ the latest four versions of stable Rust, based on minor
 version releases, and excluding patch versions. Overall, we strive to support older versions where
-possible, which means avoiding constant dependency updates or cleanup that only exist to use, for
-example, new methods in the Rust standard library.
+possible, which means that we generally try to avoid staying up-to-date with every single dependency
+(except for security/correctness reasons) and avoid bumping the MSRV just to get access to new
+helper methods in the standard library, and so on.
 
 # contributing
 
