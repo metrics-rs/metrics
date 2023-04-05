@@ -38,7 +38,7 @@ tracing-core = { version = "0.1.21", default-features = false }
 tracing-subscriber = { version = "0.3.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = { version = "=0.3.3", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false }
 tracing = { version = "0.1.29", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3.1", default-features = false, features = ["registry"] }
