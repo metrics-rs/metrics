@@ -30,12 +30,12 @@ default = ["std-atomics"]
 std-atomics = []
 
 [dependencies]
-metrics-macros = { version = "^0.6", path = "../metrics-macros" }
-ahash = { version = "0.7", default-features = false }
-portable-atomic = "0.3"
+metrics-macros = { version = "0.6", path = "../metrics-macros" }
+ahash = { version = "0.8", default-features = false }
+portable-atomic = { version = "1", default-features = false, features = ["fallback"] }
 
 [dev-dependencies]
 log = "0.4"
-criterion = { version = "0.3", default-features = false, features = ["html_reports", "cargo_bench_support"] }
+criterion = { version = "=0.3.3", default-features = false }
 rand = "0.8"
 trybuild = "1"

@@ -62,18 +62,17 @@ As well, there are also some community-maintained exporters and other integratio
 
 * [`metrics-exporter-statsd`][metrics-exporter-statsd]: A `metrics`-compatible exporter for sending metrics via StatsD.
 * [`metrics-exporter-newrelic`][metrics-exporter-newrelic]: A `metrics`-compatible exporter for sending metrics to New Relic.
-* [`opinionated_metrics`][opinionated-metrics]: Opinionated interface to emitting metrics for CLi/server applications, based on `metrics`.
+* [`opinionated_metrics`][opinionated-metrics]: Opinionated interface to emitting metrics for CLI/server applications, based on `metrics`.
 
-## MSRV
+## MSRV and MSRV policy
 
-Minimum Supported Rust version is **1.56.1**.
-It is enforced in CI.
+Minimum supported Rust version (MSRV) is currently **1.61.0**, enforced by CI.
 
-### policy for bumping MSRV
-
-* The last 4 stable releases must always be supported
-* Goal is to try and support older versions where possible (not opting in to newer versions just to use a new helper method on standard library types, etc)
-* Do not bump the MSRV for newer versions of dependencies in core crates (metrics and metrics-util)
+`metrics` will always support _at least_ the latest four versions of stable Rust, based on minor
+version releases, and excluding patch versions. Overall, we strive to support older versions where
+possible, which means that we generally try to avoid staying up-to-date with every single dependency
+(except for security/correctness reasons) and avoid bumping the MSRV just to get access to new
+helper methods in the standard library, and so on.
 
 # contributing
 
