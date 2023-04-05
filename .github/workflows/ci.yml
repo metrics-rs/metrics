@@ -48,6 +48,8 @@ jobs:
       RUSTDOCFLAGS: -Dwarnings
     steps:
     - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Nightly
       run: rustup default nightly
     - name: Check Docs
