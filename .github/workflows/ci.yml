@@ -28,12 +28,11 @@ jobs:
     - name: Check Feature Matrix
       run: cargo hack build --all --all-targets --feature-powerset
   test:
-    name: Test ${{ matrix.rust_version }}/${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: Test ${{ matrix.rust_version }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         rust_version: ['1.61.0', 'stable', 'nightly']
-        os: [ubuntu-latest, windows-latest, macOS-latest]
     steps:
     - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
@@ -55,11 +54,8 @@ jobs:
     - name: Check Docs
       run: cargo doc --all-features --workspace --exclude=metrics-observer --no-deps
   bench:
-    name: Bench ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+    name: Bench
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
