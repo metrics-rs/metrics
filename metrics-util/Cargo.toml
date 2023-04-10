@@ -73,7 +73,7 @@ ndarray = "0.15"
 ndarray-stats = "0.5"
 noisy_float = "0.2"
 ordered-float = "3.4"
-predicates-core = "=1.0.5"
+predicates-core = "=1.0.6"
 predicates-tree = "=1.0.7"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi"] }
