@@ -74,7 +74,7 @@ ndarray-stats = "0.5"
 noisy_float = "0.2"
 ordered-float = "3.4"
 predicates-core = "=1.0.5"
-predicates-tree = "=1.0.7"
+predicates-tree = "=1.0.9"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "ansi"] }
 crossbeam-queue = "0.3"
