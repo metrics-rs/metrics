@@ -214,7 +214,7 @@ fn get_describe_code(
     quote! {
         {
             // Only do this work if there's a recorder installed.
-            if let Some(recorder) = metrics::try_recorder() {
+            if let Some(recorder) = ::metrics::try_recorder() {
                 recorder.#describe_ident(#name.into(), #unit, #description.into());
             }
         }
@@ -237,7 +237,7 @@ where
         Some((op_type, op_value)) => {
             let op_ident = format_ident!("{}", op_type);
             let op_value = if metric_type == "histogram" {
-                quote! { metrics::__into_f64(#op_value) }
+                quote! { ::metrics::__into_f64(#op_value) }
             } else {
                 quote! { #op_value }
             };
@@ -248,7 +248,7 @@ where
                 {
                     #statics
                     // Only do this work if there's a recorder installed.
-                    if let Some(recorder) = metrics::try_recorder() {
+                    if let Some(recorder) = ::metrics::try_recorder() {
                         #locals
                         let handle = recorder.#register_ident(#metric_key);
                         handle.#op_ident(#op_value);
@@ -262,7 +262,7 @@ where
                 {
                     #statics
                     #locals
-                    metrics::recorder().#register_ident(#metric_key)
+                    ::metrics::recorder().#register_ident(#metric_key)
                 }
             }
         }
@@ -310,13 +310,15 @@ fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
                 if let Labels::Inline(pairs) = labels {
                     let labels = pairs
                         .iter()
-                        .map(|(key, val)| quote! { metrics::Label::from_static_parts(#key, #val) })
+                        .map(
+                            |(key, val)| quote! { ::metrics::Label::from_static_parts(#key, #val) },
+                        )
                         .collect::<Vec<_>>();
                     let labels_len = labels.len();
                     let labels_len = quote! { #labels_len };
 
                     quote! {
-                        static METRIC_LABELS: [metrics::Label; #labels_len] = [#(#labels),*];
+                        static METRIC_LABELS: [::metrics::Label; #labels_len] = [#(#labels),*];
                     }
                 } else {
                     quote! {}
@@ -331,11 +333,11 @@ fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
     let key_static = if use_name_static && use_labels_static {
         if has_labels {
             quote! {
-                static METRIC_KEY: metrics::Key = metrics::Key::from_static_parts(METRIC_NAME, &METRIC_LABELS);
+                static METRIC_KEY: ::metrics::Key = ::metrics::Key::from_static_parts(METRIC_NAME, &METRIC_LABELS);
             }
         } else {
             quote! {
-                static METRIC_KEY: metrics::Key = metrics::Key::from_static_name(METRIC_NAME);
+                static METRIC_KEY: ::metrics::Key = ::metrics::Key::from_static_name(METRIC_NAME);
             }
         }
     } else {
@@ -370,7 +372,7 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> (TokenStream2, T
         let labels = labels.as_ref().unwrap();
         let quoted_labels = labels_to_quoted(labels);
         quote! {
-            let key = metrics::Key::from_parts(METRIC_NAME, #quoted_labels);
+            let key = ::metrics::Key::from_parts(METRIC_NAME, #quoted_labels);
         }
     } else if !use_name_static && !use_labels_static {
         // The name is not static, and neither are the labels. Since `use_labels_static`
@@ -378,7 +380,7 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> (TokenStream2, T
         let labels = labels.as_ref().unwrap();
         let quoted_labels = labels_to_quoted(labels);
         quote! {
-            let key = metrics::Key::from_parts(#name, #quoted_labels);
+            let key = ::metrics::Key::from_parts(#name, #quoted_labels);
         }
     } else {
         // The name is not static, but the labels are.  This could technically mean that there
@@ -386,11 +388,11 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> (TokenStream2, T
         // to figure out the correct key.
         if has_labels {
             quote! {
-                let key = metrics::Key::from_static_labels(#name, &METRIC_LABELS);
+                let key = ::metrics::Key::from_static_labels(#name, &METRIC_LABELS);
             }
         } else {
             quote! {
-                let key = metrics::Key::from_name(#name);
+                let key = ::metrics::Key::from_name(#name);
             }
         }
     };
@@ -401,7 +403,8 @@ fn generate_metric_key(name: &Expr, labels: &Option<Labels>) -> (TokenStream2, T
 fn labels_to_quoted(labels: &Labels) -> proc_macro2::TokenStream {
     match labels {
         Labels::Inline(pairs) => {
-            let labels = pairs.iter().map(|(key, val)| quote! { metrics::Label::new(#key, #val) });
+            let labels =
+                pairs.iter().map(|(key, val)| quote! { ::metrics::Label::new(#key, #val) });
             quote! { vec![#(#labels),*] }
         }
         Labels::Existing(e) => quote! { #e },
