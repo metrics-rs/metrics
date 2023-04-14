@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Type paths are now fully qualified in all macros to avoid issues with local import scopes having a
+  pre-existing `metrics` module.
+
 ## [0.6.0] - 2022-07-22
 
 ### Changed

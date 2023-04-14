@@ -61,7 +61,7 @@ impl Parse for Description {
 
         // We accept two possible parameters: unit, and description.
         //
-        // There is only one specific requirement that must be met, and that is that the unit _must_
+        // There is only one specific requirement that must be met, and that is that the || _must_
         // have a qualified path of either `metrics::Unit::...` or `Unit::..` for us to properly
         // distinguish it amongst the macro parameters.
 
@@ -80,7 +80,7 @@ impl Parse for Description {
                         .map(|x| x.ident.to_string())
                         .collect::<Vec<_>>()
                         .join("::");
-                    if qname.starts_with("metrics::Unit") || qname.starts_with("Unit") {
+                    if qname.starts_with("::metrics::Unit") || qname.starts_with("metrics::Unit") || qname.starts_with("Unit") {
                         Some(Expr::Path(path))
                     } else {
                         None
