@@ -3,26 +3,20 @@
 
 pub mod framework {
     pub mod metrics {
-        pub struct Key;
-        pub struct Label;
-
-        macro_rules! register_counter {
-            ($x:expr, $($y:expr),+) => {};
-        }
+        pub const UPLOAD_METRIC_NAME: &'static str = "some_metric";
+        pub const UPLOAD_METRIC_LABEL_SUCCESS: &'static str = "success";
+        pub const UPLOAD_METRIC_LABEL_PROCESS_TYPE: &'static str = "process_type";
     }
 }
 
 use framework::*; // This exposes mod `framework::metrics`.
 
-const UPLOAD_METRIC_NAME: &'static str = "some_metric";
-const UPLOAD_METRIC_LABEL_SUCCESS: &'static str = "success";
-const UPLOAD_METRIC_LABEL_PROCESS_TYPE: &'static str = "process_type";
 
 #[inline]
 pub fn register_metrics() {
     ::metrics::register_counter!(
-        UPLOAD_METRIC_NAME,
-        &[(UPLOAD_METRIC_LABEL_PROCESS_TYPE, ""), (UPLOAD_METRIC_LABEL_SUCCESS, ""),]
+        metrics::UPLOAD_METRIC_NAME,
+        &[(metrics::UPLOAD_METRIC_LABEL_PROCESS_TYPE, ""), (metrics::UPLOAD_METRIC_LABEL_SUCCESS, ""),]
     );
 }
 
