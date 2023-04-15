@@ -245,7 +245,6 @@ impl fmt::Display for SetRecorderError {
     }
 }
 
-// The Error trait is not available in libcore
 impl std::error::Error for SetRecorderError {
     fn description(&self) -> &str {
         SET_RECORDER_ERROR
