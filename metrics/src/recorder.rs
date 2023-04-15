@@ -10,31 +10,31 @@ mod cell {
         sync::atomic::{AtomicUsize, Ordering},
     };
 
-    // FIXME: This can't be a const new function because trait objects aren't allowed in const fns
-    // This was stabilized in 1.61, so it can be cleaned up when it becomes the MSRV
-    #[allow(clippy::declare_interior_mutable_const)]
-    pub const INIT: RecorderOnceCell = RecorderOnceCell {
-        recorder: UnsafeCell::new(None),
-        state: AtomicUsize::new(UNINITIALIZED),
-    };
+    /// The recorder is uninitialized.
+    const UNINITIALIZED: usize = 0;
 
-    /// The global Recorder instance with a `once_cell`-like API.
+    /// The recorder is currently being initialized.
+    const INITIALIZING: usize = 1;
+
+    /// The recorder has been initialized successfully and can be read.
+    const INITIALIZED: usize = 2;
+
+    /// An specialized version of `OnceCell` for `Recorder`.
     pub struct RecorderOnceCell {
         recorder: UnsafeCell<Option<&'static dyn Recorder>>,
         state: AtomicUsize,
     }
 
-    /// The recorder is uninit and can be set.
-    const UNINITIALIZED: usize = 0;
-    /// The recorder is currently being initialized.
-    const INITIALIZING: usize = 1;
-    /// The recorder has been initialized successfully and can be read.
-    const INITIALIZED: usize = 2;
-
     impl RecorderOnceCell {
+        /// Creates an uninitialized `RecorderOnceCell`.
+        pub const fn new() -> Self {
+            Self { recorder: UnsafeCell::new(None), state: AtomicUsize::new(UNINITIALIZED) }
+        }
+
         #[cfg(atomic_cas)]
         pub fn set(&self, recorder: &'static dyn Recorder) -> Result<(), SetRecorderError> {
-            // Acquire the lock because the write below must not be reordered above the CAS.
+            // Try and transition the cell from `UNINITIALIZED` to `INITIALIZING`, which would give
+            // us exclusive access to set the recorder.
             match self.state.compare_exchange(
                 UNINITIALIZED,
                 INITIALIZING,
@@ -43,10 +43,12 @@ mod cell {
             ) {
                 Ok(UNINITIALIZED) => {
                     unsafe {
-                        // SAFETY: Access is unique because we CASed the state to INITIALIZING above
+                        // SAFETY: Access is unique because we can only be here if we won the race
+                        // to transition from `UNINITIALIZED` to `INITIALIZING` above.
                         self.recorder.get().write(Some(recorder));
                     }
-                    // Release the lock, others can now read it - but not write
+
+                    // Mark the recorder as initialized, which will make it visible to readers.
                     self.state.store(INITIALIZED, Ordering::Release);
                     Ok(())
                 }
@@ -55,13 +57,14 @@ mod cell {
         }
 
         /// Clears the currently installed recorder, allowing a new writer to override it.
+        ///
         /// # Safety
+        ///
         /// The caller must guarantee that no reader has read the state before we do this and then
         /// reads the recorder after another writer has written to it after us.
         pub unsafe fn clear(&self) {
-            // Set the state to `UNINIT` to allow the next writer to write again.
-            // This is not a problem for readers since their `&'static` refs will remain
-            // valid forever.
+            // Set the state to `UNINITIALIZED` to allow the next writer to write again. This is not
+            // a problem for readers since their `&'static` refs will remain valid forever.
             self.state.store(UNINITIALIZED, Ordering::Relaxed);
         }
 
@@ -69,8 +72,8 @@ mod cell {
             if self.state.load(Ordering::Acquire) != INITIALIZED {
                 None
             } else {
-                // SAFETY: Thanks to `Acquire` above we make sure that this doesn't get
-                // reordered above this and therefore no writer is here
+                // SAFETY: If the state is `INITIALIZED`, then we know that the recorder has been
+                // installed and is safe to read.
                 unsafe { self.recorder.get().read() }
             }
         }
@@ -81,7 +84,7 @@ mod cell {
         ) -> Result<(), SetRecorderError> {
             match self.state.load(Ordering::Relaxed) {
                 UNINITIALIZED => {
-                    // SAFETY: Caller guarantees that access is unique
+                    // SAFETY: Caller guarantees that access is unique.
                     self.recorder.get().write(Some(recorder));
                     self.state.store(INITIALIZED, Ordering::Release);
                     Ok(())
@@ -97,13 +100,13 @@ mod cell {
         }
     }
 
-    // SAFETY: We can only mutate through `set` - which is protected by the `state` and unsafe
-    // function where the caller has to guarantee synced-ness
+    // SAFETY: We can only mutate through `set`, which is protected by the `state` and unsafe
+    // function where the caller has to guarantee synced-ness.
     unsafe impl Send for RecorderOnceCell {}
     unsafe impl Sync for RecorderOnceCell {}
 }
 
-static RECORDER: RecorderOnceCell = cell::INIT;
+static RECORDER: RecorderOnceCell = RecorderOnceCell::new();
 
 static SET_RECORDER_ERROR: &str =
     "attempted to set a recorder after the metrics system was already initialized";
@@ -187,10 +190,8 @@ pub fn set_recorder(recorder: &'static dyn Recorder) -> Result<(), SetRecorderEr
 /// Sets the global recorder to a `Box<Recorder>`.
 ///
 /// This is a simple convenience wrapper over `set_recorder`, which takes a `Box<Recorder>`
-/// rather than a `&'static Recorder`.  See the document for [`set_recorder`] for more
+/// rather than a `&'static Recorder`.  See the documentation for [`set_recorder`] for more
 /// details.
-///
-/// Requires the `std` feature.
 ///
 /// # Errors
 ///
@@ -223,16 +224,16 @@ pub unsafe fn set_recorder_racy(recorder: &'static dyn Recorder) -> Result<(), S
 
 /// Clears the currently configured recorder.
 ///
-/// As we give out a reference to the recorder with a static lifetime, we cannot safely reclaim
-/// and drop the installed recorder when clearing.  Thus, any existing recorder will stay leaked.
+/// This will leak the currently installed recorder, as we cannot safely drop it due to it being
+/// provided via a reference with a `'static` lifetime.
 ///
 /// This method is typically only useful for testing or benchmarking.
 ///
 /// # Safety
 ///
-/// This function must not be called during any readers reading or writers writing.
-/// The caller can cause readers and writers to race if they are in reading/writing while
-/// this function is called.
+/// The caller must ensure that this method is not being called while other threads are either
+/// loading a reference to the global recorder, or attempting to initialize the global recorder, as
+/// it can cause a data race.
 #[doc(hidden)]
 pub unsafe fn clear_recorder() {
     RECORDER.clear();
