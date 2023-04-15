@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Implemented `std::error::Error` for `Error`.
+
 ## [0.7.0] - 2022-07-20
 
 ### Changed
