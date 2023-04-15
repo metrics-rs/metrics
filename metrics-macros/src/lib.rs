@@ -80,7 +80,10 @@ impl Parse for Description {
                         .map(|x| x.ident.to_string())
                         .collect::<Vec<_>>()
                         .join("::");
-                    if qname.starts_with("::metrics::Unit") || qname.starts_with("metrics::Unit") || qname.starts_with("Unit") {
+                    if qname.starts_with("::metrics::Unit")
+                        || qname.starts_with("metrics::Unit")
+                        || qname.starts_with("Unit")
+                    {
                         Some(Expr::Path(path))
                     } else {
                         None
