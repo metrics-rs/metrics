@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
 ### Added
+
 - Update hdrhistogram dependency to 7.2
 
 ### Changed
+
+- Bump MSRV to 1.61.0.
 - Updated various dependencies in order to properly scope dependencies to only the necessary feature
   flags, and thus optimize build times and reduce transitive dependencies.

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Bump MSRV to 1.61.0.
 - Switch to `metrics`-exposed version of `AtomicU64`.
 
 ## [0.11.0] - 2022-07-20

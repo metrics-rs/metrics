@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Bump MSRV to 1.61.0.
+
 ## [0.13.0] - 2023-01-20
 
 ## [0.12.0] - 2022-07-20

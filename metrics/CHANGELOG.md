@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Bump MSRV to 1.61.0.
 - `portable-atomic` is only used on 32-bit architectures.
 
 ### Removed
