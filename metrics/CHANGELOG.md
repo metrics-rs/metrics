@@ -8,12 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- A new module, `atomics`, exposes the atomic integer type that `CounterFn` and `GaugeFn` are
+  implemented for. This will publicly re-export the type for usage by downstream crates. (Credit to
+  [@repi](https://github.com/repi) for the original PR (#347) that did this.)
+
+### Changed
+
+- `portable-atomic` is only used on 32-bit architectures.
+
+### Removed
+
+- Removed the `std-atomics` feature flag.
+
 ## [0.20.1] - 2022-07-22
 
 ### Changed
 
 - Bumped the dependency on `metrics-macros` to correctly use the updated versions that are necessary
-  for handling the recent `&'static str` -> `SharedString` change to `Recorder::descrfibe_*`.
+  for handling the recent `&'static str` -> `SharedString` change to `Recorder::describe_*`.
 
   We'll also yank 0.20.0 once this is released to avoid the patch version triggering a breaking
   change jump in transitive dependencies, and so people can't pick up a version of `metrics` that

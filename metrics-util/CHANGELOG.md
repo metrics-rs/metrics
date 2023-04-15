@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Switch to `metrics`-exposed version of `AtomicU64`.
+
 ## [0.14.0] - 2022-07-20
 
 ### Changed

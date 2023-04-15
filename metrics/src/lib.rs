@@ -258,7 +258,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 
-extern crate alloc;
+pub mod atomics;
 
 mod common;
 pub use self::common::*;

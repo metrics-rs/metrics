@@ -1,11 +1,14 @@
+use std::fmt;
+
 use self::cell::RecorderOnceCell;
 use crate::{Counter, Gauge, Histogram, Key, KeyName, SharedString, Unit};
-use core::fmt;
 
 mod cell {
     use super::{Recorder, SetRecorderError};
-    use std::cell::UnsafeCell;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::{
+        cell::UnsafeCell,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
 
     // FIXME: This can't be a const new function because trait objects aren't allowed in const fns
     // This was stabilized in 1.61, so it can be cleaned up when it becomes the MSRV

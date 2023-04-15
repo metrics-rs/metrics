@@ -4,14 +4,19 @@
 //! and core parts of the `metrics` ecosystem, they can be beneficial for in-process collecting of
 //! metrics in some limited cases.
 
-use core::hash::Hash;
-use std::cell::RefCell;
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex};
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fmt::Debug,
+    hash::Hash,
+    sync::{atomic::Ordering, Arc, Mutex},
+};
 
-use crate::registry::AtomicStorage;
-use crate::{kind::MetricKind, registry::Registry, CompositeKey};
+use crate::{
+    kind::MetricKind,
+    registry::{AtomicStorage, Registry},
+    CompositeKey,
+};
 
 use indexmap::IndexMap;
 use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
