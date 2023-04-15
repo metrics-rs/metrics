@@ -84,9 +84,9 @@ pub struct WithContext {
 }
 
 impl WithContext {
-    pub fn with_labels<'a>(
+    pub fn with_labels(
         &self,
-        dispatch: &'a Dispatch,
+        dispatch: &Dispatch,
         id: &Id,
         f: &mut dyn FnMut(&[Label]) -> Option<Key>,
     ) -> Option<Key> {

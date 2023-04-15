@@ -15,7 +15,7 @@ pub fn key_to_parts(
 ) -> (String, Vec<String>) {
     let name = sanitize_metric_name(key.name());
     let mut values = default_labels.cloned().unwrap_or_default();
-    key.labels().into_iter().for_each(|label| {
+    key.labels().for_each(|label| {
         values.insert(label.key().to_string(), label.value().to_string());
     });
     let labels = values
