@@ -1,13 +1,14 @@
+use std::{
+    borrow::Borrow,
+    cmp::Ordering,
+    fmt,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    mem::ManuallyDrop,
+    ptr::{slice_from_raw_parts, NonNull},
+};
+
 use crate::label::Label;
-use alloc::borrow::Borrow;
-use alloc::string::String;
-use alloc::vec::Vec;
-use core::cmp::Ordering;
-use core::fmt;
-use core::hash::{Hash, Hasher};
-use core::marker::PhantomData;
-use core::mem::ManuallyDrop;
-use core::ptr::{slice_from_raw_parts, NonNull};
 
 /// A clone-on-write smart pointer with an optimized memory layout.
 pub struct Cow<'a, T: Cowable + ?Sized + 'a> {

@@ -28,7 +28,6 @@ metrics-util = { version = "0.14", path = "../metrics-util", default-features = 
 thiserror = { version = "1", default-features = false }
 quanta = { version = "0.11", default-features = false }
 indexmap = { version = "1", default-features = false }
-portable-atomic = { version = "1", default-features = false, features = ["fallback"] }
 
 # Optional
 hyper = { version = "0.14", default-features = false, features = ["tcp", "http1"], optional = true }

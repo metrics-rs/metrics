@@ -1,10 +1,8 @@
-use crate::{cow::Cow, IntoLabels, KeyHasher, Label, SharedString};
-use alloc::{string::String, vec::Vec};
-use core::{fmt, hash::Hash, slice::Iter};
-use portable_atomic::AtomicU64;
+use crate::{atomics::AtomicU64, cow::Cow, IntoLabels, KeyHasher, Label, SharedString};
 use std::{
-    cmp,
-    hash::Hasher,
+    cmp, fmt,
+    hash::{Hash, Hasher},
+    slice::Iter,
     sync::atomic::{AtomicBool, Ordering},
 };
 

@@ -1,7 +1,6 @@
 use std::slice::Iter;
 
 use crate::SharedString;
-use alloc::vec::Vec;
 
 /// Metadata for a metric key in the form of a key/value pair.
 ///
