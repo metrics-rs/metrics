@@ -7,6 +7,15 @@ rust-version = "1.61.0"
 
 license = "MIT"
 
+description = "Text-based UI for metrics-exporter-tcp."
+homepage = "https://github.com/metrics-rs/metrics"
+repository = "https://github.com/metrics-rs/metrics"
+documentation = "https://docs.rs/metrics"
+readme = "README.md"
+
+categories = ["development-tools::debugging"]
+keywords = ["metrics", "facade", "macros"]
+
 [dependencies]
 metrics = { version = "^0.21", path = "../metrics", default-features = false }
 metrics-util = { version = "^0.15", path = "../metrics-util", default-features = false, features = ["summary"] }
