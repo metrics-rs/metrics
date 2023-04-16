@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.21.0] - 2023-04-16
+
 ### Added
 
 - A new module, `atomics`, exposes the atomic integer type that `CounterFn` and `GaugeFn` are
