@@ -26,7 +26,7 @@ name = "macros"
 harness = false
 
 [dependencies]
-metrics-macros = { version = "0.6", path = "../metrics-macros" }
+metrics-macros = { version = "^0.7", path = "../metrics-macros" }
 ahash = { version = "0.8", default-features = false }
 
 [target.'cfg(target_pointer_width = "32")'.dependencies]
