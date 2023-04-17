@@ -11,9 +11,15 @@ use metrics::Key;
 /// and [`sanitize_label_value`] for more information.
 pub fn key_to_parts(
     key: &Key,
+    global_prefix: Option<&String>,
     default_labels: Option<&IndexMap<String, String>>,
 ) -> (String, Vec<String>) {
-    let name = sanitize_metric_name(key.name());
+    let name: String;
+    if let Some(g_prefix) = global_prefix {
+        name = sanitize_metric_name(&format!("{}_{}", g_prefix, key.name()));
+    } else {
+        name = sanitize_metric_name(key.name());
+    }
     let mut values = default_labels.cloned().unwrap_or_default();
     key.labels().for_each(|label| {
         values.insert(label.key().to_string(), label.value().to_string());

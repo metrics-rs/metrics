@@ -93,6 +93,7 @@ pub struct PrometheusBuilder {
     idle_timeout: Option<Duration>,
     recency_mask: MetricKindMask,
     global_labels: Option<IndexMap<String, String>>,
+    global_prefix: Option<String>,
 }
 
 impl PrometheusBuilder {
@@ -117,6 +118,7 @@ impl PrometheusBuilder {
             idle_timeout: None,
             recency_mask: MetricKindMask::NONE,
             global_labels: None,
+            global_prefix: None,
         }
     }
 
@@ -308,6 +310,15 @@ impl PrometheusBuilder {
     {
         let labels = self.global_labels.get_or_insert_with(IndexMap::new);
         labels.insert(key.into(), value.into());
+        self
+    }
+
+    /// Adds a global prefix to this exporter.
+    ///
+    /// Global prefix are applied to all metrics.
+    /// you metrics will be set to string like this: `{global_prefix}_{metric_name}`
+    pub fn add_global_prefix(mut self, prefix: String) -> Self {
+        self.global_prefix = Some(prefix);
         self
     }
 
@@ -519,6 +530,7 @@ impl PrometheusBuilder {
             ),
             descriptions: RwLock::new(HashMap::new()),
             global_labels: self.global_labels.unwrap_or_default(),
+            global_prefix: self.global_prefix,
         };
 
         PrometheusRecorder::from(inner)
