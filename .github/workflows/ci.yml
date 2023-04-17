@@ -40,7 +40,7 @@ jobs:
     - name: Install Rust ${{ matrix.rust_version }}
       run: rustup default ${{ matrix.rust_version }}
     - name: Run Tests
-      run: cargo test --all-features --workspace --exclude=metrics-observer
+      run: cargo test --all-features --workspace --exclude=metrics-observer -- --test-threads=1
   docs:
     runs-on: ubuntu-latest
     env:

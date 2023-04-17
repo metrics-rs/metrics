@@ -1,6 +1,8 @@
 use std::sync::{Arc, Weak};
 
-use metrics::{Recorder, KeyName, Unit, SharedString, Key, Counter, Gauge, Histogram, SetRecorderError};
+use metrics::{
+    Counter, Gauge, Histogram, Key, KeyName, Recorder, SetRecorderError, SharedString, Unit,
+};
 
 /// Wraps a recorder to allow for recovering it after being installed.
 ///
@@ -12,15 +14,29 @@ use metrics::{Recorder, KeyName, Unit, SharedString, Key, Counter, Gauge, Histog
 /// `RecoverableRecorder` allows wrapping a recorder such that a weak reference to it is installed
 /// globally, while the recorder itself is held by `RecoverableRecorder`. This allows for recovering
 /// the recorder whenever the application chooses.
+///
+/// ## On drop
+///
+/// While `RecoverableRecorder` provides a method to manually recover the recorder directly, one
+/// particular benefit is that due to how the recorder is wrapped, when `RecoverableRecorder` is
+/// dropped, and the last active reference to it is dropped, the recorder itself will be dropped.
+///
+/// This allows using `RecoverableRecorder` as a drop guard, ensuring that by dropping it, the
+/// recorder itself will be dropped, and any finalization logic implemented for the recorder will be
+/// run.
 pub struct RecoverableRecorder<R> {
     recorder: Arc<R>,
 }
 
 impl<R: Recorder + 'static> RecoverableRecorder<R> {
-    /// Creates a new `RecoverableRecorder` wrapper around the given recorder.
+    /// Creates a new `RecoverableRecorder`, wrapping the given recorder.
     ///
-    /// This also installs the recorder globally, returning an error if there was already a recorder
-    /// installed.
+    /// A weakly-referenced version of the recorder is installed globally, while the original
+    /// recorder is held within `RecoverableRecorder`, and can be recovered by calling `into_inner`.
+    ///
+    /// # Errors
+    ///
+    /// If a recorder is already installed, an error is returned.
     pub fn from_recorder(recorder: R) -> Result<Self, SetRecorderError> {
         let recorder = Arc::new(recorder);
 
@@ -30,7 +46,7 @@ impl<R: Recorder + 'static> RecoverableRecorder<R> {
         Ok(Self { recorder })
     }
 
-    /// Consumes this wrapper, returning the wrapped recorder.
+    /// Consumes this wrapper, returning the original recorder.
     ///
     /// This method will loop until there are no active weak references to the recorder. It is not
     /// advised to call this method under heavy load, as doing so is not deterministic or ordered
@@ -53,9 +69,7 @@ struct WeakRecorder<R> {
 
 impl<R> WeakRecorder<R> {
     fn from_arc(recorder: &Arc<R>) -> Self {
-        Self {
-            recorder: Arc::downgrade(recorder),
-        }
+        Self { recorder: Arc::downgrade(recorder) }
     }
 }
 
@@ -105,10 +119,10 @@ impl<R: Recorder> Recorder for WeakRecorder<R> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::Ordering;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     use super::*;
-    use metrics::{Key, Recorder, atomics::AtomicU64, CounterFn, GaugeFn, HistogramFn};
+    use metrics::{atomics::AtomicU64, CounterFn, GaugeFn, HistogramFn, Key, Recorder};
 
     struct CounterWrapper(AtomicU64);
     struct GaugeWrapper(AtomicU64);
@@ -163,6 +177,7 @@ mod tests {
     }
 
     struct TestRecorder {
+        dropped: Arc<AtomicBool>,
         counter: Arc<CounterWrapper>,
         gauge: Arc<GaugeWrapper>,
         histogram: Arc<HistogramWrapper>,
@@ -170,17 +185,26 @@ mod tests {
 
     impl TestRecorder {
         fn new() -> (Self, Arc<CounterWrapper>, Arc<GaugeWrapper>, Arc<HistogramWrapper>) {
+            let (recorder, _, counter, gauge, histogram) = Self::new_with_drop();
+            (recorder, counter, gauge, histogram)
+        }
+
+        fn new_with_drop(
+        ) -> (Self, Arc<AtomicBool>, Arc<CounterWrapper>, Arc<GaugeWrapper>, Arc<HistogramWrapper>)
+        {
+            let dropped = Arc::new(AtomicBool::new(false));
             let counter = Arc::new(CounterWrapper(AtomicU64::new(0)));
             let gauge = Arc::new(GaugeWrapper(AtomicU64::new(0)));
             let histogram = Arc::new(HistogramWrapper(AtomicU64::new(0)));
 
             let recorder = Self {
+                dropped: Arc::clone(&dropped),
                 counter: Arc::clone(&counter),
                 gauge: Arc::clone(&gauge),
                 histogram: Arc::clone(&histogram),
             };
 
-            (recorder, counter, gauge, histogram)
+            (recorder, dropped, counter, gauge, histogram)
         }
     }
 
@@ -193,7 +217,12 @@ mod tests {
             todo!()
         }
 
-        fn describe_histogram(&self, _key: KeyName, _unit: Option<Unit>, _description: SharedString) {
+        fn describe_histogram(
+            &self,
+            _key: KeyName,
+            _unit: Option<Unit>,
+            _description: SharedString,
+        ) {
             todo!()
         }
 
@@ -210,12 +239,21 @@ mod tests {
         }
     }
 
+    impl Drop for TestRecorder {
+        fn drop(&mut self) {
+            self.dropped.store(true, Ordering::Release);
+        }
+    }
+
     #[test]
     fn basic() {
         // Create and install the recorder.
         let (recorder, counter, gauge, histogram) = TestRecorder::new();
-        let recoverable = RecoverableRecorder::from_recorder(recorder)
-            .expect("failed to install recorder");
+        unsafe {
+            metrics::clear_recorder();
+        }
+        let recoverable =
+            RecoverableRecorder::from_recorder(recorder).expect("failed to install recorder");
 
         // Record some metrics, and make sure the atomics for each metric type are
         // incremented as we would expect them to be.
@@ -240,5 +278,43 @@ mod tests {
         assert_eq!(counter.get(), 5);
         assert_eq!(gauge.get(), 10);
         assert_eq!(histogram.get(), 15);
+    }
+
+    #[test]
+    fn on_drop() {
+        // Create and install the recorder.
+        let (recorder, dropped, counter, gauge, histogram) = TestRecorder::new_with_drop();
+        unsafe {
+            metrics::clear_recorder();
+        }
+        let recoverable =
+            RecoverableRecorder::from_recorder(recorder).expect("failed to install recorder");
+
+        // Record some metrics, and make sure the atomics for each metric type are
+        // incremented as we would expect them to be.
+        metrics::counter!("counter", 5);
+        metrics::increment_gauge!("gauge", 5.0);
+        metrics::increment_gauge!("gauge", 5.0);
+        metrics::histogram!("histogram", 5.0);
+        metrics::histogram!("histogram", 5.0);
+        metrics::histogram!("histogram", 5.0);
+
+        drop(recoverable.into_inner());
+        assert_eq!(counter.get(), 5);
+        assert_eq!(gauge.get(), 10);
+        assert_eq!(histogram.get(), 15);
+
+        // Now that we've recovered the recorder, incrementing the same metrics should
+        // not actually increment the value of the atomics for each metric type.
+        metrics::counter!("counter", 7);
+        metrics::increment_gauge!("gauge", 7.0);
+        metrics::histogram!("histogram", 7.0);
+
+        assert_eq!(counter.get(), 5);
+        assert_eq!(gauge.get(), 10);
+        assert_eq!(histogram.get(), 15);
+
+        // And we should be able to check that the recorder was indeed dropped.
+        assert!(dropped.load(Ordering::Acquire));
     }
 }

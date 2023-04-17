@@ -24,7 +24,9 @@ impl Recorder for TestRecorder {
 }
 
 fn reset_recorder() {
-    unsafe { metrics::clear_recorder(); }
+    unsafe {
+        metrics::clear_recorder();
+    }
     metrics::set_boxed_recorder(Box::new(TestRecorder::default())).unwrap()
 }
 
