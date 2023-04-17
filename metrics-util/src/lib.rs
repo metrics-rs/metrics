@@ -31,6 +31,9 @@ pub use kind::{MetricKind, MetricKindMask};
 mod histogram;
 pub use histogram::Histogram;
 
+mod recoverable;
+pub use recoverable::RecoverableRecorder;
+
 #[cfg(feature = "summary")]
 mod summary;
 #[cfg(feature = "summary")]

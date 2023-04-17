@@ -24,8 +24,8 @@ impl Recorder for TestRecorder {
 }
 
 fn reset_recorder() {
-    let recorder = Box::leak(Box::new(TestRecorder::default()));
-    unsafe { metrics::set_recorder_racy(recorder).unwrap() }
+    unsafe { metrics::clear_recorder(); }
+    metrics::set_boxed_recorder(Box::new(TestRecorder::default())).unwrap()
 }
 
 fn macro_benchmark(c: &mut Criterion) {
