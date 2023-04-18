@@ -15,7 +15,7 @@ use metrics::{
 /// globally, while the recorder itself is held by `RecoverableRecorder`. This allows for recovering
 /// the recorder whenever the application chooses.
 ///
-/// ## On drop
+/// ## As a drop guard
 ///
 /// While `RecoverableRecorder` provides a method to manually recover the recorder directly, one
 /// particular benefit is that due to how the recorder is wrapped, when `RecoverableRecorder` is
