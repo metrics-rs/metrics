@@ -276,4 +276,9 @@ impl PrometheusHandle {
     pub fn render(&self) -> String {
         self.inner.render()
     }
+
+    /// Clear the idle metrics and compact histogram measurements to save the memory.
+    pub fn compact(&self) {
+        let _ = self.inner.get_recent_metrics();
+    }
 }
