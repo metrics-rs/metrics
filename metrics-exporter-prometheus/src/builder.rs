@@ -22,6 +22,7 @@ use hyper::{
     Response, StatusCode,
 };
 
+use hyper::http::HeaderValue;
 #[cfg(feature = "push-gateway")]
 use hyper::{
     body::{aggregate, Buf},
@@ -62,7 +63,12 @@ enum ExporterConfig {
     // Run a push gateway task sending to the given `endpoint` after `interval` time has elapsed,
     // infinitely.
     #[cfg(feature = "push-gateway")]
-    PushGateway { endpoint: Uri, interval: Duration },
+    PushGateway {
+        endpoint: Uri,
+        interval: Duration,
+        username: Option<String>,
+        password: Option<String>,
+    },
 
     #[allow(dead_code)]
     Unconfigured,
@@ -157,6 +163,8 @@ impl PrometheusBuilder {
         mut self,
         endpoint: T,
         interval: Duration,
+        username: Option<String>,
+        password: Option<String>,
     ) -> Result<Self, BuildError>
     where
         T: AsRef<str>,
@@ -165,6 +173,8 @@ impl PrometheusBuilder {
             endpoint: Uri::try_from(endpoint.as_ref())
                 .map_err(|e| BuildError::InvalidPushGatewayEndpoint(e.to_string()))?,
             interval,
+            username,
+            password,
         };
 
         Ok(self)
@@ -448,16 +458,22 @@ impl PrometheusBuilder {
             }
 
             #[cfg(feature = "push-gateway")]
-            ExporterConfig::PushGateway { endpoint, interval } => {
+            ExporterConfig::PushGateway { endpoint, interval, username, password } => {
                 let exporter = async move {
                     let client = Client::new();
+                    let auth = username.as_ref().map(|name| basic_auth(name, password.as_ref()));
 
                     loop {
                         // Sleep for `interval` amount of time, and then do a push.
                         tokio::time::sleep(interval).await;
 
+                        let mut builder = Request::builder();
+                        if let Some(auth) = &auth {
+                            builder = builder.header("authorization", auth.clone());
+                        }
+
                         let output = handle.render();
-                        let result = Request::builder()
+                        let result = builder
                             .method(Method::PUT)
                             .uri(endpoint.clone())
                             .body(Body::from(output));
@@ -529,6 +545,28 @@ impl Default for PrometheusBuilder {
     fn default() -> Self {
         PrometheusBuilder::new()
     }
+}
+
+fn basic_auth<U, P>(username: U, password: Option<P>) -> HeaderValue
+where
+    U: std::fmt::Display,
+    P: std::fmt::Display,
+{
+    use base64::prelude::BASE64_STANDARD;
+    use base64::write::EncoderWriter;
+    use std::io::Write;
+
+    let mut buf = b"Basic ".to_vec();
+    {
+        let mut encoder = EncoderWriter::new(&mut buf, &BASE64_STANDARD);
+        let _ = write!(encoder, "{username}:");
+        if let Some(password) = password {
+            let _ = write!(encoder, "{password}");
+        }
+    }
+    let mut header = HeaderValue::from_bytes(&buf).expect("base64 is always valid HeaderValue");
+    header.set_sensitive(true);
+    header
 }
 
 #[cfg(test)]
