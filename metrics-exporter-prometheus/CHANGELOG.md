@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.12.1] - 2023-05-09
+
 ### Added
 
 - Support for specifying a username/password for HTTP Basic Authentication when pushing to a Push
