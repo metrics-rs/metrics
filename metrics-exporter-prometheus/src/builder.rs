@@ -26,6 +26,7 @@ use hyper::{
 use hyper::{
     body::{aggregate, Buf},
     client::Client,
+    http::HeaderValue,
     Method, Request, Uri,
 };
 
@@ -62,7 +63,12 @@ enum ExporterConfig {
     // Run a push gateway task sending to the given `endpoint` after `interval` time has elapsed,
     // infinitely.
     #[cfg(feature = "push-gateway")]
-    PushGateway { endpoint: Uri, interval: Duration },
+    PushGateway {
+        endpoint: Uri,
+        interval: Duration,
+        username: Option<String>,
+        password: Option<String>,
+    },
 
     #[allow(dead_code)]
     Unconfigured,
@@ -157,6 +163,8 @@ impl PrometheusBuilder {
         mut self,
         endpoint: T,
         interval: Duration,
+        username: Option<String>,
+        password: Option<String>,
     ) -> Result<Self, BuildError>
     where
         T: AsRef<str>,
@@ -165,6 +173,8 @@ impl PrometheusBuilder {
             endpoint: Uri::try_from(endpoint.as_ref())
                 .map_err(|e| BuildError::InvalidPushGatewayEndpoint(e.to_string()))?,
             interval,
+            username,
+            password,
         };
 
         Ok(self)
@@ -448,16 +458,24 @@ impl PrometheusBuilder {
             }
 
             #[cfg(feature = "push-gateway")]
-            ExporterConfig::PushGateway { endpoint, interval } => {
+            ExporterConfig::PushGateway { endpoint, interval, username, password } => {
                 let exporter = async move {
                     let client = Client::new();
+                    let auth = username
+                        .as_ref()
+                        .map(|name| basic_auth(name, password.as_ref().map(|x| &**x)));
 
                     loop {
                         // Sleep for `interval` amount of time, and then do a push.
                         tokio::time::sleep(interval).await;
 
+                        let mut builder = Request::builder();
+                        if let Some(auth) = &auth {
+                            builder = builder.header("authorization", auth.clone());
+                        }
+
                         let output = handle.render();
-                        let result = Request::builder()
+                        let result = builder
                             .method(Method::PUT)
                             .uri(endpoint.clone())
                             .body(Body::from(output));
@@ -531,12 +549,32 @@ impl Default for PrometheusBuilder {
     }
 }
 
+#[cfg(feature = "push-gateway")]
+fn basic_auth(username: &str, password: Option<&str>) -> HeaderValue {
+    use base64::prelude::BASE64_STANDARD;
+    use base64::write::EncoderWriter;
+    use std::io::Write;
+
+    let mut buf = b"Basic ".to_vec();
+    {
+        let mut encoder = EncoderWriter::new(&mut buf, &BASE64_STANDARD);
+        let _ = write!(encoder, "{username}:");
+        if let Some(password) = password {
+            let _ = write!(encoder, "{password}");
+        }
+    }
+    let mut header = HeaderValue::from_bytes(&buf).expect("base64 is always valid HeaderValue");
+    header.set_sensitive(true);
+    header
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
 
     use quanta::Clock;
 
+    use crate::builder::basic_auth;
     use metrics::{Key, KeyName, Label, Recorder};
     use metrics_util::MetricKindMask;
 
@@ -991,5 +1029,36 @@ mod tests {
         let expected_counter = "# HELP yee_haw:lets_go \"Simplë stuff.\\nRëally.\"\n# TYPE yee_haw:lets_go counter\nyee_haw:lets_go{foo_=\"foo\",_hno=\"\\\"yeet\\nies\\\"\"} 1\n\n";
 
         assert_eq!(rendered, expected_counter);
+    }
+
+    #[test]
+    pub fn test_basic_auth() {
+        use base64::prelude::BASE64_STANDARD;
+        use base64::read::DecoderReader;
+        use std::io::Read;
+
+        const BASIC: &str = "Basic ";
+
+        // username only
+        let username = "metrics";
+        let header = basic_auth(username, None);
+
+        let reader = &header.as_ref()[BASIC.len()..];
+        let mut decoder = DecoderReader::new(reader, &BASE64_STANDARD);
+        let mut result = Vec::new();
+        decoder.read_to_end(&mut result).unwrap();
+        assert_eq!(b"metrics:", &result[..]);
+        assert!(header.is_sensitive());
+
+        // username/password
+        let password = "123!_@ABC";
+        let header = basic_auth(username, Some(password));
+
+        let reader = &header.as_ref()[BASIC.len()..];
+        let mut decoder = DecoderReader::new(reader, &BASE64_STANDARD);
+        let mut result = Vec::new();
+        decoder.read_to_end(&mut result).unwrap();
+        assert_eq!(b"metrics:123!_@ABC", &result[..]);
+        assert!(header.is_sensitive());
     }
 }
