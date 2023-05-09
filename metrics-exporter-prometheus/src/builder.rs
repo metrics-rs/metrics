@@ -574,7 +574,6 @@ mod tests {
 
     use quanta::Clock;
 
-    use crate::builder::basic_auth;
     use metrics::{Key, KeyName, Label, Recorder};
     use metrics_util::MetricKindMask;
 
@@ -1030,6 +1029,11 @@ mod tests {
 
         assert_eq!(rendered, expected_counter);
     }
+}
+
+#[cfg(all(test, feature = "push-gateway"))]
+mod push_gateway_tests {
+    use crate::builder::basic_auth;
 
     #[test]
     pub fn test_basic_auth() {
