@@ -21,7 +21,12 @@ fn main() {
     tracing_subscriber::fmt::init();
 
     PrometheusBuilder::new()
-        .with_push_gateway("http://127.0.0.1:9091/metrics/job/example", Duration::from_secs(10))
+        .with_push_gateway(
+            "http://127.0.0.1:9091/metrics/job/example",
+            Duration::from_secs(10),
+            None,
+            None,
+        )
         .expect("push gateway endpoint should be valid")
         .idle_timeout(
             MetricKindMask::COUNTER | MetricKindMask::HISTOGRAM,

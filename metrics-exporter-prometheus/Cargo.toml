@@ -28,6 +28,7 @@ metrics-util = { version = "^0.15", path = "../metrics-util", default-features =
 thiserror = { version = "1", default-features = false }
 quanta = { version = "0.11", default-features = false }
 indexmap = { version = "1", default-features = false }
+base64 = { version = "0.21.0", default-features = false, features = ["std"] }
 
 # Optional
 hyper = { version = "0.14", default-features = false, features = ["tcp", "http1"], optional = true }
