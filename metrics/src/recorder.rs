@@ -31,7 +31,6 @@ mod cell {
             Self { recorder: UnsafeCell::new(None), state: AtomicUsize::new(UNINITIALIZED) }
         }
 
-        #[cfg(atomic_cas)]
         pub fn set(&self, recorder: &'static dyn Recorder) -> Result<(), SetRecorderError> {
             // Try and transition the cell from `UNINITIALIZED` to `INITIALIZING`, which would give
             // us exclusive access to set the recorder.
@@ -75,27 +74,6 @@ mod cell {
                 // SAFETY: If the state is `INITIALIZED`, then we know that the recorder has been
                 // installed and is safe to read.
                 unsafe { self.recorder.get().read() }
-            }
-        }
-
-        pub unsafe fn set_racy(
-            &self,
-            recorder: &'static dyn Recorder,
-        ) -> Result<(), SetRecorderError> {
-            match self.state.load(Ordering::Relaxed) {
-                UNINITIALIZED => {
-                    // SAFETY: Caller guarantees that access is unique.
-                    self.recorder.get().write(Some(recorder));
-                    self.state.store(INITIALIZED, Ordering::Release);
-                    Ok(())
-                }
-                INITIALIZING => {
-                    // This is just plain UB, since we were racing another initialization function
-                    unreachable!(
-                        "set_recorder_racy must not be used with other initialization functions"
-                    )
-                }
-                _ => Err(SetRecorderError(())),
             }
         }
     }
@@ -182,7 +160,6 @@ impl Recorder for NoopRecorder {
 /// # Errors
 ///
 /// An error is returned if a recorder has already been set.
-#[cfg(atomic_cas)]
 pub fn set_recorder(recorder: &'static dyn Recorder) -> Result<(), SetRecorderError> {
     RECORDER.set(recorder)
 }
@@ -196,30 +173,8 @@ pub fn set_recorder(recorder: &'static dyn Recorder) -> Result<(), SetRecorderEr
 /// # Errors
 ///
 /// An error is returned if a recorder has already been set.
-#[cfg(atomic_cas)]
 pub fn set_boxed_recorder(recorder: Box<dyn Recorder>) -> Result<(), SetRecorderError> {
     RECORDER.set(Box::leak(recorder))
-}
-
-/// A thread-unsafe version of [`set_recorder`].
-///
-/// This function is available on all platforms, even those that do not have support for atomics
-/// that are needed by [`set_recorder`].
-///
-/// In almost all cases, [`set_recorder`] should be preferred.
-///
-/// # Safety
-///
-/// This function is only safe to call when no other metrics initialization function is called
-/// while this function still executes.
-///
-/// This can be upheld by (for example) making sure that **there are no other threads**, and (on
-/// embedded) that **interrupts are disabled**.
-///
-/// It is safe to use other metrics functions while this function runs (including all metrics
-/// macros).
-pub unsafe fn set_recorder_racy(recorder: &'static dyn Recorder) -> Result<(), SetRecorderError> {
-    RECORDER.set_racy(recorder)
 }
 
 /// Clears the currently configured recorder.
