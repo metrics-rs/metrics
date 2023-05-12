@@ -236,16 +236,12 @@
 //!
 //! In order to actually use an exporter, it must be installed as the "global" recorder.  This is a
 //! static recorder that the registration and emission macros refer to behind-the-scenes.  `metrics`
-//! provides a few methods to do so: [`set_recorder`], [`set_boxed_recorder`], and [`set_recorder_racy`].
+//! provides a few methods to do so: [`set_recorder`] and [`set_boxed_recorder`].
 //!
 //! Primarily, you'll use [`set_boxed_recorder`] to pass a boxed version of the exporter to be
 //! installed.  This is due to the fact that most exporters won't be able to be constructed
 //! statically.  If you could construct your exporter statically, though, then you could instead
 //! choose [`set_recorder`].
-//!
-//! Similarly, [`set_recorder_racy`] takes a static reference, but is also not thread safe, and
-//! should only be used on platforms which do not support atomic operations, such as embedded
-//! environments.
 //!
 //! As users of `metrics`, you'll typically see exporters provide methods to install themselves that
 //! hide the nitty gritty details.  These methods will usually be aptly named, such as `install`.

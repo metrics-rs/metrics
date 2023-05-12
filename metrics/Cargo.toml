@@ -16,8 +16,6 @@ readme = "README.md"
 categories = ["development-tools::debugging"]
 keywords = ["metrics", "facade"]
 
-build = "build.rs"
-
 [lib]
 bench = false
 
