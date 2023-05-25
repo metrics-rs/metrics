@@ -253,7 +253,7 @@ where
                     // Only do this work if there's a recorder installed.
                     if let Some(recorder) = ::metrics::try_recorder() {
                         #locals
-                        let handle = recorder.#register_ident(#metric_key);
+                        let handle = recorder.#register_ident(#metric_key, &METADATA);
                         handle.#op_ident(#op_value);
                     }
                 }
@@ -265,7 +265,7 @@ where
                 {
                     #statics
                     #locals
-                    ::metrics::recorder().#register_ident(#metric_key)
+                    ::metrics::recorder().#register_ident(#metric_key, &METADATA)
                 }
             }
         }
@@ -347,10 +347,26 @@ fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
         quote! {}
     };
 
+    let target = quote! {
+        module_path!()
+    };
+    let level = quote! { ::metrics::Level::INFO };
+
+    let metadata_static = quote! {
+        static METADATA: ::metrics::Metadata<'static> = ::metrics::Metadata::new(
+            #target,
+            #level,
+            Some(module_path!()),
+            Some(file!()),
+            Some(line!()),
+        );
+    };
+
     quote! {
         #name_static
         #labels_static
         #key_static
+        #metadata_static
     }
 }
 

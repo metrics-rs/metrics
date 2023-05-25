@@ -270,6 +270,9 @@ pub use self::key::*;
 mod label;
 pub use self::label::*;
 
+mod metadata;
+pub use self::metadata::*;
+
 mod recorder;
 pub use self::recorder::*;
 

@@ -181,7 +181,8 @@ fn test_get_register_and_op_code_register_static_name_no_labels() {
         "{ ",
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "static METRIC_KEY : :: metrics :: Key = :: metrics :: Key :: from_static_name (METRIC_NAME) ; ",
-        ":: metrics :: recorder () . register_mytype (& METRIC_KEY) ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
+        ":: metrics :: recorder () . register_mytype (& METRIC_KEY , & METADATA) ",
         "}",
     );
 
@@ -197,9 +198,11 @@ fn test_get_register_and_op_code_register_static_name_static_inline_labels() {
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+
         "static METRIC_LABELS : [:: metrics :: Label ; 1usize] = [:: metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
         "static METRIC_KEY : :: metrics :: Key = :: metrics :: Key :: from_static_parts (METRIC_NAME , & METRIC_LABELS) ; ",
-        ":: metrics :: recorder () . register_mytype (& METRIC_KEY) ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
+        ":: metrics :: recorder () . register_mytype (& METRIC_KEY , & METADATA) ",
         "}",
     );
 
@@ -215,8 +218,9 @@ fn test_get_register_and_op_code_register_static_name_dynamic_inline_labels() {
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "let key = :: metrics :: Key :: from_parts (METRIC_NAME , vec ! [:: metrics :: Label :: new (\"key1\" , & value1)]) ; ",
-        ":: metrics :: recorder () . register_mytype (& key) ",
+        ":: metrics :: recorder () . register_mytype (& key , & METADATA) ",
         "}",
     );
 
@@ -236,8 +240,9 @@ fn test_get_register_and_op_code_register_static_name_existing_labels() {
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "let key = :: metrics :: Key :: from_parts (METRIC_NAME , mylabels) ; ",
-        ":: metrics :: recorder () . register_mytype (& key) ",
+        ":: metrics :: recorder () . register_mytype (& key , & METADATA) ",
         "}",
     );
 
@@ -255,8 +260,9 @@ fn test_get_register_and_op_code_register_owned_name_no_labels() {
 
     let expected = concat!(
         "{ ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "let key = :: metrics :: Key :: from_name (String :: from (\"owned\")) ; ",
-        ":: metrics :: recorder () . register_mytype (& key) ",
+        ":: metrics :: recorder () . register_mytype (& key , & METADATA) ",
         "}",
     );
 
@@ -276,8 +282,9 @@ fn test_get_register_and_op_code_register_owned_name_static_inline_labels() {
     let expected = concat!(
         "{ ",
         "static METRIC_LABELS : [:: metrics :: Label ; 1usize] = [:: metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "let key = :: metrics :: Key :: from_static_labels (String :: from (\"owned\") , & METRIC_LABELS) ; ",
-        ":: metrics :: recorder () . register_mytype (& key) ",
+        ":: metrics :: recorder () . register_mytype (& key , & METADATA) ",
         "}",
     );
 
@@ -296,8 +303,9 @@ fn test_get_register_and_op_code_register_owned_name_dynamic_inline_labels() {
 
     let expected = concat!(
         "{ ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "let key = :: metrics :: Key :: from_parts (String :: from (\"owned\") , vec ! [:: metrics :: Label :: new (\"key1\" , & value1)]) ; ",
-        ":: metrics :: recorder () . register_mytype (& key) ",
+        ":: metrics :: recorder () . register_mytype (& key , & METADATA) ",
         "}",
     );
 
@@ -316,8 +324,9 @@ fn test_get_register_and_op_code_register_owned_name_existing_labels() {
 
     let expected = concat!(
         "{ ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "let key = :: metrics :: Key :: from_parts (String :: from (\"owned\") , mylabels) ; ",
-        ":: metrics :: recorder () . register_mytype (& key) ",
+        ":: metrics :: recorder () . register_mytype (& key , & METADATA) ",
         "}",
     );
 
@@ -337,8 +346,9 @@ fn test_get_register_and_op_code_op_static_name_no_labels() {
         "{ ",
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "static METRIC_KEY : :: metrics :: Key = :: metrics :: Key :: from_static_name (METRIC_NAME) ; ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "if let Some (recorder) = :: metrics :: try_recorder () { ",
-        "let handle = recorder . register_mytype (& METRIC_KEY) ; ",
+        "let handle = recorder . register_mytype (& METRIC_KEY , & METADATA) ; ",
         "handle . myop (1) ; ",
         "} ",
         "}",
@@ -362,8 +372,9 @@ fn test_get_register_and_op_code_op_static_name_static_inline_labels() {
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
         "static METRIC_LABELS : [:: metrics :: Label ; 1usize] = [:: metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
         "static METRIC_KEY : :: metrics :: Key = :: metrics :: Key :: from_static_parts (METRIC_NAME , & METRIC_LABELS) ; ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "if let Some (recorder) = :: metrics :: try_recorder () { ",
-        "let handle = recorder . register_mytype (& METRIC_KEY) ; ",
+        "let handle = recorder . register_mytype (& METRIC_KEY , & METADATA) ; ",
         "handle . myop (1) ; ",
         "} ",
         "}",
@@ -385,9 +396,10 @@ fn test_get_register_and_op_code_op_static_name_dynamic_inline_labels() {
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "if let Some (recorder) = :: metrics :: try_recorder () { ",
         "let key = :: metrics :: Key :: from_parts (METRIC_NAME , vec ! [:: metrics :: Label :: new (\"key1\" , & value1)]) ; ",
-        "let handle = recorder . register_mytype (& key) ; ",
+        "let handle = recorder . register_mytype (& key , & METADATA) ; ",
         "handle . myop (1) ; ",
         "} ",
         "}",
@@ -409,9 +421,10 @@ fn test_get_register_and_op_code_op_static_name_existing_labels() {
     let expected = concat!(
         "{ ",
         "static METRIC_NAME : & 'static str = \"mykeyname\" ; ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "if let Some (recorder) = :: metrics :: try_recorder () { ",
         "let key = :: metrics :: Key :: from_parts (METRIC_NAME , mylabels) ; ",
-        "let handle = recorder . register_mytype (& key) ; ",
+        "let handle = recorder . register_mytype (& key , & METADATA) ; ",
         "handle . myop (1) ; ",
         "} ",
         "}",
@@ -431,9 +444,10 @@ fn test_get_register_and_op_code_op_owned_name_no_labels() {
 
     let expected = concat!(
         "{ ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "if let Some (recorder) = :: metrics :: try_recorder () { ",
         "let key = :: metrics :: Key :: from_name (String :: from (\"owned\")) ; ",
-        "let handle = recorder . register_mytype (& key) ; ",
+        "let handle = recorder . register_mytype (& key , & METADATA) ; ",
         "handle . myop (1) ; ",
         "} ",
         "}",
@@ -455,9 +469,10 @@ fn test_get_register_and_op_code_op_owned_name_static_inline_labels() {
     let expected = concat!(
         "{ ",
         "static METRIC_LABELS : [:: metrics :: Label ; 1usize] = [:: metrics :: Label :: from_static_parts (\"key1\" , \"value1\")] ; ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "if let Some (recorder) = :: metrics :: try_recorder () { ",
         "let key = :: metrics :: Key :: from_static_labels (String :: from (\"owned\") , & METRIC_LABELS) ; ",
-        "let handle = recorder . register_mytype (& key) ; ",
+        "let handle = recorder . register_mytype (& key , & METADATA) ; ",
         "handle . myop (1) ; ",
         "} ",
         "}",
@@ -478,9 +493,10 @@ fn test_get_register_and_op_code_op_owned_name_dynamic_inline_labels() {
 
     let expected = concat!(
         "{ ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "if let Some (recorder) = :: metrics :: try_recorder () { ",
         "let key = :: metrics :: Key :: from_parts (String :: from (\"owned\") , vec ! [:: metrics :: Label :: new (\"key1\" , & value1)]) ; ",
-        "let handle = recorder . register_mytype (& key) ; ",
+        "let handle = recorder . register_mytype (& key , & METADATA) ; ",
         "handle . myop (1) ; ",
         "} ",
         "}",
@@ -501,9 +517,10 @@ fn test_get_register_and_op_code_op_owned_name_existing_labels() {
 
     let expected = concat!(
         "{ ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "if let Some (recorder) = :: metrics :: try_recorder () { ",
         "let key = :: metrics :: Key :: from_parts (String :: from (\"owned\") , mylabels) ; ",
-        "let handle = recorder . register_mytype (& key) ; ",
+        "let handle = recorder . register_mytype (& key , & METADATA) ; ",
         "handle . myop (1) ; ",
         "} ",
         "}",
@@ -523,9 +540,10 @@ fn test_get_register_and_op_code_op_owned_name_constant_key_labels() {
 
     let expected = concat!(
         "{ ",
+        "static METADATA : :: metrics :: Metadata < 'static > = :: metrics :: Metadata :: new (module_path ! () , :: metrics :: Level :: INFO , Some (module_path ! ()) , Some (file ! ()) , Some (line ! ()) ,) ; ",
         "if let Some (recorder) = :: metrics :: try_recorder () { ",
         "let key = :: metrics :: Key :: from_parts (String :: from (\"owned\") , vec ! [:: metrics :: Label :: new (LABEL_KEY , \"some_val\")]) ; ",
-        "let handle = recorder . register_mytype (& key) ; ",
+        "let handle = recorder . register_mytype (& key , & METADATA) ; ",
         "handle . myop (1) ; ",
         "} ",
         "}",

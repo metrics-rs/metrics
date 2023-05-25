@@ -1,7 +1,7 @@
 use std::sync::{Arc, Weak};
 
 use metrics::{
-    Counter, Gauge, Histogram, Key, KeyName, Recorder, SetRecorderError, SharedString, Unit,
+    Counter, Gauge, Histogram, Key, KeyName, Recorder, SetRecorderError, SharedString, Unit, Metadata,
 };
 
 /// Wraps a recorder to allow for recovering it after being installed.
@@ -92,25 +92,25 @@ impl<R: Recorder> Recorder for WeakRecorder<R> {
         }
     }
 
-    fn register_counter(&self, key: &Key) -> Counter {
+    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
         if let Some(recorder) = self.recorder.upgrade() {
-            recorder.register_counter(key)
+            recorder.register_counter(key, metadata)
         } else {
             Counter::noop()
         }
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
+    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
         if let Some(recorder) = self.recorder.upgrade() {
-            recorder.register_gauge(key)
+            recorder.register_gauge(key, metadata)
         } else {
             Gauge::noop()
         }
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
+    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
         if let Some(recorder) = self.recorder.upgrade() {
-            recorder.register_histogram(key)
+            recorder.register_histogram(key, metadata)
         } else {
             Histogram::noop()
         }
@@ -226,15 +226,15 @@ mod tests {
             todo!()
         }
 
-        fn register_counter(&self, _: &Key) -> Counter {
+        fn register_counter(&self, _: &Key, _: &Metadata<'_>) -> Counter {
             Counter::from_arc(Arc::clone(&self.counter))
         }
 
-        fn register_gauge(&self, _: &Key) -> Gauge {
+        fn register_gauge(&self, _: &Key, _: &Metadata<'_>) -> Gauge {
             Gauge::from_arc(Arc::clone(&self.gauge))
         }
 
-        fn register_histogram(&self, _: &Key) -> Histogram {
+        fn register_histogram(&self, _: &Key, _: &Metadata<'_>) -> Histogram {
             Histogram::from_arc(Arc::clone(&self.histogram))
         }
     }

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use metrics::{
     absolute_counter, counter, decrement_gauge, describe_counter, describe_gauge,
     describe_histogram, gauge, histogram, increment_counter, increment_gauge, register_counter,
-    register_gauge, register_histogram, KeyName, SharedString,
+    register_gauge, register_histogram, KeyName, Metadata, SharedString,
 };
 use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, Recorder, Unit};
 
@@ -77,15 +77,15 @@ impl Recorder for PrintRecorder {
         );
     }
 
-    fn register_counter(&self, key: &Key) -> Counter {
+    fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
         Counter::from_arc(Arc::new(PrintHandle(key.clone())))
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
+    fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
         Gauge::from_arc(Arc::new(PrintHandle(key.clone())))
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
+    fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
         Histogram::from_arc(Arc::new(PrintHandle(key.clone())))
     }
 }

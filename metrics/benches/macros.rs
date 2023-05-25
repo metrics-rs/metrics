@@ -3,7 +3,9 @@ extern crate criterion;
 
 use criterion::Criterion;
 
-use metrics::{counter, Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
+use metrics::{
+    counter, Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit,
+};
 use rand::{thread_rng, Rng};
 
 #[derive(Default)]
@@ -12,13 +14,13 @@ impl Recorder for TestRecorder {
     fn describe_counter(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
     fn describe_gauge(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
     fn describe_histogram(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
-    fn register_counter(&self, _: &Key) -> Counter {
+    fn register_counter(&self, _: &Key, _: &Metadata<'_>) -> Counter {
         Counter::noop()
     }
-    fn register_gauge(&self, _: &Key) -> Gauge {
+    fn register_gauge(&self, _: &Key, _: &Metadata<'_>) -> Gauge {
         Gauge::noop()
     }
-    fn register_histogram(&self, _: &Key) -> Histogram {
+    fn register_histogram(&self, _: &Key, _: &Metadata<'_>) -> Histogram {
         Histogram::noop()
     }
 }
