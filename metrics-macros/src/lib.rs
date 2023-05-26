@@ -5,8 +5,9 @@ use self::proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Error, Parse, ParseStream, Result};
+use syn::token::{Colon, Comma};
 use syn::{parse::discouraged::Speculative, Lit};
-use syn::{parse_macro_input, Expr, Token};
+use syn::{parse_macro_input, Expr, LitStr, Token};
 
 #[cfg(test)]
 mod tests;
@@ -17,11 +18,15 @@ enum Labels {
 }
 
 struct WithoutExpression {
+    target: Option<LitStr>,
+    level: Option<Expr>,
     key: Expr,
     labels: Option<Labels>,
 }
 
 struct WithExpression {
+    target: Option<LitStr>,
+    level: Option<Expr>,
     key: Expr,
     op_value: Expr,
     labels: Option<Labels>,
@@ -35,15 +40,19 @@ struct Description {
 
 impl Parse for WithoutExpression {
     fn parse(mut input: ParseStream) -> Result<Self> {
+        let target = parse_target(&mut input)?;
+        let level = parse_level(&mut input);
         let key = input.parse::<Expr>()?;
         let labels = parse_labels(&mut input)?;
 
-        Ok(WithoutExpression { key, labels })
+        Ok(WithoutExpression { target, level, key, labels })
     }
 }
 
 impl Parse for WithExpression {
     fn parse(mut input: ParseStream) -> Result<Self> {
+        let target = parse_target(&mut input)?;
+        let level = parse_level(&mut input);
         let key = input.parse::<Expr>()?;
 
         input.parse::<Token![,]>()?;
@@ -51,7 +60,7 @@ impl Parse for WithExpression {
 
         let labels = parse_labels(&mut input)?;
 
-        Ok(WithExpression { key, op_value, labels })
+        Ok(WithExpression { target, level, key, op_value, labels })
     }
 }
 
@@ -131,74 +140,90 @@ pub fn describe_histogram(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn register_counter(input: TokenStream) -> TokenStream {
-    let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
+    let WithoutExpression { target, level, key, labels } =
+        parse_macro_input!(input as WithoutExpression);
 
-    get_register_and_op_code::<bool>("counter", key, labels, None).into()
+    get_register_and_op_code::<bool>(target, level, "counter", key, labels, None).into()
 }
 
 #[proc_macro]
 pub fn register_gauge(input: TokenStream) -> TokenStream {
-    let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
+    let WithoutExpression { target, level, key, labels } =
+        parse_macro_input!(input as WithoutExpression);
 
-    get_register_and_op_code::<bool>("gauge", key, labels, None).into()
+    get_register_and_op_code::<bool>(target, level, "gauge", key, labels, None).into()
 }
 
 #[proc_macro]
 pub fn register_histogram(input: TokenStream) -> TokenStream {
-    let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
+    let WithoutExpression { target, level, key, labels } =
+        parse_macro_input!(input as WithoutExpression);
 
-    get_register_and_op_code::<bool>("histogram", key, labels, None).into()
+    get_register_and_op_code::<bool>(target, level, "histogram", key, labels, None).into()
 }
 
 #[proc_macro]
 pub fn increment_counter(input: TokenStream) -> TokenStream {
-    let WithoutExpression { key, labels } = parse_macro_input!(input as WithoutExpression);
+    let WithoutExpression { target, level, key, labels } =
+        parse_macro_input!(input as WithoutExpression);
 
     let op_value = quote! { 1 };
 
-    get_register_and_op_code("counter", key, labels, Some(("increment", op_value))).into()
+    get_register_and_op_code(target, level, "counter", key, labels, Some(("increment", op_value)))
+        .into()
 }
 
 #[proc_macro]
 pub fn counter(input: TokenStream) -> TokenStream {
-    let WithExpression { key, op_value, labels } = parse_macro_input!(input as WithExpression);
+    let WithExpression { target, level, key, op_value, labels } =
+        parse_macro_input!(input as WithExpression);
 
-    get_register_and_op_code("counter", key, labels, Some(("increment", op_value))).into()
+    get_register_and_op_code(target, level, "counter", key, labels, Some(("increment", op_value)))
+        .into()
 }
 
 #[proc_macro]
 pub fn absolute_counter(input: TokenStream) -> TokenStream {
-    let WithExpression { key, op_value, labels } = parse_macro_input!(input as WithExpression);
+    let WithExpression { target, level, key, op_value, labels } =
+        parse_macro_input!(input as WithExpression);
 
-    get_register_and_op_code("counter", key, labels, Some(("absolute", op_value))).into()
+    get_register_and_op_code(target, level, "counter", key, labels, Some(("absolute", op_value)))
+        .into()
 }
 
 #[proc_macro]
 pub fn increment_gauge(input: TokenStream) -> TokenStream {
-    let WithExpression { key, op_value, labels } = parse_macro_input!(input as WithExpression);
+    let WithExpression { target, level, key, op_value, labels } =
+        parse_macro_input!(input as WithExpression);
 
-    get_register_and_op_code("gauge", key, labels, Some(("increment", op_value))).into()
+    get_register_and_op_code(target, level, "gauge", key, labels, Some(("increment", op_value)))
+        .into()
 }
 
 #[proc_macro]
 pub fn decrement_gauge(input: TokenStream) -> TokenStream {
-    let WithExpression { key, op_value, labels } = parse_macro_input!(input as WithExpression);
+    let WithExpression { target, level, key, op_value, labels } =
+        parse_macro_input!(input as WithExpression);
 
-    get_register_and_op_code("gauge", key, labels, Some(("decrement", op_value))).into()
+    get_register_and_op_code(target, level, "gauge", key, labels, Some(("decrement", op_value)))
+        .into()
 }
 
 #[proc_macro]
 pub fn gauge(input: TokenStream) -> TokenStream {
-    let WithExpression { key, op_value, labels } = parse_macro_input!(input as WithExpression);
+    let WithExpression { target, level, key, op_value, labels } =
+        parse_macro_input!(input as WithExpression);
 
-    get_register_and_op_code("gauge", key, labels, Some(("set", op_value))).into()
+    get_register_and_op_code(target, level, "gauge", key, labels, Some(("set", op_value))).into()
 }
 
 #[proc_macro]
 pub fn histogram(input: TokenStream) -> TokenStream {
-    let WithExpression { key, op_value, labels } = parse_macro_input!(input as WithExpression);
+    let WithExpression { target, level, key, op_value, labels } =
+        parse_macro_input!(input as WithExpression);
 
-    get_register_and_op_code("histogram", key, labels, Some(("record", op_value))).into()
+    get_register_and_op_code(target, level, "histogram", key, labels, Some(("record", op_value)))
+        .into()
 }
 
 fn get_describe_code(
@@ -225,6 +250,8 @@ fn get_describe_code(
 }
 
 fn get_register_and_op_code<V>(
+    target: Option<LitStr>,
+    level: Option<Expr>,
     metric_type: &str,
     name: Expr,
     labels: Option<Labels>,
@@ -234,7 +261,7 @@ where
     V: ToTokens,
 {
     let register_ident = format_ident!("register_{}", metric_type);
-    let statics = generate_statics(&name, &labels);
+    let statics = generate_statics(&target, &level, &name, &labels);
     let (locals, metric_key) = generate_metric_key(&name, &labels);
     match op {
         Some((op_type, op_value)) => {
@@ -289,7 +316,12 @@ fn labels_are_fast_path(labels: &Labels) -> bool {
     }
 }
 
-fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
+fn generate_statics(
+    target: &Option<LitStr>,
+    level: &Option<Expr>,
+    name: &Expr,
+    labels: &Option<Labels>,
+) -> TokenStream2 {
     // Create the static for the name, if possible.
     let use_name_static = name_is_fast_path(name);
     let name_static = if use_name_static {
@@ -347,10 +379,18 @@ fn generate_statics(name: &Expr, labels: &Option<Labels>) -> TokenStream2 {
         quote! {}
     };
 
-    let target = quote! {
-        module_path!()
+    let target = if let Some(target) = target {
+        quote! { #target }
+    } else {
+        quote! {
+            module_path!()
+        }
     };
-    let level = quote! { ::metrics::Level::INFO };
+    let level = if let Some(level) = level {
+        quote! { #level }
+    } else {
+        quote! { ::metrics::Level::INFO }
+    };
 
     let metadata_static = quote! {
         static METADATA: ::metrics::Metadata<'static> = ::metrics::Metadata::new(
@@ -428,6 +468,78 @@ fn labels_to_quoted(labels: &Labels) -> proc_macro2::TokenStream {
         }
         Labels::Existing(e) => quote! { #e },
     }
+}
+
+mod kw {
+    syn::custom_keyword!(target);
+}
+
+struct Target {
+    _target_key: kw::target,
+    _colon: Colon,
+    target_value: LitStr,
+}
+
+impl Parse for Target {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Target {
+            _target_key: input.parse()?,
+            _colon: input.parse()?,
+            target_value: input.parse()?,
+        })
+    }
+}
+
+fn parse_target(input: &mut ParseStream) -> Result<Option<LitStr>> {
+    let lookahead = input.lookahead1();
+    let opt_target = if lookahead.peek(kw::target) {
+        let target = input.parse::<Target>()?.target_value;
+        let _colon: Comma = input.parse()?;
+        Some(target)
+    } else {
+        None
+    };
+    Ok(opt_target)
+}
+
+fn parse_level(input: &mut ParseStream) -> Option<Expr> {
+    // There is only one specific requirement that must be met, and that is that the unit _must_
+    // have a qualified path of either `metrics::Level::...` or `Level::..` for us to properly
+    // distinguish it amongst the macro parameters.
+
+    // Now try to read out the components.  We speculatively try to parse out a unit if it
+    // exists, and otherwise we just look for the description.
+    input
+        .call(|s| {
+            let forked = s.fork();
+
+            let output = if let Ok(Expr::Path(path)) = forked.parse::<Expr>() {
+                let qname = path
+                    .path
+                    .segments
+                    .iter()
+                    .map(|x| x.ident.to_string())
+                    .collect::<Vec<_>>()
+                    .join("::");
+                if qname.starts_with("metrics::Level") || qname.starts_with("Level") {
+                    Some(Expr::Path(path))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            forked.parse::<Token![,]>()?;
+
+            if output.is_some() {
+                s.advance_to(&forked);
+            }
+
+            Ok(output)
+        })
+        .ok()
+        .flatten()
 }
 
 fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
