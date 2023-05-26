@@ -397,8 +397,6 @@ fn generate_statics(
             #target,
             #level,
             Some(module_path!()),
-            Some(file!()),
-            Some(line!()),
         );
     };
 

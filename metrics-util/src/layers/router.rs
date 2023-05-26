@@ -221,13 +221,8 @@ mod tests {
 
         let mut seq = Sequence::new();
 
-        static METADATA: metrics::Metadata = metrics::Metadata::new(
-            module_path!(),
-            metrics::Level::INFO,
-            Some(module_path!()),
-            Some(file!()),
-            Some(line!()),
-        );
+        static METADATA: metrics::Metadata =
+            metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
         default_mock
             .expect_register_counter()

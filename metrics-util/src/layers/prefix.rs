@@ -88,13 +88,8 @@ mod tests {
     use crate::test_util::*;
     use metrics::{Counter, Gauge, Histogram, Key, KeyName, Unit};
 
-    static METADATA: metrics::Metadata = metrics::Metadata::new(
-        module_path!(),
-        metrics::Level::INFO,
-        Some(module_path!()),
-        Some(file!()),
-        Some(line!()),
-    );
+    static METADATA: metrics::Metadata =
+        metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
     #[test]
     fn test_basic_functionality() {

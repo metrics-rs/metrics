@@ -19,8 +19,6 @@ fn layer_benchmark(c: &mut Criterion) {
             module_path!(),
             metrics::Level::INFO,
             Some(module_path!()),
-            Some(file!()),
-            Some(line!()),
         );
 
         b.iter(|| {
@@ -40,13 +38,8 @@ fn layer_benchmark(c: &mut Criterion) {
             static KEY_NAME: &'static str = "key";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
-            static METADATA: metrics::Metadata = metrics::Metadata::new(
-                module_path!(),
-                metrics::Level::INFO,
-                Some(module_path!()),
-                Some(file!()),
-                Some(line!()),
-            );
+            static METADATA: metrics::Metadata =
+                metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
             b.iter(|| {
                 let _ = recorder.register_counter(&KEY_DATA, &METADATA);
@@ -66,13 +59,8 @@ fn layer_benchmark(c: &mut Criterion) {
             static KEY_NAME: &'static str = "key";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
-            static METADATA: metrics::Metadata = metrics::Metadata::new(
-                module_path!(),
-                metrics::Level::INFO,
-                Some(module_path!()),
-                Some(file!()),
-                Some(line!()),
-            );
+            static METADATA: metrics::Metadata =
+                metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
             b.iter(|| {
                 let _ = recorder.register_counter(&KEY_DATA, &METADATA);
@@ -93,13 +81,8 @@ fn layer_benchmark(c: &mut Criterion) {
             static KEY_NAME: &'static str = "key";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
-            static METADATA: metrics::Metadata = metrics::Metadata::new(
-                module_path!(),
-                metrics::Level::INFO,
-                Some(module_path!()),
-                Some(file!()),
-                Some(line!()),
-            );
+            static METADATA: metrics::Metadata =
+                metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
             b.iter(|| {
                 let _ = recorder.register_counter(&KEY_DATA, &METADATA);
@@ -120,13 +103,8 @@ fn layer_benchmark(c: &mut Criterion) {
             static KEY_NAME: &'static str = "key";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
             static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
-            static METADATA: metrics::Metadata = metrics::Metadata::new(
-                module_path!(),
-                metrics::Level::INFO,
-                Some(module_path!()),
-                Some(file!()),
-                Some(line!()),
-            );
+            static METADATA: metrics::Metadata =
+                metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
             b.iter(|| {
                 let _ = recorder.register_counter(&KEY_DATA, &METADATA);
