@@ -32,6 +32,6 @@ portable-atomic = { version = "1", default-features = false, features = ["fallba
 
 [dev-dependencies]
 log = "0.4"
-criterion = { version = "=0.3.3", default-features = false }
+criterion = { version = "=0.5.1", default-features = false }
 rand = "0.8"
 trybuild = "1"
