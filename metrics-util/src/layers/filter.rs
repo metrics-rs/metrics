@@ -1,5 +1,5 @@
 use crate::layers::Layer;
-use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
+use aho_corasick::{AhoCorasick, AhoCorasickBuilder, AhoCorasickKind};
 use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
 
 /// Filters and discards metrics matching certain name patterns.
@@ -123,7 +123,7 @@ impl FilterLayer {
     /// searches from O(n + p) to O(n), where n is the length of the haystack.
     ///
     /// In general, it's a good idea to enable this if you're searching a small number of fairly
-    /// short patterns (~1000), or if you want the fastest possible search without regard to
+    /// short patterns, or if you want the fastest possible search without regard to
     /// compilation time or space usage.
     ///
     /// Defaults to `true`.
@@ -140,9 +140,13 @@ impl<R> Layer<R> for FilterLayer {
         let mut automaton_builder = AhoCorasickBuilder::new();
         let automaton = automaton_builder
             .ascii_case_insensitive(self.case_insensitive)
-            .dfa(self.use_dfa)
-            .auto_configure(&self.patterns)
-            .build(&self.patterns);
+            .kind(self.use_dfa.then(|| AhoCorasickKind::DFA))
+            .build(&self.patterns)
+            // Documentation for `AhoCorasickBuilder::build` states that the error here will be
+            // related to exceeding some internal limits, but that those limits should generally be
+            // large enough for most use cases.. so I'm making the executive decision to consider
+            // that "good enough" and treat this as an exceptional error if it does occur.
+            .expect("should not fail to build filter automaton");
         Filter { inner, automaton }
     }
 }

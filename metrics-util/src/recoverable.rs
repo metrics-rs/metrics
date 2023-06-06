@@ -1,7 +1,8 @@
 use std::sync::{Arc, Weak};
 
 use metrics::{
-    Counter, Gauge, Histogram, Key, KeyName, Recorder, SetRecorderError, SharedString, Unit, Metadata,
+    Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SetRecorderError, SharedString,
+    Unit,
 };
 
 /// Wraps a recorder to allow for recovering it after being installed.
