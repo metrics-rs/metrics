@@ -41,7 +41,7 @@ struct Description {
 impl Parse for WithoutExpression {
     fn parse(mut input: ParseStream) -> Result<Self> {
         let target = parse_target(&mut input)?;
-        let level = parse_level(&mut input);
+        let level = parse_level(&mut input)?;
         let key = input.parse::<Expr>()?;
         let labels = parse_labels(&mut input)?;
 
@@ -52,7 +52,7 @@ impl Parse for WithoutExpression {
 impl Parse for WithExpression {
     fn parse(mut input: ParseStream) -> Result<Self> {
         let target = parse_target(&mut input)?;
-        let level = parse_level(&mut input);
+        let level = parse_level(&mut input)?;
         let key = input.parse::<Expr>()?;
 
         input.parse::<Token![,]>()?;
@@ -470,6 +470,7 @@ fn labels_to_quoted(labels: &Labels) -> proc_macro2::TokenStream {
 
 mod kw {
     syn::custom_keyword!(target);
+    syn::custom_keyword!(level);
 }
 
 struct Target {
@@ -500,44 +501,32 @@ fn parse_target(input: &mut ParseStream) -> Result<Option<LitStr>> {
     Ok(opt_target)
 }
 
-fn parse_level(input: &mut ParseStream) -> Option<Expr> {
-    // There is only one specific requirement that must be met, and that is that the unit _must_
-    // have a qualified path of either `metrics::Level::...` or `Level::..` for us to properly
-    // distinguish it amongst the macro parameters.
+struct Level {
+    _level_key: kw::level,
+    _colon: Colon,
+    target_value: Expr,
+}
 
-    // Now try to read out the components.  We speculatively try to parse out a unit if it
-    // exists, and otherwise we just look for the description.
-    input
-        .call(|s| {
-            let forked = s.fork();
-
-            let output = if let Ok(Expr::Path(path)) = forked.parse::<Expr>() {
-                let qname = path
-                    .path
-                    .segments
-                    .iter()
-                    .map(|x| x.ident.to_string())
-                    .collect::<Vec<_>>()
-                    .join("::");
-                if qname.starts_with("metrics::Level") || qname.starts_with("Level") {
-                    Some(Expr::Path(path))
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-
-            forked.parse::<Token![,]>()?;
-
-            if output.is_some() {
-                s.advance_to(&forked);
-            }
-
-            Ok(output)
+impl Parse for Level {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self {
+            _level_key: input.parse()?,
+            _colon: input.parse()?,
+            target_value: input.parse()?,
         })
-        .ok()
-        .flatten()
+    }
+}
+
+fn parse_level(input: &mut ParseStream) -> Result<Option<Expr>> {
+    let lookahead = input.lookahead1();
+    let opt_level = if lookahead.peek(kw::target) {
+        let level = input.parse::<Level>()?.target_value;
+        let _colon: Comma = input.parse()?;
+        Some(level)
+    } else {
+        None
+    };
+    Ok(opt_level)
 }
 
 fn parse_labels(input: &mut ParseStream) -> Result<Option<Labels>> {
