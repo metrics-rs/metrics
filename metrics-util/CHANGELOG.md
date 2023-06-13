@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a new helper type, `RecoverableRecorder`, that allows installing a recorder and then
   recovering it later.
 
+### Changed
+
+- Update `aho-corasick` to `1.0`.
+
 ## [0.15.0] - 2023-04-16
 
 ### Changed
