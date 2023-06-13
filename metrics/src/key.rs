@@ -35,6 +35,12 @@ impl From<String> for KeyName {
         KeyName(SharedString::from(name))
     }
 }
+
+impl From<std::borrow::Cow<'static, str>> for KeyName {
+    fn from(name: std::borrow::Cow<'static, str>) -> Self {
+        KeyName(SharedString::from(name))
+    }
+}
 /// A metric identifier.
 ///
 /// A key represents both the name and labels of a metric.
