@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Added a `From` implementation for `KeyName` from `Cow<'static, str>`.
+  ([#378](https://github.com/metrics-rs/metrics/pull/378))
+
 ## [0.21.0] - 2023-04-16
 
 ### Added
