@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Update `aho-corasick` to `1.0`.
+- Updated `hashbrown` to `0.14`.
 
 ## [0.15.0] - 2023-04-16
 
