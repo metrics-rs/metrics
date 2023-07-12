@@ -523,10 +523,13 @@ pub use metrics_macros::register_histogram;
 ///
 /// # Example
 /// ```
-/// # use metrics::counter;
+/// # use metrics::{counter, Level};
 /// # fn main() {
 /// // A basic counter:
 /// counter!("some_metric_name", 12);
+///
+/// // A basic counter with level and target specified:
+/// counter!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 12);
 ///
 /// // Specifying labels inline, including using constants for either the key or value:
 /// counter!("some_metric_name", 12, "service" => "http");
@@ -561,10 +564,13 @@ pub use metrics_macros::counter;
 ///
 /// # Example
 /// ```
-/// # use metrics::increment_counter;
+/// # use metrics::{increment_counter, Level};
 /// # fn main() {
 /// // A basic increment:
 /// increment_counter!("some_metric_name");
+///
+/// // A basic increment with level and target specified:
+/// increment_counter!(target: "specific_target", level: Level::DEBUG, "some_metric_name");
 ///
 /// // Specifying labels inline, including using constants for either the key or value:
 /// increment_counter!("some_metric_name", "service" => "http");
@@ -606,10 +612,13 @@ pub use metrics_macros::increment_counter;
 ///
 /// # Example
 /// ```
-/// # use metrics::absolute_counter;
+/// # use metrics::{absolute_counter, Level};
 /// # fn main() {
 /// // A basic counter:
 /// absolute_counter!("some_metric_name", 12);
+///
+/// // A basic counter with level and target specified:
+/// absolute_counter!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 12);
 ///
 /// // Specifying labels inline, including using constants for either the key or value:
 /// absolute_counter!("some_metric_name", 13, "service" => "http");
@@ -644,10 +653,13 @@ pub use metrics_macros::absolute_counter;
 ///
 /// # Example
 /// ```
-/// # use metrics::gauge;
+/// # use metrics::{gauge, Level};
 /// # fn main() {
 /// // A basic gauge:
 /// gauge!("some_metric_name", 42.2222);
+///
+/// // A basic gauge with level and target specified:
+/// gauge!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 42.2222);
 ///
 /// // Specifying labels inline, including using constants for either the key or value:
 /// gauge!("some_metric_name", 66.6666, "service" => "http");
@@ -682,10 +694,13 @@ pub use metrics_macros::gauge;
 ///
 /// # Example
 /// ```
-/// # use metrics::increment_gauge;
+/// # use metrics::{increment_gauge, Level};
 /// # fn main() {
 /// // A basic gauge:
 /// increment_gauge!("some_metric_name", 42.2222);
+///
+/// // A basic gauge with level and target specified:
+/// increment_gauge!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 42.2222);
 ///
 /// // Specifying labels inline, including using constants for either the key or value:
 /// increment_gauge!("some_metric_name", 66.6666, "service" => "http");
@@ -720,10 +735,13 @@ pub use metrics_macros::increment_gauge;
 ///
 /// # Example
 /// ```
-/// # use metrics::decrement_gauge;
+/// # use metrics::{decrement_gauge, Level};
 /// # fn main() {
 /// // A basic gauge:
 /// decrement_gauge!("some_metric_name", 42.2222);
+///
+/// // A basic gauge with level and target specified:
+/// decrement_gauge!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 42.2222);
 ///
 /// // Specifying labels inline, including using constants for either the key or value:
 /// decrement_gauge!("some_metric_name", 66.6666, "service" => "http");
@@ -767,11 +785,14 @@ pub use metrics_macros::decrement_gauge;
 ///
 /// # Example
 /// ```
-/// # use metrics::histogram;
+/// # use metrics::{histogram, Level};
 /// # use std::time::Duration;
 /// # fn main() {
 /// // A basic histogram:
 /// histogram!("some_metric_name", 34.3);
+///
+/// // A basic histogram with level and target specified:
+/// histogram!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 34.3);
 ///
 /// // An implicit conversion from `Duration`:
 /// let d = Duration::from_millis(17);
