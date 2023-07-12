@@ -461,9 +461,7 @@ impl PrometheusBuilder {
             ExporterConfig::PushGateway { endpoint, interval, username, password } => {
                 let exporter = async move {
                     let client = Client::new();
-                    let auth = username
-                        .as_ref()
-                        .map(|name| basic_auth(name, password.as_ref().map(|x| &**x)));
+                    let auth = username.as_ref().map(|name| basic_auth(name, password.as_deref()));
 
                     loop {
                         // Sleep for `interval` amount of time, and then do a push.

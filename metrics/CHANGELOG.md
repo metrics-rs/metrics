@@ -8,10 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.21.1] - 2023-07-02
+
 ### Added
 
 - Added a `From` implementation for `KeyName` from `Cow<'static, str>`.
   ([#378](https://github.com/metrics-rs/metrics/pull/378))
+
+### Removed
+
+- Removed `metrics::set_recorder_racy` as it was intended to be used in `no_std` use cases, but
+  `metrics` is not currently compatible in `no_std` environments, so keeping `set_recorder_racy`
+  around was just API baggage.
 
 ## [0.21.0] - 2023-04-16
 
