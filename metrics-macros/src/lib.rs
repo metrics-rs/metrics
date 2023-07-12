@@ -519,7 +519,7 @@ impl Parse for Level {
 
 fn parse_level(input: &mut ParseStream) -> Result<Option<Expr>> {
     let lookahead = input.lookahead1();
-    let opt_level = if lookahead.peek(kw::target) {
+    let opt_level = if lookahead.peek(kw::level) {
         let level = input.parse::<Level>()?.target_value;
         let _colon: Comma = input.parse()?;
         Some(level)
