@@ -30,11 +30,13 @@ enum LevelInner {
 /// Contains the following:
 /// 
 /// - A [`target`](Metadata::target), specifying the part of the system where the metric event occurred. When
-/// initialized via the [metrics macro](metrics_macro), and left unspecified, this defaults to the module path the
+/// initialized via the [metrics macro], and left unspecified, this defaults to the module path the
 /// macro was invoked from.
 /// - A [`level`](Metadata::level), specifying the verbosity the metric event is emitted at.
 /// - An optional [`module_path`](Metadata::module_path), specifying the the module path the metric event was emitted
 /// from.
+/// 
+/// [metrics_macros]: https://docs.rs/metrics/latest/metrics/#macros
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Metadata<'a> {
     target: &'a str,
