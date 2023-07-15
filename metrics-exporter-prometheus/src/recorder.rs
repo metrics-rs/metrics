@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::{PoisonError, RwLock};
 
 use indexmap::IndexMap;
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
 use metrics_util::registry::{Recency, Registry};
 use quanta::Instant;
 
@@ -246,15 +246,15 @@ impl Recorder for PrometheusRecorder {
         self.add_description_if_missing(&key_name, description);
     }
 
-    fn register_counter(&self, key: &Key) -> Counter {
+    fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
         self.inner.registry.get_or_create_counter(key, |c| c.clone().into())
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
+    fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
         self.inner.registry.get_or_create_gauge(key, |c| c.clone().into())
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
+    fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
         self.inner.registry.get_or_create_histogram(key, |c| c.clone().into())
     }
 }

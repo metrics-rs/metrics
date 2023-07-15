@@ -1,4 +1,4 @@
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
 use radix_trie::{Trie, TrieCommon};
 
 use crate::{MetricKind, MetricKindMask};
@@ -54,19 +54,19 @@ impl Recorder for Router {
         target.describe_histogram(key_name, unit, description)
     }
 
-    fn register_counter(&self, key: &Key) -> Counter {
+    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
         let target = self.route(MetricKind::Counter, key.name(), &self.counter_routes);
-        target.register_counter(key)
+        target.register_counter(key, metadata)
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
+    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
         let target = self.route(MetricKind::Gauge, key.name(), &self.gauge_routes);
-        target.register_gauge(key)
+        target.register_gauge(key, metadata)
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
+    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
         let target = self.route(MetricKind::Histogram, key.name(), &self.histogram_routes);
-        target.register_histogram(key)
+        target.register_histogram(key, metadata)
     }
 }
 
@@ -161,12 +161,18 @@ impl RouterBuilder {
 
 #[cfg(test)]
 mod tests {
-    use mockall::{mock, predicate::eq, Sequence};
+    use mockall::{
+        mock,
+        predicate::{always, eq},
+        Sequence,
+    };
     use std::borrow::Cow;
 
     use super::RouterBuilder;
     use crate::MetricKindMask;
-    use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
+    use metrics::{
+        Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit,
+    };
 
     mock! {
         pub TestRecorder {
@@ -176,9 +182,9 @@ mod tests {
             fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
             fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
             fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
-            fn register_counter(&self, key: &Key) -> Counter;
-            fn register_gauge(&self, key: &Key) -> Gauge;
-            fn register_histogram(&self, key: &Key) -> Histogram;
+            fn register_counter<'a>(&'a self, key: &'a Key, metadata: &'a Metadata<'a>) -> Counter;
+            fn register_gauge<'a>(&'a self, key: &'a Key, metadata: &'a Metadata<'a>) -> Gauge;
+            fn register_histogram<'a>(&'a self, key: &'a Key, metadata: &'a Metadata<'a>) -> Histogram;
         }
     }
 
@@ -215,33 +221,36 @@ mod tests {
 
         let mut seq = Sequence::new();
 
+        static METADATA: metrics::Metadata =
+            metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
+
         default_mock
             .expect_register_counter()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(default_counter.clone()))
-            .returning(|_| Counter::noop());
+            .with(eq(default_counter.clone()), always())
+            .returning(|_, _| Counter::noop());
 
         counter_mock
             .expect_register_counter()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(override_counter.clone()))
-            .returning(|_| Counter::noop());
+            .with(eq(override_counter.clone()), always())
+            .returning(|_, _| Counter::noop());
 
         all_mock
             .expect_register_counter()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(all_override.clone()))
-            .returning(|_| Counter::noop());
+            .with(eq(all_override.clone()), always())
+            .returning(|_, _| Counter::noop());
 
         all_mock
             .expect_register_histogram()
             .times(1)
             .in_sequence(&mut seq)
-            .with(eq(all_override.clone()))
-            .returning(|_| Histogram::noop());
+            .with(eq(all_override.clone()), always())
+            .returning(|_, _| Histogram::noop());
 
         let mut builder = RouterBuilder::from_recorder(default_mock);
         builder.add_route(MetricKindMask::COUNTER, "counter_override", counter_mock).add_route(
@@ -251,9 +260,9 @@ mod tests {
         );
         let recorder = builder.build();
 
-        let _ = recorder.register_counter(&default_counter);
-        let _ = recorder.register_counter(&override_counter);
-        let _ = recorder.register_counter(&all_override);
-        let _ = recorder.register_histogram(&all_override);
+        let _ = recorder.register_counter(&default_counter, &METADATA);
+        let _ = recorder.register_counter(&override_counter, &METADATA);
+        let _ = recorder.register_counter(&all_override, &METADATA);
+        let _ = recorder.register_histogram(&all_override, &METADATA);
     }
 }

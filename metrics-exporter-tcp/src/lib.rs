@@ -62,7 +62,7 @@ use std::{
 use bytes::Bytes;
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use metrics::{
-    Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, KeyName, Recorder,
+    Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, KeyName, Metadata, Recorder,
     SetRecorderError, SharedString, Unit,
 };
 use mio::{
@@ -333,15 +333,15 @@ impl Recorder for TcpRecorder {
         self.state.register_metric(key_name, MetricType::Histogram, unit, description);
     }
 
-    fn register_counter(&self, key: &Key) -> Counter {
+    fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
         Counter::from_arc(Arc::new(Handle::new(key.clone(), self.state.clone())))
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
+    fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
         Gauge::from_arc(Arc::new(Handle::new(key.clone(), self.state.clone())))
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
+    fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
         Histogram::from_arc(Arc::new(Handle::new(key.clone(), self.state.clone())))
     }
 }
