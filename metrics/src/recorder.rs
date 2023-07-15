@@ -1,7 +1,8 @@
 use std::fmt;
 
 use self::cell::RecorderOnceCell;
-use crate::{Counter, Gauge, Histogram, Key, KeyName, SharedString, Unit};
+
+use crate::{Counter, Gauge, Histogram, Key, KeyName, Metadata, SharedString, Unit};
 
 mod cell {
     use super::{Recorder, SetRecorderError};
@@ -119,13 +120,13 @@ pub trait Recorder {
     fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString);
 
     /// Registers a counter.
-    fn register_counter(&self, key: &Key) -> Counter;
+    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter;
 
     /// Registers a gauge.
-    fn register_gauge(&self, key: &Key) -> Gauge;
+    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge;
 
     /// Registers a histogram.
-    fn register_histogram(&self, key: &Key) -> Histogram;
+    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram;
 }
 
 /// A no-op recorder.
@@ -138,13 +139,13 @@ impl Recorder for NoopRecorder {
     fn describe_counter(&self, _key: KeyName, _unit: Option<Unit>, _description: SharedString) {}
     fn describe_gauge(&self, _key: KeyName, _unit: Option<Unit>, _description: SharedString) {}
     fn describe_histogram(&self, _key: KeyName, _unit: Option<Unit>, _description: SharedString) {}
-    fn register_counter(&self, _key: &Key) -> Counter {
+    fn register_counter(&self, _key: &Key, _metadata: &Metadata<'_>) -> Counter {
         Counter::noop()
     }
-    fn register_gauge(&self, _key: &Key) -> Gauge {
+    fn register_gauge(&self, _key: &Key, _metadata: &Metadata<'_>) -> Gauge {
         Gauge::noop()
     }
-    fn register_histogram(&self, _key: &Key) -> Histogram {
+    fn register_histogram(&self, _key: &Key, _metadata: &Metadata<'_>) -> Histogram {
         Histogram::noop()
     }
 }

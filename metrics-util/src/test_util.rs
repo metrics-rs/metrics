@@ -1,7 +1,7 @@
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
 use mockall::{
     mock,
-    predicate::{self, eq},
+    predicate::{self, always, eq},
     Predicate,
 };
 
@@ -10,9 +10,9 @@ pub enum RecorderOperation {
     DescribeCounter(KeyName, Option<Unit>, SharedString),
     DescribeGauge(KeyName, Option<Unit>, SharedString),
     DescribeHistogram(KeyName, Option<Unit>, SharedString),
-    RegisterCounter(Key, Counter),
-    RegisterGauge(Key, Gauge),
-    RegisterHistogram(Key, Histogram),
+    RegisterCounter(Key, Counter, &'static Metadata<'static>),
+    RegisterGauge(Key, Gauge, &'static Metadata<'static>),
+    RegisterHistogram(Key, Histogram, &'static Metadata<'static>),
 }
 
 impl RecorderOperation {
@@ -27,11 +27,13 @@ impl RecorderOperation {
             RecorderOperation::DescribeHistogram(key_name, unit, desc) => {
                 expect_describe_histogram(mock, key_name, unit, desc)
             }
-            RecorderOperation::RegisterCounter(key, counter) => {
+            RecorderOperation::RegisterCounter(key, counter, _) => {
                 expect_register_counter(mock, key, counter)
             }
-            RecorderOperation::RegisterGauge(key, gauge) => expect_register_gauge(mock, key, gauge),
-            RecorderOperation::RegisterHistogram(key, histogram) => {
+            RecorderOperation::RegisterGauge(key, gauge, _) => {
+                expect_register_gauge(mock, key, gauge)
+            }
+            RecorderOperation::RegisterHistogram(key, histogram, _) => {
                 expect_register_histogram(mock, key, histogram)
             }
         }
@@ -51,14 +53,14 @@ impl RecorderOperation {
             RecorderOperation::DescribeHistogram(key_name, unit, desc) => {
                 recorder.describe_histogram(key_name, unit, desc);
             }
-            RecorderOperation::RegisterCounter(key, _) => {
-                let _ = recorder.register_counter(&key);
+            RecorderOperation::RegisterCounter(key, _, metadata) => {
+                let _ = recorder.register_counter(&key, metadata);
             }
-            RecorderOperation::RegisterGauge(key, _) => {
-                let _ = recorder.register_gauge(&key);
+            RecorderOperation::RegisterGauge(key, _, metadata) => {
+                let _ = recorder.register_gauge(&key, metadata);
             }
-            RecorderOperation::RegisterHistogram(key, _) => {
-                let _ = recorder.register_histogram(&key);
+            RecorderOperation::RegisterHistogram(key, _, metadata) => {
+                let _ = recorder.register_histogram(&key, metadata);
             }
         }
     }
@@ -71,9 +73,9 @@ mock! {
         fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
         fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
         fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString);
-        fn register_counter(&self, key: &Key) -> Counter;
-        fn register_gauge(&self, key: &Key) -> Gauge;
-        fn register_histogram(&self, key: &Key) -> Histogram;
+        fn register_counter<'a>(&'a self, key: &'a Key, metadata: &'a Metadata<'a>) -> Counter;
+        fn register_gauge<'a>(&'a self, key: &'a Key, metadata: &'a Metadata<'a>) -> Gauge;
+        fn register_histogram<'a>(&'a self, key: &'a Key, metadata: &'a Metadata<'a>) -> Histogram;
     }
 }
 
@@ -127,15 +129,15 @@ pub fn expect_describe_histogram(
 }
 
 pub fn expect_register_counter(mock: &mut MockBasicRecorder, key: Key, counter: Counter) {
-    mock.expect_register_counter().times(1).with(ref_eq(key)).return_const(counter);
+    mock.expect_register_counter().times(1).with(ref_eq(key), always()).return_const(counter);
 }
 
 pub fn expect_register_gauge(mock: &mut MockBasicRecorder, key: Key, gauge: Gauge) {
-    mock.expect_register_gauge().times(1).with(ref_eq(key)).return_const(gauge);
+    mock.expect_register_gauge().times(1).with(ref_eq(key), always()).return_const(gauge);
 }
 
 pub fn expect_register_histogram(mock: &mut MockBasicRecorder, key: Key, histogram: Histogram) {
-    mock.expect_register_histogram().times(1).with(ref_eq(key)).return_const(histogram);
+    mock.expect_register_histogram().times(1).with(ref_eq(key), always()).return_const(histogram);
 }
 
 fn ref_eq<T: PartialEq>(value: T) -> impl Predicate<T> {

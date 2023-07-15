@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use metrics::{
-    Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, KeyName, Recorder,
+    Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, KeyName, Metadata, Recorder,
     SharedString, Unit,
 };
 
@@ -119,22 +119,29 @@ impl Recorder for Fanout {
         }
     }
 
-    fn register_counter(&self, key: &Key) -> Counter {
-        let counters =
-            self.recorders.iter().map(|recorder| recorder.register_counter(key)).collect();
+    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
+        let counters = self
+            .recorders
+            .iter()
+            .map(|recorder| recorder.register_counter(key, metadata))
+            .collect();
 
         FanoutCounter::from_counters(counters).into()
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
-        let gauges = self.recorders.iter().map(|recorder| recorder.register_gauge(key)).collect();
+    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
+        let gauges =
+            self.recorders.iter().map(|recorder| recorder.register_gauge(key, metadata)).collect();
 
         FanoutGauge::from_gauges(gauges).into()
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
-        let histograms =
-            self.recorders.iter().map(|recorder| recorder.register_histogram(key)).collect();
+    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
+        let histograms = self
+            .recorders
+            .iter()
+            .map(|recorder| recorder.register_histogram(key, metadata))
+            .collect();
 
         FanoutHistogram::from_histograms(histograms).into()
     }
@@ -170,6 +177,9 @@ mod tests {
     use crate::test_util::*;
     use metrics::{Counter, Gauge, Histogram, Unit};
 
+    static METADATA: metrics::Metadata =
+        metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
+
     #[test]
     fn test_basic_functionality() {
         let operations = vec![
@@ -188,9 +198,13 @@ mod tests {
                 Some(Unit::Nanoseconds),
                 "histogram desc".into(),
             ),
-            RecorderOperation::RegisterCounter("counter_key".into(), Counter::noop()),
-            RecorderOperation::RegisterGauge("gauge_key".into(), Gauge::noop()),
-            RecorderOperation::RegisterHistogram("histogram_key".into(), Histogram::noop()),
+            RecorderOperation::RegisterCounter("counter_key".into(), Counter::noop(), &METADATA),
+            RecorderOperation::RegisterGauge("gauge_key".into(), Gauge::noop(), &METADATA),
+            RecorderOperation::RegisterHistogram(
+                "histogram_key".into(),
+                Histogram::noop(),
+                &METADATA,
+            ),
         ];
 
         let recorder1 = MockBasicRecorder::from_operations(operations.clone());

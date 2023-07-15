@@ -95,7 +95,9 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Label, Recorder, SharedString, Unit};
+use metrics::{
+    Counter, Gauge, Histogram, Key, KeyName, Label, Metadata, Recorder, SharedString, Unit,
+};
 use metrics_util::layers::Layer;
 
 pub mod label_filter;
@@ -217,21 +219,21 @@ where
         self.inner.describe_histogram(key_name, unit, description)
     }
 
-    fn register_counter(&self, key: &Key) -> Counter {
+    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
         let new_key = self.enhance_key(key);
         let key = new_key.as_ref().unwrap_or(key);
-        self.inner.register_counter(key)
+        self.inner.register_counter(key, metadata)
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
+    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
         let new_key = self.enhance_key(key);
         let key = new_key.as_ref().unwrap_or(key);
-        self.inner.register_gauge(key)
+        self.inner.register_gauge(key, metadata)
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
+    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
         let new_key = self.enhance_key(key);
         let key = new_key.as_ref().unwrap_or(key);
-        self.inner.register_histogram(key)
+        self.inner.register_histogram(key, metadata)
     }
 }
