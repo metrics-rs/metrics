@@ -139,14 +139,6 @@ pub fn describe_histogram(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn register_counter(input: TokenStream) -> TokenStream {
-    let WithoutExpression { target, level, key, labels } =
-        parse_macro_input!(input as WithoutExpression);
-
-    get_register_and_op_code::<bool>(target, level, "counter", key, labels, None).into()
-}
-
-#[proc_macro]
 pub fn register_gauge(input: TokenStream) -> TokenStream {
     let WithoutExpression { target, level, key, labels } =
         parse_macro_input!(input as WithoutExpression);

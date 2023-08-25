@@ -257,6 +257,7 @@
 pub mod atomics;
 
 mod common;
+mod macros;
 pub use self::common::*;
 
 mod cow;
@@ -377,51 +378,6 @@ pub use metrics_macros::describe_gauge;
 /// # }
 /// ```
 pub use metrics_macros::describe_histogram;
-
-/// Registers a counter.
-///
-/// Counters represent a single monotonic value, which means the value can only be incremented, not
-/// decremented, and always starts out with an initial value of zero.
-///
-/// Metrics can be registered, which provides a handle to directly update that metric.  For
-/// counters, [`Counter`] is provided which can be incremented or set to an absolute value.
-///
-/// Metric names are shown below using string literals, but they can also be owned `String` values,
-/// which includes using macros such as `format!` directly at the callsite. String literals are
-/// preferred for performance where possible.
-///
-/// # Example
-/// ```
-/// # use metrics::register_counter;
-/// # fn main() {
-/// // A basic counter:
-/// let counter = register_counter!("some_metric_name");
-/// counter.increment(1);
-///
-/// // Specifying labels inline, including using constants for either the key or value:
-/// let counter = register_counter!("some_metric_name", "service" => "http");
-/// counter.absolute(42);
-///
-/// const SERVICE_LABEL: &'static str = "service";
-/// const SERVICE_HTTP: &'static str = "http";
-/// let counter = register_counter!("some_metric_name", SERVICE_LABEL => SERVICE_HTTP);
-/// counter.increment(123);
-///
-/// // We can also pass labels by giving a vector or slice of key/value pairs.  In this scenario,
-/// // a unit or description can still be passed in their respective positions:
-/// let dynamic_val = "woo";
-/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
-/// let counter = register_counter!("some_metric_name", &labels);
-///
-/// // As mentioned in the documentation, metric names also can be owned strings, including ones
-/// // generated at the callsite via things like `format!`:
-/// let name = String::from("some_owned_metric_name");
-/// let counter = register_counter!(name);
-///
-/// let counter = register_counter!(format!("{}_via_format", "name"));
-/// # }
-/// ```
-pub use metrics_macros::register_counter;
 
 /// Registers a gauge.
 ///
