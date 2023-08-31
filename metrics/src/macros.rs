@@ -65,10 +65,10 @@ macro_rules! key_var {
         $crate::Key::from_static_labels($name, &LABELS)
     }};
     ($name:expr, $($label_key:expr => $label_value:expr),*) => {{
-        let labels: [$crate::Label; $crate::count!($($label_key)*)] = [
+        let labels = vec![
             $($crate::Label::from_static_parts($label_key, $label_value)),*
         ];
-        $crate::Key::from_parts($name, labels.into_iter())
+        $crate::Key::from_parts($name, labels)
     }};
     ($name:expr, $labels:expr) => {
         $crate::Key::from_parts($name, $labels)
