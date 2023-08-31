@@ -49,7 +49,7 @@ macro_rules! key_var {
         &METRIC_KEY
     }};
     ($name:expr) => {
-        $crate::Key::from_static_name(&$name)
+        $crate::Key::from_name($name)
     };
     ($name:literal, $($label_key:literal => $label_value:literal),*) => {{
         static LABELS: [$crate::Label; $crate::count!($($label_key)*)] = [
@@ -62,17 +62,16 @@ macro_rules! key_var {
         static LABELS: [$crate::Label; $crate::count!($($label_key)*)] = [
             $($crate::Label::from_static_parts($label_key, $label_value)),*
         ];
-        let metric_key = $crate::Key::from_static_parts(&$name, &LABELS);
-        metric_key
+        $crate::Key::from_parts($name, LABELS.into_iter())
     }};
     ($name:expr, $($label_key:expr => $label_value:expr),*) => {{
         let labels: [$crate::Label; $crate::count!($($label_key)*)] = [
             $($crate::Label::from_static_parts($label_key, $label_value)),*
         ];
-        $crate::Key::from_static_parts(&$name, &labels)
+        $crate::Key::from_parts($name, labels.into_iter())
     }};
     ($name:expr, $labels:expr) => {
-        $crate::Key::from_parts(&$name, $labels)
+        $crate::Key::from_parts($name, $labels)
     }
 }
 
