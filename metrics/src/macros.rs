@@ -62,7 +62,7 @@ macro_rules! key_var {
         static LABELS: [$crate::Label; $crate::count!($($label_key)*)] = [
             $($crate::Label::from_static_parts($label_key, $label_value)),*
         ];
-        $crate::Key::from_parts($name, LABELS.into_iter())
+        $crate::Key::from_static_labels($name, &LABELS)
     }};
     ($name:expr, $($label_key:expr => $label_value:expr),*) => {{
         let labels: [$crate::Label; $crate::count!($($label_key)*)] = [
