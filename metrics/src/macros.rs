@@ -101,3 +101,26 @@ macro_rules! register_counter {
         }
     };
 }
+
+/// TODO
+#[macro_export]
+macro_rules! describe_counter {
+    ($name:expr, $unit:expr, $description:expr) => {{
+        if let ::core::option::Option::Some(recorder) = $crate::try_recorder() {
+            recorder.describe_counter(
+                $name.into(),
+                ::core::option::Option::Some($unit),
+                $description.into(),
+            )
+        }
+    }};
+    ($name:expr, $description:expr) => {{
+        if let Some(recorder) = $crate::try_recorder() {
+            recorder.describe_counter(
+                $name.into(),
+                ::core::option::Option::None,
+                $description.into(),
+            )
+        }
+    }};
+}

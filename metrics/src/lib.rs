@@ -277,40 +277,6 @@ pub use self::metadata::*;
 mod recorder;
 pub use self::recorder::*;
 
-/// Describes a counter.
-///
-/// Counters represent a single monotonic value, which means the value can only be incremented, not
-/// decremented, and always starts out with an initial value of zero.
-///
-/// Metrics can be described with a free-form string, and optionally, a unit can be provided to
-/// describe the value and/or rate of the metric measurements.  Whether or not the installed
-/// recorder does anything with the description, or optional unit, is implementation defined.
-///
-/// Metric names are shown below using string literals, but they can also be owned `String` values,
-/// which includes using macros such as `format!` directly at the callsite. String literals are
-/// preferred for performance where possible.
-///
-/// # Example
-/// ```
-/// # use metrics::describe_counter;
-/// # use metrics::Unit;
-/// # fn main() {
-/// // A basic counter:
-/// describe_counter!("some_metric_name", "my favorite counter");
-///
-/// // Providing a unit for a counter:
-/// describe_counter!("some_metric_name", Unit::Bytes, "my favorite counter");
-///
-/// // As mentioned in the documentation, metric names also can be owned strings, including ones
-/// // generated at the callsite via things like `format!`:
-/// let name = String::from("some_owned_metric_name");
-/// describe_counter!(name, "my favorite counter");
-///
-/// describe_counter!(format!("{}_via_format", "name"), "my favorite counter");
-/// # }
-/// ```
-pub use metrics_macros::describe_counter;
-
 /// Describes a gauge.
 ///
 /// Gauges represent a single value that can go up or down over time, and always starts out with an

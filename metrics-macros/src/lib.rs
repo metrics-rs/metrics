@@ -118,13 +118,6 @@ impl Parse for Description {
 }
 
 #[proc_macro]
-pub fn describe_counter(input: TokenStream) -> TokenStream {
-    let Description { key, unit, description } = parse_macro_input!(input as Description);
-
-    get_describe_code("counter", key, unit, description).into()
-}
-
-#[proc_macro]
 pub fn describe_gauge(input: TokenStream) -> TokenStream {
     let Description { key, unit, description } = parse_macro_input!(input as Description);
 
