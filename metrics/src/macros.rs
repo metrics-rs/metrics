@@ -78,20 +78,9 @@ macro_rules! key_var {
 /// TODO
 #[macro_export]
 macro_rules! register_counter {
-    ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr $(, $label_key:expr => $label_value:expr)* $(,)?) => {
+    ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         {
-            let metric_key = $crate::key_var!($name, $($label_key => $label_value),*);
-            let metadata = $crate::metadata_var!(
-                $crate::default_target!($($target)?),
-                $crate::default_level!($($level)?)
-            );
-
-            $crate::recorder().register_counter(&metric_key, metadata)
-        }
-    };
-    ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr $(, $labels:expr)? $(,)?) => {
-        {
-            let metric_key = $crate::key_var!($name, $($labels)?);
+            let metric_key = $crate::key_var!($name, $($label_key $(=> $label_value)?),*);
             let metadata = $crate::metadata_var!(
                 $crate::default_target!($($target)?),
                 $crate::default_level!($($level)?)
