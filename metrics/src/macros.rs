@@ -75,7 +75,49 @@ macro_rules! key_var {
     }
 }
 
-/// TODO
+/// Registers a counter.
+///
+/// Counters represent a single monotonic value, which means the value can only be incremented, not
+/// decremented, and always starts out with an initial value of zero.
+///
+/// Metrics can be registered, which provides a handle to directly update that metric.  For
+/// counters, [`Counter`] is provided which can be incremented or set to an absolute value.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::register_counter;
+/// # fn main() {
+/// // A basic counter:
+/// let counter = register_counter!("some_metric_name");
+/// counter.increment(1);
+///
+/// // Specifying labels inline, including using constants for either the key or value:
+/// let counter = register_counter!("some_metric_name", "service" => "http");
+/// counter.absolute(42);
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// let counter = register_counter!("some_metric_name", SERVICE_LABEL => SERVICE_HTTP);
+/// counter.increment(123);
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs.  In this scenario,
+/// // a unit or description can still be passed in their respective positions:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// let counter = register_counter!("some_metric_name", &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// let counter = register_counter!(name);
+///
+/// let counter = register_counter!(format!("{}_via_format", "name"));
+/// # }
+/// ```
 #[macro_export]
 macro_rules! register_counter {
     ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
@@ -91,7 +133,38 @@ macro_rules! register_counter {
     };
 }
 
-/// TODO
+/// Describes a counter.
+///
+/// Counters represent a single monotonic value, which means the value can only be incremented, not
+/// decremented, and always starts out with an initial value of zero.
+///
+/// Metrics can be described with a free-form string, and optionally, a unit can be provided to
+/// describe the value and/or rate of the metric measurements.  Whether or not the installed
+/// recorder does anything with the description, or optional unit, is implementation defined.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::describe_counter;
+/// # use metrics::Unit;
+/// # fn main() {
+/// // A basic counter:
+/// describe_counter!("some_metric_name", "my favorite counter");
+///
+/// // Providing a unit for a counter:
+/// describe_counter!("some_metric_name", Unit::Bytes, "my favorite counter");
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// describe_counter!(name, "my favorite counter");
+///
+/// describe_counter!(format!("{}_via_format", "name"), "my favorite counter");
+/// # }
+/// ```
 #[macro_export]
 macro_rules! describe_counter {
     ($name:expr, $unit:expr, $description:expr) => {{
@@ -114,7 +187,45 @@ macro_rules! describe_counter {
     }};
 }
 
-/// TODO
+/// Increments a counter.
+///
+/// Counters represent a single monotonic value, which means the value can only be incremented, not
+/// decremented, and always starts out with an initial value of zero.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::{counter, Level};
+/// # fn main() {
+/// // A basic counter:
+/// counter!("some_metric_name", 12);
+///
+/// // A basic counter with level and target specified:
+/// counter!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 12);
+///
+/// // Specifying labels inline, including using constants for either the key or value:
+/// counter!("some_metric_name", 12, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// counter!("some_metric_name", 12, SERVICE_LABEL => SERVICE_HTTP);
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// counter!("some_metric_name", 12, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// counter!(name, 12);
+///
+/// counter!(format!("{}_via_format", "name"), 12);
+/// # }
+/// ```
 #[macro_export]
 macro_rules! counter {
     ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
@@ -123,7 +234,52 @@ macro_rules! counter {
     }};
 }
 
-/// TODO
+/// Sets a counter to an absolute value.
+///
+/// Counters represent a single monotonic value, which means the value can only be incremented, not
+/// decremented, and will always start out with an initial value of zero.
+///
+/// Using this macro, users can specify an absolute value for the counter instead of the typical
+/// delta.  This can be useful when dealing with forwarding metrics from an external system into the
+/// normal application metrics, without having to track the delta of the metrics from the external
+/// system.  Users should beware, though, that implementations will enforce the monotonicity
+/// property of counters by refusing to update the value unless it is greater than current value of
+/// the counter.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::{absolute_counter, Level};
+/// # fn main() {
+/// // A basic counter:
+/// absolute_counter!("some_metric_name", 12);
+///
+/// // A basic counter with level and target specified:
+/// absolute_counter!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 12);
+///
+/// // Specifying labels inline, including using constants for either the key or value:
+/// absolute_counter!("some_metric_name", 13, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// absolute_counter!("some_metric_name", 13, SERVICE_LABEL => SERVICE_HTTP);
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// absolute_counter!("some_metric_name", 14, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// absolute_counter!(name, 15);
+///
+/// absolute_counter!(format!("{}_via_format", "name"), 16);
+/// # }
+/// ```
 #[macro_export]
 macro_rules! absolute_counter {
     ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
@@ -132,7 +288,45 @@ macro_rules! absolute_counter {
     }};
 }
 
-/// TODO
+/// Increments a counter.
+///
+/// Counters represent a single monotonic value, which means the value can only be incremented, not
+/// decremented, and always starts out with an initial value of zero.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::{counter, Level};
+/// # fn main() {
+/// // A basic counter:
+/// counter!("some_metric_name", 12);
+///
+/// // A basic counter with level and target specified:
+/// counter!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 12);
+///
+/// // Specifying labels inline, including using constants for either the key or value:
+/// counter!("some_metric_name", 12, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// counter!("some_metric_name", 12, SERVICE_LABEL => SERVICE_HTTP);
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// counter!("some_metric_name", 12, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// counter!(name, 12);
+///
+/// counter!(format!("{}_via_format", "name"), 12);
+/// # }
+/// ```
 #[macro_export]
 macro_rules! increment_counter {
     ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
