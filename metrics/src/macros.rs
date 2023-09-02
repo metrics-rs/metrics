@@ -10,28 +10,6 @@ macro_rules! metadata_var {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! default_target {
-    () => {
-        module_path!()
-    };
-    ($target:expr) => {
-        $target
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! default_level {
-    () => {
-        $crate::Level::INFO
-    };
-    ($level:expr) => {
-        $level
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
 macro_rules! count {
     () => {
         0usize
@@ -120,16 +98,22 @@ macro_rules! key_var {
 /// ```
 #[macro_export]
 macro_rules! register_counter {
-    ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+    (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         {
             let metric_key = $crate::key_var!($name, $($label_key $(=> $label_value)?),*);
-            let metadata = $crate::metadata_var!(
-                $crate::default_target!($($target)?),
-                $crate::default_level!($($level)?)
-            );
+            let metadata = $crate::metadata_var!($target, $level);
 
             $crate::recorder().register_counter(&metric_key, metadata)
         }
+    };
+    (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::register_counter!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+    };
+    (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::register_counter!(target: module_path!(), level: $level, $name $(, $label_key$(=> $label_value)?)*)
+    };
+    ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::register_counter!(target: module_path!(), level: $crate::Level::INFO, $name $(, $label_key$(=> $label_value)?)*)
     };
 }
 
@@ -228,10 +212,22 @@ macro_rules! describe_counter {
 /// ```
 #[macro_export]
 macro_rules! counter {
-    ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
-        let handle = $crate::register_counter!($(target: $target,)? $(level: $level,)? $name $(, $label_key $(=> $label_value)?)*);
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!(target: $target, level: $level, $name $(, $label_key $(=> $label_value)?)*);
         handle.increment($op_val);
-    }};
+    };
+    (target: $target:expr, $name:expr $(, $label_key:expr, $op_val:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!(target: $target, $name $(, $label_key $(=> $label_value)?)*);
+        handle.increment($op_val);
+    };
+    (level: $level:expr, $name:expr $(, $label_key:expr, $op_val:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!(level: $level, $name $(, $label_key $(=> $label_value)?)*);
+        handle.increment($op_val);
+    };
+    ($name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!($name $(, $label_key $(=> $label_value)?)*);
+        handle.increment($op_val);
+    };
 }
 
 /// Sets a counter to an absolute value.
@@ -282,10 +278,22 @@ macro_rules! counter {
 /// ```
 #[macro_export]
 macro_rules! absolute_counter {
-    ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
-        let handle = $crate::register_counter!($(target: $target,)? $(level: $level,)? $name $(, $label_key $(=> $label_value)?)*);
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!(target: $target, level: $level, $name $(, $label_key $(=> $label_value)?)*);
         handle.absolute($op_val);
-    }};
+    };
+    (target: $target:expr, $name:expr $(, $label_key:expr, $op_val:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!(target: $target, $name $(, $label_key $(=> $label_value)?)*);
+        handle.absolute($op_val);
+    };
+    (level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!(level: $level, $name $(, $label_key $(=> $label_value)?)*);
+        handle.absolute($op_val);
+    };
+    ($name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!($name $(, $label_key $(=> $label_value)?)*);
+        handle.absolute($op_val);
+    };
 }
 
 /// Increments a counter.
@@ -329,7 +337,20 @@ macro_rules! absolute_counter {
 /// ```
 #[macro_export]
 macro_rules! increment_counter {
-    ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
-        $crate::counter!($(target: $target,)? $(level: $level,)? $name, 1 $(, $label_key $(=> $label_value)?)*);
-    }};
+    (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!(target: $target, level: $level, $name $(, $label_key $(=> $label_value)?)*);
+        handle.increment(1);
+    };
+    (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!(target: $target, $name $(, $label_key $(=> $label_value)?)*);
+        handle.absolute(1);
+    };
+    (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!(level: $level, $name $(, $label_key $(=> $label_value)?)*);
+        handle.absolute(1);
+    };
+    ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        let handle = $crate::register_counter!($name $(, $label_key $(=> $label_value)?)*);
+        handle.absolute(1);
+    };
 }
