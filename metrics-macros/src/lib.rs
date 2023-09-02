@@ -159,15 +159,6 @@ pub fn increment_counter(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn absolute_counter(input: TokenStream) -> TokenStream {
-    let WithExpression { target, level, key, op_value, labels } =
-        parse_macro_input!(input as WithExpression);
-
-    get_register_and_op_code(target, level, "counter", key, labels, Some(("absolute", op_value)))
-        .into()
-}
-
-#[proc_macro]
 pub fn increment_gauge(input: TokenStream) -> TokenStream {
     let WithExpression { target, level, key, op_value, labels } =
         parse_macro_input!(input as WithExpression);

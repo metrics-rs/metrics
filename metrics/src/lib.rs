@@ -475,54 +475,6 @@ pub use metrics_macros::register_histogram;
 /// ```
 pub use metrics_macros::increment_counter;
 
-/// Sets a counter to an absolute value.
-///
-/// Counters represent a single monotonic value, which means the value can only be incremented, not
-/// decremented, and will always start out with an initial value of zero.
-///
-/// Using this macro, users can specify an absolute value for the counter instead of the typical
-/// delta.  This can be useful when dealing with forwarding metrics from an external system into the
-/// normal application metrics, without having to track the delta of the metrics from the external
-/// system.  Users should beware, though, that implementations will enforce the monotonicity
-/// property of counters by refusing to update the value unless it is greater than current value of
-/// the counter.
-///
-/// Metric names are shown below using string literals, but they can also be owned `String` values,
-/// which includes using macros such as `format!` directly at the callsite. String literals are
-/// preferred for performance where possible.
-///
-/// # Example
-/// ```
-/// # use metrics::{absolute_counter, Level};
-/// # fn main() {
-/// // A basic counter:
-/// absolute_counter!("some_metric_name", 12);
-///
-/// // A basic counter with level and target specified:
-/// absolute_counter!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 12);
-///
-/// // Specifying labels inline, including using constants for either the key or value:
-/// absolute_counter!("some_metric_name", 13, "service" => "http");
-///
-/// const SERVICE_LABEL: &'static str = "service";
-/// const SERVICE_HTTP: &'static str = "http";
-/// absolute_counter!("some_metric_name", 13, SERVICE_LABEL => SERVICE_HTTP);
-///
-/// // We can also pass labels by giving a vector or slice of key/value pairs:
-/// let dynamic_val = "woo";
-/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
-/// absolute_counter!("some_metric_name", 14, &labels);
-///
-/// // As mentioned in the documentation, metric names also can be owned strings, including ones
-/// // generated at the callsite via things like `format!`:
-/// let name = String::from("some_owned_metric_name");
-/// absolute_counter!(name, 15);
-///
-/// absolute_counter!(format!("{}_via_format", "name"), 16);
-/// # }
-/// ```
-pub use metrics_macros::absolute_counter;
-
 /// Updates a gauge.
 ///
 /// Gauges represent a single value that can go up or down over time, and always starts out with an
