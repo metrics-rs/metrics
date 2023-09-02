@@ -113,3 +113,12 @@ macro_rules! describe_counter {
         }
     }};
 }
+
+/// TODO
+#[macro_export]
+macro_rules! counter {
+    ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
+        let handle = $crate::register_counter!($(target: $target,)? $(level: $level,)? $name $(, $label_key $(=> $label_value)?)*);
+        handle.increment($op_val);
+    }};
+}
