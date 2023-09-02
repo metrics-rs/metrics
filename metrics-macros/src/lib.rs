@@ -148,17 +148,6 @@ pub fn register_histogram(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn increment_counter(input: TokenStream) -> TokenStream {
-    let WithoutExpression { target, level, key, labels } =
-        parse_macro_input!(input as WithoutExpression);
-
-    let op_value = quote! { 1 };
-
-    get_register_and_op_code(target, level, "counter", key, labels, Some(("increment", op_value)))
-        .into()
-}
-
-#[proc_macro]
 pub fn increment_gauge(input: TokenStream) -> TokenStream {
     let WithExpression { target, level, key, op_value, labels } =
         parse_macro_input!(input as WithExpression);

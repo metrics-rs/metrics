@@ -131,3 +131,11 @@ macro_rules! absolute_counter {
         handle.absolute($op_val);
     }};
 }
+
+/// TODO
+#[macro_export]
+macro_rules! increment_counter {
+    ($(target: $target:expr,)? $(level: $level:expr,)? $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
+        $crate::counter!($(target: $target,)? $(level: $level,)? $name, 1 $(, $label_key $(=> $label_value)?)*);
+    }};
+}

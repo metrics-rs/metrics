@@ -434,47 +434,6 @@ pub use metrics_macros::register_gauge;
 /// ```
 pub use metrics_macros::register_histogram;
 
-/// Increments a counter by one.
-///
-/// Counters represent a single monotonic value, which means the value can only be incremented, not
-/// decremented, and always starts out with an initial value of zero.
-///
-/// Metric names are shown below using string literals, but they can also be owned `String` values,
-/// which includes using macros such as `format!` directly at the callsite. String literals are
-/// preferred for performance where possible.
-///
-/// # Example
-/// ```
-/// # use metrics::{increment_counter, Level};
-/// # fn main() {
-/// // A basic increment:
-/// increment_counter!("some_metric_name");
-///
-/// // A basic increment with level and target specified:
-/// increment_counter!(target: "specific_target", level: Level::DEBUG, "some_metric_name");
-///
-/// // Specifying labels inline, including using constants for either the key or value:
-/// increment_counter!("some_metric_name", "service" => "http");
-///
-/// const SERVICE_LABEL: &'static str = "service";
-/// const SERVICE_HTTP: &'static str = "http";
-/// increment_counter!("some_metric_name", SERVICE_LABEL => SERVICE_HTTP);
-///
-/// // We can also pass labels by giving a vector or slice of key/value pairs:
-/// let dynamic_val = "woo";
-/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
-/// increment_counter!("some_metric_name", &labels);
-///
-/// // As mentioned in the documentation, metric names also can be owned strings, including ones
-/// // generated at the callsite via things like `format!`:
-/// let name = String::from("some_owned_metric_name");
-/// increment_counter!(name);
-///
-/// increment_counter!(format!("{}_via_format", "name"));
-/// # }
-/// ```
-pub use metrics_macros::increment_counter;
-
 /// Updates a gauge.
 ///
 /// Gauges represent a single value that can go up or down over time, and always starts out with an
