@@ -100,7 +100,7 @@ macro_rules! key_var {
 macro_rules! register_counter {
     (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         {
-            let metric_key = $crate::key_var!($name, $($label_key $(=> $label_value)?),*);
+            let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
             let metadata = $crate::metadata_var!($target, $level);
 
             $crate::recorder().register_counter(&metric_key, metadata)
