@@ -25,7 +25,7 @@ pub(crate) struct Inner {
 }
 
 impl Inner {
-    fn get_recent_metrics(&self) -> Snapshot {
+    fn counters(&self) -> HashMap<String, HashMap<Vec<String>, u64>> {
         let mut counters = HashMap::new();
         let counter_handles = self.registry.get_counter_handles();
         for (key, counter) in counter_handles {
@@ -40,7 +40,10 @@ impl Inner {
                 counters.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0);
             *entry = value;
         }
+        counters
+    }
 
+    fn gauges(&self) -> HashMap<String, HashMap<Vec<String>, f64>> {
         let mut gauges = HashMap::new();
         let gauge_handles = self.registry.get_gauge_handles();
         for (key, gauge) in gauge_handles {
@@ -55,7 +58,10 @@ impl Inner {
                 gauges.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0.0);
             *entry = value;
         }
+        gauges
+    }
 
+    fn distributions(&self) -> HashMap<String, IndexMap<Vec<String>, Distribution>> {
         let histogram_handles = self.registry.get_histogram_handles();
         for (key, histogram) in histogram_handles {
             let gen = histogram.get_generation();
@@ -93,10 +99,15 @@ impl Inner {
             histogram.get_inner().clear_with(|samples| entry.record_samples(samples));
         }
 
-        let distributions =
-            self.distributions.read().unwrap_or_else(PoisonError::into_inner).clone();
+        self.distributions.read().unwrap_or_else(PoisonError::into_inner).clone()
+    }
 
-        Snapshot { counters, gauges, distributions }
+    fn get_recent_metrics(&self) -> Snapshot {
+        Snapshot {
+            counters: self.counters(),
+            gauges: self.gauges(),
+            distributions: self.distributions(),
+        }
     }
 
     fn render(&self) -> String {
@@ -275,5 +286,20 @@ impl PrometheusHandle {
     /// the Prometheus exposition format.
     pub fn render(&self) -> String {
         self.inner.render()
+    }
+
+    /// Returns a snapshot of the counters held by [`Self`]
+    pub fn counters(&self) -> HashMap<String, HashMap<Vec<String>, u64>> {
+        self.inner.counters()
+    }
+
+    /// Returns a snapshot of the gauges held by [`Self`]
+    pub fn gauges(&self) -> HashMap<String, HashMap<Vec<String>, f64>> {
+        self.inner.gauges()
+    }
+
+    /// Returns a snapshot of the histograms and summaries held by [`Self`]
+    pub fn distributions(&self) -> HashMap<String, IndexMap<Vec<String>, Distribution>> {
+        self.inner.distributions()
     }
 }
