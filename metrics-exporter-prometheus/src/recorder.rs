@@ -25,7 +25,10 @@ pub(crate) struct Inner {
 }
 
 impl Inner {
-    fn counters(&self) -> HashMap<String, HashMap<Vec<String>, u64>> {
+    fn counters<F: Fn(&str) -> bool>(
+        &self,
+        filter: Option<F>,
+    ) -> HashMap<String, HashMap<Vec<String>, u64>> {
         let mut counters = HashMap::new();
         let counter_handles = self.registry.get_counter_handles();
         for (key, counter) in counter_handles {
@@ -35,15 +38,20 @@ impl Inner {
             }
 
             let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
-            let value = counter.get_inner().load(Ordering::Acquire);
-            let entry =
-                counters.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0);
-            *entry = value;
+            if filter.as_ref().map(|f| f(&name)).unwrap_or(true) {
+                let value = counter.get_inner().load(Ordering::Acquire);
+                let entry =
+                    counters.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0);
+                *entry = value;
+            }
         }
         counters
     }
 
-    fn gauges(&self) -> HashMap<String, HashMap<Vec<String>, f64>> {
+    fn gauges<F: Fn(&str) -> bool>(
+        &self,
+        filter: Option<F>,
+    ) -> HashMap<String, HashMap<Vec<String>, f64>> {
         let mut gauges = HashMap::new();
         let gauge_handles = self.registry.get_gauge_handles();
         for (key, gauge) in gauge_handles {
@@ -53,15 +61,20 @@ impl Inner {
             }
 
             let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
-            let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
-            let entry =
-                gauges.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0.0);
-            *entry = value;
+            if filter.as_ref().map(|f| f(&name)).unwrap_or(true) {
+                let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
+                let entry =
+                    gauges.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0.0);
+                *entry = value;
+            }
         }
         gauges
     }
 
-    fn distributions(&self) -> HashMap<String, IndexMap<Vec<String>, Distribution>> {
+    fn distributions<F: Fn(&str) -> bool>(
+        &self,
+        filter: Option<F>,
+    ) -> HashMap<String, IndexMap<Vec<String>, Distribution>> {
         let histogram_handles = self.registry.get_histogram_handles();
         for (key, histogram) in histogram_handles {
             let gen = histogram.get_generation();
@@ -99,14 +112,25 @@ impl Inner {
             histogram.get_inner().clear_with(|samples| entry.record_samples(samples));
         }
 
-        self.distributions.read().unwrap_or_else(PoisonError::into_inner).clone()
+        self.distributions
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+            .filter_map(|(key, map)| {
+                if filter.as_ref().map(|f| f(&**key)).unwrap_or(true) {
+                    Some((key.clone(), map.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect::<HashMap<_, _>>()
     }
 
     fn get_recent_metrics(&self) -> Snapshot {
         Snapshot {
-            counters: self.counters(),
-            gauges: self.gauges(),
-            distributions: self.distributions(),
+            counters: self.counters(None::<fn(&str) -> bool>),
+            gauges: self.gauges(None::<fn(&str) -> bool>),
+            distributions: self.distributions(None::<fn(&str) -> bool>),
         }
     }
 
@@ -288,18 +312,30 @@ impl PrometheusHandle {
         self.inner.render()
     }
 
-    /// Returns a snapshot of the counters held by [`Self`]
-    pub fn counters(&self) -> HashMap<String, HashMap<Vec<String>, u64>> {
-        self.inner.counters()
+    /// Returns a snapshot of the counters held by [`Self`]. Optionally filters the returned
+    /// counters by `filter`.
+    pub fn counters<F: Fn(&str) -> bool>(
+        &self,
+        filter: Option<F>,
+    ) -> HashMap<String, HashMap<Vec<String>, u64>> {
+        self.inner.counters(filter)
     }
 
-    /// Returns a snapshot of the gauges held by [`Self`]
-    pub fn gauges(&self) -> HashMap<String, HashMap<Vec<String>, f64>> {
-        self.inner.gauges()
+    /// Returns a snapshot of the gauges held by [`Self`]. Optionally filters the returned gauges
+    /// by `filter`.
+    pub fn gauges<F: Fn(&str) -> bool>(
+        &self,
+        filter: Option<F>,
+    ) -> HashMap<String, HashMap<Vec<String>, f64>> {
+        self.inner.gauges(filter)
     }
 
-    /// Returns a snapshot of the histograms and summaries held by [`Self`]
-    pub fn distributions(&self) -> HashMap<String, IndexMap<Vec<String>, Distribution>> {
-        self.inner.distributions()
+    /// Returns a snapshot of the histograms and summaries held by [`Self`]. Optionally filters the
+    /// returned distributions by `filter`.
+    pub fn distributions<F: Fn(&str) -> bool>(
+        &self,
+        filter: Option<F>,
+    ) -> HashMap<String, IndexMap<Vec<String>, Distribution>> {
+        self.inner.distributions(filter)
     }
 }
