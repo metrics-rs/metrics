@@ -178,6 +178,66 @@ macro_rules! register_gauge {
     };
 }
 
+/// Registers a histogram.
+///
+/// Histograms measure the distribution of values for a given set of measurements, and start with no
+/// initial values.
+///
+/// Metrics can be registered, which provides a handle to directly update that metric.  For
+/// histograms, [`Histogram`] is provided which can record values.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::register_histogram;
+/// # fn main() {
+/// // A basic histogram:
+/// let histogram = register_histogram!("some_metric_name");
+/// histogram.record(1.0);
+///
+/// // Specifying labels inline, including using constants for either the key or value:
+/// let histogram = register_histogram!("some_metric_name", "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// let histogram = register_histogram!("some_metric_name", SERVICE_LABEL => SERVICE_HTTP);
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs.  In this scenario,
+/// // a unit or description can still be passed in their respective positions:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// let histogram = register_histogram!("some_metric_name", &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// let histogram = register_histogram!(name);
+///
+/// let histogram = register_histogram!(format!("{}_via_format", "name"));
+/// # }
+/// ```
+#[macro_export]
+macro_rules! register_histogram {
+    (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
+        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
+        let metadata = $crate::metadata_var!($target, $level);
+
+        $crate::recorder().register_histogram(&metric_key, metadata)
+    }};
+    (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::register_histogram!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+    };
+    (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::register_histogram!(target: module_path!(), level: $level, $name $(, $label_key$(=> $label_value)?)*)
+    };
+    ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::register_histogram!(target: module_path!(), level: $crate::Level::INFO, $name $(, $label_key$(=> $label_value)?)*)
+    };
+}
+
 #[doc(hidden)]
 #[macro_export]
 macro_rules! describe {
@@ -274,6 +334,48 @@ macro_rules! describe_gauge {
     };
     ($name:expr, $description:expr) => {
         $crate::describe!(describe_gauge, $name, $description)
+    };
+}
+
+/// Describes a histogram.
+///
+/// Histograms measure the distribution of values for a given set of measurements, and start with no
+/// initial values.
+///
+/// Metrics can be described with a free-form string, and optionally, a unit can be provided to
+/// describe the value and/or rate of the metric measurements.  Whether or not the installed
+/// recorder does anything with the description, or optional unit, is implementation defined.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::describe_histogram;
+/// # use metrics::Unit;
+/// # fn main() {
+/// // A basic histogram:
+/// describe_histogram!("some_metric_name", "my favorite histogram");
+///
+/// // Providing a unit for a histogram:
+/// describe_histogram!("some_metric_name", Unit::Bytes, "my favorite histogram");
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// describe_histogram!(name, "my favorite histogram");
+///
+/// describe_histogram!(format!("{}_via_format", "name"), "my favorite histogram");
+/// # }
+/// ```
+#[macro_export]
+macro_rules! describe_histogram {
+    ($name:expr, $unit:expr, $description:expr) => {
+        $crate::describe!(describe_histogram, $name, $unit, $description)
+    };
+    ($name:expr, $description:expr) => {
+        $crate::describe!(describe_histogram, $name, $description)
     };
 }
 
@@ -579,6 +681,75 @@ macro_rules! gauge {
     };
     ($name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         $crate::method!(register_gauge, set, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+}
+
+/// Records a histogram.
+///
+/// Histograms measure the distribution of values for a given set of measurements, and start with no
+/// initial values.
+///
+/// # Implicit conversions
+/// Histograms are represented as `f64` values, but often come from another source, such as a time
+/// measurement.  By default, `histogram!` will accept a `f64` directly or a
+/// [`Duration`](std::time::Duration), which uses the floating-point number of seconds represents by
+/// the duration.
+///
+/// External libraries and applications can create their own conversions by implementing the
+/// [`IntoF64`] trait for their types, which is required for the value being passed to `histogram!`.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::{histogram, Level};
+/// # use std::time::Duration;
+/// # fn main() {
+/// // A basic histogram:
+/// histogram!("some_metric_name", 34.3);
+///
+/// // A basic histogram with level and target specified:
+/// histogram!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 34.3);
+///
+/// // An implicit conversion from `Duration`:
+/// let d = Duration::from_millis(17);
+/// histogram!("some_metric_name", d);
+///
+/// // Specifying labels inline, including using constants for either the key or value:
+/// histogram!("some_metric_name", 38.0, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// histogram!("some_metric_name", 38.0, SERVICE_LABEL => SERVICE_HTTP);
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// histogram!("some_metric_name", 1337.5, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// histogram!(name, 800.85);
+///
+/// histogram!(format!("{}_via_format", "name"), 3.14);
+/// # }
+/// ```
+#[macro_export]
+macro_rules! histogram {
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_histogram, record, target: $target, level: $level, $name, $crate::__into_f64($op_val) $(, $label_key $(=> $label_value)?)*)
+    };
+    (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_histogram, record, target: $target, $name, $crate::__into_f64($op_val) $(, $label_key $(=> $label_value)?)*)
+    };
+    (level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_histogram, record, level: $level, $name, $crate::__into_f64($op_val) $(, $label_key $(=> $label_value)?)*)
+    };
+    ($name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_histogram, record, $name, $crate::__into_f64($op_val) $(, $label_key $(=> $label_value)?)*)
     };
 }
 
