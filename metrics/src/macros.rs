@@ -115,6 +115,84 @@ macro_rules! register_counter {
     };
 }
 
+/// Registers a gauge.
+///
+/// Gauges represent a single value that can go up or down over time, and always starts out with an
+/// initial value of zero.
+///
+/// Metrics can be registered, which provides a handle to directly update that metric.  For gauges,
+/// [`Gauge`] is provided which can be incremented, decrement, or set to an absolute value.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::register_gauge;
+/// # fn main() {
+/// // A basic gauge:
+/// let gauge = register_gauge!("some_metric_name");
+/// gauge.increment(1.0);
+///
+/// // Specifying labels inline, including using constants for either the key or value:
+/// let gauge = register_gauge!("some_metric_name", "service" => "http");
+/// gauge.decrement(42.0);
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// let gauge = register_gauge!("some_metric_name", SERVICE_LABEL => SERVICE_HTTP);
+/// gauge.increment(3.14);
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs.  In this scenario,
+/// // a unit or description can still be passed in their respective positions:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// let gauge = register_gauge!("some_metric_name", &labels);
+/// gauge.set(1337.0);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// let gauge = register_gauge!(name);
+///
+/// let gauge = register_gauge!(format!("{}_via_format", "name"));
+/// # }
+/// ```
+#[macro_export]
+macro_rules! register_gauge {
+    (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
+        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
+        let metadata = $crate::metadata_var!($target, $level);
+
+        $crate::recorder().register_gauge(&metric_key, metadata)
+    }};
+    (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::register_gauge!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+    };
+    (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::register_gauge!(target: module_path!(), level: $level, $name $(, $label_key$(=> $label_value)?)*)
+    };
+    ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::register_gauge!(target: module_path!(), level: $crate::Level::INFO, $name $(, $label_key$(=> $label_value)?)*)
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! describe {
+    ($method:ident, $name:expr, $unit:expr, $description:expr) => {{
+        if let ::core::option::Option::Some(recorder) = $crate::try_recorder() {
+            recorder.$method($name.into(), ::core::option::Option::Some($unit), $description.into())
+        }
+    }};
+    ($method:ident, $name:expr, $description:expr) => {{
+        if let Some(recorder) = $crate::try_recorder() {
+            recorder.$method($name.into(), ::core::option::Option::None, $description.into())
+        }
+    }};
+}
+
 /// Describes a counter.
 ///
 /// Counters represent a single monotonic value, which means the value can only be incremented, not
@@ -149,24 +227,77 @@ macro_rules! register_counter {
 /// ```
 #[macro_export]
 macro_rules! describe_counter {
-    ($name:expr, $unit:expr, $description:expr) => {{
-        if let ::core::option::Option::Some(recorder) = $crate::try_recorder() {
-            recorder.describe_counter(
-                $name.into(),
-                ::core::option::Option::Some($unit),
-                $description.into(),
-            )
-        }
-    }};
-    ($name:expr, $description:expr) => {{
+    ($name:expr, $unit:expr, $description:expr) => {
+        $crate::describe!(describe_counter, $name, $unit, $description)
+    };
+    ($name:expr, $description:expr) => {
+        $crate::describe!(describe_counter, $name, $description)
+    };
+}
+
+/// Describes a gauge.
+///
+/// Gauges represent a single value that can go up or down over time, and always starts out with an
+/// initial value of zero.
+///
+/// Metrics can be described with a free-form string, and optionally, a unit can be provided to
+/// describe the value and/or rate of the metric measurements.  Whether or not the installed
+/// recorder does anything with the description, or optional unit, is implementation defined.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::describe_gauge;
+/// # use metrics::Unit;
+/// # fn main() {
+/// // A basic gauge:
+/// describe_gauge!("some_metric_name", "my favorite gauge");
+///
+/// // Providing a unit for a gauge:
+/// describe_gauge!("some_metric_name", Unit::Bytes, "my favorite gauge");
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// describe_gauge!(name, "my favorite gauge");
+///
+/// describe_gauge!(format!("{}_via_format", "name"), "my favorite gauge");
+/// # }
+/// ```
+#[macro_export]
+macro_rules! describe_gauge {
+    ($name:expr, $unit:expr, $description:expr) => {
+        $crate::describe!(describe_gauge, $name, $unit, $description)
+    };
+    ($name:expr, $description:expr) => {
+        $crate::describe!(describe_gauge, $name, $description)
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! method {
+    ($register:ident, $method:ident, target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)*) => {
+        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
+        let metadata = $crate::metadata_var!($target, $level);
+
         if let Some(recorder) = $crate::try_recorder() {
-            recorder.describe_counter(
-                $name.into(),
-                ::core::option::Option::None,
-                $description.into(),
-            )
+            let handle = recorder.$register(&metric_key, &metadata);
+            handle.$method($op_val);
         }
-    }};
+    };
+    ($register:ident, $method:ident, target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)*) => {
+        $crate::method!($register, $method, target: $target, level: $crate::Level::INFO, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    ($register:ident, $method:ident, level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)*) => {
+        $crate::method!($register, $method, target: module_path!(), level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    ($register:ident, $method:ident, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)*) => {
+        $crate::method!($register, $method, target: module_path!(), level: $crate::Level::INFO, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
 }
 
 /// Increments a counter.
@@ -211,22 +342,126 @@ macro_rules! describe_counter {
 #[macro_export]
 macro_rules! counter {
     (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
-        let metadata = $crate::metadata_var!($target, $level);
-
-        if let Some(recorder) = $crate::try_recorder() {
-            let handle = recorder.register_counter(&metric_key, &metadata);
-            handle.increment($op_val);
-        }
+        $crate::method!(register_counter, increment, target: $target, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: $target, level: $crate::Level::INFO, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+        $crate::method!(register_counter, increment, target: $target, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     (level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: module_path!(), level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+        $crate::method!(register_counter, increment, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     ($name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: module_path!(), level: $crate::Level::INFO, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+        $crate::method!(register_counter, increment, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+}
+
+/// Increments a gauge.
+///
+/// Gauges represent a single value that can go up or down over time, and always starts out with an
+/// initial value of zero.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::{increment_gauge, Level};
+/// # fn main() {
+/// // A basic gauge:
+/// increment_gauge!("some_metric_name", 42.2222);
+///
+/// // A basic gauge with level and target specified:
+/// increment_gauge!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 42.2222);
+///
+/// // Specifying labels inline, including using constants for either the key or value:
+/// increment_gauge!("some_metric_name", 66.6666, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// increment_gauge!("some_metric_name", 66.6666, SERVICE_LABEL => SERVICE_HTTP);
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// increment_gauge!("some_metric_name", 42.42, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// increment_gauge!(name, 800.85);
+///
+/// increment_gauge!(format!("{}_via_format", "name"), 3.14);
+/// # }
+/// ```
+#[macro_export]
+macro_rules! increment_gauge {
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, increment, target: $target, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, increment, target: $target, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    (level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, increment, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    ($name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, increment, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+}
+
+/// Decrements a gauge.
+///
+/// Gauges represent a single value that can go up or down over time, and always starts out with an
+/// initial value of zero.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::{decrement_gauge, Level};
+/// # fn main() {
+/// // A basic gauge:
+/// decrement_gauge!("some_metric_name", 42.2222);
+///
+/// // A basic gauge with level and target specified:
+/// decrement_gauge!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 42.2222);
+///
+/// // Specifying labels inline, including using constants for either the key or value:
+/// decrement_gauge!("some_metric_name", 66.6666, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// decrement_gauge!("some_metric_name", 66.6666, SERVICE_LABEL => SERVICE_HTTP);
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// decrement_gauge!("some_metric_name", 42.42, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// decrement_gauge!(name, 800.85);
+///
+/// decrement_gauge!(format!("{}_via_format", "name"), 3.14);
+/// # }
+/// ```
+#[macro_export]
+macro_rules! decrement_gauge {
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, decrement, target: $target, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, decrement, target: $target, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    (level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, decrement, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    ($name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, decrement, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
 }
 
@@ -279,22 +514,71 @@ macro_rules! counter {
 #[macro_export]
 macro_rules! absolute_counter {
     (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
-        let metadata = $crate::metadata_var!($target, $level);
-
-        if let Some(recorder) = $crate::try_recorder() {
-            let handle = recorder.register_counter(&metric_key, &metadata);
-            handle.absolute($op_val);
-        }
+        $crate::method!(register_counter, absolute, target: $target, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::absolute_counter!(target: $target, level: $crate::Level::INFO, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+        $crate::method!(register_counter, absolute, target: $target, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     (level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::absolute_counter!(target: module_path!(), level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+        $crate::method!(register_counter, absolute, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     ($name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: module_path!(), level: $crate::Level::INFO, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+        $crate::method!(register_counter, absolute, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+}
+
+/// Updates a gauge.
+///
+/// Gauges represent a single value that can go up or down over time, and always starts out with an
+/// initial value of zero.
+///
+/// Metric names are shown below using string literals, but they can also be owned `String` values,
+/// which includes using macros such as `format!` directly at the callsite. String literals are
+/// preferred for performance where possible.
+///
+/// # Example
+/// ```
+/// # use metrics::{gauge, Level};
+/// # fn main() {
+/// // A basic gauge:
+/// gauge!("some_metric_name", 42.2222);
+///
+/// // A basic gauge with level and target specified:
+/// gauge!(target: "specific_target", level: Level::DEBUG, "some_metric_name", 42.2222);
+///
+/// // Specifying labels inline, including using constants for either the key or value:
+/// gauge!("some_metric_name", 66.6666, "service" => "http");
+///
+/// const SERVICE_LABEL: &'static str = "service";
+/// const SERVICE_HTTP: &'static str = "http";
+/// gauge!("some_metric_name", 66.6666, SERVICE_LABEL => SERVICE_HTTP);
+///
+/// // We can also pass labels by giving a vector or slice of key/value pairs:
+/// let dynamic_val = "woo";
+/// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
+/// gauge!("some_metric_name", 42.42, &labels);
+///
+/// // As mentioned in the documentation, metric names also can be owned strings, including ones
+/// // generated at the callsite via things like `format!`:
+/// let name = String::from("some_owned_metric_name");
+/// gauge!(name, 800.85);
+///
+/// gauge!(format!("{}_via_format", "name"), 3.14);
+/// # }
+/// ```
+#[macro_export]
+macro_rules! gauge {
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, set, target: $target, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, set, target: $target, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    (level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, set, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
+    };
+    ($name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+        $crate::method!(register_gauge, set, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
 }
 
@@ -340,21 +624,15 @@ macro_rules! absolute_counter {
 #[macro_export]
 macro_rules! increment_counter {
     (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
-        let metadata = $crate::metadata_var!($target, $level);
-
-        if let Some(recorder) = $crate::try_recorder() {
-            let handle = recorder.register_counter(&metric_key, &metadata);
-            handle.increment(1);
-        }
+        $crate::method!(register_counter, increment, target: $target, level: $level, $name, 1 $(, $label_key $(=> $label_value)?)*)
     };
     (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::increment_counter!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+        $crate::method!(register_counter, increment, target: $target, $name, 1 $(, $label_key $(=> $label_value)?)*)
     };
     (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::increment_counter!(target: module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
+        $crate::method!(register_counter, increment, level: $level, $name, 1 $(, $label_key $(=> $label_value)?)*)
     };
     ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::increment_counter!(target: module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+        $crate::method!(register_counter, increment, $name, 1 $(, $label_key $(=> $label_value)?)*)
     };
 }

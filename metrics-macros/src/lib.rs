@@ -118,25 +118,10 @@ impl Parse for Description {
 }
 
 #[proc_macro]
-pub fn describe_gauge(input: TokenStream) -> TokenStream {
-    let Description { key, unit, description } = parse_macro_input!(input as Description);
-
-    get_describe_code("gauge", key, unit, description).into()
-}
-
-#[proc_macro]
 pub fn describe_histogram(input: TokenStream) -> TokenStream {
     let Description { key, unit, description } = parse_macro_input!(input as Description);
 
     get_describe_code("histogram", key, unit, description).into()
-}
-
-#[proc_macro]
-pub fn register_gauge(input: TokenStream) -> TokenStream {
-    let WithoutExpression { target, level, key, labels } =
-        parse_macro_input!(input as WithoutExpression);
-
-    get_register_and_op_code::<bool>(target, level, "gauge", key, labels, None).into()
 }
 
 #[proc_macro]
@@ -145,32 +130,6 @@ pub fn register_histogram(input: TokenStream) -> TokenStream {
         parse_macro_input!(input as WithoutExpression);
 
     get_register_and_op_code::<bool>(target, level, "histogram", key, labels, None).into()
-}
-
-#[proc_macro]
-pub fn increment_gauge(input: TokenStream) -> TokenStream {
-    let WithExpression { target, level, key, op_value, labels } =
-        parse_macro_input!(input as WithExpression);
-
-    get_register_and_op_code(target, level, "gauge", key, labels, Some(("increment", op_value)))
-        .into()
-}
-
-#[proc_macro]
-pub fn decrement_gauge(input: TokenStream) -> TokenStream {
-    let WithExpression { target, level, key, op_value, labels } =
-        parse_macro_input!(input as WithExpression);
-
-    get_register_and_op_code(target, level, "gauge", key, labels, Some(("decrement", op_value)))
-        .into()
-}
-
-#[proc_macro]
-pub fn gauge(input: TokenStream) -> TokenStream {
-    let WithExpression { target, level, key, op_value, labels } =
-        parse_macro_input!(input as WithExpression);
-
-    get_register_and_op_code(target, level, "gauge", key, labels, Some(("set", op_value))).into()
 }
 
 #[proc_macro]
