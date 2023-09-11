@@ -59,7 +59,7 @@ macro_rules! key_var {
 /// decremented, and always starts out with an initial value of zero.
 ///
 /// Metrics can be registered, which provides a handle to directly update that metric.  For
-/// counters, [`Counter`] is provided which can be incremented or set to an absolute value.
+/// counters, [`Counter`](crate:Counter) is provided which can be incremented or set to an absolute value.
 ///
 /// Metric names are shown below using string literals, but they can also be owned `String` values,
 /// which includes using macros such as `format!` directly at the callsite. String literals are
@@ -121,7 +121,7 @@ macro_rules! register_counter {
 /// initial value of zero.
 ///
 /// Metrics can be registered, which provides a handle to directly update that metric.  For gauges,
-/// [`Gauge`] is provided which can be incremented, decrement, or set to an absolute value.
+/// [`Gauge`](crate::Gauge) is provided which can be incremented, decrement, or set to an absolute value.
 ///
 /// Metric names are shown below using string literals, but they can also be owned `String` values,
 /// which includes using macros such as `format!` directly at the callsite. String literals are
@@ -184,7 +184,7 @@ macro_rules! register_gauge {
 /// initial values.
 ///
 /// Metrics can be registered, which provides a handle to directly update that metric.  For
-/// histograms, [`Histogram`] is provided which can record values.
+/// histograms, [`Histogram`](crate::Histogram) is provided which can record values.
 ///
 /// Metric names are shown below using string literals, but they can also be owned `String` values,
 /// which includes using macros such as `format!` directly at the callsite. String literals are
@@ -696,7 +696,7 @@ macro_rules! gauge {
 /// the duration.
 ///
 /// External libraries and applications can create their own conversions by implementing the
-/// [`IntoF64`] trait for their types, which is required for the value being passed to `histogram!`.
+/// [`IntoF64`](crate::IntoF64) trait for their types, which is required for the value being passed to `histogram!`.
 ///
 /// Metric names are shown below using string literals, but they can also be owned `String` values,
 /// which includes using macros such as `format!` directly at the callsite. String literals are
