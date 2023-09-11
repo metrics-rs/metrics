@@ -48,7 +48,6 @@ If you're a library author, you'll only care about using [`metrics`][metrics] to
 Overall, this repository is home to the following crates:
 
 * [`metrics`][metrics]: A lightweight metrics facade, similar to [`log`][log].
-* [`metrics-macros`][metrics-macros]: Procedural macros that power `metrics`.
 * [`metrics-tracing-context`][metrics-tracing-context]: Allow capturing [`tracing`][tracing] span
   fields as metric labels.
 * [`metrics-exporter-tcp`][metrics-exporter-tcp]: A `metrics`-compatible exporter for serving metrics over TCP.
@@ -83,7 +82,6 @@ To everyone else that we haven't had the pleasure of interacting with: we're alw
 We'd love to chat about any of the above, or anything else related to metrics. Don't hesitate to file an issue on the repository, or come and chat with us over on [Discord](https://discord.gg/eTwKyY9).
 
 [metrics]: https://github.com/metrics-rs/metrics/tree/main/metrics
-[metrics-macros]: https://github.com/metrics-rs/metrics/tree/main/metrics-macros
 [metrics-tracing-context]: https://github.com/metrics-rs/metrics/tree/main/metrics-tracing-context
 [metrics-exporter-tcp]: https://github.com/metrics-rs/metrics/tree/main/metrics-exporter-tcp
 [metrics-exporter-prometheus]: https://github.com/metrics-rs/metrics/tree/main/metrics-exporter-prometheus
