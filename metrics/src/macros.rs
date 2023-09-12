@@ -3,7 +3,7 @@
 macro_rules! metadata_var {
     ($target:expr, $level:expr) => {{
         static METADATA: $crate::Metadata<'static> =
-            $crate::Metadata::new($target, $level, Some(module_path!()));
+            $crate::Metadata::new($target, $level, ::core::option::Option::Some(module_path!()));
         &METADATA
     }};
 }
@@ -43,7 +43,7 @@ macro_rules! key_var {
         $crate::Key::from_static_labels($name, &LABELS)
     }};
     ($name:expr, $($label_key:expr => $label_value:expr),*) => {{
-        let labels = vec![
+        let labels = ::std::vec![
             $($crate::Label::new($label_key, $label_value)),*
         ];
         $crate::Key::from_parts($name, labels)
@@ -67,6 +67,10 @@ macro_rules! key_var {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
 /// # use metrics::register_counter;
 /// # fn main() {
 /// // A basic counter:
@@ -129,6 +133,10 @@ macro_rules! register_counter {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::string::String;
+/// # use ::std::format;
+/// # use ::std::convert::From;
 /// # use metrics::register_gauge;
 /// # fn main() {
 /// // A basic gauge:
@@ -192,6 +200,10 @@ macro_rules! register_gauge {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::string::String;
+/// # use ::std::format;
+/// # use ::std::convert::From;
 /// # use metrics::register_histogram;
 /// # fn main() {
 /// // A basic histogram:
@@ -243,12 +255,20 @@ macro_rules! register_histogram {
 macro_rules! describe {
     ($method:ident, $name:expr, $unit:expr, $description:expr) => {{
         if let ::core::option::Option::Some(recorder) = $crate::try_recorder() {
-            recorder.$method($name.into(), ::core::option::Option::Some($unit), $description.into())
+            recorder.$method(
+                ::core::convert::Into::into($name),
+                ::core::option::Option::Some($unit),
+                ::core::convert::Into::into($description),
+            )
         }
     }};
     ($method:ident, $name:expr, $description:expr) => {{
-        if let Some(recorder) = $crate::try_recorder() {
-            recorder.$method($name.into(), ::core::option::Option::None, $description.into())
+        if let ::core::option::Option::Some(recorder) = $crate::try_recorder() {
+            recorder.$method(
+                ::core::convert::Into::into($name),
+                ::core::option::Option::None,
+                ::core::convert::Into::into($description),
+            )
         }
     }};
 }
@@ -268,6 +288,10 @@ macro_rules! describe {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
 /// # use metrics::describe_counter;
 /// # use metrics::Unit;
 /// # fn main() {
@@ -310,6 +334,10 @@ macro_rules! describe_counter {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
 /// # use metrics::describe_gauge;
 /// # use metrics::Unit;
 /// # fn main() {
@@ -352,6 +380,10 @@ macro_rules! describe_gauge {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
 /// # use metrics::describe_histogram;
 /// # use metrics::Unit;
 /// # fn main() {
@@ -382,11 +414,11 @@ macro_rules! describe_histogram {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! method {
-    ($register:ident, $method:ident, target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)*) => {
+    ($register:ident, $method:ident, target: $target:expr, level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)*) => {
         let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
         let metadata = $crate::metadata_var!($target, $level);
 
-        if let Some(recorder) = $crate::try_recorder() {
+        if let ::core::option::Option::Some(recorder) = $crate::try_recorder() {
             let handle = recorder.$register(&metric_key, &metadata);
             handle.$method($op_val);
         }
@@ -413,6 +445,10 @@ macro_rules! method {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
 /// # use metrics::{counter, Level};
 /// # fn main() {
 /// // A basic counter:
@@ -443,7 +479,7 @@ macro_rules! method {
 /// ```
 #[macro_export]
 macro_rules! counter {
-    (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         $crate::method!(register_counter, increment, target: $target, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
@@ -468,6 +504,10 @@ macro_rules! counter {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::string::String;
+/// # use ::std::format;
 /// # use metrics::{increment_gauge, Level};
 /// # fn main() {
 /// // A basic gauge:
@@ -498,7 +538,7 @@ macro_rules! counter {
 /// ```
 #[macro_export]
 macro_rules! increment_gauge {
-    (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         $crate::method!(register_gauge, increment, target: $target, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
@@ -523,6 +563,10 @@ macro_rules! increment_gauge {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
 /// # use metrics::{decrement_gauge, Level};
 /// # fn main() {
 /// // A basic gauge:
@@ -553,7 +597,7 @@ macro_rules! increment_gauge {
 /// ```
 #[macro_export]
 macro_rules! decrement_gauge {
-    (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         $crate::method!(register_gauge, decrement, target: $target, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
@@ -585,6 +629,10 @@ macro_rules! decrement_gauge {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
 /// # use metrics::{absolute_counter, Level};
 /// # fn main() {
 /// // A basic counter:
@@ -615,7 +663,7 @@ macro_rules! decrement_gauge {
 /// ```
 #[macro_export]
 macro_rules! absolute_counter {
-    (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         $crate::method!(register_counter, absolute, target: $target, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
@@ -640,6 +688,10 @@ macro_rules! absolute_counter {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
 /// # use metrics::{gauge, Level};
 /// # fn main() {
 /// // A basic gauge:
@@ -670,7 +722,7 @@ macro_rules! absolute_counter {
 /// ```
 #[macro_export]
 macro_rules! gauge {
-    (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         $crate::method!(register_gauge, set, target: $target, level: $level, $name, $op_val $(, $label_key $(=> $label_value)?)*)
     };
     (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
@@ -704,6 +756,11 @@ macro_rules! gauge {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
+/// # use ::std as std;
 /// # use metrics::{histogram, Level};
 /// # use std::time::Duration;
 /// # fn main() {
@@ -739,7 +796,7 @@ macro_rules! gauge {
 /// ```
 #[macro_export]
 macro_rules! histogram {
-    (target: $target:expr, level: $level:expr, $name:expr, $op_val: expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
+    (target: $target:expr, level: $level:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         $crate::method!(register_histogram, record, target: $target, level: $level, $name, $crate::__into_f64($op_val) $(, $label_key $(=> $label_value)?)*)
     };
     (target: $target:expr, $name:expr, $op_val:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
@@ -764,6 +821,10 @@ macro_rules! histogram {
 ///
 /// # Example
 /// ```
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
 /// # use metrics::{counter, Level};
 /// # fn main() {
 /// // A basic counter:
