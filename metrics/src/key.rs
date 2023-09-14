@@ -20,7 +20,7 @@ impl KeyName {
     }
 
     /// Gets a reference to the strin used for this name.
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'static str {
         &self.0
     }
 }
