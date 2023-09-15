@@ -29,6 +29,9 @@ use hyper::{
     http::HeaderValue,
     Method, Request, Uri,
 };
+use hyper::client::{HttpConnector};
+use hyper::http::uri::Scheme;
+use hyper_tls::HttpsConnector;
 
 use indexmap::IndexMap;
 #[cfg(feature = "http-listener")]
@@ -460,7 +463,7 @@ impl PrometheusBuilder {
             #[cfg(feature = "push-gateway")]
             ExporterConfig::PushGateway { endpoint, interval, username, password } => {
                 let exporter = async move {
-                    let client = Client::new();
+                    let http_client = create_gateway_client(&endpoint);
                     let auth = username.as_ref().map(|name| basic_auth(name, password.as_deref()));
 
                     loop {
@@ -485,7 +488,12 @@ impl PrometheusBuilder {
                             }
                         };
 
-                        match client.request(req).await {
+                        let future = match &http_client {
+                            HttpCli::HttpsClient(client) => client.request(req),
+                            HttpCli::HttpClient(client) => client.request(req)
+                        };
+
+                        match future.await {
                             Ok(response) => {
                                 if !response.status().is_success() {
                                     let status = response.status();
@@ -564,6 +572,20 @@ fn basic_auth(username: &str, password: Option<&str>) -> HeaderValue {
     let mut header = HeaderValue::from_bytes(&buf).expect("base64 is always valid HeaderValue");
     header.set_sensitive(true);
     header
+}
+
+enum HttpCli {
+    HttpClient(Client<HttpConnector>),
+    HttpsClient(Client<HttpsConnector<HttpConnector>>),
+}
+
+fn create_gateway_client(endpoint: &Uri) -> HttpCli {
+    if endpoint.scheme() == Some(&Scheme::HTTPS) {
+        let https = HttpsConnector::new();
+        HttpCli::HttpsClient(Client::builder().build::<_, hyper::Body>(https))
+    } else {
+        HttpCli::HttpClient(Client::new())
+    }
 }
 
 #[cfg(test)]
@@ -1034,7 +1056,9 @@ mod tests {
 
 #[cfg(all(test, feature = "push-gateway"))]
 mod push_gateway_tests {
-    use crate::builder::basic_auth;
+    use std::convert::TryFrom;
+    use hyper::{Body, Request, Uri};
+    use crate::builder::{basic_auth, create_gateway_client, HttpCli};
 
     #[test]
     pub fn test_basic_auth() {
@@ -1065,5 +1089,35 @@ mod push_gateway_tests {
         decoder.read_to_end(&mut result).unwrap();
         assert_eq!(b"metrics:123!_@ABC", &result[..]);
         assert!(header.is_sensitive());
+    }
+
+    #[test]
+    pub fn test_client_create() {
+        let uri = Uri::try_from( "http://localhost").unwrap();
+        assert!(!create_https_client(uri));
+
+        let uri = Uri::try_from( "https://localhost").unwrap();
+        assert!(create_https_client(uri));
+    }
+
+    fn create_https_client(uri: Uri) -> bool {
+        let client = create_gateway_client(&uri);
+        let req = Request::builder()
+            .uri(uri)
+            .body(Body::empty())
+            .unwrap();
+
+        let is_https: bool;
+        let _future = match &client {
+            HttpCli::HttpsClient(client) => {
+                is_https = true;
+                client.request(req)
+            }
+            HttpCli::HttpClient(client) => {
+                is_https = false;
+                client.request(req)
+            }
+        };
+        is_https
     }
 }
