@@ -1,5 +1,6 @@
 use crate::{atomics::AtomicU64, cow::Cow, IntoLabels, KeyHasher, Label, SharedString};
 use std::{
+    borrow::Borrow,
     cmp, fmt,
     hash::{Hash, Hasher},
     slice::Iter,
@@ -35,6 +36,19 @@ impl From<String> for KeyName {
         KeyName(SharedString::from(name))
     }
 }
+
+impl From<std::borrow::Cow<'static, str>> for KeyName {
+    fn from(name: std::borrow::Cow<'static, str>) -> Self {
+        KeyName(SharedString::from(name))
+    }
+}
+
+impl Borrow<str> for KeyName {
+    fn borrow(&self) -> &str {
+        self.0.borrow()
+    }
+}
+
 /// A metric identifier.
 ///
 /// A key represents both the name and labels of a metric.

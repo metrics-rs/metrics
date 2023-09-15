@@ -19,7 +19,7 @@ use crate::{
 };
 
 use indexmap::IndexMap;
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
 use ordered_float::OrderedFloat;
 
 thread_local! {
@@ -292,7 +292,7 @@ impl Recorder for DebuggingRecorder {
         self.describe_metric(ckey, unit, description);
     }
 
-    fn register_counter(&self, key: &Key) -> Counter {
+    fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
         let ckey = CompositeKey::new(MetricKind::Counter, key.clone());
         self.track_metric(ckey);
 
@@ -313,7 +313,7 @@ impl Recorder for DebuggingRecorder {
         }
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
+    fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
         let ckey = CompositeKey::new(MetricKind::Gauge, key.clone());
         self.track_metric(ckey);
 
@@ -334,7 +334,7 @@ impl Recorder for DebuggingRecorder {
         }
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
+    fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
         let ckey = CompositeKey::new(MetricKind::Histogram, key.clone());
         self.track_metric(ckey);
 

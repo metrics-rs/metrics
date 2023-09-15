@@ -8,6 +8,10 @@ long-form description and would be too verbose for the changelog alone.
 
 - No notable changes.
 
+## [0.21.1] - 2023-07-02
+
+- No notable changes.
+
 ## [0.21.0] - 2023-04-16
 
 - No notable changes.

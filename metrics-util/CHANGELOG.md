@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.15.1] - 2023-07-02
+
 ### Added
 
 - Added a new helper type, `RecoverableRecorder`, that allows installing a recorder and then
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Update `aho-corasick` to `1.0`.
+- Pinned `hashbrown` to `0.13.1` to avoid MSRV bump.
 
 ## [0.15.0] - 2023-04-16
 

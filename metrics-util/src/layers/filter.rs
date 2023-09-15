@@ -1,6 +1,6 @@
 use crate::layers::Layer;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, AhoCorasickKind};
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
 
 /// Filters and discards metrics matching certain name patterns.
 ///
@@ -38,25 +38,25 @@ impl<R: Recorder> Recorder for Filter<R> {
         self.inner.describe_histogram(key_name, unit, description)
     }
 
-    fn register_counter(&self, key: &Key) -> Counter {
+    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
         if self.should_filter(key.name()) {
             return Counter::noop();
         }
-        self.inner.register_counter(key)
+        self.inner.register_counter(key, metadata)
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
+    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
         if self.should_filter(key.name()) {
             return Gauge::noop();
         }
-        self.inner.register_gauge(key)
+        self.inner.register_gauge(key, metadata)
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
+    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
         if self.should_filter(key.name()) {
             return Histogram::noop();
         }
-        self.inner.register_histogram(key)
+        self.inner.register_histogram(key, metadata)
     }
 }
 
@@ -157,6 +157,9 @@ mod tests {
     use crate::{layers::Layer, test_util::*};
     use metrics::{Counter, Gauge, Histogram, Unit};
 
+    static METADATA: metrics::Metadata =
+        metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
+
     #[test]
     fn test_basic_functionality() {
         let inputs = vec![
@@ -185,14 +188,19 @@ mod tests {
                 Some(Unit::Count),
                 "gauge desc".into(),
             ),
-            RecorderOperation::RegisterCounter("tokio.loops".into(), Counter::noop()),
-            RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop()),
+            RecorderOperation::RegisterCounter("tokio.loops".into(), Counter::noop(), &METADATA),
+            RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop(), &METADATA),
             RecorderOperation::RegisterHistogram(
                 "hyper.response_latency".into(),
                 Histogram::noop(),
+                &METADATA,
             ),
-            RecorderOperation::RegisterCounter("tokio.spurious_wakeups".into(), Counter::noop()),
-            RecorderOperation::RegisterGauge("bb8.pooled_conns".into(), Gauge::noop()),
+            RecorderOperation::RegisterCounter(
+                "tokio.spurious_wakeups".into(),
+                Counter::noop(),
+                &METADATA,
+            ),
+            RecorderOperation::RegisterGauge("bb8.pooled_conns".into(), Gauge::noop(), &METADATA),
         ];
 
         let expectations = vec![
@@ -206,10 +214,11 @@ mod tests {
                 Some(Unit::Nanoseconds),
                 "histogram desc".into(),
             ),
-            RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop()),
+            RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop(), &METADATA),
             RecorderOperation::RegisterHistogram(
                 "hyper.response_latency".into(),
                 Histogram::noop(),
+                &METADATA,
             ),
         ];
 
@@ -250,14 +259,19 @@ mod tests {
                 Some(Unit::Count),
                 "gauge desc".into(),
             ),
-            RecorderOperation::RegisterCounter("tokiO.loops".into(), Counter::noop()),
-            RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop()),
+            RecorderOperation::RegisterCounter("tokiO.loops".into(), Counter::noop(), &METADATA),
+            RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop(), &METADATA),
             RecorderOperation::RegisterHistogram(
                 "hyper.response_latency".into(),
                 Histogram::noop(),
+                &METADATA,
             ),
-            RecorderOperation::RegisterCounter("Tokio.spurious_wakeups".into(), Counter::noop()),
-            RecorderOperation::RegisterGauge("bB8.pooled_conns".into(), Gauge::noop()),
+            RecorderOperation::RegisterCounter(
+                "Tokio.spurious_wakeups".into(),
+                Counter::noop(),
+                &METADATA,
+            ),
+            RecorderOperation::RegisterGauge("bB8.pooled_conns".into(), Gauge::noop(), &METADATA),
         ];
 
         let expectations = vec![
@@ -271,10 +285,11 @@ mod tests {
                 Some(Unit::Nanoseconds),
                 "histogram desc".into(),
             ),
-            RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop()),
+            RecorderOperation::RegisterGauge("hyper.bytes_read".into(), Gauge::noop(), &METADATA),
             RecorderOperation::RegisterHistogram(
                 "hyper.response_latency".into(),
                 Histogram::noop(),
+                &METADATA,
             ),
         ];
 
