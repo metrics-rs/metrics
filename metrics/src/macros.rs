@@ -34,7 +34,7 @@ macro_rules! key_var {
     };
     ($name:literal, $($label_key:literal => $label_value:literal),*) => {{
         static LABELS: [$crate::Label; $crate::count!($($label_key)*)] = [
-            $($crate::Label::from_static_parts(&$label_key, &$label_value)),*
+            $($crate::Label::from_static_parts($label_key, $label_value)),*
         ];
         static METRIC_KEY: $crate::Key = $crate::Key::from_static_parts($name, &LABELS);
         &METRIC_KEY
