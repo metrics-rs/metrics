@@ -62,7 +62,7 @@ macro_rules! key_var {
 /// decremented, and always starts out with an initial value of zero.
 ///
 /// Metrics can be registered, which provides a handle to directly update that metric.  For
-/// counters, [`Counter`](crate:Counter) is provided which can be incremented or set to an absolute value.
+/// counters, [`Counter`](crate::Counter) is provided which can be incremented or set to an absolute value.
 ///
 /// Metric names are shown below using string literals, but they can also be owned `String` values,
 /// which includes using macros such as `format!` directly at the callsite. String literals are
