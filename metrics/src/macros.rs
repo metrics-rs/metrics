@@ -115,10 +115,10 @@ macro_rules! register_counter {
         $crate::register_counter!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
     (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::register_counter!(target: ::std::module_path!(), level: $level, $name $(, $label_key$(=> $label_value)?)*)
+        $crate::register_counter!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
     };
     ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::register_counter!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key$(=> $label_value)?)*)
+        $crate::register_counter!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
 }
 
@@ -182,10 +182,10 @@ macro_rules! register_gauge {
         $crate::register_gauge!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
     (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::register_gauge!(target: ::std::module_path!(), level: $level, $name $(, $label_key$(=> $label_value)?)*)
+        $crate::register_gauge!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
     };
     ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::register_gauge!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key$(=> $label_value)?)*)
+        $crate::register_gauge!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
 }
 
@@ -246,10 +246,10 @@ macro_rules! register_histogram {
         $crate::register_histogram!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
     (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::register_histogram!(target: ::std::module_path!(), level: $level, $name $(, $label_key$(=> $label_value)?)*)
+        $crate::register_histogram!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
     };
     ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::register_histogram!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key$(=> $label_value)?)*)
+        $crate::register_histogram!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
 }
 
