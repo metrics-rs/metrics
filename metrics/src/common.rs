@@ -121,7 +121,7 @@ pub enum Unit {
 
 impl Unit {
     /// Gets the string form of this `Unit`.
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Unit::Count => "count",
             Unit::Percent => "percent",
@@ -149,7 +149,7 @@ impl Unit {
     /// it would be `ns`.
     ///
     /// Not all units have a meaningful display label and so some may be empty.
-    pub fn as_canonical_label(&self) -> &str {
+    pub fn as_canonical_label(&self) -> &'static str {
         match self {
             Unit::Count => "",
             Unit::Percent => "%",
