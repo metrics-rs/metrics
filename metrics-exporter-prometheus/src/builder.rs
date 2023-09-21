@@ -29,6 +29,7 @@ use hyper::{
     http::HeaderValue,
     Method, Request, Uri,
 };
+use hyper_tls::HttpsConnector;
 
 use indexmap::IndexMap;
 #[cfg(feature = "http-listener")]
@@ -460,7 +461,8 @@ impl PrometheusBuilder {
             #[cfg(feature = "push-gateway")]
             ExporterConfig::PushGateway { endpoint, interval, username, password } => {
                 let exporter = async move {
-                    let client = Client::new();
+                    let https = HttpsConnector::new();
+                    let client = Client::builder().build::<_, hyper::Body>(https);
                     let auth = username.as_ref().map(|name| basic_auth(name, password.as_deref()));
 
                     loop {
