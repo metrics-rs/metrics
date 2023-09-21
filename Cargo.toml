@@ -1,7 +1,6 @@
 [workspace]
 members = [
   "metrics",
-  "metrics-macros",
   "metrics-util",
   "metrics-exporter-tcp",
   "metrics-exporter-prometheus",
