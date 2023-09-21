@@ -24,11 +24,12 @@ name = "macros"
 harness = false
 
 [dependencies]
-metrics-macros = { version = "^0.7", path = "../metrics-macros" }
 ahash = { version = "0.8", default-features = false }
 
 [target.'cfg(target_pointer_width = "32")'.dependencies]
-portable-atomic = { version = "1", default-features = false, features = ["fallback"] }
+portable-atomic = { version = "1", default-features = false, features = [
+    "fallback",
+] }
 
 [dev-dependencies]
 log = "0.4"
