@@ -39,7 +39,7 @@ fn macro_benchmark(c: &mut Criterion) {
             metrics::clear_recorder();
         }
         b.iter(|| {
-            counter!("counter_bench", 42);
+            counter!("counter_bench").increment(42);
         })
     });
     group.bench_function("uninitialized/with_static_labels", |b| {
@@ -47,13 +47,13 @@ fn macro_benchmark(c: &mut Criterion) {
             metrics::clear_recorder();
         }
         b.iter(|| {
-            counter!("counter_bench", 42, "request" => "http", "svc" => "admin");
+            counter!("counter_bench", "request" => "http", "svc" => "admin").increment(42);
         })
     });
     group.bench_function("initialized/no_labels", |b| {
         reset_recorder();
         b.iter(|| {
-            counter!("counter_bench", 42);
+            counter!("counter_bench").increment(42);
         });
         unsafe {
             metrics::clear_recorder();
@@ -62,7 +62,7 @@ fn macro_benchmark(c: &mut Criterion) {
     group.bench_function("initialized/with_static_labels", |b| {
         reset_recorder();
         b.iter(|| {
-            counter!("counter_bench", 42, "request" => "http", "svc" => "admin");
+            counter!("counter_bench", "request" => "http", "svc" => "admin").increment(42);
         });
         unsafe {
             metrics::clear_recorder();
@@ -73,7 +73,8 @@ fn macro_benchmark(c: &mut Criterion) {
 
         reset_recorder();
         b.iter(move || {
-            counter!("counter_bench", 42, "request" => "http", "uid" => label_val.clone());
+            counter!("counter_bench", "request" => "http", "uid" => label_val.clone())
+                .increment(42);
         });
         unsafe {
             metrics::clear_recorder();

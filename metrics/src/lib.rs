@@ -59,14 +59,23 @@
 //! Histograms take floating-point 64-bit numbers.
 //!
 //! ## Emission
-//! Metrics are emitted by utilizing the registration or emission macros.  There is a macro for
-//! registering and emitting each fundamental metric type:
-//! - [`register_counter!`], [`counter!`], and [`increment_counter!`] for counters
-//! - [`register_gauge!`], [`gauge!`], [`increment_gauge!`], and [`decrement_gauge!`] for gauges
-//! - [`register_histogram!`] and [`histogram!`] for histograms
+//!
+//! Metrics are emitted by utilizing the emission methods.  There is a macro for
+//! registering and returning a handle for each fundamental metric type:
+//!
+//! - [`counter!`] returns the [`Counter`] handle then
+//!     - [`Counter::increment`] increments the counter.
+//!     - [`Counter::absolute`] sets the counter.
+//! - [`gauge!`] returns the [`Gauge`] handle then
+//!     - [`Gauge::increment`] increments the gauge.
+//!     - [`Gauge::decrement`] decrements the gauge.
+//!     - [`Gauge::set`] sets the gauge.
+//! - [`histogram!`] for histograms then
+//!     - [`Histogram::record`] records a data point.
 //!
 //! Additionally, metrics can be described -- setting either the unit of measure or long-form
 //! description -- by using the `describe_*` macros:
+//!
 //! - [`describe_counter!`] for counters
 //! - [`describe_gauge!`] for gauges
 //! - [`describe_histogram!`] for histograms
@@ -115,8 +124,8 @@
 //!     let row_count = run_query(query);
 //!     let delta = start.elapsed();
 //!
-//!     histogram!("process.query_time", delta);
-//!     counter!("process.query_row_count", row_count);
+//!     histogram!("process.query_time").record(delta);
+//!     counter!("process.query_row_count").increment(row_count);
 //!
 //!     row_count
 //! }

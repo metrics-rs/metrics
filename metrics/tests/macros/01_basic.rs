@@ -1,19 +1,19 @@
-use metrics::{counter, describe_counter, register_counter, Unit};
+use metrics::{counter, describe_counter, Unit};
 
 #[allow(dead_code)]
 fn literal_key() {
     describe_counter!("abcdef", "a counter");
     describe_counter!("abcdef", Unit::Nanoseconds, "a counter");
-    let _ = register_counter!("abcdef");
-    counter!("abcdef", 1);
+    let _ = counter!("abcdef");
+    counter!("abcdef").increment(1);
 }
 
 #[allow(dead_code)]
 fn literal_key_literal_labels() {
     describe_counter!("abcdef", "a counter");
     describe_counter!("abcdef", Unit::Nanoseconds, "a counter");
-    let _ = register_counter!("abcdef", "uvw" => "xyz");
-    counter!("abcdef", 1, "uvw" => "xyz");
+    let _ = counter!("abcdef", "uvw" => "xyz");
+    counter!("abcdef", "uvw" => "xyz").increment(1);
 }
 
 #[allow(dead_code)]
@@ -21,8 +21,8 @@ fn nonliteral_key() {
     let some_u16 = 0u16;
     describe_counter!(format!("response_status_{}", some_u16), "a counter");
     describe_counter!(format!("response_status_{}", some_u16), Unit::Nanoseconds, "a counter");
-    let _ = register_counter!(format!("response_status_{}", some_u16));
-    counter!(format!("response_status_{}", some_u16), 1);
+    let _ = counter!(format!("response_status_{}", some_u16));
+    counter!(format!("response_status_{}", some_u16)).increment(1);
 }
 
 #[allow(dead_code)]
@@ -30,8 +30,8 @@ fn nonliteral_key_literal_labels() {
     let some_u16 = 0u16;
     describe_counter!(format!("response_status_{}", some_u16), "a counter");
     describe_counter!(format!("response_status_{}", some_u16), Unit::Nanoseconds, "a counter");
-    let _ = register_counter!(format!("response_status_{}", some_u16), "uvw" => "xyz");
-    counter!(format!("response_status_{}", some_u16), 1, "uvw" => "xyz");
+    let _ = counter!(format!("response_status_{}", some_u16), "uvw" => "xyz");
+    counter!(format!("response_status_{}", some_u16), "uvw" => "xyz").increment(1);
 }
 
 #[allow(dead_code)]
@@ -41,8 +41,8 @@ fn nonliteral_key_nonliteral_labels() {
     let labels = [("uvw", format!("{}!", dynamic_val))];
     describe_counter!(format!("response_status_{}", some_u16), "a counter");
     describe_counter!(format!("response_status_{}", some_u16), Unit::Nanoseconds, "a counter");
-    let _ = register_counter!(format!("response_status_{}", some_u16), &labels);
-    counter!(format!("response_status_{}", some_u16), 12, &labels);
+    let _ = counter!(format!("response_status_{}", some_u16), &labels);
+    counter!(format!("response_status_{}", some_u16), &labels).increment(12);
 }
 
 #[allow(dead_code)]
@@ -50,8 +50,8 @@ fn const_key() {
     const KEY: &str = "abcdef";
     describe_counter!(KEY, "a counter");
     describe_counter!(KEY, Unit::Nanoseconds, "a counter");
-    let _ = register_counter!(KEY);
-    counter!(KEY, 17);
+    let _ = counter!(KEY);
+    counter!(KEY).increment(17);
 }
 
 #[allow(dead_code)]

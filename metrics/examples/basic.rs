@@ -8,9 +8,8 @@
 use std::sync::Arc;
 
 use metrics::{
-    absolute_counter, counter, decrement_gauge, describe_counter, describe_gauge,
-    describe_histogram, gauge, histogram, increment_counter, increment_gauge, register_counter,
-    register_gauge, register_histogram, KeyName, Metadata, SharedString,
+    counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, KeyName,
+    Metadata, SharedString,
 };
 use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, Recorder, Unit};
 
@@ -119,54 +118,59 @@ fn main() {
     );
 
     // And registering them:
-    let counter1 = register_counter!("test_counter");
+    let counter1 = counter!("test_counter");
     counter1.increment(1);
-    let counter2 = register_counter!("test_counter", "type" => "absolute");
+    let counter2 = counter!("test_counter", "type" => "absolute");
     counter2.absolute(42);
 
-    let gauge1 = register_gauge!("test_gauge");
+    let gauge1 = gauge!("test_gauge");
     gauge1.increment(1.0);
-    let gauge2 = register_gauge!("test_gauge", "type" => "decrement");
+    let gauge2 = gauge!("test_gauge", "type" => "decrement");
     gauge2.decrement(1.0);
-    let gauge3 = register_gauge!("test_gauge", "type" => "set");
+    let gauge3 = gauge!("test_gauge", "type" => "set");
     gauge3.set(3.1459);
 
-    let histogram1 = register_histogram!("test_histogram");
+    let histogram1 = histogram!("test_histogram");
     histogram1.record(0.57721);
 
     // All the supported permutations of `counter!` and its increment/absolute versions:
-    counter!("bytes_sent", 64);
-    counter!("bytes_sent", 64, "listener" => "frontend");
-    counter!("bytes_sent", 64, "listener" => "frontend", "server" => server_name.clone());
-    counter!("bytes_sent", 64, common_labels);
+    counter!("bytes_sent").increment(64);
+    counter!("bytes_sent",  "listener" => "frontend").increment(64);
+    counter!("bytes_sent", "listener" => "frontend", "server" => server_name.clone()).increment(64);
+    counter!("bytes_sent", common_labels).increment(64);
 
-    increment_counter!("requests_processed");
-    increment_counter!("requests_processed", "request_type" => "admin");
-    increment_counter!("requests_processed", "request_type" => "admin", "server" => server_name.clone());
-    increment_counter!("requests_processed", common_labels);
+    counter!("requests_processed").increment(1);
+    counter!("requests_processed", "request_type" => "admin").increment(1);
+    counter!("requests_processed", "request_type" => "admin", "server" => server_name.clone())
+        .increment(1);
+    counter!("requests_processed", common_labels).increment(1);
 
-    absolute_counter!("bytes_sent", 64);
-    absolute_counter!("bytes_sent", 64, "listener" => "frontend");
-    absolute_counter!("bytes_sent", 64, "listener" => "frontend", "server" => server_name.clone());
-    absolute_counter!("bytes_sent", 64, common_labels);
+    counter!("bytes_sent").absolute(64);
+    counter!("bytes_sent", "listener" => "frontend").absolute(64);
+    counter!("bytes_sent", "listener" => "frontend", "server" => server_name.clone()).absolute(64);
+    counter!("bytes_sent", common_labels).absolute(64);
 
     // All the supported permutations of `gauge!` and its increment/decrement versions:
-    gauge!("connection_count", 300.0);
-    gauge!("connection_count", 300.0, "listener" => "frontend");
-    gauge!("connection_count", 300.0, "listener" => "frontend", "server" => server_name.clone());
-    gauge!("connection_count", 300.0, common_labels);
-    increment_gauge!("connection_count", 300.0);
-    increment_gauge!("connection_count", 300.0, "listener" => "frontend");
-    increment_gauge!("connection_count", 300.0, "listener" => "frontend", "server" => server_name.clone());
-    increment_gauge!("connection_count", 300.0, common_labels);
-    decrement_gauge!("connection_count", 300.0);
-    decrement_gauge!("connection_count", 300.0, "listener" => "frontend");
-    decrement_gauge!("connection_count", 300.0, "listener" => "frontend", "server" => server_name.clone());
-    decrement_gauge!("connection_count", 300.0, common_labels);
+    gauge!("connection_count").set(300.0);
+    gauge!("connection_count", "listener" => "frontend").set(300.0);
+    gauge!("connection_count", "listener" => "frontend", "server" => server_name.clone())
+        .set(300.0);
+    gauge!("connection_count", common_labels).set(300.0);
+    gauge!("connection_count").increment(300.0);
+    gauge!("connection_count", "listener" => "frontend").increment(300.0);
+    gauge!("connection_count", "listener" => "frontend", "server" => server_name.clone())
+        .increment(300.0);
+    gauge!("connection_count", common_labels).increment(300.0);
+    gauge!("connection_count").decrement(300.0);
+    gauge!("connection_count", "listener" => "frontend").decrement(300.0);
+    gauge!("connection_count", "listener" => "frontend", "server" => server_name.clone())
+        .decrement(300.0);
+    gauge!("connection_count", common_labels).decrement(300.0);
 
     // All the supported permutations of `histogram!`:
-    histogram!("svc.execution_time", 70.0);
-    histogram!("svc.execution_time", 70.0, "type" => "users");
-    histogram!("svc.execution_time", 70.0, "type" => "users", "server" => server_name.clone());
-    histogram!("svc.execution_time", 70.0, common_labels);
+    histogram!("svc.execution_time").record(70.0);
+    histogram!("svc.execution_time", "type" => "users").record(70.0);
+    histogram!("svc.execution_time", "type" => "users", "server" => server_name.clone())
+        .record(70.0);
+    histogram!("svc.execution_time", common_labels).record(70.0);
 }

@@ -95,7 +95,7 @@ fn test_basic_functionality() {
     let span = span!(Level::TRACE, "login", user, user.email = email);
     let _guard = span.enter();
 
-    counter!("login_attempts", 1, "service" => "login_service");
+    counter!("login_attempts", "service" => "login_service").increment(1);
 
     let snapshot = snapshotter.snapshot().into_vec();
 
@@ -123,15 +123,16 @@ fn test_macro_forms() {
     let _guard = span.enter();
 
     // No labels.
-    counter!("login_attempts_no_labels", 1);
+    counter!("login_attempts_no_labels").increment(1);
     // Static labels only.
-    counter!("login_attempts_static_labels", 1, "service" => "login_service");
+    counter!("login_attempts_static_labels", "service" => "login_service").increment(1);
     // Dynamic labels only.
     let node_name = "localhost".to_string();
-    counter!("login_attempts_dynamic_labels", 1, "node_name" => node_name.clone());
+    counter!("login_attempts_dynamic_labels", "node_name" => node_name.clone()).increment(1);
     // Static and dynamic.
-    counter!("login_attempts_static_and_dynamic_labels", 1,
-        "service" => "login_service", "node_name" => node_name.clone());
+    counter!("login_attempts_static_and_dynamic_labels",
+        "service" => "login_service", "node_name" => node_name.clone())
+    .increment(1);
 
     let snapshot = snapshotter.snapshot().into_vec();
 
@@ -185,7 +186,7 @@ fn test_no_labels() {
     let span = span!(Level::TRACE, "login");
     let _guard = span.enter();
 
-    counter!("login_attempts", 1);
+    counter!("login_attempts").increment(1);
 
     let snapshot = snapshotter.snapshot().into_vec();
 
@@ -205,7 +206,7 @@ fn test_multiple_paths_to_the_same_callsite() {
     let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
     let shared_fn = || {
-        counter!("my_counter", 1);
+        counter!("my_counter").increment(1);
     };
 
     let path1 = || {
@@ -279,7 +280,7 @@ fn test_nested_spans() {
         );
         let _guard = span.enter();
 
-        counter!("my_counter", 1);
+        counter!("my_counter").increment(1);
     };
 
     let outer = || {
@@ -331,7 +332,7 @@ fn test_label_filtering() {
     let span = span!(Level::TRACE, "login", user, user.email_span = email);
     let _guard = span.enter();
 
-    counter!("login_attempts", 1, "user.email" => "ferris@rust-lang.org");
+    counter!("login_attempts", "user.email" => "ferris@rust-lang.org").increment(1);
 
     let snapshot = snapshotter.snapshot().into_vec();
 
@@ -365,7 +366,7 @@ fn test_label_allowlist() {
     );
     let _guard = span.enter();
 
-    counter!("login_attempts", 1);
+    counter!("login_attempts").increment(1);
 
     let snapshot = snapshotter.snapshot().into_vec();
 
