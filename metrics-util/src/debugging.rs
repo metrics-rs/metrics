@@ -382,13 +382,13 @@ mod tests {
         recorder.install().expect("installing debugging recorder should not fail");
 
         let t1 = std::thread::spawn(|| {
-            counter!("test_counter", 43);
+            counter!("test_counter").increment(43);
 
             Snapshotter::current_thread_snapshot()
         });
 
         let t2 = std::thread::spawn(|| {
-            counter!("test_counter", 47);
+            counter!("test_counter").increment(47);
 
             Snapshotter::current_thread_snapshot()
         });

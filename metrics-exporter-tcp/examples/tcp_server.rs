@@ -1,9 +1,7 @@
 use std::thread;
 use std::time::Duration;
 
-use metrics::{
-    decrement_gauge, describe_histogram, histogram, increment_counter, increment_gauge, Unit,
-};
+use metrics::{counter, describe_histogram, gauge, histogram, Unit};
 use metrics_exporter_tcp::TcpBuilder;
 
 use quanta::Clock;
@@ -25,18 +23,19 @@ fn main() {
     );
 
     loop {
-        increment_counter!("tcp_server_loops", "system" => "foo");
+        counter!("tcp_server_loops", "system" => "foo").increment(1);
 
         if let Some(t) = last {
             let delta: Duration = clock.now() - t;
-            histogram!("tcp_server_loop_delta_secs", delta, "system" => "foo");
+            histogram!("tcp_server_loop_delta_secs", "system" => "foo").record(delta);
         }
 
         let increment_gauge = thread_rng().gen_bool(0.75);
+        let gauge = gauge!("lucky_iterations");
         if increment_gauge {
-            increment_gauge!("lucky_iterations", 1.0);
+            gauge.increment(1.0);
         } else {
-            decrement_gauge!("lucky_iterations", 1.0);
+            gauge.decrement(1.0);
         }
 
         last = Some(clock.now());
