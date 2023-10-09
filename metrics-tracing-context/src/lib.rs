@@ -45,7 +45,7 @@
 //! let span = span!(Level::TRACE, "login", user);
 //! let _guard = span.enter();
 //!
-//! counter!("login_attempts", 1, "service" => "login_service");
+//! counter!("login_attempts", "service" => "login_service").increment(1);
 //! ```
 //!
 //! The code above will emit a increment for a `login_attempts` counter with

@@ -258,12 +258,12 @@ mod tests {
 
         // Record some metrics, and make sure the atomics for each metric type are
         // incremented as we would expect them to be.
-        metrics::counter!("counter", 5);
-        metrics::increment_gauge!("gauge", 5.0);
-        metrics::increment_gauge!("gauge", 5.0);
-        metrics::histogram!("histogram", 5.0);
-        metrics::histogram!("histogram", 5.0);
-        metrics::histogram!("histogram", 5.0);
+        metrics::counter!("counter").increment(5);
+        metrics::gauge!("gauge").increment(5.0);
+        metrics::gauge!("gauge").increment(5.0);
+        metrics::histogram!("histogram").record(5.0);
+        metrics::histogram!("histogram").record(5.0);
+        metrics::histogram!("histogram").record(5.0);
 
         let _recorder = recoverable.into_inner();
         assert_eq!(counter.get(), 5);
@@ -272,9 +272,9 @@ mod tests {
 
         // Now that we've recovered the recorder, incrementing the same metrics should
         // not actually increment the value of the atomics for each metric type.
-        metrics::counter!("counter", 7);
-        metrics::increment_gauge!("gauge", 7.0);
-        metrics::histogram!("histogram", 7.0);
+        metrics::counter!("counter").increment(7);
+        metrics::gauge!("gauge").increment(7.0);
+        metrics::histogram!("histogram").record(7.0);
 
         assert_eq!(counter.get(), 5);
         assert_eq!(gauge.get(), 10);
@@ -293,12 +293,12 @@ mod tests {
 
         // Record some metrics, and make sure the atomics for each metric type are
         // incremented as we would expect them to be.
-        metrics::counter!("counter", 5);
-        metrics::increment_gauge!("gauge", 5.0);
-        metrics::increment_gauge!("gauge", 5.0);
-        metrics::histogram!("histogram", 5.0);
-        metrics::histogram!("histogram", 5.0);
-        metrics::histogram!("histogram", 5.0);
+        metrics::counter!("counter").increment(5);
+        metrics::gauge!("gauge").increment(5.0);
+        metrics::gauge!("gauge").increment(5.0);
+        metrics::histogram!("histogram").record(5.0);
+        metrics::histogram!("histogram").record(5.0);
+        metrics::histogram!("histogram").record(5.0);
 
         drop(recoverable.into_inner());
         assert_eq!(counter.get(), 5);
@@ -307,9 +307,9 @@ mod tests {
 
         // Now that we've recovered the recorder, incrementing the same metrics should
         // not actually increment the value of the atomics for each metric type.
-        metrics::counter!("counter", 7);
-        metrics::increment_gauge!("gauge", 7.0);
-        metrics::histogram!("histogram", 7.0);
+        metrics::counter!("counter").increment(7);
+        metrics::gauge!("gauge").increment(7.0);
+        metrics::histogram!("histogram").record(7.0);
 
         assert_eq!(counter.get(), 5);
         assert_eq!(gauge.get(), 10);

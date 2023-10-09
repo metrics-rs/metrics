@@ -2,22 +2,22 @@ use metrics::counter;
 
 #[allow(dead_code)]
 fn no_trailing_comma() {
-    counter!("qwe", 1);
+    counter!("qwe").increment(1);
     counter!(
-        "qwe", 1,
+        "qwe",
         "foo" => "bar"
-    );
-    counter!("qwe", 1, vec![]);
+    ).increment(1);
+    counter!("qwe", vec![]).increment(1);
 }
 
 #[allow(dead_code)]
 fn with_trailing_comma() {
-    counter!("qwe", 1,);
+    counter!("qwe",);
     counter!(
-        "qwe", 1,
+        "qwe", 
         "foo" => "bar",
-    );
-    counter!("qwe", 1, vec![],);
+    ).increment(1);
+    counter!("qwe", vec![],).increment(1);
 }
 
 fn main() {}

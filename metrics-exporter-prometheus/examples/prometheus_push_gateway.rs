@@ -4,10 +4,7 @@ use std::thread;
 use std::time::Duration;
 
 #[allow(unused_imports)]
-use metrics::{
-    decrement_gauge, gauge, histogram, increment_counter, increment_gauge, register_counter,
-    register_histogram,
-};
+use metrics::{counter, gauge, histogram};
 use metrics::{describe_counter, describe_histogram};
 #[allow(unused_imports)]
 use metrics_exporter_prometheus::PrometheusBuilder;
@@ -50,23 +47,24 @@ fn main() {
     let clock = Clock::new();
     let mut last = None;
 
-    increment_counter!("idle_metric");
-    gauge!("testing", 42.0);
+    counter!("idle_metric").increment(1);
+    gauge!("testing").set(42.0);
 
     // Loop over and over, pretending to do some work.
     loop {
-        increment_counter!("tcp_server_loops", "system" => "foo");
+        counter!("tcp_server_loops", "system" => "foo").increment(1);
 
         if let Some(t) = last {
             let delta: Duration = clock.now() - t;
-            histogram!("tcp_server_loop_delta_secs", delta, "system" => "foo");
+            histogram!("tcp_server_loop_delta_secs", "system" => "foo").record(delta);
         }
 
         let increment_gauge = thread_rng().gen_bool(0.75);
+        let gauge = gauge!("lucky_iterations");
         if increment_gauge {
-            increment_gauge!("lucky_iterations", 1.0);
+            gauge.increment(1.0);
         } else {
-            decrement_gauge!("lucky_iterations", 1.0);
+            gauge.decrement(1.0);
         }
 
         last = Some(clock.now());

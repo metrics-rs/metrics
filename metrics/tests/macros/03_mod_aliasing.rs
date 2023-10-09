@@ -11,12 +11,14 @@ pub mod framework {
 
 use framework::*; // This exposes mod `framework::metrics`.
 
-
 #[inline]
 pub fn register_metrics() {
-    ::metrics::register_counter!(
+    ::metrics::counter!(
         metrics::UPLOAD_METRIC_NAME,
-        &[(metrics::UPLOAD_METRIC_LABEL_PROCESS_TYPE, ""), (metrics::UPLOAD_METRIC_LABEL_SUCCESS, ""),]
+        &[
+            (metrics::UPLOAD_METRIC_LABEL_PROCESS_TYPE, ""),
+            (metrics::UPLOAD_METRIC_LABEL_SUCCESS, ""),
+        ]
     );
 }
 
