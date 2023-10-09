@@ -135,7 +135,7 @@ fn main() {
 
     // All the supported permutations of `counter!` and its increment/absolute versions:
     counter!("bytes_sent").increment(64);
-    counter!("bytes_sent",  "listener" => "frontend").increment(64);
+    counter!("bytes_sent", "listener" => "frontend").increment(64);
     counter!("bytes_sent", "listener" => "frontend", "server" => server_name.clone()).increment(64);
     counter!("bytes_sent", common_labels).increment(64);
 
