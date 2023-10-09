@@ -55,7 +55,7 @@ indexmap = { version = "1", default-features = false, optional = true }
 quanta = { version = "0.11", default-features = false, optional = true }
 sketches-ddsketch = { version = "0.2", default-features = false, optional = true }
 radix_trie = { version = "0.2", default-features = false, optional = true }
-ordered-float = { version = "3.4", default-features = false, optional = true }
+ordered-float = { version = "4.1", default-features = false, optional = true }
 num_cpus = { version = "1", default-features = false, optional = true }
 ahash = { version = "0.8", default-features = false, optional = true }
 hashbrown = { version = "=0.13.1", default-features = false, optional = true, features = ["ahash"] }
@@ -71,7 +71,7 @@ sketches-ddsketch = "0.2"
 ndarray = "0.15"
 ndarray-stats = "0.5"
 noisy_float = "0.2"
-ordered-float = "3.4"
+ordered-float = "4.1"
 predicates-core = "=1.0.5"
 predicates-tree = "=1.0.7"
 tracing = "0.1"
