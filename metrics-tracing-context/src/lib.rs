@@ -55,19 +55,18 @@
 //!
 //! # Implementation
 //!
-//! The integration layer works by capturing all fields present when a span is created and storing
-//! them as an extension to the span.  If a metric is emitted while a span is entered, we check that
-//! span to see if it has any fields in the extension data, and if it does, we add those fields as
-//! labels to the metric key.
+//! The integration layer works by capturing all fields present when a span is
+//! created or then new fields are recorded afterward, and storing them as an
+//! extension to the span.  If a metric is emitted while a span is entered, we
+//! check that span to see if it has any fields in the extension data, and if
+//! it does, we add those fields as labels to the metric key.
 //!
-//! There are two important behaviors to be aware of:
-//! - we only capture the fields present when the span is created
-//! - we store all fields that a span has, including the fields of its parent span(s)
+//! Be aware that we store all fields that a span has, including the fields of its parent span(s).
 //!
-//! ## Lack of dynamism
+//! ## Support for dynamism
 //!
 //! This means that if you use [`Span::record`][tracing::Span::record] to add fields to a span after
-//! it has been created, those fields will not be captured and added to your metric key.
+//! it has been created, those fields will be captured and added to your metric key.
 //!
 //! ## Span fields and ancestry
 //!
