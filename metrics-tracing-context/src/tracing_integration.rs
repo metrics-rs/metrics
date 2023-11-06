@@ -65,9 +65,8 @@ impl Visit for Labels {
 }
 
 impl Labels {
-    fn from_attributes(attrs: &Attributes<'_>) -> Labels {
+    fn from_record(record: &Record) -> Labels {
         let mut labels = Labels::default();
-        let record = Record::new(attrs.values());
         record.record(&mut labels);
         labels
     }
@@ -135,7 +134,7 @@ where
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, cx: Context<'_, S>) {
         let span = cx.span(id).expect("span must already exist!");
-        let mut labels = Labels::from_attributes(attrs);
+        let mut labels = Labels::from_record(&Record::new(attrs.values()));
 
         if let Some(parent) = span.parent() {
             if let Some(parent_labels) = parent.extensions().get::<Labels>() {
@@ -144,6 +143,24 @@ where
         }
 
         span.extensions_mut().insert(labels);
+    }
+
+    fn on_record(&self, id: &Id, values: &Record<'_>, cx: Context<'_, S>) {
+        let span = cx.span(id).expect("span must already exist!");
+        let mut labels = Labels::from_record(values);
+
+        if let Some(parent) = span.parent() {
+            if let Some(parent_labels) = parent.extensions().get::<Labels>() {
+                labels.extend_from_labels(parent_labels);
+            }
+        }
+
+        let ext = &mut span.extensions_mut();
+        if let Some(existing) = ext.get_mut::<Labels>() {
+            existing.extend_from_labels(&labels);
+        } else {
+            ext.insert(labels);
+        }
     }
 
     unsafe fn downcast_raw(&self, id: TypeId) -> Option<*const ()> {
