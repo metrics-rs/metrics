@@ -19,11 +19,6 @@ static USER_EMAIL: &[Label] = &[
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
 ];
 static USER_ID: &[Label] = &[Label::from_static_parts("user.id", "42")];
-static USER_EMAIL_ID: &[Label] = &[
-    Label::from_static_parts("user", "ferris"),
-    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
-    Label::from_static_parts("user.id", "42"),
-];
 static EMAIL_USER: &[Label] = &[
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
     Label::from_static_parts("user", "ferris"),
@@ -48,24 +43,11 @@ static NODE_USER_EMAIL: &[Label] = &[
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
 ];
-static NODE_USER_EMAIL_ID: &[Label] = &[
-    Label::from_static_parts("node_name", "localhost"),
-    Label::from_static_parts("user", "ferris"),
-    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
-    Label::from_static_parts("user.id", "42"),
-];
 static SVC_NODE_USER_EMAIL: &[Label] = &[
     Label::from_static_parts("service", "login_service"),
     Label::from_static_parts("node_name", "localhost"),
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
-];
-static SVC_NODE_USER_EMAIL_ID: &[Label] = &[
-    Label::from_static_parts("service", "login_service"),
-    Label::from_static_parts("node_name", "localhost"),
-    Label::from_static_parts("user", "ferris"),
-    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
-    Label::from_static_parts("user.id", "42"),
 ];
 static COMBINED_LABELS: &[Label] = &[
     Label::from_static_parts("shared_field", "inner"),
@@ -225,6 +207,50 @@ fn test_basic_functionality_then_record() {
 }
 
 #[test]
+fn test_rerecord() {
+    static USER_ID_42: &[Label] = &[Label::from_static_parts("user.id", "42")];
+    static USER_ID_123: &[Label] =
+        &[Label::from_static_parts("user.id", "42"), Label::from_static_parts("user.id", "123")];
+
+    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+
+    let span = span!(Level::TRACE, "login", user.id = tracing_core::field::Empty);
+    let _guard = span.enter();
+
+    span.record("user.id", 42);
+    counter!("login_attempts").increment(1);
+
+    span.record("user.id", 123);
+    counter!("login_attempts").increment(1);
+
+    let snapshot = snapshotter.snapshot().into_vec();
+
+    assert_eq!(
+        snapshot,
+        vec![
+            (
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::from_static_parts(LOGIN_ATTEMPTS, USER_ID_42)
+                ),
+                None,
+                None,
+                DebugValue::Counter(1),
+            ),
+            (
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::from_static_parts(LOGIN_ATTEMPTS, USER_ID_123)
+                ),
+                None,
+                None,
+                DebugValue::Counter(1),
+            )
+        ]
+    );
+}
+
+#[test]
 fn test_macro_forms() {
     let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
@@ -284,82 +310,6 @@ fn test_macro_forms() {
                 CompositeKey::new(
                     MetricKind::Counter,
                     Key::from_static_parts(LOGIN_ATTEMPTS_BOTH, SVC_NODE_USER_EMAIL),
-                ),
-                None,
-                None,
-                DebugValue::Counter(1),
-            ),
-        ]
-    );
-}
-
-#[test]
-fn test_macro_forms_record() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
-
-    let user = "ferris";
-    let email = "ferris@rust-lang.org";
-    let span = span!(
-        Level::TRACE,
-        "login",
-        user,
-        user.email = email,
-        user.id = tracing_core::field::Empty,
-    );
-    let _guard = span.enter();
-
-    span.record("user.id", 42);
-    // No labels.
-    counter!("login_attempts_no_labels").increment(1);
-    // Static labels only.
-    counter!("login_attempts_static_labels", "service" => "login_service").increment(1);
-    // Dynamic labels only.
-    let node_name = "localhost".to_string();
-    counter!("login_attempts_dynamic_labels", "node_name" => node_name.clone()).increment(1);
-    // Static and dynamic.
-    counter!(
-        "login_attempts_static_and_dynamic_labels",
-        "service" => "login_service",
-        "node_name" => node_name,
-    )
-    .increment(1);
-
-    let snapshot = snapshotter.snapshot().into_vec();
-
-    assert_eq!(
-        snapshot,
-        vec![
-            (
-                CompositeKey::new(
-                    MetricKind::Counter,
-                    Key::from_static_parts(LOGIN_ATTEMPTS_NONE, USER_EMAIL_ID)
-                ),
-                None,
-                None,
-                DebugValue::Counter(1),
-            ),
-            (
-                CompositeKey::new(
-                    MetricKind::Counter,
-                    Key::from_static_parts(LOGIN_ATTEMPTS_STATIC, SVC_USER_EMAIL_ID),
-                ),
-                None,
-                None,
-                DebugValue::Counter(1),
-            ),
-            (
-                CompositeKey::new(
-                    MetricKind::Counter,
-                    Key::from_static_parts(LOGIN_ATTEMPTS_DYNAMIC, NODE_USER_EMAIL_ID),
-                ),
-                None,
-                None,
-                DebugValue::Counter(1),
-            ),
-            (
-                CompositeKey::new(
-                    MetricKind::Counter,
-                    Key::from_static_parts(LOGIN_ATTEMPTS_BOTH, SVC_NODE_USER_EMAIL_ID),
                 ),
                 None,
                 None,
