@@ -147,13 +147,7 @@ where
 
     fn on_record(&self, id: &Id, values: &Record<'_>, cx: Context<'_, S>) {
         let span = cx.span(id).expect("span must already exist!");
-        let mut labels = Labels::from_record(values);
-
-        if let Some(parent) = span.parent() {
-            if let Some(parent_labels) = parent.extensions().get::<Labels>() {
-                labels.extend_from_labels(parent_labels);
-            }
-        }
+        let labels = Labels::from_record(values);
 
         let ext = &mut span.extensions_mut();
         if let Some(existing) = ext.get_mut::<Labels>() {
