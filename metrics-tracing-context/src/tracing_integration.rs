@@ -1,28 +1,37 @@
 //! The code that integrates with the `tracing` crate.
 
+use indexmap::IndexMap;
 use lockfree_object_pool::{LinearObjectPool, LinearOwnedReusable};
-use metrics::{Key, Label};
+use metrics::{Key, Label, SharedString};
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
-use std::{any::TypeId, marker::PhantomData};
+use std::{any::TypeId, cmp, marker::PhantomData};
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{field::Visit, Dispatch, Field, Subscriber};
 use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 
-fn get_pool() -> &'static Arc<LinearObjectPool<Vec<Label>>> {
-    static POOL: OnceCell<Arc<LinearObjectPool<Vec<Label>>>> = OnceCell::new();
-    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(Vec::new, Vec::clear)))
+pub(crate) type Map = IndexMap<SharedString, Label>;
+
+fn get_pool() -> &'static Arc<LinearObjectPool<Map>> {
+    static POOL: OnceCell<Arc<LinearObjectPool<Map>>> = OnceCell::new();
+    POOL.get_or_init(|| Arc::new(LinearObjectPool::new(Map::new, Map::clear)))
 }
+
 /// Span fields mapped as metrics labels.
 ///
 /// Hidden from documentation as there is no need for end users to ever touch this type, but it must
 /// be public in order to be pulled in by external benchmark code.
 #[doc(hidden)]
-pub struct Labels(pub LinearOwnedReusable<Vec<Label>>);
+pub struct Labels(pub LinearOwnedReusable<Map>);
 
 impl Labels {
     pub(crate) fn extend_from_labels(&mut self, other: &Labels) {
-        self.0.extend_from_slice(other.as_ref());
+        let new_len = cmp::max(self.as_ref().len(), other.as_ref().len());
+        let additional = new_len - self.as_ref().len();
+        self.0.reserve(additional);
+        for (k, v) in other.as_ref() {
+            self.0.insert(k.clone(), v.clone());
+        }
     }
 }
 
@@ -35,32 +44,32 @@ impl Default for Labels {
 impl Visit for Labels {
     fn record_str(&mut self, field: &Field, value: &str) {
         let label = Label::new(field.name(), value.to_string());
-        self.0.push(label);
+        self.0.insert(field.name().into(), label);
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
         let label = Label::from_static_parts(field.name(), if value { "true" } else { "false" });
-        self.0.push(label);
+        self.0.insert(field.name().into(), label);
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
         let mut buf = itoa::Buffer::new();
         let s = buf.format(value);
         let label = Label::new(field.name(), s.to_string());
-        self.0.push(label);
+        self.0.insert(field.name().into(), label);
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
         let mut buf = itoa::Buffer::new();
         let s = buf.format(value);
         let label = Label::new(field.name(), s.to_string());
-        self.0.push(label);
+        self.0.insert(field.name().into(), label);
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        let value_string = format!("{:?}", value);
+        let value_string = format!("{value:?}");
         let label = Label::new(field.name(), value_string);
-        self.0.push(label);
+        self.0.insert(field.name().into(), label);
     }
 }
 
@@ -72,8 +81,8 @@ impl Labels {
     }
 }
 
-impl AsRef<[Label]> for Labels {
-    fn as_ref(&self) -> &[Label] {
+impl AsRef<Map> for Labels {
+    fn as_ref(&self) -> &Map {
         &self.0
     }
 }
@@ -87,7 +96,7 @@ impl WithContext {
         &self,
         dispatch: &Dispatch,
         id: &Id,
-        f: &mut dyn FnMut(&[Label]) -> Option<Key>,
+        f: &mut dyn FnMut(&Map) -> Option<Key>,
     ) -> Option<Key> {
         let mut ff = |labels: &Labels| f(labels.as_ref());
         (self.with_labels)(dispatch, id, &mut ff)

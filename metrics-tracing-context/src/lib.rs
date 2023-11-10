@@ -65,7 +65,9 @@
 //! ## Support for dynamism
 //!
 //! If you use [`Span::record`][tracing::Span::record] to add fields to a span after it has been
-//! created, those fields will be captured and added to your metric key.
+//! created, those fields will be captured and added to your metric key.  Multiple records of the
+//! same field would overwrite it, leaving the most recent value.  This way you can change any of
+//! the metrics keys coming from span fields.
 //!
 //! ## Span fields and ancestry
 //!
@@ -93,20 +95,17 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 
-use metrics::{
-    Counter, Gauge, Histogram, Key, KeyName, Label, Metadata, Recorder, SharedString, Unit,
-};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
 use metrics_util::layers::Layer;
 
 pub mod label_filter;
 mod tracing_integration;
 
 pub use label_filter::LabelFilter;
-use tracing_integration::WithContext;
 pub use tracing_integration::{Labels, MetricsLayer};
+use tracing_integration::{Map, WithContext};
 
-/// [`TracingContextLayer`] provides an implementation of a [`Layer`][metrics_util::layers::Layer]
-/// for [`TracingContext`].
+/// [`TracingContextLayer`] provides an implementation of a [`Layer`] for [`TracingContext`].
 pub struct TracingContextLayer<F> {
     label_filter: F,
 }
@@ -172,22 +171,20 @@ where
                 // We're currently within a live tracing span, so see if we have an available
                 // metrics context to grab any fields/labels out of.
                 if let Some(ctx) = dispatch.downcast_ref::<WithContext>() {
-                    let mut f = |new_labels: &[Label]| {
-                        if !new_labels.is_empty() {
+                    let mut f = |new_labels: &Map| {
+                        (!new_labels.is_empty()).then(|| {
                             let (name, mut labels) = key.clone().into_parts();
 
                             let filtered_labels = new_labels
-                                .iter()
+                                .values()
                                 .filter(|label| {
                                     self.label_filter.should_include_label(&name, label)
                                 })
                                 .cloned();
                             labels.extend(filtered_labels);
 
-                            Some(Key::from_parts(name, labels))
-                        } else {
-                            None
-                        }
+                            Key::from_parts(name, labels)
+                        })
                     };
 
                     // Pull in the span's fields/labels if they exist.

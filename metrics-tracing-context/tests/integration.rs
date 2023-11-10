@@ -18,6 +18,11 @@ static USER_EMAIL: &[Label] = &[
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
 ];
+static USER_EMAIL_ATTEMPT: &[Label] = &[
+    Label::from_static_parts("user", "ferris"),
+    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
+    Label::from_static_parts("attempt", "42"),
+];
 static USER_ID: &[Label] = &[Label::from_static_parts("user.id", "42")];
 static EMAIL_USER: &[Label] = &[
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
@@ -50,10 +55,9 @@ static SVC_NODE_USER_EMAIL: &[Label] = &[
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
 ];
 static COMBINED_LABELS: &[Label] = &[
-    Label::from_static_parts("shared_field", "inner"),
+    Label::from_static_parts("shared_field", "outer"),
     Label::from_static_parts("inner_specific", "foo"),
     Label::from_static_parts("inner_specific_dynamic", "foo_dynamic"),
-    Label::from_static_parts("shared_field", "outer"),
     Label::from_static_parts("outer_specific", "bar"),
     Label::from_static_parts("outer_specific_dynamic", "bar_dynamic"),
 ];
@@ -209,8 +213,7 @@ fn test_basic_functionality_then_record() {
 #[test]
 fn test_rerecord() {
     static USER_ID_42: &[Label] = &[Label::from_static_parts("user.id", "42")];
-    static USER_ID_123: &[Label] =
-        &[Label::from_static_parts("user.id", "42"), Label::from_static_parts("user.id", "123")];
+    static USER_ID_123: &[Label] = &[Label::from_static_parts("user.id", "123")];
 
     let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
@@ -247,6 +250,42 @@ fn test_rerecord() {
                 DebugValue::Counter(1),
             )
         ]
+    );
+}
+
+#[test]
+fn test_loop() {
+    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+
+    let user = "ferris";
+    let email = "ferris@rust-lang.org";
+    let span = span!(
+        Level::TRACE,
+        "login",
+        user,
+        user.email = email,
+        attempt = tracing_core::field::Empty,
+    );
+    let _guard = span.enter();
+
+    for attempt in 1..=42 {
+        span.record("attempt", attempt);
+    }
+    counter!("login_attempts").increment(1);
+
+    let snapshot = snapshotter.snapshot().into_vec();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::from_static_parts(LOGIN_ATTEMPTS, USER_EMAIL_ATTEMPT)
+            ),
+            None,
+            None,
+            DebugValue::Counter(1),
+        )]
     );
 }
 
@@ -345,7 +384,7 @@ fn test_no_labels() {
 fn test_no_labels_record() {
     let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
-    let span = span!(Level::TRACE, "login", user.id = tracing_core::field::Empty,);
+    let span = span!(Level::TRACE, "login", user.id = tracing_core::field::Empty);
     let _guard = span.enter();
 
     span.record("user.id", 42);
