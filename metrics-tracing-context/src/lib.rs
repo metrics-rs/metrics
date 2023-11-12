@@ -107,8 +107,7 @@ pub use label_filter::LabelFilter;
 use tracing_integration::WithContext;
 pub use tracing_integration::{Labels, MetricsLayer};
 
-/// [`TracingContextLayer`] provides an implementation of a [`Layer`][metrics_util::layers::Layer]
-/// for [`TracingContext`].
+/// [`TracingContextLayer`] provides an implementation of a [`Layer`] for [`TracingContext`].
 pub struct TracingContextLayer<F> {
     label_filter: F,
 }
