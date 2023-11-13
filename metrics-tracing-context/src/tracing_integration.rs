@@ -131,8 +131,7 @@ where
             .expect("subscriber should downcast to expected type; this is a bug!");
         let span = subscriber.span(id).expect("registry should have a span for the current ID");
 
-        let result =
-            if let Some(labels) = span.extensions().get::<Labels>() { f(labels) } else { None };
+        let result = span.extensions().get::<Labels>().and_then(f);
         result
     }
 }
