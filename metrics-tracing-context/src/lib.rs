@@ -55,19 +55,25 @@
 //!
 //! # Implementation
 //!
-//! The integration layer works by capturing all fields present when a span is created or then
-//! new fields are recorded afterward, and storing them as an extension to the span.  If a metric
-//! is emitted while a span is entered, we check that span to see if it has any fields in the
-//! extension data, and if it does, we add those fields as labels to the metric key.
+//! The integration layer works by capturing all fields that are present when a span is created,
+//! as well as fields recorded after the fact, and storing them as an extension to the span. If
+//! a metric is emitted while a span is entered, any fields captured for that span will be added
+//! to the metric as additional labels.
 //!
-//! Be aware that we store all fields that a span has, including the fields of its parent span(s).
+//! Be aware that we recursively capture the fields of a span, including fields from
+//! parent spans, and use them when generating metric labels. This means that if a metric is being
+//! emitted in span B, which is a child of span A, and span A has field X, and span B has field Y,
+//! then the metric labels will include both field X and Y. This applies regardless of how many
+//! nested spans are currently entered.
 //!
-//! ## Support for dynamism
+//! ## Duplicate span fields
 //!
-//! If you use [`Span::record`][tracing::Span::record] to add fields to a span after it has been
-//! created, those fields will be captured and added to your metric key.  Multiple records of the
-//! same field would overwrite it, leaving the most recent value.  This way you can change any of
-//! the metrics keys coming from span fields.
+//! When span fields are captured, they are deduplicated such that only the most recent value is kept.
+//! For merging parent span fields into the current span fields, the fields from the current span have
+//! the highest priority. Additionally, when using [`Span::record`][tracing::Span::record] to add fields
+//! to a span after it has been created, the same behavior applies. This means that recording a field
+//! multiple times only keeps the most recently recorded value, including if a field was already present
+//! from a parent span and is then recorded dynamically in the current span.
 //!
 //! ## Span fields and ancestry
 //!

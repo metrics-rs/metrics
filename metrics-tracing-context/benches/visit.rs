@@ -3,7 +3,7 @@ use std::sync::Arc;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use indexmap::IndexMap;
 use lockfree_object_pool::LinearObjectPool;
-use metrics::{Label, SharedString};
+use metrics::Label;
 use metrics_tracing_context::Labels;
 use once_cell::sync::OnceCell;
 use tracing::Metadata;
@@ -14,7 +14,7 @@ use tracing_core::{
     Callsite, Interest,
 };
 
-pub(crate) type Map = IndexMap<SharedString, Label>;
+type Map = IndexMap<&'static str, Label>;
 
 fn get_pool() -> &'static Arc<LinearObjectPool<Map>> {
     static POOL: OnceCell<Arc<LinearObjectPool<Map>>> = OnceCell::new();
