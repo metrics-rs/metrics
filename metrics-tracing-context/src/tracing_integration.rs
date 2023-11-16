@@ -2,7 +2,7 @@
 
 use indexmap::IndexMap;
 use lockfree_object_pool::{LinearObjectPool, LinearOwnedReusable};
-use metrics::{Key, Label};
+use metrics::{Key, SharedString};
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 use std::{any::TypeId, cmp, marker::PhantomData};
@@ -10,7 +10,7 @@ use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{field::Visit, Dispatch, Field, Subscriber};
 use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
 
-pub(crate) type Map = IndexMap<&'static str, Label>;
+pub(crate) type Map = IndexMap<SharedString, SharedString>;
 
 fn get_pool() -> &'static Arc<LinearObjectPool<Map>> {
     static POOL: OnceCell<Arc<LinearObjectPool<Map>>> = OnceCell::new();
@@ -30,7 +30,7 @@ impl Labels {
         let additional = new_len - self.as_ref().len();
         self.0.reserve(additional);
         for (k, v) in other.as_ref() {
-            self.0.insert(k, v.clone());
+            self.0.insert(k.clone(), v.clone());
         }
     }
 }
@@ -43,33 +43,27 @@ impl Default for Labels {
 
 impl Visit for Labels {
     fn record_str(&mut self, field: &Field, value: &str) {
-        let label = Label::new(field.name(), value.to_string());
-        self.0.insert(field.name(), label);
+        self.0.insert(field.name().into(), value.to_owned().into());
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
-        let label = Label::from_static_parts(field.name(), if value { "true" } else { "false" });
-        self.0.insert(field.name(), label);
+        self.0.insert(field.name().into(), if value { "true" } else { "false" }.into());
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
         let mut buf = itoa::Buffer::new();
         let s = buf.format(value);
-        let label = Label::new(field.name(), s.to_string());
-        self.0.insert(field.name(), label);
+        self.0.insert(field.name().into(), s.to_owned().into());
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
         let mut buf = itoa::Buffer::new();
         let s = buf.format(value);
-        let label = Label::new(field.name(), s.to_string());
-        self.0.insert(field.name(), label);
+        self.0.insert(field.name().into(), s.to_owned().into());
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        let value_string = format!("{value:?}");
-        let label = Label::new(field.name(), value_string);
-        self.0.insert(field.name(), label);
+        self.0.insert(field.name().into(), format!("{value:?}").into());
     }
 }
 
@@ -96,9 +90,9 @@ impl WithContext {
         &self,
         dispatch: &Dispatch,
         id: &Id,
-        f: &mut dyn FnMut(&Map) -> Option<Key>,
+        f: &mut dyn FnMut(Map) -> Option<Key>,
     ) -> Option<Key> {
-        let mut ff = |labels: &Labels| f(labels.as_ref());
+        let mut ff = |labels: &Labels| f(labels.0.clone());
         (self.with_labels)(dispatch, id, &mut ff)
     }
 }
@@ -132,7 +126,7 @@ where
         let span = subscriber.span(id).expect("registry should have a span for the current ID");
 
         let ext = span.extensions();
-        ext.get::<Labels>().and_then(f)
+        f(ext.get::<Labels>()?)
     }
 }
 

@@ -101,7 +101,9 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
+use metrics::{
+    Counter, Gauge, Histogram, Key, KeyName, Label, Metadata, Recorder, SharedString, Unit,
+};
 use metrics_util::layers::Layer;
 
 pub mod label_filter;
@@ -173,32 +175,27 @@ where
         // doing the iteration would likely exceed the cost of simply constructing the new key.
         tracing::dispatcher::get_default(|dispatch| {
             let current = dispatch.current_span();
-            if let Some(id) = current.id() {
-                // We're currently within a live tracing span, so see if we have an available
-                // metrics context to grab any fields/labels out of.
-                if let Some(ctx) = dispatch.downcast_ref::<WithContext>() {
-                    let mut f = |new_labels: &Map| {
-                        (!new_labels.is_empty()).then(|| {
-                            let (name, mut labels) = key.clone().into_parts();
+            let id = current.id()?;
+            let ctx = dispatch.downcast_ref::<WithContext>()?;
 
-                            let filtered_labels = new_labels
-                                .values()
-                                .filter(|label| {
-                                    self.label_filter.should_include_label(&name, label)
-                                })
-                                .cloned();
-                            labels.extend(filtered_labels);
+            let mut f = |mut span_labels: Map| {
+                (!span_labels.is_empty()).then(|| {
+                    let (name, labels) = key.clone().into_parts();
 
-                            Key::from_parts(name, labels)
-                        })
-                    };
+                    span_labels.extend(labels.into_iter().map(Label::into_parts));
 
-                    // Pull in the span's fields/labels if they exist.
-                    return ctx.with_labels(dispatch, id, &mut f);
-                }
-            }
+                    let labels = span_labels
+                        .into_iter()
+                        .map(|(key, value)| Label::new(key.clone(), value.clone()))
+                        .filter(|label| self.label_filter.should_include_label(&name, label))
+                        .collect::<Vec<_>>();
 
-            None
+                    Key::from_parts(name, labels)
+                })
+            };
+
+            // Pull in the span's fields/labels if they exist.
+            ctx.with_labels(dispatch, id, &mut f)
         })
     }
 }

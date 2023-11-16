@@ -7,6 +7,8 @@ use tracing::dispatcher::{set_default, DefaultGuard, Dispatch};
 use tracing::{span, Level};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
 
+use pretty_assertions::assert_eq;
+
 static TEST_MUTEX: Mutex<()> = const_mutex(());
 static LOGIN_ATTEMPTS: &str = "login_attempts";
 static LOGIN_ATTEMPTS_NONE: &str = "login_attempts_no_labels";
@@ -24,35 +26,32 @@ static USER_EMAIL_ATTEMPT: &[Label] = &[
     Label::from_static_parts("attempt", "42"),
 ];
 static USER_ID: &[Label] = &[Label::from_static_parts("user.id", "42")];
-static EMAIL_USER: &[Label] = &[
-    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
-    Label::from_static_parts("user", "ferris"),
-];
+static EMAIL_USER: &[Label] = &[Label::from_static_parts("user", "ferris")];
 static SVC_ENV: &[Label] = &[
     Label::from_static_parts("service", "login_service"),
     Label::from_static_parts("env", "test"),
 ];
 static SVC_USER_EMAIL: &[Label] = &[
-    Label::from_static_parts("service", "login_service"),
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
+    Label::from_static_parts("service", "login_service"),
 ];
 static SVC_USER_EMAIL_ID: &[Label] = &[
-    Label::from_static_parts("service", "login_service"),
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
     Label::from_static_parts("user.id", "42"),
+    Label::from_static_parts("service", "login_service"),
 ];
 static NODE_USER_EMAIL: &[Label] = &[
-    Label::from_static_parts("node_name", "localhost"),
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
+    Label::from_static_parts("node_name", "localhost"),
 ];
 static SVC_NODE_USER_EMAIL: &[Label] = &[
-    Label::from_static_parts("service", "login_service"),
-    Label::from_static_parts("node_name", "localhost"),
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
+    Label::from_static_parts("service", "login_service"),
+    Label::from_static_parts("node_name", "localhost"),
 ];
 static COMBINED_LABELS: &[Label] = &[
     Label::from_static_parts("shared_field", "outer"),
@@ -281,6 +280,34 @@ fn test_loop() {
             CompositeKey::new(
                 MetricKind::Counter,
                 Key::from_static_parts(LOGIN_ATTEMPTS, USER_EMAIL_ATTEMPT)
+            ),
+            None,
+            None,
+            DebugValue::Counter(1),
+        )]
+    );
+}
+
+#[test]
+fn test_record_does_not_overwrite() {
+    static USER_ID_42: &[Label] = &[Label::from_static_parts("user.id", "42")];
+
+    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+
+    let span = span!(Level::TRACE, "login", user.id = tracing_core::field::Empty);
+    let _guard = span.enter();
+
+    span.record("user.id", 666);
+    counter!("login_attempts", "user.id" => "42").increment(1);
+
+    let snapshot = snapshotter.snapshot().into_vec();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::from_static_parts(LOGIN_ATTEMPTS, USER_ID_42)
             ),
             None,
             None,
