@@ -186,7 +186,7 @@ where
 
                     let labels = span_labels
                         .into_iter()
-                        .map(|(key, value)| Label::new(key.clone(), value.clone()))
+                        .map(|(key, value)| Label::new(key, value))
                         .filter(|label| self.label_filter.should_include_label(&name, label))
                         .collect::<Vec<_>>();
 
