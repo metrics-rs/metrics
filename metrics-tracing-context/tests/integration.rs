@@ -1,4 +1,9 @@
-use metrics::{counter, Key, KeyName, Label};
+#![deny(unreachable_patterns)]
+
+use std::panic;
+
+use itertools::Itertools as _;
+use metrics::{counter, Key, KeyName, Label, SharedString};
 use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::debugging::{DebugValue, DebuggingRecorder, Snapshotter};
 use metrics_util::{layers::Layer, CompositeKey, MetricKind};
@@ -54,7 +59,7 @@ static SVC_NODE_USER_EMAIL: &[Label] = &[
     Label::from_static_parts("node_name", "localhost"),
 ];
 static COMBINED_LABELS: &[Label] = &[
-    Label::from_static_parts("shared_field", "outer"),
+    Label::from_static_parts("shared_field", "inner"),
     Label::from_static_parts("inner_specific", "foo"),
     Label::from_static_parts("inner_specific_dynamic", "foo_dynamic"),
     Label::from_static_parts("outer_specific", "bar"),
@@ -608,4 +613,210 @@ fn test_label_allowlist() {
             DebugValue::Counter(1),
         )]
     );
+}
+
+#[tracing_test::traced_test]
+#[test]
+fn test_all_permutations() {
+    let perms = (0..9).map(|_| [false, true]).multi_cartesian_product();
+
+    for v in perms {
+        let &[metric_has_labels, in_span, span_has_fields, span_field_same_as_metric, span_has_parent, parent_field_same_as_span, span_field_is_empty, record_field, emit_before_recording] =
+            &*v
+        else {
+            unreachable!("{:?}, {}", v, v.len());
+        };
+
+        test(
+            metric_has_labels,
+            in_span,
+            span_has_fields,
+            span_field_same_as_metric,
+            span_has_parent,
+            parent_field_same_as_span,
+            span_field_is_empty,
+            record_field,
+            emit_before_recording,
+        );
+    }
+}
+
+#[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments, clippy::too_many_lines)]
+fn test(
+    metric_has_labels: bool,
+    in_span: bool,
+    span_has_fields: bool,
+    span_field_same_as_metric: bool,
+    span_has_parent: bool,
+    parent_field_same_as_span: bool,
+    span_field_is_empty: bool,
+    record_field: bool,
+    emit_before_recording: bool,
+) {
+    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+
+    let parent = if span_field_same_as_metric && parent_field_same_as_span {
+        tracing::trace_span!("outer", user.email = "changed@domain.com")
+    } else {
+        tracing::trace_span!("outer", user.id = 999)
+    };
+
+    let _parent_guard = span_has_parent.then(|| parent.enter());
+
+    let span = if span_has_fields {
+        match (span_field_same_as_metric, span_field_is_empty) {
+            (false, false) => tracing::trace_span!("login", user.id = 666),
+            (false, true) => tracing::trace_span!("login", user.id = tracing_core::field::Empty),
+            (true, false) => tracing::trace_span!("login", user.email = "user@domain.com"),
+            (true, true) => tracing::trace_span!("login", user.email = tracing_core::field::Empty),
+        }
+    } else {
+        tracing::trace_span!("login")
+    };
+
+    let _guard = in_span.then(|| span.enter());
+
+    let inc = || {
+        if metric_has_labels {
+            counter!("login_attempts", "user.email" => "ferris@rust-lang.org").increment(1);
+        } else {
+            counter!("login_attempts").increment(1);
+        }
+    };
+
+    if emit_before_recording {
+        inc();
+    }
+
+    if record_field {
+        span.record("user.id", 42);
+    }
+
+    inc();
+
+    let snapshot = snapshotter.snapshot().into_vec();
+
+    let expected1: (CompositeKey, Option<metrics::Unit>, Option<SharedString>, DebugValue) = (
+        CompositeKey::new(
+            MetricKind::Counter,
+            Key::from_parts(
+                LOGIN_ATTEMPTS,
+                IntoIterator::into_iter([
+                    (metric_has_labels
+                        && in_span
+                        && span_has_fields
+                        && span_field_same_as_metric
+                        && span_has_parent
+                        && !span_field_is_empty)
+                        .then(|| Label::new("user.email", "ferris@rust-lang.org")),
+                    (in_span
+                        && span_has_fields
+                        && !span_field_same_as_metric
+                        && !span_field_is_empty
+                        && record_field
+                        && emit_before_recording)
+                        .then(|| Label::new("user.id", "666")),
+                    (in_span
+                        && span_has_fields
+                        && !span_field_same_as_metric
+                        && span_has_parent
+                        && span_field_is_empty
+                        && record_field
+                        && emit_before_recording)
+                        .then(|| Label::new("user.id", "999")),
+                    (metric_has_labels
+                        && !(in_span
+                            && span_has_fields
+                            && span_field_same_as_metric
+                            && span_has_parent
+                            && !span_field_is_empty))
+                        .then(|| Label::new("user.email", "ferris@rust-lang.org")),
+                ])
+                .flatten()
+                .collect::<Vec<_>>(),
+            ),
+        ),
+        None,
+        None,
+        DebugValue::Counter(1),
+    );
+
+    let labels2 = IntoIterator::into_iter([
+        (metric_has_labels
+            && in_span
+            && span_has_fields
+            && span_field_same_as_metric
+            && span_has_parent
+            && !span_field_is_empty)
+            .then(|| Label::new("user.email", "ferris@rust-lang.org")),
+        (in_span && span_has_fields)
+            .then(|| {
+                match (
+                    metric_has_labels,
+                    span_field_same_as_metric,
+                    span_field_is_empty,
+                    record_field,
+                ) {
+                    (_, false, _, true) => Some(Label::new("user.id", "42")),
+                    (_, false, false, false) => Some(Label::new("user.id", "666")),
+                    (false, true, false, _) => Some(Label::new("user.email", "user@domain.com")),
+                    _ => None,
+                }
+            })
+            .flatten(),
+        if span_has_parent
+            && (!in_span || !span_has_fields || span_field_is_empty)
+            && parent_field_same_as_span
+            && span_field_same_as_metric
+            && !metric_has_labels
+        {
+            Some(Label::new("user.email", "changed@domain.com"))
+        } else if !span_has_parent
+            || span_field_same_as_metric && metric_has_labels && parent_field_same_as_span
+            || in_span
+                && span_has_fields
+                && ((parent_field_same_as_span || !span_field_same_as_metric)
+                    && !span_field_is_empty
+                    || !span_field_same_as_metric && record_field)
+        {
+            None
+        } else {
+            Some(Label::new("user.id", "999"))
+        },
+        (metric_has_labels
+            && !(in_span
+                && span_has_fields
+                && span_field_same_as_metric
+                && span_has_parent
+                && !span_field_is_empty))
+            .then(|| Label::new("user.email", "ferris@rust-lang.org")),
+    ])
+    .flatten()
+    .collect::<Vec<_>>();
+
+    let expected2 = (
+        CompositeKey::new(MetricKind::Counter, Key::from_parts(LOGIN_ATTEMPTS, labels2)),
+        None,
+        None,
+        DebugValue::Counter(
+            if !emit_before_recording
+                || in_span && span_has_fields && !span_field_same_as_metric && record_field
+            {
+                1
+            } else {
+                2
+            },
+        ),
+    );
+    let expected: Vec<_> = (in_span
+        && span_has_fields
+        && !span_field_same_as_metric
+        && record_field
+        && emit_before_recording)
+        .then(|| expected1)
+        .into_iter()
+        .chain([expected2])
+        .collect();
+    // let expected = vec![expected2];
+    assert_eq!(snapshot, expected);
 }

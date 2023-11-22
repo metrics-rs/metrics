@@ -110,8 +110,8 @@ pub mod label_filter;
 mod tracing_integration;
 
 pub use label_filter::LabelFilter;
+use tracing_integration::Map;
 pub use tracing_integration::{Labels, MetricsLayer};
-use tracing_integration::{Map, WithContext};
 
 /// [`TracingContextLayer`] provides an implementation of a [`Layer`] for [`TracingContext`].
 pub struct TracingContextLayer<F> {
@@ -176,7 +176,7 @@ where
         tracing::dispatcher::get_default(|dispatch| {
             let current = dispatch.current_span();
             let id = current.id()?;
-            let ctx = dispatch.downcast_ref::<WithContext>()?;
+            let ctx = dispatch.downcast_ref::<MetricsLayer>()?;
 
             let mut f = |mut span_labels: Map| {
                 (!span_labels.is_empty()).then(|| {
