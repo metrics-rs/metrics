@@ -25,24 +25,26 @@ fn get_pool() -> &'static Arc<LinearObjectPool<Map>> {
 #[doc(hidden)]
 pub struct Labels(pub LinearOwnedReusable<Map>);
 
-impl std::fmt::Debug for Labels {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Labels").field(self.as_ref()).finish()
-    }
-}
-
 impl Labels {
-    pub(crate) fn extend_from_labels(&mut self, other: &Labels, overwrite: bool) {
+    fn extend(&mut self, other: &Labels, f: impl Fn(&mut Map, &SharedString, &SharedString)) {
         let new_len = cmp::max(self.as_ref().len(), other.as_ref().len());
         let additional = new_len - self.as_ref().len();
         self.0.reserve(additional);
         for (k, v) in other.as_ref() {
-            if overwrite {
-                self.0.insert(k.clone(), v.clone());
-            } else {
-                self.0.entry(k.clone()).or_insert_with(|| v.clone());
-            }
+            f(&mut self.0, k, v);
         }
+    }
+
+    fn extend_from_labels(&mut self, other: &Labels) {
+        self.extend(other, |map, k, v| {
+            map.entry(k.clone()).or_insert_with(|| v.clone());
+        });
+    }
+
+    fn extend_from_labels_overwrite(&mut self, other: &Labels) {
+        self.extend(other, |map, k, v| {
+            map.insert(k.clone(), v.clone());
+        });
     }
 }
 
@@ -142,7 +144,7 @@ where
 
         if let Some(parent) = span.parent() {
             if let Some(parent_labels) = parent.extensions().get::<Labels>() {
-                labels.extend_from_labels(parent_labels, false);
+                labels.extend_from_labels(parent_labels);
             }
         }
 
@@ -155,7 +157,7 @@ where
 
         let ext = &mut span.extensions_mut();
         if let Some(existing) = ext.get_mut::<Labels>() {
-            existing.extend_from_labels(&labels, true);
+            existing.extend_from_labels_overwrite(&labels);
         } else {
             ext.insert(labels);
         }
