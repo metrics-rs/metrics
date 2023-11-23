@@ -1,6 +1,6 @@
 use std::fmt;
 
-use self::cell::RecorderOnceCell;
+use self::cell::{RecorderOnceCell, RecorderVariant};
 
 use crate::{Counter, Gauge, Histogram, Key, KeyName, Metadata, SharedString, Unit};
 
@@ -20,6 +20,39 @@ mod cell {
     /// The recorder has been initialized successfully and can be read.
     const INITIALIZED: usize = 2;
 
+    pub enum RecorderVariant {
+        Static(&'static dyn Recorder),
+        Boxed(&'static dyn Recorder),
+    }
+
+    impl RecorderVariant {
+        pub fn from_static(recorder: &'static dyn Recorder) -> Self {
+            Self::Static(recorder)
+        }
+
+        pub fn from_boxed(recorder: Box<dyn Recorder>) -> Self {
+            Self::Boxed(Box::leak(recorder))
+        }
+
+        pub fn into_recorder_ref(self) -> &'static dyn Recorder {
+            match self {
+                Self::Static(recorder) => recorder,
+                Self::Boxed(recorder) => recorder,
+            }
+        }
+    }
+
+    impl Drop for RecorderVariant {
+        fn drop(&mut self) {
+            if let Self::Boxed(recorder) = self {
+                // SAFETY: We are the only owner of the recorder, so it is safe to drop.
+                unsafe {
+                    drop(Box::from_raw(*recorder as *const dyn Recorder as *mut dyn Recorder))
+                };
+            }
+        }
+    }
+
     /// An specialized version of `OnceCell` for `Recorder`.
     pub struct RecorderOnceCell {
         recorder: UnsafeCell<Option<&'static dyn Recorder>>,
@@ -32,7 +65,7 @@ mod cell {
             Self { recorder: UnsafeCell::new(None), state: AtomicUsize::new(UNINITIALIZED) }
         }
 
-        pub fn set(&self, recorder: &'static dyn Recorder) -> Result<(), SetRecorderError> {
+        pub fn set(&self, variant: RecorderVariant) -> Result<(), SetRecorderError> {
             // Try and transition the cell from `UNINITIALIZED` to `INITIALIZING`, which would give
             // us exclusive access to set the recorder.
             match self.state.compare_exchange(
@@ -45,7 +78,7 @@ mod cell {
                     unsafe {
                         // SAFETY: Access is unique because we can only be here if we won the race
                         // to transition from `UNINITIALIZED` to `INITIALIZING` above.
-                        self.recorder.get().write(Some(recorder));
+                        self.recorder.get().write(Some(variant.into_recorder_ref()));
                     }
 
                     // Mark the recorder as initialized, which will make it visible to readers.
@@ -162,7 +195,7 @@ impl Recorder for NoopRecorder {
 ///
 /// An error is returned if a recorder has already been set.
 pub fn set_recorder(recorder: &'static dyn Recorder) -> Result<(), SetRecorderError> {
-    RECORDER.set(recorder)
+    RECORDER.set(RecorderVariant::from_static(recorder))
 }
 
 /// Sets the global recorder to a `Box<Recorder>`.
@@ -175,7 +208,7 @@ pub fn set_recorder(recorder: &'static dyn Recorder) -> Result<(), SetRecorderEr
 ///
 /// An error is returned if a recorder has already been set.
 pub fn set_boxed_recorder(recorder: Box<dyn Recorder>) -> Result<(), SetRecorderError> {
-    RECORDER.set(Box::leak(recorder))
+    RECORDER.set(RecorderVariant::from_boxed(recorder))
 }
 
 /// Clears the currently configured recorder.
@@ -224,4 +257,93 @@ pub fn recorder() -> &'static dyn Recorder {
 /// If a recorder has not been set, returns `None`.
 pub fn try_recorder() -> Option<&'static dyn Recorder> {
     RECORDER.try_load()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+
+    use super::{NoopRecorder, Recorder, RecorderOnceCell, RecorderVariant};
+
+    #[test]
+    fn boxed_recorder_dropped_on_existing_set() {
+        // This test simply ensures that if a boxed recorder is handed to us to install, and another
+        // recorder has already been installed, that we drop th new boxed recorder instead of
+        // leaking it.
+        struct TrackOnDropRecorder(Arc<AtomicBool>);
+
+        impl TrackOnDropRecorder {
+            pub fn new() -> (Self, Arc<AtomicBool>) {
+                let arc = Arc::new(AtomicBool::new(false));
+                (Self(arc.clone()), arc)
+            }
+        }
+
+        impl Recorder for TrackOnDropRecorder {
+            fn describe_counter(
+                &self,
+                _: crate::KeyName,
+                _: Option<crate::Unit>,
+                _: crate::SharedString,
+            ) {
+            }
+            fn describe_gauge(
+                &self,
+                _: crate::KeyName,
+                _: Option<crate::Unit>,
+                _: crate::SharedString,
+            ) {
+            }
+            fn describe_histogram(
+                &self,
+                _: crate::KeyName,
+                _: Option<crate::Unit>,
+                _: crate::SharedString,
+            ) {
+            }
+
+            fn register_counter(&self, _: &crate::Key, _: &crate::Metadata<'_>) -> crate::Counter {
+                crate::Counter::noop()
+            }
+
+            fn register_gauge(&self, _: &crate::Key, _: &crate::Metadata<'_>) -> crate::Gauge {
+                crate::Gauge::noop()
+            }
+
+            fn register_histogram(
+                &self,
+                _: &crate::Key,
+                _: &crate::Metadata<'_>,
+            ) -> crate::Histogram {
+                crate::Histogram::noop()
+            }
+        }
+
+        impl Drop for TrackOnDropRecorder {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let recorder_cell = RecorderOnceCell::new();
+
+        // This is the first set of the cell, so it should always succeed;
+        let first_recorder = NoopRecorder;
+        let first_set_result =
+            recorder_cell.set(RecorderVariant::from_boxed(Box::new(first_recorder)));
+        assert!(first_set_result.is_ok());
+
+        // Since the cell is already set, this second set should fail. We'll also then assert that
+        // our atomic boolean is set to `true`, indicating the drop logic ran for it.
+        let (second_recorder, was_dropped) = TrackOnDropRecorder::new();
+        assert!(!was_dropped.load(Ordering::SeqCst));
+
+        let second_set_result =
+            recorder_cell.set(RecorderVariant::from_boxed(Box::new(second_recorder)));
+        assert!(second_set_result.is_err());
+        assert!(was_dropped.load(Ordering::SeqCst));
+    }
 }
