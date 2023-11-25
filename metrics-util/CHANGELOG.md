@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bump MSRV to 1.65.0.
+- `RecoverableRecorder` no longer functions as a drop guard itself, and instead returns a new
+  type, `RecoveryHandle<R>`, which provides that functionality. ([#414](https://github.com/metrics-rs/metrics/pull/414))
+
+### Removed
+
+- Support for per-thread mode in `DebuggingRecorder`. Users should now use
+  `metrics::with_local_recorder` instead, which is inherently per-thread.
 
 ## [0.15.1] - 2023-07-02
 

@@ -17,10 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `&'static str` or `String` were allowed. There's still work to be done to also support labels in
   this regard.
 
+- Support for local recorders. ([#414](https://github.com/metrics-rs/metrics/pull/414))
+
+  This is a large feature, and is documented in [RELEASES.md](RELEASES.md).
+
 ### Changed
 
 - Make `Unit` methods return `&'static str` (instead of `&str`) where possible. ([#392](https://github.com/metrics-rs/metrics/pull/393))
 - Bump MSRV to 1.65.0.
+- `SetRecorderError` now returns the recorder given to `set_global_recorder` if another global
+  recorder was already installed instead of leaking it. ([#414](https://github.com/metrics-rs/metrics/pull/414))
 
 ## [0.21.1] - 2023-07-02
 
