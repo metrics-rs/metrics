@@ -25,60 +25,67 @@ impl Recorder for TestRecorder {
     }
 }
 
-fn reset_recorder() {
-    unsafe {
-        metrics::clear_recorder();
-    }
-    metrics::set_boxed_recorder(Box::new(TestRecorder::default())).unwrap()
-}
-
 fn macro_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("macros");
     group.bench_function("uninitialized/no_labels", |b| {
-        unsafe {
-            metrics::clear_recorder();
-        }
         b.iter(|| {
             counter!("counter_bench").increment(42);
         })
     });
     group.bench_function("uninitialized/with_static_labels", |b| {
-        unsafe {
-            metrics::clear_recorder();
-        }
         b.iter(|| {
             counter!("counter_bench", "request" => "http", "svc" => "admin").increment(42);
         })
     });
-    group.bench_function("initialized/no_labels", |b| {
-        reset_recorder();
+    group.bench_function("global_initialized/no_labels", |b| {
+        metrics::set_global_recorder(TestRecorder::default()).unwrap();
         b.iter(|| {
             counter!("counter_bench").increment(42);
         });
-        unsafe {
-            metrics::clear_recorder();
-        }
     });
-    group.bench_function("initialized/with_static_labels", |b| {
-        reset_recorder();
+    group.bench_function("global_initialized/with_static_labels", |b| {
+        metrics::set_global_recorder(TestRecorder::default()).unwrap();
         b.iter(|| {
             counter!("counter_bench", "request" => "http", "svc" => "admin").increment(42);
         });
-        unsafe {
-            metrics::clear_recorder();
-        }
     });
-    group.bench_function("initialized/with_dynamic_labels", |b| {
-        let label_val = thread_rng().gen::<u64>().to_string();
+    group.bench_function("global_initialized/with_dynamic_labels", |b| {
+        metrics::set_global_recorder(TestRecorder::default()).unwrap();
 
-        reset_recorder();
+        let label_val = thread_rng().gen::<u64>().to_string();
         b.iter(move || {
             counter!("counter_bench", "request" => "http", "uid" => label_val.clone())
                 .increment(42);
         });
-        unsafe {
-            metrics::clear_recorder();
-        }
+    });
+    group.bench_function("local_initialized/no_labels", |b| {
+        let recorder = TestRecorder::default();
+
+        metrics::with_local_recorder(&recorder, || {
+            b.iter(|| {
+                counter!("counter_bench").increment(42);
+            });
+        });
+    });
+    group.bench_function("local_initialized/with_static_labels", |b| {
+        let recorder = TestRecorder::default();
+
+        metrics::with_local_recorder(&recorder, || {
+            b.iter(|| {
+                counter!("counter_bench", "request" => "http", "svc" => "admin").increment(42);
+            });
+        });
+    });
+    group.bench_function("local_initialized/with_dynamic_labels", |b| {
+        let recorder = TestRecorder::default();
+
+        metrics::with_local_recorder(&recorder, || {
+            let label_val = thread_rng().gen::<u64>().to_string();
+            b.iter(move || {
+                counter!("counter_bench", "request" => "http", "uid" => label_val.clone())
+                    .increment(42);
+            });
+        });
     });
     group.finish();
 }

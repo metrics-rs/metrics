@@ -367,7 +367,7 @@ impl PrometheusBuilder {
             recorder
         };
 
-        metrics::set_boxed_recorder(Box::new(recorder))?;
+        metrics::set_global_recorder(recorder)?;
 
         Ok(())
     }
@@ -384,7 +384,7 @@ impl PrometheusBuilder {
         let recorder = self.build_recorder();
         let handle = recorder.handle();
 
-        metrics::set_boxed_recorder(Box::new(recorder))?;
+        metrics::set_global_recorder(recorder)?;
 
         Ok(handle)
     }

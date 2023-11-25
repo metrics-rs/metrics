@@ -5,6 +5,31 @@ use metrics::{
     Unit,
 };
 
+pub struct RecoveryHandle<R> {
+    handle: Arc<R>,
+}
+
+impl<R> RecoveryHandle<R> {
+    /// Consumes the handle, returning the original recorder.
+    ///
+    /// This method will loop until there are no other strong references to the recorder. This means
+    /// that the wrapped recorder which was installed is not being actively used, as using it
+    /// temporarily upgrades its internal weak reference to a strong reference.
+    ///
+    /// It is not advised to call this method under heavy load, as doing so is not deterministic or
+    /// ordered and may block for an indefinite amount of time.
+    pub fn into_inner(mut self) -> R {
+        loop {
+            match Arc::try_unwrap(self.handle) {
+                Ok(recorder) => break recorder,
+                Err(handle) => {
+                    self.handle = handle;
+                }
+            }
+        }
+    }
+}
+
 /// Wraps a recorder to allow for recovering it after being installed.
 ///
 /// Installing a recorder generally involves providing an owned value, which means that it is not
@@ -13,52 +38,51 @@ use metrics::{
 /// if the application cannot consume the recorder.
 ///
 /// `RecoverableRecorder` allows wrapping a recorder such that a weak reference to it is installed
-/// globally, while the recorder itself is held by `RecoverableRecorder`. This allows for recovering
-/// the recorder whenever the application chooses.
+/// globally, while the recorder itself is held by `RecoveryHandle<R>`. This allows the recorder to
+/// be used globally so long as the recovery handle is active, keeping the original recorder alive.
 ///
 /// ## As a drop guard
 ///
-/// While `RecoverableRecorder` provides a method to manually recover the recorder directly, one
-/// particular benefit is that due to how the recorder is wrapped, when `RecoverableRecorder` is
-/// dropped, and the last active reference to it is dropped, the recorder itself will be dropped.
+/// While `RecoveryHandle<R>` provides a method to manually recover the recorder directly, one
+/// particular benefit is that due to how the recorder is wrapped, when `RecoveryHandle<R>` is
+/// dropped, and the last active reference to the wrapped recorder is dropped, the recorder itself
+/// will be dropped.
 ///
-/// This allows using `RecoverableRecorder` as a drop guard, ensuring that by dropping it, the
+/// This allows using `RecoveryHandle<R>` as a drop guard, ensuring that by dropping it, the
 /// recorder itself will be dropped, and any finalization logic implemented for the recorder will be
 /// run.
 pub struct RecoverableRecorder<R> {
-    recorder: Arc<R>,
+    handle: Arc<R>,
 }
 
 impl<R: Recorder + 'static> RecoverableRecorder<R> {
-    /// Creates a new `RecoverableRecorder`, wrapping the given recorder.
+    /// Creates a new `RecoverableRecorder` from the given recorder.
+    pub fn new(recorder: R) -> Self {
+        Self { handle: Arc::new(recorder) }
+    }
+
+    /// Builds the wrapped recorder and a handle to recover the original.
+    pub(self) fn build(self) -> (WeakRecorder<R>, RecoveryHandle<R>) {
+        let wrapped = WeakRecorder::from_arc(&self.handle);
+
+        (wrapped, RecoveryHandle { handle: self.handle })
+    }
+
+    /// Installs the wrapped recorder globally, returning a handle to recover it.
     ///
     /// A weakly-referenced version of the recorder is installed globally, while the original
     /// recorder is held within `RecoverableRecorder`, and can be recovered by calling `into_inner`.
     ///
     /// # Errors
     ///
-    /// If a recorder is already installed, an error is returned.
-    pub fn from_recorder(recorder: R) -> Result<Self, SetRecorderError> {
-        let recorder = Arc::new(recorder);
-
-        let wrapped = WeakRecorder::from_arc(&recorder);
-        metrics::set_boxed_recorder(Box::new(wrapped))?;
-
-        Ok(Self { recorder })
-    }
-
-    /// Consumes this wrapper, returning the original recorder.
-    ///
-    /// This method will loop until there are no active weak references to the recorder. It is not
-    /// advised to call this method under heavy load, as doing so is not deterministic or ordered
-    /// and may block for an indefinite amount of time.
-    pub fn into_inner(mut self) -> R {
-        loop {
-            match Arc::try_unwrap(self.recorder) {
-                Ok(recorder) => break recorder,
-                Err(recorder) => {
-                    self.recorder = recorder;
-                }
+    /// If a recorder is already installed, an error is returned containing the original recorder.
+    pub fn install(self) -> Result<RecoveryHandle<R>, SetRecorderError<R>> {
+        let (wrapped, handle) = self.build();
+        match metrics::set_global_recorder(wrapped) {
+            Ok(()) => Ok(handle),
+            Err(_) => {
+                let recorder = handle.into_inner();
+                Err(SetRecorderError(recorder))
             }
         }
     }
@@ -250,31 +274,32 @@ mod tests {
     fn basic() {
         // Create and install the recorder.
         let (recorder, counter, gauge, histogram) = TestRecorder::new();
-        unsafe {
-            metrics::clear_recorder();
-        }
-        let recoverable =
-            RecoverableRecorder::from_recorder(recorder).expect("failed to install recorder");
+        let recoverable = RecoverableRecorder::new(recorder);
+        let (recorder, handle) = recoverable.build();
 
         // Record some metrics, and make sure the atomics for each metric type are
         // incremented as we would expect them to be.
-        metrics::counter!("counter").increment(5);
-        metrics::gauge!("gauge").increment(5.0);
-        metrics::gauge!("gauge").increment(5.0);
-        metrics::histogram!("histogram").record(5.0);
-        metrics::histogram!("histogram").record(5.0);
-        metrics::histogram!("histogram").record(5.0);
+        metrics::with_local_recorder(&recorder, || {
+            metrics::counter!("counter").increment(5);
+            metrics::gauge!("gauge").increment(5.0);
+            metrics::gauge!("gauge").increment(5.0);
+            metrics::histogram!("histogram").record(5.0);
+            metrics::histogram!("histogram").record(5.0);
+            metrics::histogram!("histogram").record(5.0);
+        });
 
-        let _recorder = recoverable.into_inner();
+        let _recorder = handle.into_inner();
         assert_eq!(counter.get(), 5);
         assert_eq!(gauge.get(), 10);
         assert_eq!(histogram.get(), 15);
 
         // Now that we've recovered the recorder, incrementing the same metrics should
         // not actually increment the value of the atomics for each metric type.
-        metrics::counter!("counter").increment(7);
-        metrics::gauge!("gauge").increment(7.0);
-        metrics::histogram!("histogram").record(7.0);
+        metrics::with_local_recorder(&recorder, || {
+            metrics::counter!("counter").increment(7);
+            metrics::gauge!("gauge").increment(7.0);
+            metrics::histogram!("histogram").record(7.0);
+        });
 
         assert_eq!(counter.get(), 5);
         assert_eq!(gauge.get(), 10);
@@ -285,31 +310,32 @@ mod tests {
     fn on_drop() {
         // Create and install the recorder.
         let (recorder, dropped, counter, gauge, histogram) = TestRecorder::new_with_drop();
-        unsafe {
-            metrics::clear_recorder();
-        }
-        let recoverable =
-            RecoverableRecorder::from_recorder(recorder).expect("failed to install recorder");
+        let recoverable = RecoverableRecorder::new(recorder);
+        let (recorder, handle) = recoverable.build();
 
         // Record some metrics, and make sure the atomics for each metric type are
         // incremented as we would expect them to be.
-        metrics::counter!("counter").increment(5);
-        metrics::gauge!("gauge").increment(5.0);
-        metrics::gauge!("gauge").increment(5.0);
-        metrics::histogram!("histogram").record(5.0);
-        metrics::histogram!("histogram").record(5.0);
-        metrics::histogram!("histogram").record(5.0);
+        metrics::with_local_recorder(&recorder, || {
+            metrics::counter!("counter").increment(5);
+            metrics::gauge!("gauge").increment(5.0);
+            metrics::gauge!("gauge").increment(5.0);
+            metrics::histogram!("histogram").record(5.0);
+            metrics::histogram!("histogram").record(5.0);
+            metrics::histogram!("histogram").record(5.0);
+        });
 
-        drop(recoverable.into_inner());
+        drop(handle.into_inner());
         assert_eq!(counter.get(), 5);
         assert_eq!(gauge.get(), 10);
         assert_eq!(histogram.get(), 15);
 
         // Now that we've recovered the recorder, incrementing the same metrics should
         // not actually increment the value of the atomics for each metric type.
-        metrics::counter!("counter").increment(7);
-        metrics::gauge!("gauge").increment(7.0);
-        metrics::histogram!("histogram").record(7.0);
+        metrics::with_local_recorder(&recorder, || {
+            metrics::counter!("counter").increment(7);
+            metrics::gauge!("gauge").increment(7.0);
+            metrics::histogram!("histogram").record(7.0);
+        });
 
         assert_eq!(counter.get(), 5);
         assert_eq!(gauge.get(), 10);

@@ -91,7 +91,7 @@ impl Recorder for PrintRecorder {
 
 fn init_print_logger() {
     let recorder = PrintRecorder::default();
-    metrics::set_boxed_recorder(Box::new(recorder)).unwrap()
+    metrics::set_global_recorder(recorder).unwrap()
 }
 
 fn main() {
