@@ -22,17 +22,13 @@ jobs:
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
-      run: rustup install stable
+      run: rustup default stable
     - name: Install cargo-hack
       uses: taiki-e/install-action@v2
       with:
         tool: cargo-hack
     - name: Check Feature Matrix
-<<<<<<< HEAD
       run: cargo hack check --all --all-targets --feature-powerset --release
-=======
-      run: cargo +stable hack build --all --all-targets --feature-powerset
->>>>>>> f1154ef (more explicitness)
   test:
     name: Test (rust-toolchain.toml)
     runs-on: ubuntu-latest
@@ -40,8 +36,10 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
+    - name: Install Rust Stable
+      run: rustup default stable
     - name: Run Tests
-      run: cargo test --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark
+      run: cargo test --all-features --workspace
   test-matrixed:
     name: Test ${{ matrix.rust_version }}
     runs-on: ubuntu-latest
@@ -55,7 +53,7 @@ jobs:
     - name: Install Rust ${{ matrix.rust_version }}
       run: rustup install ${{ matrix.rust_version }}
     - name: Run Tests
-      run: cargo +${{ matrix.rust_version }} test --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark
+      run: cargo +${{ matrix.rust_version }} test --all-features --workspace
   docs:
     runs-on: ubuntu-latest
     env:
@@ -67,7 +65,7 @@ jobs:
     - name: Install Rust Nightly
       run: rustup install nightly
     - name: Check Docs
-      run: cargo +nightly doc --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark --no-deps
+      run: cargo +nightly doc --all-features --workspace --no-deps
   bench:
     name: Bench
     runs-on: ubuntu-latest
