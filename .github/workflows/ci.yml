@@ -28,19 +28,28 @@ jobs:
     - name: Check Feature Matrix
       run: cargo hack check --all --all-targets --feature-powerset --release
   test:
+    name: Test (rust-toolchain.toml)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install protobuf-compiler
+    - name: Run Tests
+      run: cargo test --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark
+  test-matrixed:
     name: Test ${{ matrix.rust_version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust_version: ['1.61.0', 'stable', 'nightly']
+        rust_version: ['stable', 'nightly']
     steps:
     - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
     - name: Install Rust ${{ matrix.rust_version }}
-      run: rustup default ${{ matrix.rust_version }}
+      run: rustup install ${{ matrix.rust_version }}
     - name: Run Tests
-      run: cargo test --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark
+      run: cargo +${{ matrix.rust_version }} test --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark
   docs:
     runs-on: ubuntu-latest
     env:
