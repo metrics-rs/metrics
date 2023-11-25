@@ -3,7 +3,7 @@ use std::{error::Error, fmt};
 const SET_RECORDER_ERROR: &str =
     "attempted to set a recorder after the metrics system was already initialized";
 
-/// The type returned by [`set_global_recorder`] if [`set_recorder`] has already been called.
+/// Error returned when trying to install a global recorder when another has already been installed.
 pub struct SetRecorderError<R>(pub R);
 
 impl<R> SetRecorderError<R> {
