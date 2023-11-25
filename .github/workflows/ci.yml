@@ -21,12 +21,18 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
+    - name: Install Rust Stable
+      run: rustup install stable
     - name: Install cargo-hack
       uses: taiki-e/install-action@v2
       with:
         tool: cargo-hack
     - name: Check Feature Matrix
+<<<<<<< HEAD
       run: cargo hack check --all --all-targets --feature-powerset --release
+=======
+      run: cargo +stable hack build --all --all-targets --feature-powerset
+>>>>>>> f1154ef (more explicitness)
   test:
     name: Test (rust-toolchain.toml)
     runs-on: ubuntu-latest
@@ -59,9 +65,9 @@ jobs:
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
     - name: Install Rust Nightly
-      run: rustup default nightly
+      run: rustup install nightly
     - name: Check Docs
-      run: cargo doc --all-features --workspace --exclude=metrics-benchmark --no-deps
+      run: cargo +nightly doc --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark --no-deps
   bench:
     name: Bench
     runs-on: ubuntu-latest
@@ -74,16 +80,13 @@ jobs:
     - name: Run Benchmarks
       run: cargo bench --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark
   clippy:
-    name: Clippy ${{ matrix.rust_version }}
+    name: Clippy
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust_version: ['1.61.0', 'stable', 'nightly']
     steps:
     - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
-    - name: Install Rust ${{ matrix.rust_version }}
-      run: rustup default ${{ matrix.rust_version }}
+    - name: Install Rust Stable
+      run: rustup default stable
     - name: Run Clippy
       run: cargo clippy --all-features --workspace --exclude=metrics-benchmark
