@@ -38,19 +38,19 @@ fn macro_benchmark(c: &mut Criterion) {
         })
     });
     group.bench_function("global_initialized/no_labels", |b| {
-        metrics::set_global_recorder(TestRecorder::default()).unwrap();
+        let _ = metrics::set_global_recorder(TestRecorder::default());
         b.iter(|| {
             counter!("counter_bench").increment(42);
         });
     });
     group.bench_function("global_initialized/with_static_labels", |b| {
-        metrics::set_global_recorder(TestRecorder::default()).unwrap();
+        let _ = metrics::set_global_recorder(TestRecorder::default());
         b.iter(|| {
             counter!("counter_bench", "request" => "http", "svc" => "admin").increment(42);
         });
     });
     group.bench_function("global_initialized/with_dynamic_labels", |b| {
-        metrics::set_global_recorder(TestRecorder::default()).unwrap();
+        let _ = metrics::set_global_recorder(TestRecorder::default());
 
         let label_val = thread_rng().gen::<u64>().to_string();
         b.iter(move || {
