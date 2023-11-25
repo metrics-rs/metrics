@@ -40,7 +40,7 @@ jobs:
     - name: Install Rust ${{ matrix.rust_version }}
       run: rustup default ${{ matrix.rust_version }}
     - name: Run Tests
-      run: cargo test --all-features --workspace --exclude=metrics-observer
+      run: cargo test --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark
   docs:
     runs-on: ubuntu-latest
     env:
@@ -52,7 +52,7 @@ jobs:
     - name: Install Rust Nightly
       run: rustup default nightly
     - name: Check Docs
-      run: cargo doc --all-features --workspace --exclude=metrics-observer --no-deps
+      run: cargo doc --all-features --workspace --exclude=metrics-benchmark --no-deps
   bench:
     name: Bench
     runs-on: ubuntu-latest
@@ -63,7 +63,7 @@ jobs:
     - name: Install Rust Stable
       run: rustup default stable
     - name: Run Benchmarks
-      run: cargo bench --all-features --workspace --exclude=metrics-observer
+      run: cargo bench --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark
   clippy:
     name: Clippy ${{ matrix.rust_version }}
     runs-on: ubuntu-latest
@@ -77,4 +77,4 @@ jobs:
     - name: Install Rust ${{ matrix.rust_version }}
       run: rustup default ${{ matrix.rust_version }}
     - name: Run Clippy
-      run: cargo clippy --all-features --workspace --exclude=metrics-observer
+      run: cargo clippy --all-features --workspace --exclude=metrics-benchmark
