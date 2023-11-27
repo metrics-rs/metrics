@@ -182,12 +182,18 @@ where
                 (!span_labels.is_empty()).then(|| {
                     let (name, labels) = key.clone().into_parts();
 
+                    // Filter only span labels
+                    span_labels.retain(|key: &SharedString, value: &mut SharedString| {
+                        let label = Label::new(key.clone(), value.clone());
+                        self.label_filter.should_include_label(&name, &label)
+                    });
+
+                    // Overwrites labels from spans
                     span_labels.extend(labels.into_iter().map(Label::into_parts));
 
                     let labels = span_labels
                         .into_iter()
                         .map(|(key, value)| Label::new(key, value))
-                        .filter(|label| self.label_filter.should_include_label(&name, label))
                         .collect::<Vec<_>>();
 
                     Key::from_parts(name, labels)

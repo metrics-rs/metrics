@@ -6,7 +6,6 @@ use metrics::{Key, SharedString};
 use once_cell::sync::OnceCell;
 use std::cmp;
 use std::sync::Arc;
-use tracing::span;
 use tracing_core::span::{Attributes, Id, Record};
 use tracing_core::{field::Visit, Dispatch, Field, Subscriber};
 use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
@@ -124,18 +123,13 @@ where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
     fn on_layer(&mut self, _: &mut S) {
-        self.with_labels = Some(
-            |dispatch: &Dispatch, id: &span::Id, f: &mut dyn FnMut(&Labels) -> Option<Key>| {
-                let subscriber = dispatch
-                    .downcast_ref::<S>()
-                    .expect("subscriber should downcast to expected type; this is a bug!");
-                let span =
-                    subscriber.span(id).expect("registry should have a span for the current ID");
+        self.with_labels = Some(|dispatch, id, f| {
+            let subscriber = dispatch.downcast_ref::<S>()?;
+            let span = subscriber.span(id)?;
 
-                let ext = span.extensions();
-                f(ext.get::<Labels>()?)
-            },
-        );
+            let ext = span.extensions();
+            f(ext.get::<Labels>()?)
+        });
     }
 
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, cx: Context<'_, S>) {

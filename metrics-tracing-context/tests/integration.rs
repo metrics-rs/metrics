@@ -1,4 +1,4 @@
-use itertools::Itertools as _;
+use itertools::Itertools;
 use metrics::{counter, Key, KeyName, Label};
 use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::debugging::{DebugValue, DebuggingRecorder, Snapshotter};
@@ -27,7 +27,10 @@ static USER_EMAIL_ATTEMPT: &[Label] = &[
     Label::from_static_parts("attempt", "42"),
 ];
 static USER_ID: &[Label] = &[Label::from_static_parts("user.id", "42")];
-static EMAIL_USER: &[Label] = &[Label::from_static_parts("user", "ferris")];
+static EMAIL_USER: &[Label] = &[
+    Label::from_static_parts("user", "ferris"),
+    Label::from_static_parts("user.email", "ferris@rust-lang.org"),
+];
 static SVC_ENV: &[Label] = &[
     Label::from_static_parts("service", "login_service"),
     Label::from_static_parts("env", "test"),
@@ -611,7 +614,6 @@ fn test_label_allowlist() {
     );
 }
 
-#[tracing_test::traced_test]
 #[test]
 fn test_all_permutations() {
     let perms = (0..9).map(|_| [false, true]).multi_cartesian_product();
@@ -651,54 +653,54 @@ fn test(
 ) {
     let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
-    let parent = if span_field_same_as_metric && parent_field_same_as_span {
-        tracing::trace_span!("outer", user.email = "changed@domain.com")
-    } else {
-        tracing::trace_span!("outer", user.id = 999)
-    };
-
-    let _parent_guard = span_has_parent.then(|| parent.enter());
-
-    let span = if span_has_fields {
-        match (span_field_same_as_metric, span_field_is_empty) {
-            (false, false) => tracing::trace_span!("login", user.id = 666),
-            (false, true) => tracing::trace_span!("login", user.id = tracing_core::field::Empty),
-            (true, false) => tracing::trace_span!("login", user.email = "user@domain.com"),
-            (true, true) => tracing::trace_span!("login", user.email = tracing_core::field::Empty),
-        }
-    } else {
-        tracing::trace_span!("login")
-    };
-
-    let _guard = in_span.then(|| span.enter());
-
-    let inc = || {
-        if metric_has_labels {
-            counter!("login_attempts", "user.email" => "ferris@rust-lang.org").increment(1);
+    {
+        let parent = if span_field_same_as_metric && parent_field_same_as_span {
+            tracing::trace_span!("outer", user.email = "changed@domain.com")
         } else {
-            counter!("login_attempts").increment(1);
-        }
-    };
+            tracing::trace_span!("outer", user.id = 999)
+        };
 
-    if emit_before_recording {
+        let _parent_guard = span_has_parent.then(|| parent.enter());
+
+        let span = if span_has_fields {
+            match (span_field_same_as_metric, span_field_is_empty) {
+                (false, false) => tracing::trace_span!("login", user.id = 666),
+                (false, true) => {
+                    tracing::trace_span!("login", user.id = tracing_core::field::Empty)
+                }
+                (true, false) => tracing::trace_span!("login", user.email = "user@domain.com"),
+                (true, true) => {
+                    tracing::trace_span!("login", user.email = tracing_core::field::Empty)
+                }
+            }
+        } else {
+            tracing::trace_span!("login")
+        };
+
+        let _guard = in_span.then(|| span.enter());
+
+        let inc = || {
+            if metric_has_labels {
+                counter!("login_attempts", "user.email" => "ferris@rust-lang.org").increment(1);
+            } else {
+                counter!("login_attempts").increment(1);
+            }
+        };
+
+        if emit_before_recording {
+            inc();
+        }
+
+        if record_field {
+            span.record("user.id", 42);
+        }
+
         inc();
     }
-
-    if record_field {
-        span.record("user.id", 42);
-    }
-
-    inc();
 
     let snapshot = snapshotter.snapshot().into_vec();
 
     let mut expected = vec![];
-
-    let in_both_spans_with_metric_label = in_span
-        && span_has_fields
-        && !span_field_is_empty
-        && span_field_same_as_metric
-        && span_has_parent;
 
     if in_span
         && span_has_fields
@@ -712,13 +714,10 @@ fn test(
                 Key::from_parts(
                     LOGIN_ATTEMPTS,
                     IntoIterator::into_iter([
-                        (metric_has_labels && in_both_spans_with_metric_label)
-                            .then(|| Label::new("user.email", "ferris@rust-lang.org")),
-                        (!span_field_is_empty).then(|| Label::new("user.id", "666")),
-                        (span_field_is_empty && span_has_parent)
-                            .then(|| Label::new("user.id", "999")),
-                        (metric_has_labels && !in_both_spans_with_metric_label)
-                            .then(|| Label::new("user.email", "ferris@rust-lang.org")),
+                        (span_has_parent || !span_field_is_empty).then(|| {
+                            Label::new("user.id", if span_field_is_empty { "999" } else { "666" })
+                        }),
+                        metric_has_labels.then(|| Label::new("user.email", "ferris@rust-lang.org")),
                     ])
                     .flatten()
                     .collect::<Vec<_>>(),
@@ -730,55 +729,57 @@ fn test(
         ));
     }
 
+    let in_span_with_metric_field =
+        in_span && span_has_fields && span_field_same_as_metric && !span_field_is_empty;
+    let has_other_labels = !(!span_has_parent
+        && (!in_span
+            || (span_field_same_as_metric || !span_has_fields)
+            || (!record_field && span_field_is_empty)))
+        && !(span_field_same_as_metric && parent_field_same_as_span)
+        && !in_span_with_metric_field;
+
     expected.push((
         CompositeKey::new(
             MetricKind::Counter,
             Key::from_parts(
                 LOGIN_ATTEMPTS,
                 IntoIterator::into_iter([
-                    (metric_has_labels && in_both_spans_with_metric_label)
+                    (metric_has_labels && !has_other_labels)
                         .then(|| Label::new("user.email", "ferris@rust-lang.org")),
-                    if in_span && span_has_fields {
-                        if span_field_same_as_metric {
-                            if !metric_has_labels && !span_field_is_empty {
-                                Some(Label::new("user.email", "user@domain.com"))
+                    (!metric_has_labels
+                        && (in_span_with_metric_field
+                            || span_field_same_as_metric
+                                && span_has_parent
+                                && parent_field_same_as_span))
+                        .then(|| {
+                            if in_span_with_metric_field {
+                                Label::new("user.email", "user@domain.com")
                             } else {
-                                None
+                                Label::new("user.email", "changed@domain.com")
                             }
-                        } else if record_field {
-                            Some(Label::new("user.id", "42"))
-                        } else if !span_field_is_empty {
-                            Some(Label::new("user.id", "666"))
-                        } else {
-                            None
-                        }
+                        }),
+                    if in_span && span_has_fields && !span_field_same_as_metric && record_field {
+                        Some(Label::new("user.id", "42"))
+                    } else if in_span
+                        && span_has_fields
+                        && !span_field_same_as_metric
+                        && !span_field_is_empty
+                        && !record_field
+                    {
+                        Some(Label::new("user.id", "666"))
+                    } else if (!in_span || !span_has_fields || span_field_same_as_metric)
+                        && (!span_field_same_as_metric || !parent_field_same_as_span)
+                        && span_has_parent
+                        || span_has_parent
+                            && span_field_is_empty
+                            && !record_field
+                            && !span_field_same_as_metric
+                    {
+                        Some(Label::new("user.id", "999"))
                     } else {
                         None
                     },
-                    if span_has_parent {
-                        if !(in_span && span_has_fields && !span_field_is_empty)
-                            && parent_field_same_as_span
-                            && span_field_same_as_metric
-                            && !metric_has_labels
-                        {
-                            Some(Label::new("user.email", "changed@domain.com"))
-                        } else if !metric_has_labels && (!in_span || !span_has_fields)
-                            || span_field_same_as_metric && !parent_field_same_as_span
-                            || !in_span && !span_field_same_as_metric
-                            || !span_has_fields && !span_field_same_as_metric
-                            || !metric_has_labels
-                                && span_field_is_empty
-                                && span_field_same_as_metric
-                            || span_field_is_empty && !span_field_same_as_metric && !record_field
-                        {
-                            Some(Label::new("user.id", "999"))
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    },
-                    (metric_has_labels && !in_both_spans_with_metric_label)
+                    (metric_has_labels && has_other_labels)
                         .then(|| Label::new("user.email", "ferris@rust-lang.org")),
                 ])
                 .flatten()
