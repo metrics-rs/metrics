@@ -8,8 +8,6 @@ use tracing::dispatcher::{set_default, DefaultGuard, Dispatch};
 use tracing::{span, Level};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
 
-use pretty_assertions::assert_eq;
-
 static TEST_MUTEX: Mutex<()> = const_mutex(());
 static LOGIN_ATTEMPTS: &str = "login_attempts";
 static LOGIN_ATTEMPTS_NONE: &str = "login_attempts_no_labels";
@@ -619,7 +617,7 @@ fn test_all_permutations() {
     let perms = (0..9).map(|_| [false, true]).multi_cartesian_product();
 
     for v in perms {
-        let [metric_has_labels, in_span, span_has_fields, span_field_same_as_metric, span_has_parent, parent_field_same_as_span, span_field_is_empty, record_field, emit_before_recording] =
+        let [metric_has_labels, in_span, span_has_fields, span_field_same_as_metric, span_has_parent, parent_field_same_as_span, span_field_is_empty, record_field, increment_before_recording] =
             v[..]
         else {
             unreachable!("{:?}, {}", v, v.len());
@@ -634,7 +632,7 @@ fn test_all_permutations() {
             parent_field_same_as_span,
             span_field_is_empty,
             record_field,
-            emit_before_recording,
+            increment_before_recording,
         );
     }
 }
@@ -649,54 +647,48 @@ fn test(
     parent_field_same_as_span: bool,
     span_field_is_empty: bool,
     record_field: bool,
-    emit_before_recording: bool,
+    increment_before_recording: bool,
 ) {
     let (_guard, snapshotter) = setup(TracingContextLayer::all());
 
-    {
-        let parent = if span_field_same_as_metric && parent_field_same_as_span {
-            tracing::trace_span!("outer", user.email = "changed@domain.com")
-        } else {
-            tracing::trace_span!("outer", user.id = 999)
-        };
+    let parent = if span_field_same_as_metric && parent_field_same_as_span {
+        tracing::trace_span!("outer", user.email = "changed@domain.com")
+    } else {
+        tracing::trace_span!("outer", user.id = 999)
+    };
 
-        let _parent_guard = span_has_parent.then(|| parent.enter());
+    let _guard = span_has_parent.then(|| parent.enter());
 
-        let span = if span_has_fields {
-            match (span_field_same_as_metric, span_field_is_empty) {
-                (false, false) => tracing::trace_span!("login", user.id = 666),
-                (false, true) => {
-                    tracing::trace_span!("login", user.id = tracing_core::field::Empty)
-                }
-                (true, false) => tracing::trace_span!("login", user.email = "user@domain.com"),
-                (true, true) => {
-                    tracing::trace_span!("login", user.email = tracing_core::field::Empty)
-                }
-            }
-        } else {
-            tracing::trace_span!("login")
-        };
-
-        let _guard = in_span.then(|| span.enter());
-
-        let inc = || {
-            if metric_has_labels {
-                counter!("login_attempts", "user.email" => "ferris@rust-lang.org").increment(1);
-            } else {
-                counter!("login_attempts").increment(1);
-            }
-        };
-
-        if emit_before_recording {
-            inc();
+    let span = if span_has_fields {
+        match (span_field_same_as_metric, span_field_is_empty) {
+            (false, false) => tracing::trace_span!("login", user.id = 666),
+            (false, true) => tracing::trace_span!("login", user.id = tracing_core::field::Empty),
+            (true, false) => tracing::trace_span!("login", user.email = "user@domain.com"),
+            (true, true) => tracing::trace_span!("login", user.email = tracing_core::field::Empty),
         }
+    } else {
+        tracing::trace_span!("login")
+    };
 
-        if record_field {
-            span.record("user.id", 42);
+    let _guard = in_span.then(|| span.enter());
+
+    let increment = || {
+        if metric_has_labels {
+            counter!("login_attempts", "user.email" => "ferris@rust-lang.org").increment(1);
+        } else {
+            counter!("login_attempts").increment(1);
         }
+    };
 
-        inc();
+    if increment_before_recording {
+        increment();
     }
+
+    if record_field {
+        span.record("user.id", 42);
+    }
+
+    increment();
 
     let snapshot = snapshotter.snapshot().into_vec();
 
@@ -706,7 +698,7 @@ fn test(
         && span_has_fields
         && !span_field_same_as_metric
         && record_field
-        && emit_before_recording
+        && increment_before_recording
     {
         expected.push((
             CompositeKey::new(
@@ -789,7 +781,7 @@ fn test(
         None,
         None,
         DebugValue::Counter(
-            if !emit_before_recording
+            if !increment_before_recording
                 || in_span && span_has_fields && !span_field_same_as_metric && record_field
             {
                 1
