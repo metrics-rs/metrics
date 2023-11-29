@@ -29,7 +29,6 @@ use hyper::{
     http::HeaderValue,
     Method, Request, Uri,
 };
-use hyper_tls::HttpsConnector;
 
 use indexmap::IndexMap;
 #[cfg(feature = "http-listener")]
@@ -461,8 +460,16 @@ impl PrometheusBuilder {
             #[cfg(feature = "push-gateway")]
             ExporterConfig::PushGateway { endpoint, interval, username, password } => {
                 let exporter = async move {
-                    let https = HttpsConnector::new();
-                    let client = Client::builder().build::<_, hyper::Body>(https);
+                    cfg_if::cfg_if! {
+                        if #[cfg(feature = "native-tls")] {
+                            let client = Client::builder().build::<_, hyper::Body>(hyper_tls::HttpsConnector::new());
+                        } else if #[cfg(feature = "rustls-tls")] {
+                            let client = Client::builder().build::<_, hyper::Body>(hyper_rustls::HttpsConnectorBuilder::new());
+                        } else {
+                            let client = Client::builder().build_http();
+                        }
+                    }
+
                     let auth = username.as_ref().map(|name| basic_auth(name, password.as_deref()));
 
                     loop {
