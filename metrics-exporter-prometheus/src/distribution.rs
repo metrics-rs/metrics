@@ -27,6 +27,7 @@ pub enum Distribution {
 
 impl Distribution {
     /// Creates a histogram distribution.
+    #[warn(clippy::missing_panics_doc)]
     pub fn new_histogram(buckets: &[f64]) -> Distribution {
         let hist = Histogram::new(buckets).expect("buckets should never be empty");
         Distribution::Histogram(hist)
@@ -83,7 +84,7 @@ impl DistributionBuilder {
     /// Returns a distribution for the given metric key.
     pub fn get_distribution(&self, name: &str) -> Distribution {
         if let Some(ref overrides) = self.bucket_overrides {
-            for (matcher, buckets) in overrides.iter() {
+            for (matcher, buckets) in overrides {
                 if matcher.matches(name) {
                     return Distribution::new_histogram(buckets);
                 }
@@ -104,7 +105,7 @@ impl DistributionBuilder {
         }
 
         if let Some(ref overrides) = self.bucket_overrides {
-            for (matcher, _) in overrides.iter() {
+            for (matcher, _) in overrides {
                 if matcher.matches(name) {
                     return "histogram";
                 }

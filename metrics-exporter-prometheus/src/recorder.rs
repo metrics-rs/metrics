@@ -86,7 +86,7 @@ impl Inner {
             let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
             let entry = wg
                 .entry(name.clone())
-                .or_insert_with(IndexMap::new)
+                .or_default()
                 .entry(labels)
                 .or_insert_with(|| self.distribution_builder.get_distribution(name.as_str()));
 

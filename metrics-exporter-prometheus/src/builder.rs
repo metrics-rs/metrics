@@ -403,6 +403,7 @@ impl PrometheusBuilder {
     ///
     /// If there is an error while building the recorder and exporter, an error variant will be
     /// returned describing the error.
+    #[warn(clippy::too_many_lines)]
     #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
     #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
     #[cfg_attr(not(feature = "http-listener"), allow(unused_mut))]
@@ -500,7 +501,7 @@ impl PrometheusBuilder {
                                         .map(|mut b| b.copy_to_bytes(b.remaining()))
                                         .map(|b| b[..].to_vec())
                                         .and_then(|s| String::from_utf8(s).map_err(|_| ()))
-                                        .unwrap_or_else(|_| {
+                                        .unwrap_or_else(|()| {
                                             String::from("<failed to read response body>")
                                         });
                                     error!(
