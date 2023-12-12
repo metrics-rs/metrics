@@ -218,15 +218,6 @@ impl RollingSummary {
 
             self.buckets.truncate(self.max_buckets - 1);
             self.buckets.insert(0, Bucket { begin, summary });
-        } else {
-            begin = reftime - self.bucket_duration;
-            while now < begin {
-                begin -= self.bucket_duration;
-            }
-
-            self.buckets.truncate(self.max_buckets - 1);
-            self.buckets.push(Bucket { begin, summary });
-            self.buckets.sort_unstable_by(|a, b| b.begin.cmp(&a.begin));
         }
     }
 
@@ -358,58 +349,33 @@ mod tests {
     }
 
     #[test]
-    fn add_to_tail() {
+    fn add_value_ts_before_first_bucket() {
         let (clock, mock) = Clock::mock();
-        mock.increment(Duration::from_secs(3600));
+        mock.increment(Duration::from_secs(4));
 
-        let mut summary = RollingSummary::default();
+        const BUCKET_COUNT: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(2) };
+        const BUCKET_WIDTH: Duration = Duration::from_secs(5);
+
+        let mut summary = RollingSummary::new(BUCKET_COUNT, BUCKET_WIDTH);
+        assert_eq!(0, summary.buckets().len());
+        assert_eq!(0, summary.count());
+
+        // Add a single value to create our first bucket.
         summary.add(42.0, clock.now());
-        let mut expected = Vec::new();
-        expected.push(clock.now());
-        mock.decrement(Duration::from_secs(20));
-        summary.add(42.0, clock.now());
-        expected.push(clock.now());
 
-        let actual: Vec<Instant> = summary.buckets().iter().map(|b| b.begin).collect();
-        assert_eq!(expected, actual);
-    }
+        // Make sure the value got added.
+        assert_eq!(1, summary.buckets().len());
+        assert_eq!(1, summary.count());
+        assert!(!summary.is_empty());
 
-    #[test]
-    fn add_to_tail_with_gap() {
-        let (clock, mock) = Clock::mock();
-        mock.increment(Duration::from_secs(3600));
+        // Our first bucket is now marked as begin=4/width=5, so make sure that if we add a version
+        // with now=3, the count goes up but it's not actually added.
+        mock.decrement(Duration::from_secs(1));
 
-        let mut summary = RollingSummary::default();
-        summary.add(42.0, clock.now());
-        let mut expected = Vec::new();
-        expected.push(clock.now());
-        mock.decrement(Duration::from_secs(40));
-        summary.add(42.0, clock.now());
-        expected.push(clock.now());
+        summary.add(43.0, clock.now());
 
-        let actual: Vec<Instant> = summary.buckets().iter().map(|b| b.begin).collect();
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn add_to_middle_gap() {
-        let (clock, mock) = Clock::mock();
-        mock.increment(Duration::from_secs(3600));
-
-        let mut expected = Vec::new();
-        expected.resize(3, Instant::now());
-
-        let mut summary = RollingSummary::default();
-        summary.add(42.0, clock.now());
-        expected[0] = clock.now();
-        mock.decrement(Duration::from_secs(40));
-        summary.add(42.0, clock.now());
-        expected[2] = clock.now();
-        mock.increment(Duration::from_secs(20));
-        summary.add(42.0, clock.now());
-        expected[1] = clock.now();
-
-        let actual: Vec<Instant> = summary.buckets().iter().map(|b| b.begin).collect();
-        assert_eq!(expected, actual);
+        assert_eq!(1, summary.buckets().len());
+        assert_eq!(2, summary.count());
+        assert!(!summary.is_empty());
     }
 }
