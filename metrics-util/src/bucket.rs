@@ -153,8 +153,6 @@ impl<T> Drop for Block<T> {
 
 impl<T> std::fmt::Debug for Block<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // SAFETY:
-        // This is unsound but there is no way to call this from the public API so its probably fine?
         let has_next = unsafe { !self.next.load(Ordering::Acquire, unprotected()).is_null() };
         f.debug_struct("Block")
             .field("type", &std::any::type_name::<T>())
