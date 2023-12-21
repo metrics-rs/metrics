@@ -29,7 +29,6 @@ use hyper::{
     http::HeaderValue,
     Method, Request, Uri,
 };
-use hyper_tls::HttpsConnector;
 
 use indexmap::IndexMap;
 #[cfg(feature = "http-listener")]
@@ -461,8 +460,8 @@ impl PrometheusBuilder {
             #[cfg(feature = "push-gateway")]
             ExporterConfig::PushGateway { endpoint, interval, username, password } => {
                 let exporter = async move {
-                    let https = HttpsConnector::new();
-                    let client = Client::builder().build::<_, hyper::Body>(https);
+                    let client = make_http_client();
+
                     let auth = username.as_ref().map(|name| basic_auth(name, password.as_deref()));
 
                     loop {
@@ -566,6 +565,27 @@ fn basic_auth(username: &str, password: Option<&str>) -> HeaderValue {
     let mut header = HeaderValue::from_bytes(&buf).expect("base64 is always valid HeaderValue");
     header.set_sensitive(true);
     header
+}
+
+#[cfg(all(feature = "rustls-tls", not(feature = "native-tls")))]
+fn make_http_client(
+) -> Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>, hyper::Body> {
+    let tls = hyper_rustls::HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .https_or_http()
+        .enable_http1()
+        .build();
+    Client::builder().build::<_, hyper::Body>(tls)
+}
+
+#[cfg(all(not(feature = "rustls-tls"), feature = "native-tls"))]
+fn make_http_client() -> Client<hyper_tls::HttpsConnector, hyper::Body> {
+    Client::builder().build::<_, hyper::Body>(hyper_tls::HttpsConnector::new())
+}
+
+#[cfg(not(any(feature = "rustls-tls", feature = "native-tls")))]
+fn make_http_client() -> Client<hyper::client::HttpConnector, hyper::Body> {
+    Client::builder().build_http()
 }
 
 #[cfg(test)]

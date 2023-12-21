@@ -20,7 +20,9 @@ keywords = ["metrics", "telemetry", "prometheus"]
 default = ["http-listener", "push-gateway"]
 async-runtime = ["tokio", "hyper"]
 http-listener = ["async-runtime", "hyper/server", "ipnet"]
-push-gateway = ["async-runtime", "hyper/client", "hyper-tls", "tracing"]
+push-gateway = ["async-runtime", "hyper/client", "tracing"]
+native-tls = ["hyper-tls"]
+rustls-tls = ["hyper-rustls"]
 
 [dependencies]
 metrics = { version = "^0.21", path = "../metrics" }
@@ -36,6 +38,7 @@ ipnet = { version = "2", optional = true }
 tokio = { version = "1", features = ["rt", "net", "time"], optional = true }
 tracing = { version = "0.1.26", optional = true }
 hyper-tls = { version = "0.5.0", optional = true }
+hyper-rustls = { version = "0.24.2", optional = true }
 
 [dev-dependencies]
 tracing = "0.1"
