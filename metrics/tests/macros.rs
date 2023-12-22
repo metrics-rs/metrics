@@ -1,4 +1,4 @@
-#[test]
+#[cfg_attr(not(miri), test)]
 pub fn macros() {
     let t = trybuild::TestCases::new();
     t.pass("tests/macros/01_basic.rs");
