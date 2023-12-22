@@ -1,4 +1,5 @@
 # Releases
+
 Unlike the [CHANGELOG](CHANGELOG.md), this file tracks more complicated changes that required
 long-form description and would be too verbose for the changelog alone.
 
@@ -6,7 +7,126 @@ long-form description and would be too verbose for the changelog alone.
 
 ## [Unreleased] - ReleaseDate
 
-- No notable changes.
+### Metric metadata
+
+Metrics now support a limited set of metadata field, which can be added to provide for context about
+the metric in terms of where it originates from as well as its verbosity.
+
+In the grand vision of the `metrics` crate, where everyone uses the crate to emit metrics and then
+users get those metrics in their application for free... the biggest problem is that users had no
+way to actually filter out metrics they didn't want. Metric metadata aims to provide a solution to
+this problem.
+
+A new type `Metadata<'a>` has been added to track all of this information, which includes **module
+path**, a **target**, and a **level**. These fields map almost directly to
+[`tracing`](https://docs.rs/tracing) -- the inspiration for adding this metadata support -- and
+provide the ability to:
+
+- group/filter metrics by where they're defined (module path)
+- group/filter metrics by where they're emitted from (target)
+- group/filter metrics by their verbosity (level)
+
+`Metadata<'a>` is passed into the `Recorder` API when registering a metric so that exporters can
+capture it and utilize it.
+
+#### Examples
+
+As an example, users may wish to filter out metrics defined by a particular crate because they don't
+care about them at all. While they might have previously been able to get lucky and simply filter
+the metrics by a common prefix, this still allows for changes to the metric names to breaking the
+filter configuration. If we could instead filter by module path, where we can simply use the crate
+name itself, then we'd catch all metrics for that crate regardless of their name and regardless of
+the crate version.
+
+Similarly, as another example, users may wish to only emit common metrics related to operation of
+their application/service in order to consume less resources, pay less money for the ingest/storage
+of the metrics, and so on. During an outage, or when debugging an issue, though, they may wish to
+increase the verbosity of metrics they emit in order to capture more granular detail. Being able to
+filter by level now provides a mechanism to do so.
+
+#### Usage
+
+First, it needs to be said that nothing in the core `metrics` crates actually utilizes this
+metadata yet. We'll add support in the future to existing layers, such as the
+[filter][filter_layer_docs] layer, in order to take advantage of this support.
+
+With that said, actually setting this metadata is very easy! As a refresher, you'd normally emit
+metrics with something like this:
+
+```rust
+metrics::increment_counter!("my_counter");
+```
+
+Now, you can specify the additional metadata attributes as fields at the beginning of the macro
+call. This applies to all of the "emission" macros for counters, gauges, and histograms:
+
+```rust
+metrics::increment_counter!(target: "myapp", "my_counter");
+
+metrics::increment_gauge!(level: metrics::Level::DEBUG, "my_gauge", 42.2);
+
+metrics::histogram!(target: "myapp", level: metrics::Level::DEBUG, "my_histogram", 180.1);
+```
+
+These metrics will have the relevant metadata field set, and all of them will get the module path
+provided automatically, as well.
+
+### Macros overhaul
+
+In this release, we've reworked the macros to both simplify their implementation and to hopefully
+provide a more ergonomic experience for users.
+
+At a high level, we've:
+
+- removed all the various macros that were tied to specific _operations_ (e.g. `increment_counter!`
+  for incrementing a counter) and replaced them with one macro per metric type
+- removed the standalone registration macros (e.g. `register_counter!`)
+- exposed the operations as methods on the metric handles themselves
+- switched from using procedural macros to declarative macros
+
+#### Fewer macros, more ergonomic usage
+
+Users no longer need to remember the specific macro to use for a given metric operation, such as
+`increment_gauge!` or `decrement_gauge!`. Instead, if the user knows they're working with a gauge,
+they simply call `gauge!(...)` to get the handle, and chain on a method call to perform the
+operation, such as `gauge!(...).increment(42.2)`.
+
+Additionally, because we've condensed the registration macros into the new, simplified macros, the
+same macro is used whether registering the metric to get a handle, or simply performing an operation
+on the metric all at once.
+
+Let's look at a few examples:
+
+```rust
+// This is the old style of registering a metric and then performing an operation on it.
+//
+// We're working with a counter here.
+let counter_handle = metrics::register_counter!("my_counter");
+counter_handle.increment(1);
+
+metrics::increment_counter!("my_counter");
+
+// Now let's use the new, simplified macros instead:
+let counter_handle = metrics::counter!("my_counter");
+counter_handle.increment(1);
+
+metrics::counter!("my_counter").increment(1);
+```
+
+As you can see, users no longer need to know about as many macros, and their usage is consistent
+whether working with a metric handle that is held long-term, or chaining the method call inline with
+the macro call. As a benefit, this also means that IDE completion will be better in some situations,
+as support for autocompletion of method calls is generally well supported, while macro
+autocompletion is effectively nonexistent.
+
+#### Declarative macros
+
+As part of this rework, the macros have also been rewritten declaratively. While the macro code
+itself is slightly more complicated/verbose, it has a major benefit that the `metrics-macros` crate
+was able to be removed. This is one less dependency that has to be compiled, which should hopefully
+help with build times, even if only slightly.
+
+[filter_layer_docs]: https://docs.rs/metrics-util/latest/metrics_util/layers/struct.FilterLayer.html
 
 ## [0.21.1] - 2023-07-02
 
@@ -35,6 +155,7 @@ long-form description and would be too verbose for the changelog alone.
 ## [0.18.0] - 2022-01-14
 
 ### Switch to metric handles
+
 `metrics` has now switched to "metric handles."  This requires a small amount of backstory.
 
 #### Evolution of data storage in `metrics`

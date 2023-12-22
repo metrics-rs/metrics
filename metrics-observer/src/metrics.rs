@@ -114,30 +114,22 @@ impl Runner {
                         let mut state = self.client_state.lock().unwrap();
                         *state = ClientState::Disconnected(None);
                     }
-
-                    // Try to connect to our target and transition into Connected.
-                    let addr = match self.addr.to_socket_addrs() {
-                        Ok(mut addrs) => match addrs.next() {
-                            Some(addr) => addr,
-                            None => {
-                                let mut state = self.client_state.lock().unwrap();
-                                *state = ClientState::Disconnected(Some(
-                                    "failed to resolve specified host".to_string(),
-                                ));
-                                break;
-                            }
-                        },
-                        Err(_) => {
-                            let mut state = self.client_state.lock().unwrap();
-                            *state = ClientState::Disconnected(Some(
-                                "failed to resolve specified host".to_string(),
-                            ));
-                            break;
-                        }
+                    // Resolve the target address.
+                    let Ok(mut addrs) = self.addr.to_socket_addrs() else {
+                        let mut state = self.client_state.lock().unwrap();
+                        *state = ClientState::Disconnected(Some(
+                            "failed to resolve specified host".to_string(),
+                        ));
+                        break;
                     };
-                    match TcpStream::connect_timeout(&addr, Duration::from_secs(3)) {
-                        Ok(stream) => RunnerState::Connected(stream),
-                        Err(_) => RunnerState::ErrorBackoff(
+                    // Some of the resolved addresses may be unreachable (e.g. IPv6).
+                    // Pick the first one that works.
+                    let maybe_stream = addrs.find_map(|addr| {
+                        TcpStream::connect_timeout(&addr, Duration::from_secs(3)).ok()
+                    });
+                    match maybe_stream {
+                        Some(stream) => RunnerState::Connected(stream),
+                        None => RunnerState::ErrorBackoff(
                             "error while connecting",
                             Duration::from_secs(3),
                         ),

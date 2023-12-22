@@ -55,19 +55,25 @@
 //!
 //! # Implementation
 //!
-//! The integration layer works by capturing all fields present when a span is created and storing
-//! them as an extension to the span.  If a metric is emitted while a span is entered, we check that
-//! span to see if it has any fields in the extension data, and if it does, we add those fields as
-//! labels to the metric key.
+//! The integration layer works by capturing all fields that are present when a span is created,
+//! as well as fields recorded after the fact, and storing them as an extension to the span. If
+//! a metric is emitted while a span is entered, any fields captured for that span will be added
+//! to the metric as additional labels.
 //!
-//! There are two important behaviors to be aware of:
-//! - we only capture the fields present when the span is created
-//! - we store all fields that a span has, including the fields of its parent span(s)
+//! Be aware that we recursively capture the fields of a span, including fields from
+//! parent spans, and use them when generating metric labels. This means that if a metric is being
+//! emitted in span B, which is a child of span A, and span A has field X, and span B has field Y,
+//! then the metric labels will include both field X and Y. This applies regardless of how many
+//! nested spans are currently entered.
 //!
-//! ## Lack of dynamism
+//! ## Duplicate span fields
 //!
-//! This means that if you use [`Span::record`][tracing::Span::record] to add fields to a span after
-//! it has been created, those fields will not be captured and added to your metric key.
+//! When span fields are captured, they are deduplicated such that only the most recent value is kept.
+//! For merging parent span fields into the current span fields, the fields from the current span have
+//! the highest priority. Additionally, when using [`Span::record`][tracing::Span::record] to add fields
+//! to a span after it has been created, the same behavior applies. This means that recording a field
+//! multiple times only keeps the most recently recorded value, including if a field was already present
+//! from a parent span and is then recorded dynamically in the current span.
 //!
 //! ## Span fields and ancestry
 //!
@@ -104,11 +110,10 @@ pub mod label_filter;
 mod tracing_integration;
 
 pub use label_filter::LabelFilter;
-use tracing_integration::WithContext;
+use tracing_integration::Map;
 pub use tracing_integration::{Labels, MetricsLayer};
 
-/// [`TracingContextLayer`] provides an implementation of a [`Layer`][metrics_util::layers::Layer]
-/// for [`TracingContext`].
+/// [`TracingContextLayer`] provides an implementation of a [`Layer`] for [`TracingContext`].
 pub struct TracingContextLayer<F> {
     label_filter: F,
 }
@@ -170,34 +175,33 @@ where
         // doing the iteration would likely exceed the cost of simply constructing the new key.
         tracing::dispatcher::get_default(|dispatch| {
             let current = dispatch.current_span();
-            if let Some(id) = current.id() {
-                // We're currently within a live tracing span, so see if we have an available
-                // metrics context to grab any fields/labels out of.
-                if let Some(ctx) = dispatch.downcast_ref::<WithContext>() {
-                    let mut f = |new_labels: &[Label]| {
-                        if !new_labels.is_empty() {
-                            let (name, mut labels) = key.clone().into_parts();
+            let id = current.id()?;
+            let ctx = dispatch.downcast_ref::<MetricsLayer>()?;
 
-                            let filtered_labels = new_labels
-                                .iter()
-                                .filter(|label| {
-                                    self.label_filter.should_include_label(&name, label)
-                                })
-                                .cloned();
-                            labels.extend(filtered_labels);
+            let mut f = |mut span_labels: Map| {
+                (!span_labels.is_empty()).then(|| {
+                    let (name, labels) = key.clone().into_parts();
 
-                            Some(Key::from_parts(name, labels))
-                        } else {
-                            None
-                        }
-                    };
+                    // Filter only span labels
+                    span_labels.retain(|key: &SharedString, value: &mut SharedString| {
+                        let label = Label::new(key.clone(), value.clone());
+                        self.label_filter.should_include_label(&name, &label)
+                    });
 
-                    // Pull in the span's fields/labels if they exist.
-                    return ctx.with_labels(dispatch, id, &mut f);
-                }
-            }
+                    // Overwrites labels from spans
+                    span_labels.extend(labels.into_iter().map(Label::into_parts));
 
-            None
+                    let labels = span_labels
+                        .into_iter()
+                        .map(|(key, value)| Label::new(key, value))
+                        .collect::<Vec<_>>();
+
+                    Key::from_parts(name, labels)
+                })
+            };
+
+            // Pull in the span's fields/labels if they exist.
+            ctx.with_labels(dispatch, id, &mut f)
         })
     }
 }
