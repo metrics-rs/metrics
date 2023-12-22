@@ -353,10 +353,10 @@ mod tests {
         let (clock, mock) = Clock::mock();
         mock.increment(Duration::from_secs(4));
 
-        const BUCKET_COUNT: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(2) };
-        const BUCKET_WIDTH: Duration = Duration::from_secs(5);
+        let bucket_count = NonZeroU32::new(2).unwrap();
+        let bucket_width = Duration::from_secs(5);
 
-        let mut summary = RollingSummary::new(BUCKET_COUNT, BUCKET_WIDTH);
+        let mut summary = RollingSummary::new(bucket_count, bucket_width);
         assert_eq!(0, summary.buckets().len());
         assert_eq!(0, summary.count());
 
