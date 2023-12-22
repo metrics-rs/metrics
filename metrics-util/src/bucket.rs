@@ -1,4 +1,4 @@
-use crossbeam_epoch::{pin as epoch_pin, unprotected, Atomic, Guard, Owned, Shared};
+use crossbeam_epoch::{pin as epoch_pin, Atomic, Guard, Owned, Shared};
 use crossbeam_utils::Backoff;
 use std::{
     cell::UnsafeCell,
@@ -153,7 +153,8 @@ impl<T> Drop for Block<T> {
 
 impl<T> std::fmt::Debug for Block<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let has_next = unsafe { !self.next.load(Ordering::Acquire, unprotected()).is_null() };
+        let guard = &epoch_pin();
+        let has_next = !self.next.load(Ordering::Acquire, guard).is_null();
         f.debug_struct("Block")
             .field("type", &std::any::type_name::<T>())
             .field("block_size", &BLOCK_SIZE)

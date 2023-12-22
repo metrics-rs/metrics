@@ -32,17 +32,14 @@ type RegistryHashMap<K, V> = HashMap<K, V, BuildHasherDefault<RegistryHasher>>;
 /// ## Using `Registry` as the basis of an exporter
 ///
 /// As a reusable building blocking for building exporter implementations, users should look at
-/// [`Key`] and [`AtomicStorage`][crate::registry::AtomicStorage] to use for their key and storage,
-/// respectively.
+/// [`Key`] and [`AtomicStorage`] to use for their key and storage, respectively.
 ///
 /// These two implementations provide behavior that is suitable for most exporters, providing
 /// seamless integration with the existing key type used by the core
 /// [`Recorder`][metrics::Recorder] trait, as well as atomic storage for metrics.
 ///
-/// In some cases, users may prefer
-/// [`GenerationalAtomicStorage`][crate::registry::GenerationalAtomicStorage] when know if a metric
-/// has been touched, even if its value has not changed since the last time it was observed, is
-/// necessary.
+/// In some cases, users may prefer [`GenerationalAtomicStorage`] when know if a metric has been
+/// touched, even if its value has not changed since the last time it was observed, is necessary.
 ///
 /// ## Performance
 ///

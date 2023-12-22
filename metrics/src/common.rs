@@ -6,12 +6,15 @@ use crate::cow::Cow;
 
 /// An allocation-optimized string.
 ///
-/// We specify `SharedString` to attempt to get the best of both worlds: flexibility to provide a
-/// static or dynamic (owned) string, while retaining the performance benefits of being able to
-/// take ownership of owned strings and borrows of completely static strings.
+/// `SharedString` uses a custom copy-on-write implementation that is optimized for metric keys,
+/// providing ergonomic sharing of single instances, or slices, of strings and labels. This
+/// copy-on-write implementation is optimized to allow for constant-time construction (using static
+/// values), as well as accepting owned values and values shared through [`Arc<T>`](std::sync::Arc).
 ///
-/// `SharedString` can be converted to from either `&'static str` or `String`, with a method,
-/// `const_str`, from constructing `SharedString` from `&'static str` in a `const` fashion.
+/// End users generally will not need to interact with this type directly, as the top-level macros
+/// (`counter!`, etc), as well as the various conversion implementations
+/// ([`From<T>`](std::convert::From)), generally allow users to pass whichever variant of a value
+/// (static, owned, shared) is best for them.
 pub type SharedString = Cow<'static, str>;
 
 /// Key-specific hashing algorithm.
