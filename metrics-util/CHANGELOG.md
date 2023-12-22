@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Fixed the `Debug` implementation for `bucket::Block<T>` which represented both an unsafe and
+  logically incorrect usage of `crossbeam-epoch.`
+
 ## [0.15.1] - 2023-07-02
 
 ### Added
