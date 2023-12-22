@@ -24,9 +24,11 @@ jobs:
     - name: Install Rust Stable
       run: rustup default stable
     - name: Install cargo-hack
-      run: cargo install cargo-hack
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-hack
     - name: Check Feature Matrix
-      run: cargo hack build --all --all-targets --feature-powerset
+      run: cargo hack check --all --all-targets --feature-powerset --release
   test:
     name: Test ${{ matrix.rust_version }}
     runs-on: ubuntu-latest

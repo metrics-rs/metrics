@@ -1,7 +1,11 @@
 [build]
   command = """
   rustup install nightly --profile minimal && \
-  cargo doc --no-deps --workspace --exclude=metrics-observer && cp -r target/doc _netlify_out
+  PROTOC_ZIP=protoc-3.14.0-linux-x86_64.zip && \
+  curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/$PROTOC_ZIP && \
+  unzip $PROTOC_ZIP && \
+  PATH=$PATH:/$PWD/bin cargo +nightly doc --no-deps --workspace --exclude=metrics-observer && \
+  cp -r target/doc _netlify_out
   """
   environment = { RUSTDOCFLAGS= "--cfg docsrs" }
   publish = "_netlify_out"

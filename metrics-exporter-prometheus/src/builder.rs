@@ -29,6 +29,7 @@ use hyper::{
     http::HeaderValue,
     Method, Request, Uri,
 };
+#[cfg(feature = "push-gateway")]
 use hyper_tls::HttpsConnector;
 
 use indexmap::IndexMap;
