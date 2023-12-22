@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.12.2] - 2023-12-13
+
+### Fixed
+
+- Fixed overflow/underflow panic with time moving backwards ([#423](https://github.com/metrics-rs/metrics/pull/423))
+
 ## [0.12.1] - 2023-05-09
 
 ### Added
