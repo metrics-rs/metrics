@@ -94,7 +94,7 @@ impl Drop for LocalRecorderGuard {
 /// Sets the global recorder.
 ///
 /// This function may only be called once in the lifetime of a program. Any metrics recorded
-/// before the call to `set_recorder` occurs will be completely ignored.
+/// before this method is called will be completely ignored.
 ///
 /// This function does not typically need to be called manually.  Metrics implementations should
 /// provide an initialization method that installs the recorder internally.
