@@ -116,23 +116,23 @@ fn test_basic_functionality() {
 
 #[test]
 fn test_basic_functionality_record() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let snapshot = with_tracing_layer(TracingContextLayer::all(), || {
+        let user = "ferris";
+        let email = "ferris@rust-lang.org";
+        let span = span!(
+            Level::TRACE,
+            "login",
+            user,
+            user.email = email,
+            user.id = tracing_core::field::Empty,
+        );
+        let _guard = span.enter();
 
-    let user = "ferris";
-    let email = "ferris@rust-lang.org";
-    let span = span!(
-        Level::TRACE,
-        "login",
-        user,
-        user.email = email,
-        user.id = tracing_core::field::Empty,
-    );
-    let _guard = span.enter();
+        span.record("user.id", 42);
+        counter!("login_attempts", "service" => "login_service").increment(1);
+    });
 
-    span.record("user.id", 42);
-    counter!("login_attempts", "service" => "login_service").increment(1);
-
-    let snapshot = snapshotter.snapshot().into_vec();
+    let snapshot = snapshot.into_vec();
 
     assert_eq!(
         snapshot,
@@ -150,54 +150,48 @@ fn test_basic_functionality_record() {
 
 #[test]
 fn test_basic_functionality_then_record() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let snapshot = with_tracing_layer(TracingContextLayer::all(), || {
+        let user = "ferris";
+        let email = "ferris@rust-lang.org";
+        let span = span!(
+            Level::TRACE,
+            "login",
+            user,
+            user.email = email,
+            user.id = tracing_core::field::Empty,
+        );
 
-    let user = "ferris";
-    let email = "ferris@rust-lang.org";
-    let span = span!(
-        Level::TRACE,
-        "login",
-        user,
-        user.email = email,
-        user.id = tracing_core::field::Empty,
+        let _guard = span.enter();
+        counter!("login_attempts", "service" => "login_service").increment(1);
+
+        span.record("user.id", 42);
+        counter!("login_attempts", "service" => "login_service").increment(1);
+    });
+
+    let snapshot = snapshot.into_vec();
+    assert_eq!(
+        snapshot,
+        vec![
+            (
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::from_static_parts(LOGIN_ATTEMPTS, SVC_USER_EMAIL),
+                ),
+                None,
+                None,
+                DebugValue::Counter(1),
+            ),
+            (
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::from_static_parts(LOGIN_ATTEMPTS, SVC_USER_EMAIL_ID),
+                ),
+                None,
+                None,
+                DebugValue::Counter(1),
+            )
+        ]
     );
-    let _guard = span.enter();
-    let mut snapshots = vec![];
-    {
-        counter!("login_attempts", "service" => "login_service").increment(1);
-
-        let snapshot = snapshotter.snapshot().into_vec();
-
-        snapshots.push((
-            CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_static_parts(LOGIN_ATTEMPTS, SVC_USER_EMAIL),
-            ),
-            None,
-            None,
-            DebugValue::Counter(1),
-        ));
-
-        assert_eq!(snapshot, snapshots);
-    }
-    span.record("user.id", 42);
-    {
-        counter!("login_attempts", "service" => "login_service").increment(1);
-
-        let snapshot = snapshotter.snapshot().into_vec();
-
-        snapshots.push((
-            CompositeKey::new(
-                MetricKind::Counter,
-                Key::from_static_parts(LOGIN_ATTEMPTS, SVC_USER_EMAIL_ID),
-            ),
-            None,
-            None,
-            DebugValue::Counter(1),
-        ));
-
-        assert_eq!(snapshot, snapshots);
-    }
 }
 
 #[test]
@@ -205,18 +199,18 @@ fn test_rerecord() {
     static USER_ID_42: &[Label] = &[Label::from_static_parts("user.id", "42")];
     static USER_ID_123: &[Label] = &[Label::from_static_parts("user.id", "123")];
 
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let snapshot = with_tracing_layer(TracingContextLayer::all(), || {
+        let span = span!(Level::TRACE, "login", user.id = tracing_core::field::Empty);
+        let _guard = span.enter();
 
-    let span = span!(Level::TRACE, "login", user.id = tracing_core::field::Empty);
-    let _guard = span.enter();
+        span.record("user.id", 42);
+        counter!("login_attempts").increment(1);
 
-    span.record("user.id", 42);
-    counter!("login_attempts").increment(1);
+        span.record("user.id", 123);
+        counter!("login_attempts").increment(1);
+    });
 
-    span.record("user.id", 123);
-    counter!("login_attempts").increment(1);
-
-    let snapshot = snapshotter.snapshot().into_vec();
+    let snapshot = snapshot.into_vec();
 
     assert_eq!(
         snapshot,
@@ -245,25 +239,25 @@ fn test_rerecord() {
 
 #[test]
 fn test_loop() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let snapshot = with_tracing_layer(TracingContextLayer::all(), || {
+        let user = "ferris";
+        let email = "ferris@rust-lang.org";
+        let span = span!(
+            Level::TRACE,
+            "login",
+            user,
+            user.email = email,
+            attempt = tracing_core::field::Empty,
+        );
+        let _guard = span.enter();
 
-    let user = "ferris";
-    let email = "ferris@rust-lang.org";
-    let span = span!(
-        Level::TRACE,
-        "login",
-        user,
-        user.email = email,
-        attempt = tracing_core::field::Empty,
-    );
-    let _guard = span.enter();
+        for attempt in 1..=42 {
+            span.record("attempt", attempt);
+        }
+        counter!("login_attempts").increment(1);
+    });
 
-    for attempt in 1..=42 {
-        span.record("attempt", attempt);
-    }
-    counter!("login_attempts").increment(1);
-
-    let snapshot = snapshotter.snapshot().into_vec();
+    let snapshot = snapshot.into_vec();
 
     assert_eq!(
         snapshot,
@@ -283,15 +277,15 @@ fn test_loop() {
 fn test_record_does_not_overwrite() {
     static USER_ID_42: &[Label] = &[Label::from_static_parts("user.id", "42")];
 
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let snapshot = with_tracing_layer(TracingContextLayer::all(), || {
+        let span = span!(Level::TRACE, "login", user.id = tracing_core::field::Empty);
+        let _guard = span.enter();
 
-    let span = span!(Level::TRACE, "login", user.id = tracing_core::field::Empty);
-    let _guard = span.enter();
+        span.record("user.id", 666);
+        counter!("login_attempts", "user.id" => "42").increment(1);
+    });
 
-    span.record("user.id", 666);
-    counter!("login_attempts", "user.id" => "42").increment(1);
-
-    let snapshot = snapshotter.snapshot().into_vec();
+    let snapshot = snapshot.into_vec();
 
     assert_eq!(
         snapshot,
@@ -397,15 +391,15 @@ fn test_no_labels() {
 
 #[test]
 fn test_no_labels_record() {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
+    let snapshot = with_tracing_layer(TracingContextLayer::all(), || {
+        let span = span!(Level::TRACE, "login", user.id = tracing_core::field::Empty);
+        let _guard = span.enter();
 
-    let span = span!(Level::TRACE, "login", user.id = tracing_core::field::Empty);
-    let _guard = span.enter();
+        span.record("user.id", 42);
+        counter!("login_attempts").increment(1);
+    });
 
-    span.record("user.id", 42);
-    counter!("login_attempts").increment(1);
-
-    let snapshot = snapshotter.snapshot().into_vec();
+    let snapshot = snapshot.into_vec();
 
     assert_eq!(
         snapshot,
@@ -511,10 +505,7 @@ fn test_nested_spans() {
         inner();
     };
 
-    let snapshot = with_tracing_layer(TracingContextLayer::all(), || {
-        outer();
-    });
-
+    let snapshot = with_tracing_layer(TracingContextLayer::all(), outer);
     let snapshot = snapshot.into_vec();
 
     assert_eq!(
@@ -635,48 +626,52 @@ fn test(
     record_field: bool,
     increment_before_recording: bool,
 ) {
-    let (_guard, snapshotter) = setup(TracingContextLayer::all());
-
-    let parent = if span_field_same_as_metric && parent_field_same_as_span {
-        tracing::trace_span!("outer", user.email = "changed@domain.com")
-    } else {
-        tracing::trace_span!("outer", user.id = 999)
-    };
-
-    let _guard = span_has_parent.then(|| parent.enter());
-
-    let span = if span_has_fields {
-        match (span_field_same_as_metric, span_field_is_empty) {
-            (false, false) => tracing::trace_span!("login", user.id = 666),
-            (false, true) => tracing::trace_span!("login", user.id = tracing_core::field::Empty),
-            (true, false) => tracing::trace_span!("login", user.email = "user@domain.com"),
-            (true, true) => tracing::trace_span!("login", user.email = tracing_core::field::Empty),
-        }
-    } else {
-        tracing::trace_span!("login")
-    };
-
-    let _guard = in_span.then(|| span.enter());
-
-    let increment = || {
-        if metric_has_labels {
-            counter!("login_attempts", "user.email" => "ferris@rust-lang.org").increment(1);
+    let snapshot = with_tracing_layer(TracingContextLayer::all(), || {
+        let parent = if span_field_same_as_metric && parent_field_same_as_span {
+            tracing::trace_span!("outer", user.email = "changed@domain.com")
         } else {
-            counter!("login_attempts").increment(1);
+            tracing::trace_span!("outer", user.id = 999)
+        };
+
+        let _guard = span_has_parent.then(|| parent.enter());
+
+        let span = if span_has_fields {
+            match (span_field_same_as_metric, span_field_is_empty) {
+                (false, false) => tracing::trace_span!("login", user.id = 666),
+                (false, true) => {
+                    tracing::trace_span!("login", user.id = tracing_core::field::Empty)
+                }
+                (true, false) => tracing::trace_span!("login", user.email = "user@domain.com"),
+                (true, true) => {
+                    tracing::trace_span!("login", user.email = tracing_core::field::Empty)
+                }
+            }
+        } else {
+            tracing::trace_span!("login")
+        };
+
+        let _guard = in_span.then(|| span.enter());
+
+        let increment = || {
+            if metric_has_labels {
+                counter!("login_attempts", "user.email" => "ferris@rust-lang.org").increment(1);
+            } else {
+                counter!("login_attempts").increment(1);
+            }
+        };
+
+        if increment_before_recording {
+            increment();
         }
-    };
 
-    if increment_before_recording {
+        if record_field {
+            span.record("user.id", 42);
+        }
+
         increment();
-    }
+    });
 
-    if record_field {
-        span.record("user.id", 42);
-    }
-
-    increment();
-
-    let snapshot = snapshotter.snapshot().into_vec();
+    let snapshot = snapshot.into_vec();
 
     let mut expected = vec![];
 
