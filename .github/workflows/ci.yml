@@ -86,5 +86,7 @@ jobs:
       run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
       run: rustup default stable
+    - name: Install Clippy
+      run: rustup component add clippy
     - name: Run Clippy
       run: cargo clippy --all-features --workspace --exclude=metrics-benchmark
