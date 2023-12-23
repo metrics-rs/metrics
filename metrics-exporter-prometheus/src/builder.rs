@@ -560,9 +560,9 @@ fn basic_auth(username: &str, password: Option<&str>) -> HeaderValue {
     let mut buf = b"Basic ".to_vec();
     {
         let mut encoder = EncoderWriter::new(&mut buf, &BASE64_STANDARD);
-        let _ = write!(encoder, "{username}:");
+        write!(encoder, "{username}:").expect("should not fail to encode username");
         if let Some(password) = password {
-            let _ = write!(encoder, "{password}");
+            write!(encoder, "{password}").expect("should not fail to encode password");
         }
     }
     let mut header = HeaderValue::from_bytes(&buf).expect("base64 is always valid HeaderValue");

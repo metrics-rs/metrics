@@ -132,12 +132,10 @@ pub fn with_recorder<T>(f: impl FnOnce(&dyn Recorder) -> T) -> T {
             // ensures that the lifetime of the recorder is valid for the duration of this method
             // call.
             unsafe { f(recorder.as_ref()) }
+        } else if let Some(global_recorder) = GLOBAL_RECORDER.try_load() {
+            f(global_recorder)
         } else {
-            if let Some(global_recorder) = GLOBAL_RECORDER.try_load() {
-                f(global_recorder)
-            } else {
-                f(&NOOP_RECORDER)
-            }
+            f(&NOOP_RECORDER)
         }
     })
 }
