@@ -109,7 +109,7 @@ macro_rules! counter {
         let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
         let metadata = $crate::metadata_var!($target, $level);
 
-        $crate::recorder().register_counter(&metric_key, metadata)
+        $crate::with_recorder(|recorder| recorder.register_counter(&metric_key, metadata))
     }};
     (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         $crate::counter!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
@@ -176,7 +176,7 @@ macro_rules! gauge {
         let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
         let metadata = $crate::metadata_var!($target, $level);
 
-        $crate::recorder().register_gauge(&metric_key, metadata)
+        $crate::with_recorder(|recorder| recorder.register_gauge(&metric_key, metadata))
     }};
     (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         $crate::gauge!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
@@ -240,7 +240,7 @@ macro_rules! histogram {
         let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
         let metadata = $crate::metadata_var!($target, $level);
 
-        $crate::recorder().register_histogram(&metric_key, metadata)
+        $crate::with_recorder(|recorder| recorder.register_histogram(&metric_key, metadata))
     }};
     (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
         $crate::histogram!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
@@ -257,22 +257,22 @@ macro_rules! histogram {
 #[macro_export]
 macro_rules! describe {
     ($method:ident, $name:expr, $unit:expr, $description:expr) => {{
-        if let ::core::option::Option::Some(recorder) = $crate::try_recorder() {
+        $crate::with_recorder(|recorder| {
             recorder.$method(
                 ::core::convert::Into::into($name),
                 ::core::option::Option::Some($unit),
                 ::core::convert::Into::into($description),
-            )
-        }
+            );
+        });
     }};
     ($method:ident, $name:expr, $description:expr) => {{
-        if let ::core::option::Option::Some(recorder) = $crate::try_recorder() {
+        $crate::with_recorder(|recorder| {
             recorder.$method(
                 ::core::convert::Into::into($name),
                 ::core::option::Option::None,
                 ::core::convert::Into::into($description),
-            )
-        }
+            );
+        });
     }};
 }
 

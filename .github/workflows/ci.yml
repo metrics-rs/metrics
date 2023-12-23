@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install Rust Nightly
-      run: rustup default nightly
+    - name: Install rustfmt
+      run: rustup component add rustfmt
     - name: Check Formatting
       run: cargo fmt --all -- --check
   feature-check:
@@ -30,19 +30,30 @@ jobs:
     - name: Check Feature Matrix
       run: cargo hack check --all --all-targets --feature-powerset --release
   test:
+    name: Test (rust-toolchain.toml)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Protobuf Compiler
+      run: sudo apt-get install protobuf-compiler
+    - name: Install Rust Stable
+      run: rustup default stable
+    - name: Run Tests
+      run: cargo test --all-features --workspace
+  test-matrixed:
     name: Test ${{ matrix.rust_version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust_version: ['1.61.0', 'stable', 'nightly']
+        rust_version: ['stable', 'nightly']
     steps:
     - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
     - name: Install Rust ${{ matrix.rust_version }}
-      run: rustup default ${{ matrix.rust_version }}
+      run: rustup install ${{ matrix.rust_version }}
     - name: Run Tests
-      run: cargo test --all-features --workspace --exclude=metrics-observer -- --test-threads=1
+      run: cargo +${{ matrix.rust_version }} test --all-features --workspace
   docs:
     runs-on: ubuntu-latest
     env:
@@ -52,9 +63,9 @@ jobs:
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
     - name: Install Rust Nightly
-      run: rustup default nightly
+      run: rustup install nightly
     - name: Check Docs
-      run: cargo doc --all-features --workspace --exclude=metrics-observer --no-deps
+      run: cargo +nightly doc --all-features --workspace --no-deps
   bench:
     name: Bench
     runs-on: ubuntu-latest
@@ -65,18 +76,17 @@ jobs:
     - name: Install Rust Stable
       run: rustup default stable
     - name: Run Benchmarks
-      run: cargo bench --all-features --workspace --exclude=metrics-observer
+      run: cargo bench --all-features --workspace --exclude=metrics-observer --exclude=metrics-benchmark
   clippy:
-    name: Clippy ${{ matrix.rust_version }}
+    name: Clippy
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust_version: ['1.61.0', 'stable', 'nightly']
     steps:
     - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
-    - name: Install Rust ${{ matrix.rust_version }}
-      run: rustup default ${{ matrix.rust_version }}
+    - name: Install Rust Stable
+      run: rustup default stable
+    - name: Install Clippy
+      run: rustup component add clippy
     - name: Run Clippy
-      run: cargo clippy --all-features --workspace --exclude=metrics-observer
+      run: cargo clippy --all-features --workspace --exclude=metrics-benchmark

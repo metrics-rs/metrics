@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::distribution::Distribution;
+use crate::{distribution::Distribution, PrometheusRecorder};
 
 use crate::formatting::sanitize_metric_name;
 use indexmap::IndexMap;
@@ -54,7 +54,7 @@ pub enum BuildError {
 
     /// Installing the recorder did not succeed.
     #[error("failed to install exporter as global recorder: {0}")]
-    FailedToSetGlobalRecorder(#[from] SetRecorderError),
+    FailedToSetGlobalRecorder(#[from] SetRecorderError<PrometheusRecorder>),
 
     /// The given address could not be parsed successfully as an IP address/subnet.
     #[error("failed to parse address as a valid IP address/subnet: {0}")]
