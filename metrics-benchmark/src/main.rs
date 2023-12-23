@@ -3,7 +3,7 @@ use hdrhistogram::Histogram as HdrHistogram;
 use log::{error, info};
 use metrics::{
     counter, gauge, histogram, Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder,
-    SharedString, Unit,
+    SetRecorderError, SharedString, Unit,
 };
 use metrics_util::registry::{AtomicStorage, Registry};
 use portable_atomic::AtomicU64;
@@ -56,8 +56,8 @@ impl BenchmarkingRecorder {
     }
 
     /// Installs this recorder as the global recorder.
-    pub fn install(self) -> Result<(), metrics::SetRecorderError> {
-        metrics::set_boxed_recorder(Box::new(self))
+    pub fn install(self) -> Result<(), SetRecorderError<Self>> {
+        metrics::set_global_recorder(self)
     }
 }
 

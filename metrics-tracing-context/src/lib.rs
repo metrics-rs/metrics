@@ -23,7 +23,7 @@
 //! // Prepare metrics.
 //! # let my_recorder = DebuggingRecorder::new();
 //! let recorder = TracingContextLayer::all().layer(my_recorder);
-//! metrics::set_boxed_recorder(Box::new(recorder)).unwrap();
+//! metrics::set_global_recorder(recorder).unwrap();
 //! ```
 //!
 //! Then emit some metrics within spans and see the labels being injected!
@@ -37,7 +37,7 @@
 //! # tracing::subscriber::set_global_default(subscriber).unwrap();
 //! # let myrecorder = DebuggingRecorder::new();
 //! # let recorder = TracingContextLayer::all().layer(myrecorder);
-//! # metrics::set_boxed_recorder(Box::new(recorder)).unwrap();
+//! # metrics::set_global_recorder(recorder).unwrap();
 //! use tracing::{span, Level};
 //! use metrics::counter;
 //!

@@ -7,7 +7,7 @@
 //!
 //! Here's an example of a layer that filters out all metrics that start with a specific string:
 //!
-//! ```rust
+//! ```no_run
 //! # use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
 //! # use metrics::NoopRecorder as BasicRecorder;
 //! # use metrics_util::layers::{Layer, Stack, PrefixLayer};
@@ -92,15 +92,11 @@
 //! let recorder = BasicRecorder;
 //! let layer = StairwayDenyLayer::default();
 //! let layered = layer.layer(recorder);
-//! metrics::set_boxed_recorder(Box::new(layered)).expect("failed to install recorder");
-//!
-//! # unsafe { metrics::clear_recorder() };
+//! metrics::set_global_recorder(layered).expect("failed to install recorder");
 //!
 //! // Working with layers directly is a bit cumbersome, though, so let's use a `Stack`.
 //! let stack = Stack::new(BasicRecorder);
 //! stack.push(StairwayDenyLayer::default()).install().expect("failed to install stack");
-//!
-//! # unsafe { metrics::clear_recorder() };
 //!
 //! // `Stack` makes it easy to chain layers together, as well.
 //! let stack = Stack::new(BasicRecorder);
@@ -161,8 +157,8 @@ impl<R: Recorder + 'static> Stack<R> {
     /// Installs this stack as the global recorder.
     ///
     /// An error will be returned if there's an issue with installing the stack as the global recorder.
-    pub fn install(self) -> Result<(), SetRecorderError> {
-        metrics::set_boxed_recorder(Box::new(self))
+    pub fn install(self) -> Result<(), SetRecorderError<Self>> {
+        metrics::set_global_recorder(self)
     }
 }
 

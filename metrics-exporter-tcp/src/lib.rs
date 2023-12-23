@@ -104,7 +104,7 @@ pub enum Error {
     Io(io::Error),
 
     /// Installing the recorder did not succeed.
-    Recorder(SetRecorderError),
+    Recorder(SetRecorderError<TcpRecorder>),
 }
 
 impl From<io::Error> for Error {
@@ -113,8 +113,8 @@ impl From<io::Error> for Error {
     }
 }
 
-impl From<SetRecorderError> for Error {
-    fn from(e: SetRecorderError) -> Self {
+impl From<SetRecorderError<TcpRecorder>> for Error {
+    fn from(e: SetRecorderError<TcpRecorder>) -> Self {
         Error::Recorder(e)
     }
 }
@@ -284,8 +284,7 @@ impl TcpBuilder {
     /// installing the recorder as the global recorder.
     pub fn install(self) -> Result<(), Error> {
         let recorder = self.build()?;
-        metrics::set_boxed_recorder(Box::new(recorder))?;
-        Ok(())
+        metrics::set_global_recorder(recorder).map_err(Into::into)
     }
 
     /// Builds and installs the exporter, but returns the recorder.

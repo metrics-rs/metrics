@@ -198,9 +198,6 @@ impl Inner {
 
 /// A Prometheus recorder.
 ///
-/// This recorder should be composed with other recorders or installed globally via
-/// [`metrics::set_boxed_recorder`].
-///
 /// Most users will not need to interact directly with the recorder, and can simply deal with the
 /// builder methods on [`PrometheusBuilder`](crate::PrometheusBuilder) for building and installing
 /// the recorder/exporter.

@@ -157,25 +157,11 @@
 //!
 //! # Development
 //!
-//! The primary interface with `metrics` is through the [`Recorder`] trait, so we'll show examples
-//! below of the trait and implementation notes.
+//! The primary interface with `metrics` is through the [`Recorder`] trait, which is the connection
+//! between the user-facing emission macros -- `counter!`, and so on -- and the actual logic for
+//! handling those metrics and doing something with them, like logging them to the console or
+//! sending them to a remote metrics system.
 //!
-//! ## Installing a basic recorder
-//!
-//! Here's a basic example which writes metrics in text form via the `log` crate.
-//!
-//! ```no_run
-//! # use metrics::{SetRecorderError, NoopRecorder as LogRecorder};
-//! // Recorders are installed by calling the [`set_recorder`] function.  Recorders should provide a
-//! // function that wraps the creation and installation of the recorder:
-//!
-//! static RECORDER: LogRecorder = LogRecorder;
-//!
-//! pub fn init() -> Result<(), SetRecorderError> {
-//!     metrics::set_recorder(&RECORDER)
-//! }
-//! # fn main() {}
-//! ```
 //! ## Keys
 //!
 //! All metrics are, in essence, the combination of a metric type and metric identifier, such as a
@@ -243,17 +229,37 @@
 //!
 //! ## Installing recorders
 //!
-//! In order to actually use an exporter, it must be installed as the "global" recorder.  This is a
-//! static recorder that the registration and emission macros refer to behind-the-scenes.  `metrics`
-//! provides a few methods to do so: [`set_recorder`] and [`set_boxed_recorder`].
+//! Recorders, also referred to as exporters, must be "installed" such that the emission macros can
+//! access them. As users of `metrics`, you'll typically see exporters provide methods to install
+//! themselves that hide the nitty gritty details.  These methods will usually be aptly named, such
+//! as `install`.
 //!
-//! Primarily, you'll use [`set_boxed_recorder`] to pass a boxed version of the exporter to be
-//! installed.  This is due to the fact that most exporters won't be able to be constructed
-//! statically.  If you could construct your exporter statically, though, then you could instead
-//! choose [`set_recorder`].
+//! However, at a low level, this can happen in one of two ways: installing a recorder globally, or
+//! temporarily using it locally.
 //!
-//! As users of `metrics`, you'll typically see exporters provide methods to install themselves that
-//! hide the nitty gritty details.  These methods will usually be aptly named, such as `install`.
+//! ### Global recorder
+//!
+//! The global recorder is the recorder that the macros use by default. It is stored in a static
+//! variable accessible by all portions of the compiled application, including dependencies. This is
+//! what allows us to provide the same "initialize once, benefit everywhere" behavior that users are
+//! familiar with from other telemetry crates like `tracing` and `log`.
+//!
+//! Only one global recorder can be installed in the lifetime of the process. If a global recorder
+//! has already been installed, it cannot be replaced: this is due to the fact that once installed,
+//! the recorder is "leaked" so that a static reference can be obtained to it and used by subsequent
+//! calls to the emission macros, and any downstream crates.
+//!
+//! ### Local recorder
+//!
+//! In many scenarios, such as in unit tests, you may wish to temporarily set a recorder to
+//! influence all calls to the emission macros within a specific section of code, without
+//! influencing other areas of the code, or being limited by the constraints of only one global
+//! recorder being allowed.
+//!
+//! [`with_local_recorder`] allows you to do this by changing the recorder used by the emission macros for
+//! the duration of a given closure. While in that closure, the given recorder will act as if it was
+//! the global recorder for the current thread. Once the closure returns, the true global recorder
+//! takes priority again for the current thread.
 //!
 //! [metrics-exporter-tcp]: https://docs.rs/metrics-exporter-tcp
 //! [metrics-exporter-prometheus]: https://docs.rs/metrics-exporter-prometheus
