@@ -1,10 +1,13 @@
-use std::collections::{BTreeMap, HashMap};
 use std::io::Read;
 use std::net::TcpStream;
 use std::net::ToSocketAddrs;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
+use std::{
+    collections::{BTreeMap, HashMap},
+    convert::TryFrom as _,
+};
 
 use bytes::{BufMut, BytesMut};
 use prost::Message;
@@ -178,7 +181,7 @@ impl Runner {
 
                         match event {
                             Event::Metadata(metadata) => {
-                                let metric_type = MetricType::from_i32(metadata.metric_type)
+                                let metric_type = MetricType::try_from(metadata.metric_type)
                                     .expect("unknown metric type over wire");
                                 let metric_kind = match metric_type {
                                     MetricType::Counter => MetricKind::Counter,
