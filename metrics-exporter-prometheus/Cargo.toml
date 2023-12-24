@@ -23,7 +23,7 @@ http-listener = ["async-runtime", "hyper/server", "ipnet"]
 push-gateway = ["async-runtime", "hyper/client", "hyper-tls", "tracing"]
 
 [dependencies]
-metrics = { version = "^0.21", path = "../metrics" }
+metrics = { version = "^0.22", path = "../metrics" }
 metrics-util = { version = "^0.15", path = "../metrics-util", default-features = false, features = ["recency", "registry", "summary"] }
 thiserror = { version = "1", default-features = false }
 quanta = { version = "0.12", default-features = false }
