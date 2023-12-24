@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.16.0] - 2023-12-24
+
 ### Fixed
 
 - Fixed the `Debug` implementation for `bucket::Block<T>` which represented both an unsafe and

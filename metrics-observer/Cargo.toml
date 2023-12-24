@@ -18,7 +18,7 @@ keywords = ["metrics", "facade", "macros"]
 
 [dependencies]
 metrics = { version = "^0.22", path = "../metrics", default-features = false }
-metrics-util = { version = "^0.15", path = "../metrics-util", default-features = false, features = ["summary"] }
+metrics-util = { version = "^0.16", path = "../metrics-util", default-features = false, features = ["summary"] }
 bytes = { version = "1", default-features = false }
 crossbeam-channel = { version = "0.5", default-features = false, features = ["std"] }
 prost = { version = "0.12", default-features = false }
