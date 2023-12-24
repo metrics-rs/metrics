@@ -31,7 +31,7 @@ indexmap = { version = "2.1", default-features = false, features = ["std"] }
 base64 = { version = "0.21.0", default-features = false, features = ["std"] }
 
 # Optional
-hyper = { version = "0.14", default-features = false, features = ["tcp", "http1"], optional = true }
+hyper = { version = "1.1", default-features = false, features = ["tcp", "http1"], optional = true }
 ipnet = { version = "2", optional = true }
 tokio = { version = "1", features = ["rt", "net", "time"], optional = true }
 tracing = { version = "0.1.26", optional = true }
