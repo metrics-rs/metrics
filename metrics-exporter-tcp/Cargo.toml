@@ -20,13 +20,13 @@ keywords = ["metrics", "telemetry", "tcp"]
 metrics = { version = "^0.21", path = "../metrics" }
 bytes = { version = "1", default-features = false }
 crossbeam-channel = { version = "0.5", default-features = false, features = ["std"] }
-prost = { version = "0.11", default-features = false }
-prost-types = { version = "0.11", default-features = false, features = ["std"] }
+prost = { version = "0.12", default-features = false }
+prost-types = { version = "0.12", default-features = false, features = ["std"] }
 mio = { version = "0.8", default-features = false, features = ["os-poll", "net"] }
 tracing = { version = "0.1", default-features = false, features = ["attributes"] }
 
 [build-dependencies]
-prost-build = "0.11"
+prost-build = "0.12"
 home = "=0.5.5"
 
 [dev-dependencies]
