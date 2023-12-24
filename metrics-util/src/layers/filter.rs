@@ -140,7 +140,7 @@ impl<R> Layer<R> for FilterLayer {
         let mut automaton_builder = AhoCorasickBuilder::new();
         let automaton = automaton_builder
             .ascii_case_insensitive(self.case_insensitive)
-            .kind(self.use_dfa.then(|| AhoCorasickKind::DFA))
+            .kind(self.use_dfa.then_some(AhoCorasickKind::DFA))
             .build(&self.patterns)
             // Documentation for `AhoCorasickBuilder::build` states that the error here will be
             // related to exceeding some internal limits, but that those limits should generally be
