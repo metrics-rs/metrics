@@ -7,6 +7,10 @@ long-form description and would be too verbose for the changelog alone.
 
 ## [Unreleased] - ReleaseDate
 
+- No notable changes.
+
+## [0.22.0] - 2023-12-24
+
 ### Metric metadata
 
 Metrics now support collecting a limited set of metadata field, which can be provided to add context
