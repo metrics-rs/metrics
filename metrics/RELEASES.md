@@ -37,10 +37,10 @@ capture it and utilize it.
 
 As an example, users may wish to filter out metrics defined by a particular crate because they don't
 care about them at all. While they might have previously been able to get lucky and simply filter
-the metrics by a common prefix, this still allows for changes to the metric names to breaking the
-filter configuration. If we could instead filter by module path, where we can simply use the crate
-name itself, then we'd catch all metrics for that crate regardless of their name and regardless of
-the crate version.
+the metrics by a common prefix, this still allows for changes to the metric names to break the
+filter configuration. If we instead filtered by module path, where we can simply use the crate name
+itself, then we'd catch all metrics for that crate regardless of their name and regardless of the
+crate version.
 
 Similarly, as another example, users may wish to only emit common metrics related to operation of
 their application/service in order to consume less resources, pay less money for the ingest/storage
