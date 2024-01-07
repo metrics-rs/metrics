@@ -8,9 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.13.0] - 2023-12-24
+
 ### Added
 
-- Support for using HTTPS in Push Gateway mode. ([#392](https://github.com/metrics-rs/metrics/pull/392))
+- Support for using HTTPS in Push Gateway mode.
+  ([#392](https://github.com/metrics-rs/metrics/pull/392))
+
+### Changed
+
+- Bump MSRV to 1.65.0.
 
 ## [0.12.2] - 2023-12-13
 

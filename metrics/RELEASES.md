@@ -7,15 +7,19 @@ long-form description and would be too verbose for the changelog alone.
 
 ## [Unreleased] - ReleaseDate
 
+- No notable changes.
+
+## [0.22.0] - 2023-12-24
+
 ### Metric metadata
 
-Metrics now support a limited set of metadata field, which can be added to provide for context about
-the metric in terms of where it originates from as well as its verbosity.
+Metrics now support collecting a limited set of metadata field, which can be provided to add context
+on where a metric originates from as well as its verbosity.
 
-In the grand vision of the `metrics` crate, where everyone uses the crate to emit metrics and then
-users get those metrics in their application for free... the biggest problem is that users had no
-way to actually filter out metrics they didn't want. Metric metadata aims to provide a solution to
-this problem.
+In the grand vision of the `metrics` crate, where library authors use it to emit metrics from their
+libraries, and then downstream users get those metrics in their application for free... the biggest
+problem is that users had no way to actually filter out metrics they didn't want. Metric metadata
+aims to provide a solution to this problem.
 
 A new type `Metadata<'a>` has been added to track all of this information, which includes **module
 path**, a **target**, and a **level**. These fields map almost directly to
@@ -33,10 +37,10 @@ capture it and utilize it.
 
 As an example, users may wish to filter out metrics defined by a particular crate because they don't
 care about them at all. While they might have previously been able to get lucky and simply filter
-the metrics by a common prefix, this still allows for changes to the metric names to breaking the
-filter configuration. If we could instead filter by module path, where we can simply use the crate
-name itself, then we'd catch all metrics for that crate regardless of their name and regardless of
-the crate version.
+the metrics by a common prefix, this still allows for changes to the metric names to break the
+filter configuration. If we instead filtered by module path, where we can simply use the crate name
+itself, then we'd catch all metrics for that crate regardless of their name and regardless of the
+crate version.
 
 Similarly, as another example, users may wish to only emit common metrics related to operation of
 their application/service in order to consume less resources, pay less money for the ingest/storage
@@ -73,8 +77,8 @@ provided automatically, as well.
 
 ### Macros overhaul
 
-In this release, we've reworked the macros to both simplify their implementation and to hopefully
-provide a more ergonomic experience for users.
+We've reworked the macros to both simplify their implementation and to hopefully provide a more
+ergonomic experience for users.
 
 At a high level, we've:
 
@@ -127,6 +131,82 @@ was able to be removed. This is one less dependency that has to be compiled, whi
 help with build times, even if only slightly.
 
 [filter_layer_docs]: https://docs.rs/metrics-util/latest/metrics_util/layers/struct.FilterLayer.html
+
+### Scoped recorders
+
+We've added support for scoped recorders, which should allow both library authors writing exporters,
+as well as downstream users of `metrics`, test their implementations far more easily.
+
+#### Global recorder
+
+Prior to this release, the only way to test either exporters or metrics emission was to install a
+special debug/test recorder as the global recorder. This conceptually works, but quickly runs into a
+few issues:
+
+- it's not thread-safe (the global recorder is, well, global)
+- it requires the recorder be _implemented_ in a thread-safe way
+
+This meant that in order to safely do this type of testing, users would have to use something like
+[`DebuggingRecorder`](https://docs.rs/metrics-util/latest/metrics_util/debugging/struct.DebuggingRecorder.html)
+(which is thread-safe and _could_ be used in a per-thread way, mind you) but that they would have to
+install it for every single test... which could still run into issues with destroying the collected
+metrics of another concurrently running test that took the same approach.
+
+All in all, this was a pretty poor experience that required many compromises and _still_ didn't
+fully allow testing metrics in a deterministic and repeatable way.
+
+#### Scoped recorders
+
+Scoped recorders solve this problem by allowing the temporary overriding of what is considered the
+"global" recorder on the current thread. We've added a new method,
+[`metrics::with_local_recorder`](https://docs.rs/metrics/latest/metrics/fn.set_boxed_recorder.html),
+that allows users to pass a reference to a recorder that is used as the "global" recorder for the
+duration of a closure that the user also passes.
+
+Here's a quick example of what the prior approach looked like, and how it's been simplified by
+adding support for scoped recorders:
+
+```rust
+// This is the old approach, which mind you, still isn't thread-safe if you have concurrent tests
+// doing the same thing:
+let global = DebuggingRecorder::per_thread();
+let snapshotter = global.snapshotter();
+
+unsafe { metrics::clear_recorder(); }
+global.install().expect("global recorder should not be installed");
+
+increment_counter!("my_counter");
+
+let snapshot = snapshotter.snapshot();
+assert_eq!(snapshot.into_vec().len(), 1);
+
+// Now let's use a scoped recorder instead:
+let scoped = DebuggingRecorder::new();
+let snapshotter = scoped.snappshotter();
+
+metrics::with_local_recorder(&scoped, || {
+    increment_counter!("my_counter")
+});
+
+let snapshot = snapppshotter.snapshot();
+assert_eq!(snapshot.into_vec().len(), 1);
+```
+
+There's a lot of boilerplate here, but let's look specifically at what we _don't_ have to do
+anymore:
+
+- unsafely clear the global recorder
+- install as the global recorder
+- transfer ownership of the recorder itself
+
+This means that recorders can now themselves hold references to other resources, without the need to
+do the common `Arc<Mutex<...>>` dance that was previously required. Given the interface of
+`Recorder`, interior mutability still has to be provided somehow, although now it only requires the
+use of something as straightforward as `RefCell`.
+
+Beyond testing, this also opens up additional functionality that wasn't previously available. For
+example, this approach could be used to avoid the need for using thread-safe primitives when users
+don't want to pay that cost (perhaps on an embedded system).
 
 ## [0.21.1] - 2023-07-02
 

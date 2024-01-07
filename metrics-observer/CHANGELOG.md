@@ -8,11 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.3.0] - 2023-12-24
+
 ### Fixed
 
 - All addresses returned when trying to connect to the specified exporter endpoint will be tried, in
   order, instead of only trying the first and then giving up.
   ([#429](https://github.com/metrics-rs/metrics/pull/429))
+
+### Changed
+
+- Bump MSRV to 1.65.0.
 
 ## [0.2.0] - 2023-04-16
 
