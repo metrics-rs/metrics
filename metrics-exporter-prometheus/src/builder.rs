@@ -442,7 +442,7 @@ impl PrometheusBuilder {
                                     if is_allowed {
                                         let output = handle.render();
                                         Ok::<_, hyper::Error>(match req.uri().path() {
-                                            "/health" => Response::new(Body::from("Ok")),
+                                            "/health" => Response::new(Body::from("OK")),
                                             _ => Response::new(Body::from(output)),
                                         })
                                     } else {
