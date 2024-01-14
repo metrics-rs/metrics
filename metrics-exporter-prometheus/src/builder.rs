@@ -435,13 +435,15 @@ impl PrometheusBuilder {
                         let handle = handle.clone();
 
                         async move {
-                            Ok::<_, hyper::Error>(service_fn(move |_| {
+                            Ok::<_, hyper::Error>(service_fn(move |req| {
                                 let handle = handle.clone();
 
                                 async move {
                                     if is_allowed {
-                                        let output = handle.render();
-                                        Ok::<_, hyper::Error>(Response::new(Body::from(output)))
+                                        Ok::<_, hyper::Error>(match req.uri().path() {
+                                            "/health" => Response::new(Body::from("OK")),
+                                            _ => Response::new(Body::from(handle.render())),
+                                        })
                                     } else {
                                         Ok::<_, hyper::Error>(
                                             Response::builder()
