@@ -27,7 +27,7 @@ metrics = { version = "^0.22", path = "../metrics" }
 metrics-util = { version = "^0.16", path = "../metrics-util", default-features = false, features = ["recency", "registry", "summary"] }
 thiserror = { version = "1", default-features = false }
 quanta = { version = "0.12", default-features = false }
-indexmap = { version = "1", default-features = false }
+indexmap = { version = "2.1", default-features = false, features = ["std"] }
 base64 = { version = "0.21.0", default-features = false, features = ["std"] }
 
 # Optional
