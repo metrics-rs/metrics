@@ -96,6 +96,7 @@ pub struct PrometheusBuilder {
     #[cfg(feature = "http-listener")]
     allowed_addresses: Option<Vec<IpNet>>,
     quantiles: Vec<Quantile>,
+    bucket_duration: Option<Duration>,
     buckets: Option<Vec<f64>>,
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
@@ -120,6 +121,7 @@ impl PrometheusBuilder {
             #[cfg(feature = "http-listener")]
             allowed_addresses: None,
             quantiles,
+            bucket_duration: None,
             buckets: None,
             bucket_overrides: None,
             idle_timeout: None,
@@ -236,6 +238,22 @@ impl PrometheusBuilder {
         }
 
         self.quantiles = parse_quantiles(quantiles);
+        Ok(self)
+    }
+
+    /// Sets the default bucket duration for rolling summaries
+    ///
+    /// Buckets will be cleared after this interval expires
+    ///
+    /// ## Errors
+    ///
+    /// If `value` less than 1 error will be thrown
+    pub fn set_bucket_duration(mut self, value: Duration) -> Result<Self, BuildError> {
+        if value.is_zero() {
+            return Err(BuildError::ZeroBucketDuration);
+        }
+
+        self.bucket_duration = Some(value);
         Ok(self)
     }
 
@@ -536,6 +554,7 @@ impl PrometheusBuilder {
             distributions: RwLock::new(HashMap::new()),
             distribution_builder: DistributionBuilder::new(
                 self.quantiles,
+                self.bucket_duration,
                 self.buckets,
                 self.bucket_overrides,
             ),

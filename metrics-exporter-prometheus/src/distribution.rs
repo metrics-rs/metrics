@@ -34,8 +34,14 @@ impl Distribution {
     }
 
     /// Creates a summary distribution.
-    pub fn new_summary(quantiles: Arc<Vec<Quantile>>) -> Distribution {
-        let summary = RollingSummary::default();
+    pub fn new_summary(
+        quantiles: Arc<Vec<Quantile>>,
+        bucket_duration: Option<Duration>,
+    ) -> Distribution {
+        let summary = bucket_duration.map_or(
+            RollingSummary::new(NonZeroU32::new(3).unwrap(), Duration::from_secs(20)),
+            |duration| RollingSummary::new(NonZeroU32::new(3).unwrap(), duration),
+        );
         Distribution::Summary(summary, quantiles, 0.0)
     }
 
@@ -60,6 +66,7 @@ impl Distribution {
 pub struct DistributionBuilder {
     quantiles: Arc<Vec<Quantile>>,
     buckets: Option<Vec<f64>>,
+    bucket_duration: Option<Duration>,
     bucket_overrides: Option<Vec<(Matcher, Vec<f64>)>>,
 }
 
@@ -67,11 +74,13 @@ impl DistributionBuilder {
     /// Creates a new instance of `DistributionBuilder`.
     pub fn new(
         quantiles: Vec<Quantile>,
+        bucket_duration: Option<Duration>,
         buckets: Option<Vec<f64>>,
         bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     ) -> DistributionBuilder {
         DistributionBuilder {
             quantiles: Arc::new(quantiles),
+            bucket_duration,
             buckets,
             bucket_overrides: bucket_overrides.map(|entries| {
                 let mut matchers = entries.into_iter().collect::<Vec<_>>();
@@ -95,7 +104,7 @@ impl DistributionBuilder {
             return Distribution::new_histogram(buckets);
         }
 
-        Distribution::new_summary(self.quantiles.clone())
+        Distribution::new_summary(self.quantiles.clone(), self.bucket_duration)
     }
 
     /// Returns the distribution type for the given metric key.
