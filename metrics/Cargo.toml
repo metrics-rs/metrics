@@ -24,7 +24,7 @@ name = "macros"
 harness = false
 
 [dependencies]
-ahash = { version = "0.8", default-features = false }
+ahash = { version = "> 0.8, <= 0.8.7", default-features = false }
 
 [target.'cfg(target_pointer_width = "32")'.dependencies]
 portable-atomic = { version = "1", default-features = false, features = [
