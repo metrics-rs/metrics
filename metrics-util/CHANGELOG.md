@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Bumped the `indexmap` and `hashbrown` dependencies to their latest versions. ([#438](https://github.com/metrics-rs/metrics/pull/438), [#439](https://github.com/metrics-rs/metrics/pull/439))
+
 ## [0.16.0] - 2023-12-24
 
 ### Fixed
