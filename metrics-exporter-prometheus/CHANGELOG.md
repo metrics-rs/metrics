@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.13.1] - 2024-02-11
 
+### Added
+
+- A new scrape endpoint path, `/health`, which returns a a basic response to indicate endpoint health. ([#435](https://github.com/metrics-rs/metrics/pull/435))
+
+### Changed
+
 - Bumped the `indexmap` dependency to the latest version. ([#439](https://github.com/metrics-rs/metrics/pull/439))
 
 ## [0.13.0] - 2023-12-24
