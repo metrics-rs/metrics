@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.16.2] - 2024-02-11
+
 ### Fixed
 
 - Lock down the version of `ahash` to avoid unnecessary MSRV bumping.
