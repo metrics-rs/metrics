@@ -9,6 +9,10 @@ long-form description and would be too verbose for the changelog alone.
 
 - No notable changes.
 
+## [0.22.1] - 2024-02-11
+
+- No notable changes.
+
 ## [0.22.0] - 2023-12-24
 
 ### Metric metadata
