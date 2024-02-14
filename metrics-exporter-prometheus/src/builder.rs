@@ -5,6 +5,7 @@ use std::convert::TryFrom;
 use std::future::Future;
 #[cfg(feature = "http-listener")]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::num::NonZeroU32;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::pin::Pin;
 use std::sync::RwLock;
@@ -97,6 +98,7 @@ pub struct PrometheusBuilder {
     allowed_addresses: Option<Vec<IpNet>>,
     quantiles: Vec<Quantile>,
     bucket_duration: Option<Duration>,
+    bucket_count: Option<NonZeroU32>,
     buckets: Option<Vec<f64>>,
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
@@ -122,6 +124,7 @@ impl PrometheusBuilder {
             allowed_addresses: None,
             quantiles,
             bucket_duration: None,
+            bucket_count: None,
             buckets: None,
             bucket_overrides: None,
             idle_timeout: None,
@@ -255,6 +258,14 @@ impl PrometheusBuilder {
 
         self.bucket_duration = Some(value);
         Ok(self)
+    }
+
+    /// Sets the default bucket count for rolling summaries
+    ///
+    /// Count number buckets are created to store summary information
+    pub fn set_bucket_count(mut self, count: NonZeroU32) -> Self {
+        self.bucket_count = Some(count);
+        self
     }
 
     /// Sets the buckets to use when rendering histograms.
@@ -556,6 +567,7 @@ impl PrometheusBuilder {
                 self.quantiles,
                 self.bucket_duration,
                 self.buckets,
+                self.bucket_count,
                 self.bucket_overrides,
             ),
             descriptions: RwLock::new(HashMap::new()),
