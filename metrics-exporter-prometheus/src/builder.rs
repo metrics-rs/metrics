@@ -4,9 +4,8 @@ use std::convert::TryFrom;
 use std::future::Future;
 #[cfg(feature = "http-listener")]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::num::NonZeroU32;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-use std::pin::Pin;
+use std::num::NonZeroU32;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::sync::RwLock;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]

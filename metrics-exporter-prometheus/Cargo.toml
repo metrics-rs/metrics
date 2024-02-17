@@ -35,13 +35,11 @@ base64 = { version = "0.21.0", default-features = false, features = ["std"] }
 # Optional
 hyper = { version = "1.1", features = [ "server", "client" ],  optional = true }
 hyper-util = { version="0.1.2", features = [ "tokio", "service", "client" ], optional = true }
-#http-body = { version ="0.4", optional = true }
 http-body-util = { version = "0.1.0", optional = true }
 ipnet = { version = "2", optional = true }
 tokio = { version = "1", features = ["rt", "net", "time", "rt-multi-thread"], optional = true }
 tracing = { version = "0.1.26", optional = true }
 hyper-tls = { version = "0.6.0", optional = true }
-futures-util = "0.3.30"
 
 [dev-dependencies]
 tracing = "0.1"
