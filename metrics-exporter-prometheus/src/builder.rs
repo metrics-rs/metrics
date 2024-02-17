@@ -24,12 +24,7 @@ use hyper::{
 };
 
 #[cfg(feature = "push-gateway")]
-use hyper::{
-    body::{aggregate, Buf},
-    client::Client,
-    http::HeaderValue,
-    Method, Request, Uri,
-};
+use hyper::{body::Buf, client::Client, http::HeaderValue, Method, Request, Uri};
 #[cfg(feature = "push-gateway")]
 use hyper_tls::HttpsConnector;
 
@@ -518,6 +513,9 @@ impl PrometheusBuilder {
 
             #[cfg(feature = "push-gateway")]
             ExporterConfig::PushGateway { endpoint, interval, username, password } => {
+                use http_body::Collected;
+                use hyper::body::HttpBody;
+
                 let exporter = async move {
                     let https = HttpsConnector::new();
                     let client = Client::builder().build::<_, hyper::Body>(https);
@@ -552,7 +550,9 @@ impl PrometheusBuilder {
                                     let status = status
                                         .canonical_reason()
                                         .unwrap_or_else(|| status.as_str());
-                                    let body = aggregate(response.into_body()).await;
+
+                                    let body = response.into_body().collect().await;
+                                    let body = body.map(Collected::aggregate);
                                     let body = body
                                         .map_err(|_| ())
                                         .map(|mut b| b.copy_to_bytes(b.remaining()))
