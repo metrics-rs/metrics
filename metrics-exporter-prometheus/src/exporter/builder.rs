@@ -1,12 +1,10 @@
+
 use std::collections::HashMap;
 #[cfg(feature = "push-gateway")]
 use std::convert::TryFrom;
-use std::future::Future;
 #[cfg(feature = "http-listener")]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::num::NonZeroU32;
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::sync::RwLock;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::thread;
@@ -31,41 +29,7 @@ use crate::recorder::{Inner, PrometheusRecorder};
 use crate::registry::AtomicStorage;
 use crate::{common::BuildError, PrometheusHandle};
 
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-pub type ExporterFuture = Pin<Box<dyn Future<Output = Result<(), hyper::Error>> + Send + 'static>>;
-
-#[derive(Clone)]
-enum ExporterConfig {
-    // Run an HTTP listener on the given `listen_address`.
-    #[cfg(feature = "http-listener")]
-    HttpListener { listen_address: SocketAddr },
-
-    // Run a push gateway task sending to the given `endpoint` after `interval` time has elapsed,
-    // infinitely.
-    #[cfg(feature = "push-gateway")]
-    PushGateway {
-        endpoint: Uri,
-        interval: Duration,
-        username: Option<String>,
-        password: Option<String>,
-    },
-
-    #[allow(dead_code)]
-    Unconfigured,
-}
-
-impl ExporterConfig {
-    #[cfg_attr(not(any(feature = "http-listener", feature = "push-gateway")), allow(dead_code))]
-    fn as_type_str(&self) -> &'static str {
-        match self {
-            #[cfg(feature = "http-listener")]
-            Self::HttpListener { .. } => "http-listener",
-            #[cfg(feature = "push-gateway")]
-            Self::PushGateway { .. } => "push-gateway",
-            Self::Unconfigured => "unconfigured,",
-        }
-    }
-}
+use super::{ExporterConfig, ExporterFuture};
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
 pub struct PrometheusBuilder {
@@ -220,7 +184,7 @@ impl PrometheusBuilder {
         self.quantiles = parse_quantiles(quantiles);
         Ok(self)
     }
-
+    
     /// Sets the bucket width when using summaries.
     ///
     /// Summaries are rolling, which means that they are divided into buckets of a fixed duration
@@ -449,51 +413,6 @@ impl PrometheusBuilder {
         let recorder = self.build_recorder();
         let handle = recorder.handle();
 
-        match exporter_config {
-            ExporterConfig::Unconfigured => Err(BuildError::MissingExporterConfiguration),
-            #[cfg(feature = "http-listener")]
-            ExporterConfig::HttpListener { listen_address } => {
-                let server = Server::try_bind(&listen_address)
-                    .map_err(|e| BuildError::FailedToCreateHTTPListener(e.to_string()))?;
-                let exporter = async move {
-                    let make_svc = make_service_fn(move |socket: &AddrStream| {
-                        let remote_addr = socket.remote_addr().ip();
-
-                        // If the allowlist is empty, the request is allowed.  Otherwise, it must
-                        // match one of the entries in the allowlist or it will be denied.
-                        let is_allowed = allowed_addresses.as_ref().map_or(true, |addresses| {
-                            addresses.iter().any(|address| address.contains(&remote_addr))
-                        });
-
-                        let handle = handle.clone();
-
-                        async move {
-                            Ok::<_, hyper::Error>(service_fn(move |req| {
-                                let handle = handle.clone();
-
-                                async move {
-                                    if is_allowed {
-                                        Ok::<_, hyper::Error>(match req.uri().path() {
-                                            "/health" => Response::new(Body::from("OK")),
-                                            _ => Response::new(Body::from(handle.render())),
-                                        })
-                                    } else {
-                                        Ok::<_, hyper::Error>(
-                                            Response::builder()
-                                                .status(StatusCode::FORBIDDEN)
-                                                .body(Body::empty())
-                                                .expect("static response is valid"),
-                                        )
-                                    }
-                                }
-                            }))
-                        }
-                    });
-                    server.serve(make_svc).await
-                };
-
-                Ok((recorder, Box::pin(exporter)))
-            }
         Ok((
             recorder,
             match exporter_config {
@@ -501,235 +420,21 @@ impl PrometheusBuilder {
 
                 #[cfg(feature = "http-listener")]
                 ExporterConfig::HttpListener { listen_address } => {
-                    http_listener::new_http_listener(handle, listen_address, allowed_addresses)?
+                    super::http_listener::new_http_listener(
+                        handle,
+                        listen_address,
+                        allowed_addresses,
+                    )?
                 }
 
                 #[cfg(feature = "push-gateway")]
                 ExporterConfig::PushGateway { endpoint, interval, username, password } => {
-                    push_gateway::new_push_gateway(endpoint, interval, username, password, handle)
+                    super::push_gateway::new_push_gateway(
+                        endpoint, interval, username, password, handle,
+                    )
                 }
             },
         ))
-    }
-
-    /// Builds the recorder and returns it.
-    pub fn build_recorder(self) -> PrometheusRecorder {
-        self.build_with_clock(Clock::new())
-    }
-
-    pub(crate) fn build_with_clock(self, clock: Clock) -> PrometheusRecorder {
-        let inner = Inner {
-            registry: Registry::new(GenerationalStorage::new(AtomicStorage)),
-            recency: Recency::new(clock, self.recency_mask, self.idle_timeout),
-            distributions: RwLock::new(HashMap::new()),
-            distribution_builder: DistributionBuilder::new(
-                self.quantiles,
-                self.buckets,
-                self.bucket_overrides,
-            ),
-            descriptions: RwLock::new(HashMap::new()),
-            global_labels: self.global_labels.unwrap_or_default(),
-        };
-
-        PrometheusRecorder::from(inner)
-    }
-}
-
-impl Default for PrometheusBuilder {
-    fn default() -> Self {
-        PrometheusBuilder::new()
-    }
-}
-
-#[cfg(feature = "http-listener")]
-mod http_listener {
-    use std::net::SocketAddr;
-
-    use http_body_util::Full;
-    use hyper::{
-        body::{self, Bytes, Incoming},
-        server::conn::http1,
-        service::service_fn,
-        Request, Response, StatusCode,
-    };
-    use hyper_util::rt::TokioIo;
-    use ipnet::IpNet;
-    use tokio::net::TcpListener;
-
-    use crate::{common::BuildError, PrometheusHandle};
-
-    /// Creates an ExporterFuture implementing a http listener that servies prometheus metrics.
-    ///
-    /// # Errors
-    /// Will return Err if it cannot bind to the listen address
-    pub(crate) fn new_http_listener(
-        handle: PrometheusHandle,
-        listen_address: SocketAddr,
-        allowed_addresses: Option<Vec<IpNet>>,
-    ) -> Result<crate::builder::ExporterFuture, BuildError> {
-        async fn handle_request(
-            is_allowed: bool,
-            handle: PrometheusHandle,
-            req: &Request<Incoming>,
-        ) -> hyper::Response<http_body_util::Full<hyper::body::Bytes>> {
-            if is_allowed {
-                match req.uri().path() {
-                    "/health" => Response::new(Full::<Bytes>::from("OK")),
-                    _ => Response::new(Full::<Bytes>::from(handle.render())),
-                }
-            } else {
-                Response::builder()
-                    .status(StatusCode::FORBIDDEN)
-                    .body(Full::<Bytes>::from(""))
-                    .expect("static response is valid")
-            }
-        }
-
-        // non-async tokio TcpListener creation
-        let listener = std::net::TcpListener::bind(listen_address)
-            .map_err(|e| BuildError::FailedToCreateHTTPListener(e.to_string()))?;
-        listener
-            .set_nonblocking(true)
-            .map_err(|e| BuildError::FailedToCreateHTTPListener(e.to_string()))?;
-        println!("bound to {listen_address}");
-
-        Ok(Box::pin(async move {
-            let listener = TcpListener::from_std(listener)
-                .expect(&format!("Counldn't bind to {listen_address}"));
-            //.map_err(|e| hyper::Error { inner = Box::new(BuildError::FailedToCreateHTTPListener(e.to_string()) })?;
-
-            loop {
-                let handle = handle.clone();
-
-                // waiting for to listen
-                let stream = match listener.accept().await {
-                    Ok((stream, _)) => stream,
-                    Err(e) => {
-                        println!("Error accepting connection: {}", e.kind());
-                        continue;
-                    }
-                };
-
-                let remote_addr = match stream.peer_addr() {
-                    Ok(remote_address) => remote_address.ip(),
-                    Err(e) => {
-                        println!("Error obtaining remote address: {}", e.kind());
-                        continue;
-                    }
-                };
-
-                // If the allowlist is empty, the request is allowed.  Otherwise, it must
-                // match one of the entries in the allowlist or it will be denied.
-                let is_allowed = allowed_addresses.as_ref().map_or(true, |addresses| {
-                    addresses.iter().any(|address| address.contains(&remote_addr))
-                });
-
-                let service = service_fn(move |req: Request<body::Incoming>| {
-                    let handle_clone = handle.clone();
-                    async move {
-                        Ok::<_, hyper::Error>(handle_request(is_allowed, handle_clone, &req).await)
-                    }
-                });
-
-                let io = TokioIo::new(stream);
-
-                tokio::task::spawn(async move {
-                    let a = http1::Builder::new().serve_connection(io, service);
-                    match a.await {
-                        Ok(_) => println!("Done serving connection"),
-                        Err(err) => println!("Error serving connection: {:?}", err),
-                    };
-                });
-            }
-        }))
-    }
-}
-
-#[cfg(feature = "push-gateway")]
-mod push_gateway {
-    use std::time::Duration;
-
-    use hyper::{header::HeaderValue, Uri};
-    use tracing::error;
-
-    use crate::builder::ExporterFuture;
-    use crate::PrometheusHandle;
-
-    // Creates an ExporterFuture implementing a push gateway.
-    pub(super) fn new_push_gateway(
-        endpoint: Uri,
-        interval: Duration,
-        username: Option<String>,
-        password: Option<String>,
-        handle: PrometheusHandle,
-    ) -> ExporterFuture {
-        use http_body_util::{BodyExt, Collected, Full};
-        use hyper::body::{Buf, Bytes};
-        use hyper::{Method, Request};
-        use hyper_tls::HttpsConnector;
-        use hyper_util::{client::legacy::Client, rt::TokioExecutor};
-
-        Box::pin(async move {
-            let https = HttpsConnector::new();
-            let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new())
-                .pool_idle_timeout(Duration::from_secs(30))
-                .build(https);
-
-            let auth = username.as_ref().map(|name| basic_auth(name, password.as_deref()));
-
-            loop {
-                // Sleep for `interval` amount of time, and then do a push.
-                tokio::time::sleep(interval).await;
-
-                let mut builder = Request::builder();
-                if let Some(auth) = &auth {
-                    builder = builder.header("authorization", auth.clone());
-                }
-
-                let output = handle.render();
-                let result =
-                    builder.method(Method::PUT).uri(endpoint.clone()).body(Full::from(output));
-                let req = match result {
-                    Ok(req) => req,
-                    Err(e) => {
-                        error!("failed to build push gateway request: {}", e);
-                        continue;
-                    }
-                };
-
-                        match client.request(req).await {
-                            Ok(response) => {
-                                if !response.status().is_success() {
-                                    let status = response.status();
-                                    let status = status
-                                        .canonical_reason()
-                                        .unwrap_or_else(|| status.as_str());
-
-                                    let body = response.into_body().collect().await;
-                                    let body = body.map(Collected::aggregate);
-                                    let body = body
-                                        .map_err(|_| ())
-                                        .map(|mut b| b.copy_to_bytes(b.remaining()))
-                                        .map(|b| b[..].to_vec())
-                                        .and_then(|s| String::from_utf8(s).map_err(|_| ()))
-                                        .unwrap_or_else(|()| {
-                                            String::from("<failed to read response body>")
-                                        });
-                                    error!(
-                                        message = "unexpected status after pushing metrics to push gateway",
-                                        status,
-                                        %body,
-                                    );
-                                }
-                            }
-                            Err(e) => error!("error sending request to push gateway: {:?}", e),
-                        }
-                    }
-                };
-
-                Ok((recorder, Box::pin(exporter)))
-            }
-        }
     }
 
     /// Builds the recorder and returns it.
@@ -760,93 +465,6 @@ mod push_gateway {
 impl Default for PrometheusBuilder {
     fn default() -> Self {
         PrometheusBuilder::new()
-    }
-}
-                match client.request(req).await {
-                    Ok(response) => {
-                        if !response.status().is_success() {
-                            let status = response.status();
-                            let status =
-                                status.canonical_reason().unwrap_or_else(|| status.as_str());
-                            let body = response
-                                .into_body()
-                                .collect()
-                                .await
-                                .map(Collected::aggregate)
-                                .map_err(|_| ())
-                                .map(|mut b| b.copy_to_bytes(b.remaining()))
-                                .map(|b| b[..].to_vec())
-                                .and_then(|s| String::from_utf8(s).map_err(|_| ()))
-                                .unwrap_or_else(|()| {
-                                    String::from("<failed to read response body>")
-                                });
-                            error!(
-                                message = "unexpected status after pushing metrics to push gateway",
-                                status,
-                                %body,
-                            );
-                        }
-                    }
-                    Err(e) => error!("error sending request to push gateway: {:?}", e),
-                }
-            }
-        })
-    }
-
-    #[cfg(feature = "push-gateway")]
-    fn basic_auth(username: &str, password: Option<&str>) -> HeaderValue {
-        use base64::prelude::BASE64_STANDARD;
-        use base64::write::EncoderWriter;
-        use std::io::Write;
-
-        let mut buf = b"Basic ".to_vec();
-        {
-            let mut encoder = EncoderWriter::new(&mut buf, &BASE64_STANDARD);
-            write!(encoder, "{username}:").expect("should not fail to encode username");
-            if let Some(password) = password {
-                write!(encoder, "{password}").expect("should not fail to encode password");
-            }
-        }
-        let mut header = HeaderValue::from_bytes(&buf).expect("base64 is always valid HeaderValue");
-        header.set_sensitive(true);
-        header
-    }
-
-    #[cfg(all(test))]
-    mod tests {
-        use super::basic_auth;
-
-        #[test]
-        #[allow(clippy::similar_names)] // reader vs header, sheesh clippy
-        pub fn test_basic_auth() {
-            use base64::prelude::BASE64_STANDARD;
-            use base64::read::DecoderReader;
-            use std::io::Read;
-
-            const BASIC: &str = "Basic ";
-
-            // username only
-            let username = "metrics";
-            let header = basic_auth(username, None);
-
-            let reader = &header.as_ref()[BASIC.len()..];
-            let mut decoder = DecoderReader::new(reader, &BASE64_STANDARD);
-            let mut result = Vec::new();
-            decoder.read_to_end(&mut result).unwrap();
-            assert_eq!(b"metrics:", &result[..]);
-            assert!(header.is_sensitive());
-
-            // username/password
-            let password = "123!_@ABC";
-            let header = basic_auth(username, Some(password));
-
-            let reader = &header.as_ref()[BASIC.len()..];
-            let mut decoder = DecoderReader::new(reader, &BASE64_STANDARD);
-            let mut result = Vec::new();
-            decoder.read_to_end(&mut result).unwrap();
-            assert_eq!(b"metrics:123!_@ABC", &result[..]);
-            assert!(header.is_sensitive());
-        }
     }
 }
 
