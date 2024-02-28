@@ -56,7 +56,7 @@ impl HttpListeningExporter {
         let inner = self.inner.clone();
         let service = service_fn(move |req: Request<body::Incoming>| {
             let inner = inner.clone();
-            async move { Self::handle_http_request(&inner, remote_address, &req) }
+            async move { Ok::<_, hyper::Error>(Self::handle_http_request(&inner, remote_address, &req)) }
         });
 
         tokio::task::spawn(async move {
@@ -72,30 +72,28 @@ impl HttpListeningExporter {
         inner: &Arc<Inner>,
         remote_address: IpAddr,
         req: &Request<Incoming>,
-    ) -> Result<Response<Full<Bytes>>, hyper::Error> {
+    ) -> Response<Full<Bytes>> {
         let is_allowed = match &inner.allowed_addresses {
             Some(addresses) => addresses.iter().any(|address| address.contains(&remote_address)),
             None => true,
         };
 
         if is_allowed {
-            Ok(Response::new(match req.uri().path() {
+            Response::new(match req.uri().path() {
                 "/health" => "OK".into(),
                 _ => inner.handle.render().into(),
-            }))
+            })
         } else {
             Self::new_forbidden_response()
         }
     }
 
-    fn new_forbidden_response() -> Result<Response<Full<Bytes>>, hyper::Error> {
+    //
+    fn new_forbidden_response() -> Response<Full<Bytes>> {
         // This unwrap should not fail because we don't use any function that
         // can assign an Err to it's inner such as `Builder::header``. A unit test
         // will have to suffice to detect if this fails to hold true.
-        Ok(Response::builder()
-            .status(StatusCode::FORBIDDEN)
-            .body(Full::<Bytes>::default())
-            .unwrap())
+        Response::builder().status(StatusCode::FORBIDDEN).body(Full::<Bytes>::default()).unwrap()
     }
 }
 
@@ -126,6 +124,6 @@ mod tests {
 
     #[test]
     fn new_forbidden_response_always_succeeds() {
-        assert!(HttpListeningExporter::new_forbidden_response().is_ok()); // and doesn't panic
+        HttpListeningExporter::new_forbidden_response(); // doesn't panic
     }
 }
