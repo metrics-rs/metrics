@@ -8,6 +8,9 @@ use crate::common::Matcher;
 
 use metrics_util::{Histogram, Quantile, Summary};
 
+const DEFAULT_SUMMARY_BUCKET_COUNT: u32 = 3;
+const DEFAULT_SUMMARY_BUCKET_DURATION: u64 = 20;
+
 /// Distribution type.
 #[derive(Clone)]
 pub enum Distribution {
@@ -34,9 +37,12 @@ impl Distribution {
     }
 
     /// Creates a summary distribution.
-    pub fn new_summary(quantiles: Arc<Vec<Quantile>>) -> Distribution {
-        let summary = RollingSummary::default();
-        Distribution::Summary(summary, quantiles, 0.0)
+    pub fn new_summary(
+        quantiles: Arc<Vec<Quantile>>,
+        bucket_duration: Duration,
+        bucket_count: NonZeroU32,
+    ) -> Distribution {
+        Distribution::Summary(RollingSummary::new(bucket_count, bucket_duration), quantiles, 0.0)
     }
 
     /// Records the given `samples` in the current distribution.
@@ -60,6 +66,8 @@ impl Distribution {
 pub struct DistributionBuilder {
     quantiles: Arc<Vec<Quantile>>,
     buckets: Option<Vec<f64>>,
+    bucket_duration: Option<Duration>,
+    bucket_count: Option<NonZeroU32>,
     bucket_overrides: Option<Vec<(Matcher, Vec<f64>)>>,
 }
 
@@ -67,12 +75,16 @@ impl DistributionBuilder {
     /// Creates a new instance of `DistributionBuilder`.
     pub fn new(
         quantiles: Vec<Quantile>,
+        bucket_duration: Option<Duration>,
         buckets: Option<Vec<f64>>,
+        bucket_count: Option<NonZeroU32>,
         bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     ) -> DistributionBuilder {
         DistributionBuilder {
             quantiles: Arc::new(quantiles),
+            bucket_duration,
             buckets,
+            bucket_count,
             bucket_overrides: bucket_overrides.map(|entries| {
                 let mut matchers = entries.into_iter().collect::<Vec<_>>();
                 matchers.sort_by(|a, b| a.0.cmp(&b.0));
@@ -95,7 +107,13 @@ impl DistributionBuilder {
             return Distribution::new_histogram(buckets);
         }
 
-        Distribution::new_summary(self.quantiles.clone())
+        let b_duration = self
+            .bucket_duration
+            .map_or(Duration::from_secs(DEFAULT_SUMMARY_BUCKET_DURATION), |d| d);
+        let b_count =
+            self.bucket_count.map_or(NonZeroU32::new(DEFAULT_SUMMARY_BUCKET_COUNT).unwrap(), |c| c);
+
+        Distribution::new_summary(self.quantiles.clone(), b_duration, b_count)
     }
 
     /// Returns the distribution type for the given metric key.
@@ -142,7 +160,10 @@ pub struct RollingSummary {
 
 impl Default for RollingSummary {
     fn default() -> Self {
-        RollingSummary::new(NonZeroU32::new(3).unwrap(), Duration::from_secs(20))
+        RollingSummary::new(
+            NonZeroU32::new(DEFAULT_SUMMARY_BUCKET_COUNT).unwrap(),
+            Duration::from_secs(20),
+        )
     }
 }
 
