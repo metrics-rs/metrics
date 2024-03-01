@@ -1,8 +1,10 @@
+#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::future::Future;
 #[cfg(feature = "http-listener")]
 use std::net::SocketAddr;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::pin::Pin;
+#[cfg(feature = "push-gateway")]
 use std::time::Duration;
 
 #[cfg(feature = "push-gateway")]

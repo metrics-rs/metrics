@@ -108,6 +108,7 @@ pub use distribution::{Distribution, DistributionBuilder};
 
 mod exporter;
 pub use self::exporter::builder::PrometheusBuilder;
+#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 pub use self::exporter::ExporterFuture;
 
 pub mod formatting;

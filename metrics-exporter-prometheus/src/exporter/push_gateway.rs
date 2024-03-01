@@ -1,6 +1,10 @@
 use std::time::Duration;
 
-use hyper::{header::HeaderValue, Uri};
+use http_body_util::{BodyExt, Collected, Full};
+use hyper::body::{Buf, Bytes};
+use hyper::{header::HeaderValue, Method, Request, Uri};
+use hyper_tls::HttpsConnector;
+use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use tracing::error;
 
 use super::ExporterFuture;
@@ -14,12 +18,6 @@ pub(super) fn new_push_gateway(
     password: Option<String>,
     handle: PrometheusHandle,
 ) -> ExporterFuture {
-    use http_body_util::{BodyExt, Collected, Full};
-    use hyper::body::{Buf, Bytes};
-    use hyper::{Method, Request};
-    use hyper_tls::HttpsConnector;
-    use hyper_util::{client::legacy::Client, rt::TokioExecutor};
-
     Box::pin(async move {
         let https = HttpsConnector::new();
         let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new())
@@ -38,8 +36,7 @@ pub(super) fn new_push_gateway(
             }
 
             let output = handle.render();
-            let result =
-                builder.method(Method::PUT).uri(endpoint.clone()).body(Full::from(output));
+            let result = builder.method(Method::PUT).uri(endpoint.clone()).body(Full::from(output));
             let req = match result {
                 Ok(req) => req,
                 Err(e) => {
@@ -52,8 +49,7 @@ pub(super) fn new_push_gateway(
                 Ok(response) => {
                     if !response.status().is_success() {
                         let status = response.status();
-                        let status =
-                            status.canonical_reason().unwrap_or_else(|| status.as_str());
+                        let status = status.canonical_reason().unwrap_or_else(|| status.as_str());
                         let body = response
                             .into_body()
                             .collect()
@@ -63,9 +59,7 @@ pub(super) fn new_push_gateway(
                             .map(|mut b| b.copy_to_bytes(b.remaining()))
                             .map(|b| b[..].to_vec())
                             .and_then(|s| String::from_utf8(s).map_err(|_| ()))
-                            .unwrap_or_else(|()| {
-                                String::from("<failed to read response body>")
-                            });
+                            .unwrap_or_else(|()| String::from("<failed to read response body>"));
                         error!(
                             message = "unexpected status after pushing metrics to push gateway",
                             status,

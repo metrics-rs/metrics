@@ -29,7 +29,9 @@ use crate::recorder::{Inner, PrometheusRecorder};
 use crate::registry::AtomicStorage;
 use crate::{common::BuildError, PrometheusHandle};
 
-use super::{ExporterConfig, ExporterFuture};
+use super::ExporterConfig;
+#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+use super::ExporterFuture;
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
 pub struct PrometheusBuilder {
