@@ -5,6 +5,7 @@ use std::convert::TryFrom;
 use std::future::Future;
 #[cfg(feature = "http-listener")]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::num::NonZeroU32;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::pin::Pin;
 use std::sync::RwLock;
@@ -96,6 +97,8 @@ pub struct PrometheusBuilder {
     #[cfg(feature = "http-listener")]
     allowed_addresses: Option<Vec<IpNet>>,
     quantiles: Vec<Quantile>,
+    bucket_duration: Option<Duration>,
+    bucket_count: Option<NonZeroU32>,
     buckets: Option<Vec<f64>>,
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
@@ -121,6 +124,8 @@ impl PrometheusBuilder {
             #[cfg(feature = "http-listener")]
             allowed_addresses: None,
             quantiles,
+            bucket_duration: None,
+            bucket_count: None,
             buckets: None,
             bucket_overrides: None,
             idle_timeout: None,
@@ -239,6 +244,30 @@ impl PrometheusBuilder {
 
         self.quantiles = parse_quantiles(quantiles);
         Ok(self)
+    }
+
+    /// Sets the default bucket duration for rolling summaries
+    ///
+    /// Buckets will be cleared after this interval expires
+    ///
+    /// ## Errors
+    ///
+    /// If `value` less than 1 error will be thrown
+    pub fn set_bucket_duration(mut self, value: Duration) -> Result<Self, BuildError> {
+        if value.is_zero() {
+            return Err(BuildError::ZeroBucketDuration);
+        }
+
+        self.bucket_duration = Some(value);
+        Ok(self)
+    }
+
+    /// Sets the default bucket count for rolling summaries
+    ///
+    /// Count number buckets are created to store summary information
+    pub fn set_bucket_count(mut self, count: NonZeroU32) -> Self {
+        self.bucket_count = Some(count);
+        self
     }
 
     /// Sets the buckets to use when rendering histograms.
@@ -578,7 +607,9 @@ impl PrometheusBuilder {
             distributions: RwLock::new(HashMap::new()),
             distribution_builder: DistributionBuilder::new(
                 self.quantiles,
+                self.bucket_duration,
                 self.buckets,
+                self.bucket_count,
                 self.bucket_overrides,
             ),
             descriptions: RwLock::new(HashMap::new()),
