@@ -244,13 +244,25 @@ impl PrometheusBuilder {
         Ok(self)
     }
 
-    /// Sets the default bucket duration for rolling summaries
+    /// Sets the bucket width when using summaries.
     ///
-    /// Buckets will be cleared after this interval expires
+    /// Summaries are rolling, which means that they are divided into buckets of a fixed duration
+    /// (width), and older buckets are dropped as they age out. This means data from a period as
+    /// large as the width will be dropped at a time.
+    ///
+    /// The total amount of data kept for a summary is the number of buckets times the bucket width.
+    /// For example, a bucket count of 3 and a bucket width of 20 seconds would mean that 60 seconds
+    /// of data is kept at most, with the oldest 20 second chunk of data being dropped as the
+    /// summary rolls forward.
+    ///
+    /// Use more buckets with a smaller width to roll off smaller amounts of data at a time, or
+    /// fewer buckets with a larger width to roll it off in larger chunks.
+    ///
+    /// Defaults to 20 seconds.
     ///
     /// ## Errors
     ///
-    /// If `value` less than 1 error will be thrown
+    /// If the duration given is zero, an error variant will be thrown.
     pub fn set_bucket_duration(mut self, value: Duration) -> Result<Self, BuildError> {
         if value.is_zero() {
             return Err(BuildError::ZeroBucketDuration);
@@ -260,9 +272,22 @@ impl PrometheusBuilder {
         Ok(self)
     }
 
-    /// Sets the default bucket count for rolling summaries
+    /// Sets the bucket count when using summaries.
     ///
-    /// Count number buckets are created to store summary information
+    /// Summaries are rolling, which means that they are divided into buckets of a fixed duration
+    /// (width), and older buckets are dropped as they age out. This means data from a period as
+    /// large as the width will be dropped at a time.
+    ///
+    /// The total amount of data kept for a summary is the number of buckets times the bucket width.
+    /// For example, a bucket count of 3 and a bucket width of 20 seconds would mean that 60 seconds
+    /// of data is kept at most, with the oldest 20 second chunk of data being dropped as the
+    /// summary rolls forward.
+    ///
+    /// Use more buckets with a smaller width to roll off smaller amounts of data at a time, or
+    /// fewer buckets with a larger width to roll it off in larger chunks.
+    ///
+    /// Defaults to 3.
+    #[must_use]
     pub fn set_bucket_count(mut self, count: NonZeroU32) -> Self {
         self.bucket_count = Some(count);
         self
