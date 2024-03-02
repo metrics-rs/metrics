@@ -8,8 +8,11 @@ use crate::common::Matcher;
 
 use metrics_util::{Histogram, Quantile, Summary};
 
-const DEFAULT_SUMMARY_BUCKET_COUNT: u32 = 3;
-const DEFAULT_SUMMARY_BUCKET_DURATION: u64 = 20;
+const DEFAULT_SUMMARY_BUCKET_COUNT: NonZeroU32 = match NonZeroU32::new(3) {
+    Some(v) => v,
+    None => [][0],
+};
+const DEFAULT_SUMMARY_BUCKET_DURATION: Duration = Duration::from_secs(20);
 
 /// Distribution type.
 #[derive(Clone)]
@@ -107,11 +110,8 @@ impl DistributionBuilder {
             return Distribution::new_histogram(buckets);
         }
 
-        let b_duration = self
-            .bucket_duration
-            .map_or(Duration::from_secs(DEFAULT_SUMMARY_BUCKET_DURATION), |d| d);
-        let b_count =
-            self.bucket_count.map_or(NonZeroU32::new(DEFAULT_SUMMARY_BUCKET_COUNT).unwrap(), |c| c);
+        let b_duration = self.bucket_duration.map_or(DEFAULT_SUMMARY_BUCKET_DURATION, |d| d);
+        let b_count = self.bucket_count.map_or(DEFAULT_SUMMARY_BUCKET_COUNT, |c| c);
 
         Distribution::new_summary(self.quantiles.clone(), b_duration, b_count)
     }
@@ -160,10 +160,7 @@ pub struct RollingSummary {
 
 impl Default for RollingSummary {
     fn default() -> Self {
-        RollingSummary::new(
-            NonZeroU32::new(DEFAULT_SUMMARY_BUCKET_COUNT).unwrap(),
-            Duration::from_secs(20),
-        )
+        RollingSummary::new(DEFAULT_SUMMARY_BUCKET_COUNT, DEFAULT_SUMMARY_BUCKET_DURATION)
     }
 }
 
