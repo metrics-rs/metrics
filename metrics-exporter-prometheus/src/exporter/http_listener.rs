@@ -1,7 +1,4 @@
-use std::{
-    net::{IpAddr, SocketAddr},
-    sync::Arc,
-};
+use std::net::SocketAddr;
 
 use http_body_util::Full;
 use hyper::{
@@ -18,77 +15,69 @@ use tracing::warn;
 use crate::{common::BuildError, ExporterFuture, PrometheusHandle};
 
 struct HttpListeningExporter {
-    inner: Arc<Inner>,
-}
-#[derive(Clone)]
-struct Inner {
     handle: PrometheusHandle,
     allowed_addresses: Option<Vec<IpNet>>,
 }
 
 impl HttpListeningExporter {
-    async fn serve(&self, listener: std::net::TcpListener) -> Result<(), hyper::Error> {
-        // TODO - address panic possibility
-        let listener = TcpListener::from_std(listener).unwrap();
-
+    async fn serve(&self, listener: tokio::net::TcpListener) -> Result<(), hyper::Error> {
         loop {
             let stream = match listener.accept().await {
                 Ok((stream, _)) => stream,
                 Err(e) => {
-                    warn!("Error accepting connection. Ignoring request. Error: {:?}", e);
+                    warn!(error = ?e, "Error accepting connection. Ignoring request.");
                     continue;
                 }
             };
 
-            let remote_addr = match stream.peer_addr() {
-                Ok(remote_address) => remote_address.ip(),
-                Err(e) => {
-                    warn!("Error obtaining remote address. Ignoring request. Error: {:?}", e);
-                    continue;
-                }
-            };
+            let is_allowed = self.allowed_addresses.as_ref().map_or(true, |addrs| {
+                stream.peer_addr().map_or_else(
+                    |e| {
+                        warn!(error = ?e, "Error obtaining remote address.");
+                        false
+                    },
+                    |peer_addr| {
+                        let remote_ip = peer_addr.ip();
+                        addrs.iter().any(|addr| addr.contains(&remote_ip))
+                    },
+                )
+            });
 
-            self.process_stream(stream, remote_addr).await;
+            self.process_stream(stream, is_allowed).await;
         }
     }
 
-    async fn process_stream(&self, stream: TcpStream, remote_address: IpAddr) {
-        let inner = self.inner.clone();
+    async fn process_stream(&self, stream: TcpStream, is_allowed: bool) {
+        let handle = self.handle.clone();
         let service = service_fn(move |req: Request<body::Incoming>| {
-            let inner = inner.clone();
-            async move { Ok::<_, hyper::Error>(Self::handle_http_request(&inner, remote_address, &req)) }
+            let handle = handle.clone();
+            async move { Ok::<_, hyper::Error>(Self::handle_http_request(is_allowed, &handle, &req)) }
         });
 
-        tokio::task::spawn(async move {
+        tokio::spawn(async move {
             if let Err(err) =
                 HyperHttpBuilder::new().serve_connection(TokioIo::new(stream), service).await
             {
-                warn!("Error serving connection.  Error: {:?}", err);
+                warn!(error = ?err, "Error serving connection.");
             };
         });
     }
 
     fn handle_http_request(
-        inner: &Arc<Inner>,
-        remote_address: IpAddr,
+        is_allowed: bool,
+        handle: &PrometheusHandle,
         req: &Request<Incoming>,
     ) -> Response<Full<Bytes>> {
-        let is_allowed = match &inner.allowed_addresses {
-            Some(addresses) => addresses.iter().any(|address| address.contains(&remote_address)),
-            None => true,
-        };
-
         if is_allowed {
             Response::new(match req.uri().path() {
                 "/health" => "OK".into(),
-                _ => inner.handle.render().into(),
+                _ => handle.render().into(),
             })
         } else {
             Self::new_forbidden_response()
         }
     }
 
-    //
     fn new_forbidden_response() -> Response<Full<Bytes>> {
         // This unwrap should not fail because we don't use any function that
         // can assign an Err to it's inner such as `Builder::header``. A unit test
@@ -112,8 +101,9 @@ pub(crate) fn new_http_listener(
             Ok(listener)
         })
         .map_err(|e| BuildError::FailedToCreateHTTPListener(e.to_string()))?;
+    let listener = TcpListener::from_std(listener).unwrap();
 
-    let exporter = HttpListeningExporter { inner: Arc::new(Inner { handle, allowed_addresses }) };
+    let exporter = HttpListeningExporter { handle, allowed_addresses };
 
     Ok(Box::pin(async move { exporter.serve(listener).await }))
 }

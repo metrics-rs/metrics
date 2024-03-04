@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use http_body_util::{BodyExt, Collected, Full};
-use hyper::body::{Buf, Bytes};
+use hyper::body::Bytes;
 use hyper::{header::HeaderValue, Method, Request, Uri};
 use hyper_tls::HttpsConnector;
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
@@ -54,11 +54,9 @@ pub(super) fn new_push_gateway(
                             .into_body()
                             .collect()
                             .await
-                            .map(Collected::aggregate)
+                            .map(Collected::to_bytes)
                             .map_err(|_| ())
-                            .map(|mut b| b.copy_to_bytes(b.remaining()))
-                            .map(|b| b[..].to_vec())
-                            .and_then(|s| String::from_utf8(s).map_err(|_| ()))
+                            .and_then(|b| String::from_utf8(b[..].to_vec()).map_err(|_| ()))
                             .unwrap_or_else(|()| String::from("<failed to read response body>"));
                         error!(
                             message = "unexpected status after pushing metrics to push gateway",

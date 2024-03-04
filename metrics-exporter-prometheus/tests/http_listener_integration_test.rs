@@ -10,6 +10,7 @@ mod http_listener_test {
     use metrics_exporter_prometheus::PrometheusBuilder;
     use std::net::SocketAddr;
     use std::time::Duration;
+    use tokio::net::TcpListener;
 
     static METADATA: metrics::Metadata =
         metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
@@ -22,8 +23,9 @@ mod http_listener_test {
             .unwrap_or_else(|e| panic!("Failed to create test runtime: {:?}", e));
 
         runtime.block_on(async {
-            let port = find_available_port().unwrap();
-            let socket_address = SocketAddr::from(([127, 0, 0, 1], port));
+            let local = [127, 0, 0, 1];
+            let port = get_available_port(local).await;
+            let socket_address = SocketAddr::from((local, port));
 
             let (recorder, exporter) = {
                 PrometheusBuilder::new().with_http_listener(socket_address).build().unwrap_or_else(
@@ -45,13 +47,21 @@ mod http_listener_test {
 
             let (status, body) = read_from(uri).await;
 
-            println!("Status: {status}");
-            println!("Body:");
-            println!("{body}");
-
             assert_eq!(status, StatusCode::OK);
             assert!(body.contains("basic_gauge{wutang=\"forever\"} -3.14"));
         });
+    }
+
+    async fn get_available_port(local: [u8; 4]) -> u16 {
+        let port = {
+            TcpListener::bind(SocketAddr::from((local, 0)))
+                .await
+                .expect("Unable to bind any available port")
+                .local_addr()
+                .expect("Unable to obtain local address from TcpListener")
+                .port()
+        };
+        port
     }
 
     async fn read_from(endpoint: Uri) -> (StatusCode, String) {
@@ -80,12 +90,5 @@ mod http_listener_test {
             .unwrap_or_else(|e| panic!("Error decoding response body: {:?}", e));
 
         (status, body_string)
-    }
-
-    fn find_available_port() -> Option<u16> {
-        (25000_u16..26000).find(|&port| match std::net::TcpListener::bind(("localhost", port)) {
-            Ok(_) => true,
-            Err(_) => false,
-        })
     }
 }
