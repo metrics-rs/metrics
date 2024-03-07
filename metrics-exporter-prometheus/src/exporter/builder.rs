@@ -1,4 +1,3 @@
-
 use std::collections::HashMap;
 #[cfg(feature = "push-gateway")]
 use std::convert::TryFrom;
@@ -186,7 +185,7 @@ impl PrometheusBuilder {
         self.quantiles = parse_quantiles(quantiles);
         Ok(self)
     }
-    
+
     /// Sets the bucket width when using summaries.
     ///
     /// Summaries are rolling, which means that they are divided into buckets of a fixed duration
