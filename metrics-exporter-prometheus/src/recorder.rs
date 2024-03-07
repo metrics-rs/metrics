@@ -56,6 +56,9 @@ impl Inner {
             *entry = value;
         }
 
+        // Update distributions
+        self.drain_histograms_to_distributions();
+        // Remove expired histograms
         let histogram_handles = self.registry.get_histogram_handles();
         for (key, histogram) in histogram_handles {
             let gen = histogram.get_generation();
@@ -66,7 +69,7 @@ impl Inner {
                 let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
                 let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
                 let delete_by_name = if let Some(by_name) = wg.get_mut(&name) {
-                    by_name.remove(&labels);
+                    by_name.swap_remove(&labels);
                     by_name.is_empty()
                 } else {
                     false
@@ -80,7 +83,18 @@ impl Inner {
 
                 continue;
             }
+        }
 
+        let distributions =
+            self.distributions.read().unwrap_or_else(PoisonError::into_inner).clone();
+
+        Snapshot { counters, gauges, distributions }
+    }
+
+    /// Drains histogram samples into distribution.
+    fn drain_histograms_to_distributions(&self) {
+        let histogram_handles = self.registry.get_histogram_handles();
+        for (key, histogram) in histogram_handles {
             let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
 
             let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
@@ -92,11 +106,6 @@ impl Inner {
 
             histogram.get_inner().clear_with(|samples| entry.record_samples(samples));
         }
-
-        let distributions =
-            self.distributions.read().unwrap_or_else(PoisonError::into_inner).clone();
-
-        Snapshot { counters, gauges, distributions }
     }
 
     fn render(&self) -> String {
@@ -194,6 +203,11 @@ impl Inner {
 
         output
     }
+
+    /// Performs upkeep tasks for the metrics registry.
+    fn run_upkeep(&self) {
+        self.drain_histograms_to_distributions();
+    }
 }
 
 /// A Prometheus recorder.
@@ -272,5 +286,11 @@ impl PrometheusHandle {
     /// the Prometheus exposition format.
     pub fn render(&self) -> String {
         self.inner.render()
+    }
+
+    /// Purges registry's histogram data by draining it into the distribution. This should be
+    /// called periodically to prevent the accumulation of histogram samples.
+    pub fn purge(&self) {
+        self.inner.run_upkeep();
     }
 }

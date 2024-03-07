@@ -437,7 +437,7 @@ impl PrometheusBuilder {
             let purger = async move {
                 loop {
                     tokio::time::sleep(purge_timeout).await;
-                    let _output = recorder_handle.render();
+                    recorder_handle.purge();
                 }
             };
 
