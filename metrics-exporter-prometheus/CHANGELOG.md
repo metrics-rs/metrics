@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Users can now configure the number of buckets, and bucket widths, for rolling summaries. ([#444](https://github.com/metrics-rs/metrics/pull/444))
+
 ## [0.13.1] - 2024-02-11
 
 ### Added

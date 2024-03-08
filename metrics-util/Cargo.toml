@@ -57,7 +57,7 @@ sketches-ddsketch = { version = "0.2", default-features = false, optional = true
 radix_trie = { version = "0.2", default-features = false, optional = true }
 ordered-float = { version = "4.2", default-features = false, optional = true }
 num_cpus = { version = "1", default-features = false, optional = true }
-ahash = { version = ">= 0.8, <= 0.8.7", default-features = false, optional = true }
+ahash = { version = "0.8.8", default-features = false, optional = true }
 hashbrown = { version = "0.14", default-features = false, optional = true, features = ["ahash"] }
 
 [dev-dependencies]

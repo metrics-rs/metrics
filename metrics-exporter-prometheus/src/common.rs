@@ -74,6 +74,10 @@ pub enum BuildError {
     /// Bucket bounds or quantiles were empty.
     #[error("bucket bounds/quantiles cannot be empty")]
     EmptyBucketsOrQuantiles,
+
+    /// Bucket duration cannot be zero
+    #[error("bucket durations cannot be set to zero")]
+    ZeroBucketDuration,
 }
 
 pub struct Snapshot {

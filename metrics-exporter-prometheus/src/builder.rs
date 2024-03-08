@@ -5,6 +5,7 @@ use std::convert::TryFrom;
 use std::future::Future;
 #[cfg(feature = "http-listener")]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::num::NonZeroU32;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::pin::Pin;
 use std::sync::RwLock;
@@ -96,6 +97,8 @@ pub struct PrometheusBuilder {
     #[cfg(feature = "http-listener")]
     allowed_addresses: Option<Vec<IpNet>>,
     quantiles: Vec<Quantile>,
+    bucket_duration: Option<Duration>,
+    bucket_count: Option<NonZeroU32>,
     buckets: Option<Vec<f64>>,
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
@@ -121,6 +124,8 @@ impl PrometheusBuilder {
             #[cfg(feature = "http-listener")]
             allowed_addresses: None,
             quantiles,
+            bucket_duration: None,
+            bucket_count: None,
             buckets: None,
             bucket_overrides: None,
             idle_timeout: None,
@@ -239,6 +244,55 @@ impl PrometheusBuilder {
 
         self.quantiles = parse_quantiles(quantiles);
         Ok(self)
+    }
+
+    /// Sets the bucket width when using summaries.
+    ///
+    /// Summaries are rolling, which means that they are divided into buckets of a fixed duration
+    /// (width), and older buckets are dropped as they age out. This means data from a period as
+    /// large as the width will be dropped at a time.
+    ///
+    /// The total amount of data kept for a summary is the number of buckets times the bucket width.
+    /// For example, a bucket count of 3 and a bucket width of 20 seconds would mean that 60 seconds
+    /// of data is kept at most, with the oldest 20 second chunk of data being dropped as the
+    /// summary rolls forward.
+    ///
+    /// Use more buckets with a smaller width to roll off smaller amounts of data at a time, or
+    /// fewer buckets with a larger width to roll it off in larger chunks.
+    ///
+    /// Defaults to 20 seconds.
+    ///
+    /// ## Errors
+    ///
+    /// If the duration given is zero, an error variant will be thrown.
+    pub fn set_bucket_duration(mut self, value: Duration) -> Result<Self, BuildError> {
+        if value.is_zero() {
+            return Err(BuildError::ZeroBucketDuration);
+        }
+
+        self.bucket_duration = Some(value);
+        Ok(self)
+    }
+
+    /// Sets the bucket count when using summaries.
+    ///
+    /// Summaries are rolling, which means that they are divided into buckets of a fixed duration
+    /// (width), and older buckets are dropped as they age out. This means data from a period as
+    /// large as the width will be dropped at a time.
+    ///
+    /// The total amount of data kept for a summary is the number of buckets times the bucket width.
+    /// For example, a bucket count of 3 and a bucket width of 20 seconds would mean that 60 seconds
+    /// of data is kept at most, with the oldest 20 second chunk of data being dropped as the
+    /// summary rolls forward.
+    ///
+    /// Use more buckets with a smaller width to roll off smaller amounts of data at a time, or
+    /// fewer buckets with a larger width to roll it off in larger chunks.
+    ///
+    /// Defaults to 3.
+    #[must_use]
+    pub fn set_bucket_count(mut self, count: NonZeroU32) -> Self {
+        self.bucket_count = Some(count);
+        self
     }
 
     /// Sets the buckets to use when rendering histograms.
@@ -578,7 +632,9 @@ impl PrometheusBuilder {
             distributions: RwLock::new(HashMap::new()),
             distribution_builder: DistributionBuilder::new(
                 self.quantiles,
+                self.bucket_duration,
                 self.buckets,
+                self.bucket_count,
                 self.bucket_overrides,
             ),
             descriptions: RwLock::new(HashMap::new()),
