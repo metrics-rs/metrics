@@ -53,9 +53,12 @@ mod http_listener_test {
     }
 
     async fn get_available_port(listen_address: [u8; 4]) -> u16 {
-        TcpListener::bind(SocketAddr::from((listen_address, 0)))
+        let socket_address = SocketAddr::from((listen_address, 0));
+        TcpListener::bind(socket_address)
             .await
-            .unwrap_or_else(|| panic!("Unable to bind to an available port on address {listen_address}"))
+            .unwrap_or_else(|e| {
+                panic!("Unable to bind to an available port on address {socket_address}: {:?}", e);
+            })
             .local_addr()
             .expect("Unable to obtain local address from TcpListener")
             .port()
