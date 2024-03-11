@@ -389,6 +389,27 @@ where
         });
         histograms
     }
+
+    /// Gets a copy of an existing counter.
+    pub fn get_counter(&self, key: &K) -> Option<S::Counter> {
+        let (hash, shard) = self.get_hash_and_shard_for_counter(key);
+        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
+        shard_read.raw_entry().from_key_hashed_nocheck(hash, key).map(|(_, v)| v.clone())
+    }
+
+    /// Gets a copy of an existing gauge.
+    pub fn get_gauge(&self, key: &K) -> Option<S::Gauge> {
+        let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
+        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
+        shard_read.raw_entry().from_key_hashed_nocheck(hash, key).map(|(_, v)| v.clone())
+    }
+
+    /// Gets a copy of an existing histogram.
+    pub fn get_histogram(&self, key: &K) -> Option<S::Histogram> {
+        let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
+        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
+        shard_read.raw_entry().from_key_hashed_nocheck(hash, key).map(|(_, v)| v.clone())
+    }
 }
 
 #[cfg(test)]
@@ -405,6 +426,8 @@ mod tests {
 
         let entries = registry.get_counter_handles();
         assert_eq!(entries.len(), 0);
+
+        assert!(registry.get_counter(&key).is_none());
 
         registry.get_or_create_counter(&key, |c: &Arc<AtomicU64>| c.increment(1));
 
@@ -429,6 +452,9 @@ mod tests {
         let (ukey, uvalue) = updated_entry;
         assert_eq!(ukey, key);
         assert_eq!(uvalue.load(Ordering::SeqCst), 2);
+
+        let value = registry.get_counter(&key).expect("failed to get entry");
+        assert!(Arc::ptr_eq(&value, &uvalue));
 
         assert!(registry.delete_counter(&key));
 
