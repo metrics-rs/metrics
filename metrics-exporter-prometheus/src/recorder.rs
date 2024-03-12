@@ -204,7 +204,6 @@ impl Inner {
         output
     }
 
-    /// Performs upkeep tasks for the metrics registry.
     fn run_upkeep(&self) {
         self.drain_histograms_to_distributions();
     }
@@ -288,9 +287,9 @@ impl PrometheusHandle {
         self.inner.render()
     }
 
-    /// Purges registry's histogram data by draining it into the distribution. This should be
-    /// called periodically to prevent the accumulation of histogram samples.
-    pub fn purge(&self) {
+    /// Performs upkeeping operations to ensure metrics held by recorder are up-to-date and do not
+    /// grow unboundedly.
+    pub fn run_upkeep(&self) {
         self.inner.run_upkeep();
     }
 }

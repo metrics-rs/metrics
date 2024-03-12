@@ -102,7 +102,7 @@ pub struct PrometheusBuilder {
     buckets: Option<Vec<f64>>,
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
-    purge_timeout: Option<Duration>,
+    upkeep_timeout: Duration,
     recency_mask: MetricKindMask,
     global_labels: Option<IndexMap<String, String>>,
 }
@@ -119,6 +119,8 @@ impl PrometheusBuilder {
         #[cfg(not(feature = "http-listener"))]
         let exporter_config = ExporterConfig::Unconfigured;
 
+        let upkeep_timeout = Duration::from_secs(5);
+
         Self {
             exporter_config,
             #[cfg(feature = "http-listener")]
@@ -129,7 +131,7 @@ impl PrometheusBuilder {
             buckets: None,
             bucket_overrides: None,
             idle_timeout: None,
-            purge_timeout: None,
+            upkeep_timeout,
             recency_mask: MetricKindMask::NONE,
             global_labels: None,
         }
@@ -363,14 +365,13 @@ impl PrometheusBuilder {
         self
     }
 
-    /// Sets the purge timeout for metrics.
+    /// Sets the upkeep interval.
     ///
-    /// If a purge timeout is set, the purger will call `.render()` on the registry, causing
-    /// the values from histograms to be drained out. This ensures that stale histogram values
-    /// do not persist indefinitely.
+    /// The upkeep task handles periodic maintenance operations, such as draining histogram data,
+    /// to ensure that all recorded data is up-to-date and prevent unbounded memory growth.
     #[must_use]
-    pub fn purge_timeout(mut self, timeout: Option<Duration>) -> Self {
-        self.purge_timeout = timeout;
+    pub fn upkeep_timeout(mut self, timeout: Duration) -> Self {
+        self.upkeep_timeout = timeout;
         self
     }
 
@@ -478,39 +479,19 @@ impl PrometheusBuilder {
     pub fn build(mut self) -> Result<(PrometheusRecorder, ExporterFuture), BuildError> {
         #[cfg(feature = "http-listener")]
         let allowed_addresses = self.allowed_addresses.take();
-        let purge_timeout = self.purge_timeout.take();
-
         let exporter_config = self.exporter_config.clone();
+        let upkeep_timeout = self.upkeep_timeout;
+
         let recorder = self.build_recorder();
         let handle = recorder.handle();
 
-        // use the handle to recorder
-        // #[cfg(not(feature = "push-gateway"))]
-        if let Some(purge_timeout) = purge_timeout {
-            let recorder_handle = handle.clone();
-            let purger = async move {
-                loop {
-                    tokio::time::sleep(purge_timeout).await;
-                    recorder_handle.purge();
-                }
-            };
-
-            if let Ok(handle) = runtime::Handle::try_current() {
-                handle.spawn(purger);
-            } else {
-                let thread_name = "metrics-exporter-prometheus-purger";
-
-                let runtime = runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .map_err(|e| BuildError::FailedToCreateRuntime(e.to_string()))?;
-
-                thread::Builder::new()
-                    .name(thread_name.to_owned())
-                    .spawn(move || runtime.block_on(purger))
-                    .map_err(|e| BuildError::FailedToCreateRuntime(e.to_string()))?;
-            };
-        }
+        let recorder_handle = handle.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(upkeep_timeout).await;
+                recorder_handle.run_upkeep();
+            }
+        });
 
         match exporter_config {
             ExporterConfig::Unconfigured => Err(BuildError::MissingExporterConfiguration),
