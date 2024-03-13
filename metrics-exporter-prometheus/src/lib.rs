@@ -106,8 +106,10 @@ pub use self::common::{BuildError, Matcher};
 mod distribution;
 pub use distribution::{Distribution, DistributionBuilder};
 
-mod builder;
-pub use self::builder::PrometheusBuilder;
+mod exporter;
+pub use self::exporter::builder::PrometheusBuilder;
+#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+pub use self::exporter::ExporterFuture;
 
 pub mod formatting;
 mod recorder;
