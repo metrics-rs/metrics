@@ -44,6 +44,7 @@ pub struct PrometheusBuilder {
     buckets: Option<Vec<f64>>,
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
     idle_timeout: Option<Duration>,
+    upkeep_timeout: Duration,
     recency_mask: MetricKindMask,
     global_labels: Option<IndexMap<String, String>>,
 }
@@ -60,6 +61,8 @@ impl PrometheusBuilder {
         #[cfg(not(feature = "http-listener"))]
         let exporter_config = ExporterConfig::Unconfigured;
 
+        let upkeep_timeout = Duration::from_secs(5);
+
         Self {
             exporter_config,
             #[cfg(feature = "http-listener")]
@@ -70,6 +73,7 @@ impl PrometheusBuilder {
             buckets: None,
             bucket_overrides: None,
             idle_timeout: None,
+            upkeep_timeout,
             recency_mask: MetricKindMask::NONE,
             global_labels: None,
         }
@@ -303,6 +307,16 @@ impl PrometheusBuilder {
         self
     }
 
+    /// Sets the upkeep interval.
+    ///
+    /// The upkeep task handles periodic maintenance operations, such as draining histogram data,
+    /// to ensure that all recorded data is up-to-date and prevent unbounded memory growth.
+    #[must_use]
+    pub fn upkeep_timeout(mut self, timeout: Duration) -> Self {
+        self.upkeep_timeout = timeout;
+        self
+    }
+
     /// Adds a global label to this exporter.
     ///
     /// Global labels are applied to all metrics.  Labels defined on the metric key itself have precedence
@@ -409,10 +423,19 @@ impl PrometheusBuilder {
     pub fn build(mut self) -> Result<(PrometheusRecorder, ExporterFuture), BuildError> {
         #[cfg(feature = "http-listener")]
         let allowed_addresses = self.allowed_addresses.take();
-
         let exporter_config = self.exporter_config.clone();
+        let upkeep_timeout = self.upkeep_timeout;
+
         let recorder = self.build_recorder();
         let handle = recorder.handle();
+
+        let recorder_handle = handle.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(upkeep_timeout).await;
+                recorder_handle.run_upkeep();
+            }
+        });
 
         Ok((
             recorder,
