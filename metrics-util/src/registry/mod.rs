@@ -410,6 +410,48 @@ where
         let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
         shard_read.raw_entry().from_key_hashed_nocheck(hash, key).map(|(_, v)| v.clone())
     }
+
+    /// Retains only counters specified by the predicate.
+    ///
+    /// Remove all counters for which f(&k, &c) returns false. This operation proceeds
+    /// through the "subshards" in the same way as `visit_counters`.
+    pub fn retain_counters<F>(&self, mut f: F)
+    where
+        F: FnMut(&K, &S::Counter) -> bool,
+    {
+        for subshard in self.counters.iter() {
+            let mut shard_write = subshard.write().unwrap_or_else(PoisonError::into_inner);
+            shard_write.retain(|k, c| f(k, c));
+        }
+    }
+
+    /// Retains only gauges specified by the predicate.
+    ///
+    /// Remove all gauges for which f(&k, &g) returns false. This operation proceeds
+    /// through the "subshards" in the same way as `visit_gauges`.
+    pub fn retain_gauges<F>(&self, mut f: F)
+    where
+        F: FnMut(&K, &S::Gauge) -> bool,
+    {
+        for subshard in self.gauges.iter() {
+            let mut shard_write = subshard.write().unwrap_or_else(PoisonError::into_inner);
+            shard_write.retain(|k, g| f(k, g));
+        }
+    }
+
+    /// Retains only histograms specified by the predicate.
+    ///
+    /// Remove all histograms for which f(&k, &h) returns false. This operation proceeds
+    /// through the "subshards" in the same way as `visit_histograms`.
+    pub fn retain_histograms<F>(&self, mut f: F)
+    where
+        F: FnMut(&K, &S::Histogram) -> bool,
+    {
+        for subshard in self.histograms.iter() {
+            let mut shard_write = subshard.write().unwrap_or_else(PoisonError::into_inner);
+            shard_write.retain(|k, h| f(k, h));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -455,6 +497,17 @@ mod tests {
 
         let value = registry.get_counter(&key).expect("failed to get entry");
         assert!(Arc::ptr_eq(&value, &uvalue));
+
+        registry.get_or_create_counter(&Key::from_name("baz"), |_| ());
+        assert_eq!(registry.get_counter_handles().len(), 2);
+
+        let mut n = 0;
+        registry.retain_counters(|k, _| {
+            n += 1;
+            k.name().starts_with("foo")
+        });
+        assert_eq!(n, 2);
+        assert_eq!(registry.get_counter_handles().len(), 1);
 
         assert!(registry.delete_counter(&key));
 
