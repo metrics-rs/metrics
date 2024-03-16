@@ -66,7 +66,7 @@ As well, there are also some community-maintained exporters and other integratio
 
 Additionally, here are some learning resource(s) to help you get started:
 
-* [Rust Telemetry Workshop][rust-telemetry-workshop] from [MainMatter](https://mainmatter.com/).
+* [Rust Telemetry Workshop][rust-telemetry-workshop] from [MainMatter](https://mainmatter.com/) (includes more than just `metrics`, as well).
 
 ## MSRV and MSRV policy
 
@@ -97,4 +97,4 @@ We'd love to chat about any of the above, or anything else related to metrics. D
 [metrics-exporter-newrelic]: https://docs.rs/metrics-exporter-newrelic
 [opinionated-metrics]: https://docs.rs/opinionated_metrics
 [metrics-dashboard]: https://docs.rs/metrics-dashboard
-[rust-telemetry-workshop]: https://github.com/mainmatter/rust-telemetry-workshop/tree/main/exercises/03_metrics
+[rust-telemetry-workshop]: https://github.com/mainmatter/rust-telemetry-workshop
