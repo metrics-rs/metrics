@@ -256,15 +256,33 @@ impl IntoF64 for core::time::Duration {
     }
 }
 
+into_f64!(i8, u8, i16, u16, i32, u32, f32);
+
 /// Helper method to allow monomorphization of values passed to the `histogram!` macro.
 #[doc(hidden)]
 pub fn __into_f64<V: IntoF64>(value: V) -> f64 {
     value.into_f64()
 }
 
+macro_rules! into_f64 {
+    ($($ty:ty),*) => {
+        $(
+            impl IntoF64 for $ty {
+                fn into_f64(self) -> f64 {
+                    f64::from(self)
+                }
+            }
+        )*
+    };
+}
+
+pub(self) use into_f64;
+
 #[cfg(test)]
 mod tests {
-    use super::Unit;
+    use std::time::Duration;
+
+    use super::{IntoF64, Unit};
 
     #[test]
     fn test_unit_conversions() {
@@ -293,5 +311,22 @@ mod tests {
             let parsed = Unit::from_string(s);
             assert_eq!(Some(variant), parsed);
         }
+    }
+
+    #[test]
+    fn into_f64() {
+        fn test<T: IntoF64>(val: T) {
+            assert!(!val.into_f64().is_nan());
+        }
+
+        test::<i8>(1);
+        test::<u8>(1);
+        test::<i16>(1);
+        test::<u16>(1);
+        test::<i32>(1);
+        test::<u32>(1);
+        test::<f32>(1.0);
+        test::<f64>(1.0);
+        test::<Duration>(Duration::from_secs(1));
     }
 }

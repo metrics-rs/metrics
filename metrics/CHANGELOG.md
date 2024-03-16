@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Additional implementations of `IntoF64` for standard numerical types (`i8`, `u8`, `i16`, `u16`,
+  `i32`, `u32`, and `f32`).
+
 ## [0.22.2] - 2024-03-16
 
 ### Fixed
