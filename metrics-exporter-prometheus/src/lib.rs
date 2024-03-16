@@ -43,7 +43,8 @@
 //!
 //! Using the exporter is straightforward:
 //!
-//! ```ignore
+//! ```no_run
+//! # use metrics_exporter_prometheus::PrometheusBuilder;
 //! // First, create a builder.
 //! //
 //! // The builder can configure many aspects of the exporter, such as changing the
@@ -66,6 +67,7 @@
 //! // endpoint on.. no problem!  You can build the recorder and install it, and get
 //! // back a handle that can be used to generate the Prometheus scrape output on
 //! // demand:
+//! # let builder = PrometheusBuilder::new();
 //! let handle = builder.install_recorder().expect("failed to install recorder");
 //!
 //! // Maybe you have a more complicated setup and want to be handed back the recorder
@@ -74,11 +76,13 @@
 //! //
 //! // As this is a more advanced method, it _must_ be called from within an existing
 //! // Tokio runtime when the exporter is running in HTTP listener/scrape endpoint mode.
+//! # let builder = PrometheusBuilder::new();
 //! let (recorder, exporter) = builder.build().expect("failed to build recorder/exporter");
 //!
 //! // Finally, maybe you literally only want to build the recorder and nothing else,
 //! // and we've got you covered there, too:
-//! let recorder = builder.build_recorder().expect("failed to build recorder");
+//! # let builder = PrometheusBuilder::new();
+//! let recorder = builder.build_recorder();
 //! ```
 //!
 //! ## Features
@@ -109,6 +113,7 @@ pub use distribution::{Distribution, DistributionBuilder};
 mod exporter;
 pub use self::exporter::builder::PrometheusBuilder;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
 pub use self::exporter::ExporterFuture;
 
 pub mod formatting;

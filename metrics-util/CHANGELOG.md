@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- New set of methods on `Registry` for getting a metric handle if it exists. ([#457](https://github.com/metrics-rs/metrics/pull/457))
+- New set of methods on `Registry` for retaining metric handles that match a given predicate. ([#461](https://github.com/metrics-rs/metrics/pull/461))
+
 ### Fixed
 
 - Bump `ahash` back to `0.8.8` to remove range constraint after an upstream fix was provided to

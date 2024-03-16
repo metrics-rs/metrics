@@ -15,6 +15,7 @@ pub use storage::{AtomicStorage, Storage};
 mod recency;
 
 #[cfg(feature = "recency")]
+#[cfg_attr(docsrs, doc(cfg(feature = "recency")))]
 pub use recency::{
     Generation, Generational, GenerationalAtomicStorage, GenerationalStorage, Recency,
 };

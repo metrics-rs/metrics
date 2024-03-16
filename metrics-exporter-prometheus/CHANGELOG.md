@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Users can now configure the number of buckets, and bucket widths, for rolling summaries. ([#444](https://github.com/metrics-rs/metrics/pull/444))
+- Added support to run exporter "upkeep" in the background to periodically drain histograms and help
+  avoid unbounded memory growth over time. ([#460](https://github.com/metrics-rs/metrics/pull/460))
+
+### Changed
+
+- Upgrade to `hyper` 1.x. ([#450](https://github.com/metrics-rs/metrics/pull/450))
+- Enabled upkeep by default, with a five second interval. ([#460](https://github.com/metrics-rs/metrics/pull/460))
 
 ## [0.13.1] - 2024-02-11
 
