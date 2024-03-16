@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.22.2] - 2024-03-16
+
 ### Fixed
 
 - Bump `ahash` back to `0.8.8` to remove range constraint after an upstream fix was provided to
