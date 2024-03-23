@@ -287,6 +287,11 @@ impl PrometheusHandle {
         self.inner.render()
     }
 
+    /// Takes only the snapshot and uses it as you want.
+    pub fn get_recent_metrics(&self) -> Snapshot {
+        self.inner.get_recent_metrics()
+    }
+
     /// Performs upkeeping operations to ensure metrics held by recorder are up-to-date and do not
     /// grow unboundedly.
     pub fn run_upkeep(&self) {
