@@ -56,6 +56,16 @@ where
     }
 }
 
+impl<K, V> From<(&K, &V)> for Label
+where
+    K: Into<SharedString> + Clone,
+    V: Into<SharedString> + Clone,
+{
+    fn from(pair: (&K, &V)) -> Label {
+        Label::new(pair.0.clone(), pair.1.clone())
+    }
+}
+
 /// A value that can be converted to a vector of [`Label`]s.
 pub trait IntoLabels {
     /// Consumes this value, turning it into a vector of [`Label`]s.
@@ -98,5 +108,15 @@ mod label_tests {
 
         let expected = vec![Label::new("x", "a"), Label::new("y", "b")];
         assert_eq!(from_slice_to_labels(&labels), expected);
+    }
+
+    #[test]
+    fn btreemap_to_labels() {
+        use std::collections::BTreeMap;
+
+        let labels_btreemap = BTreeMap::from([("customer", "Rust Foundation")]);
+
+        let expected = vec![Label::new("customer", "Rust Foundation")];
+        assert_eq!(labels_btreemap.into_labels(), expected);
     }
 }
