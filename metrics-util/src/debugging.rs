@@ -84,6 +84,7 @@ impl Inner {
 }
 
 /// Captures point-in-time snapshots of [`DebuggingRecorder`].
+#[derive(Clone)]
 pub struct Snapshotter {
     inner: Arc<Inner>,
 }
