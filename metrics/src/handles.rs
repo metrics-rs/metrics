@@ -40,18 +40,21 @@ pub trait HistogramFn {
 
 /// A counter.
 #[derive(Clone)]
+#[must_use = "counters do nothing unless you use them"]
 pub struct Counter {
     inner: Option<Arc<dyn CounterFn + Send + Sync>>,
 }
 
 /// A gauge.
 #[derive(Clone)]
+#[must_use = "gauges do nothing unless you use them"]
 pub struct Gauge {
     inner: Option<Arc<dyn GaugeFn + Send + Sync>>,
 }
 
 /// A histogram.
 #[derive(Clone)]
+#[must_use = "histograms do nothing unless you use them"]
 pub struct Histogram {
     inner: Option<Arc<dyn HistogramFn + Send + Sync>>,
 }

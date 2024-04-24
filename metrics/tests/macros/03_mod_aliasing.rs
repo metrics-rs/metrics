@@ -13,7 +13,7 @@ use framework::*; // This exposes mod `framework::metrics`.
 
 #[inline]
 pub fn register_metrics() {
-    ::metrics::counter!(
+    let _ = ::metrics::counter!(
         metrics::UPLOAD_METRIC_NAME,
         &[
             (metrics::UPLOAD_METRIC_LABEL_PROCESS_TYPE, ""),
