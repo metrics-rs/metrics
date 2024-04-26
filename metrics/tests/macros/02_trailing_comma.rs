@@ -12,9 +12,9 @@ fn no_trailing_comma() {
 
 #[allow(dead_code)]
 fn with_trailing_comma() {
-    counter!("qwe",);
+    counter!("qwe",).increment(1);
     counter!(
-        "qwe", 
+        "qwe",
         "foo" => "bar",
     ).increment(1);
     counter!("qwe", vec![],).increment(1);
