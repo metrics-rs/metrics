@@ -137,7 +137,7 @@ pub struct Cow<'a, T: Cowable + ?Sized + 'a> {
     _lifetime: PhantomData<&'a T>,
 }
 
-impl<'a, T> Cow<'a, T>
+impl<T> Cow<'_, T>
 where
     T: Cowable + ?Sized,
 {
@@ -177,35 +177,6 @@ where
         let cow = ManuallyDrop::new(self);
 
         T::owned_from_parts(cow.ptr, &cow.metadata)
-    }
-
-    /// Extracts the borrowed data.
-    ///
-    /// Returns `None` if the data is either shared or owned.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use metrics::SharedString;
-    ///
-    /// let s = SharedString::from_borrowed("foobar");
-    /// assert_eq!(s.as_borrowed(), Some("foobar"));
-    ///
-    /// let s = SharedString::from_owned("foobar".to_owned());
-    /// assert_eq!(s.as_borrowed(), None);
-    ///
-    /// let s = SharedString::from_shared("foobar".to_owned().into());
-    /// assert_eq!(s.as_borrowed(), None);
-    /// ```
-    pub fn as_borrowed(&self) -> Option<&'a T> {
-        match self.metadata.kind() {
-            Kind::Owned | Kind::Shared => None,
-            Kind::Borrowed => {
-                // SAFETY: We know the contained data is borrowed from 'a, we're simply
-                // restoring the original immutable reference and returning a copy of it.
-                Some(unsafe { &*T::borrowed_from_parts(self.ptr, &self.metadata) })
-            }
-        }
     }
 }
 
@@ -356,10 +327,13 @@ impl<'a> From<std::borrow::Cow<'a, str>> for Cow<'a, str> {
 impl<'a, T: Cowable> From<Cow<'a, T>> for std::borrow::Cow<'a, T> {
     #[inline]
     fn from(value: Cow<'a, T>) -> Self {
-        if let Some(borrowed) = value.as_borrowed() {
-            Self::Borrowed(borrowed)
-        } else {
-            Self::Owned(value.into_owned())
+        match value.metadata.kind() {
+            Kind::Owned | Kind::Shared => Self::Owned(value.into_owned()),
+            Kind::Borrowed => {
+                // SAFETY: We know the contained data is borrowed from 'a, we're simply
+                // restoring the original immutable reference and returning a copy of it.
+                Self::Borrowed(unsafe { &*T::borrowed_from_parts(value.ptr, &value.metadata) })
+            }
         }
     }
 }
