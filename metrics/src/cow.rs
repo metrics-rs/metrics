@@ -324,6 +324,20 @@ impl<'a> From<std::borrow::Cow<'a, str>> for Cow<'a, str> {
     }
 }
 
+impl<'a, T: Cowable> From<Cow<'a, T>> for std::borrow::Cow<'a, T> {
+    #[inline]
+    fn from(value: Cow<'a, T>) -> Self {
+        match value.metadata.kind() {
+            Kind::Owned | Kind::Shared => Self::Owned(value.into_owned()),
+            Kind::Borrowed => {
+                // SAFETY: We know the contained data is borrowed from 'a, we're simply
+                // restoring the original immutable reference and returning a copy of it.
+                Self::Borrowed(unsafe { &*T::borrowed_from_parts(value.ptr, &value.metadata) })
+            }
+        }
+    }
+}
+
 impl From<String> for Cow<'_, str> {
     #[inline]
     fn from(s: String) -> Self {
