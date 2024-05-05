@@ -46,7 +46,7 @@
 //! specifically deal with bucketed or binned values: how many values fell within 0-10, how many
 //! fell within 11-20, and so on and so forth.  Percentiles, commonly associated with "summaries",
 //! deal with understanding how much of a distribution falls below or at a particular percentage of
-//! that distribution: 50% of requests are slower than 500ms, 99% of requests are slower than
+//! that distribution: 50% of requests are faster than 500ms, 99% of requests are faster than
 //! 2450ms, and so on and so forth.
 //!
 //! While we use the term "histogram" in `metrics`, we enforce no particular usage of true
