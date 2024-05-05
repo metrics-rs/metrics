@@ -61,6 +61,7 @@ As well, there are also some community-maintained exporters and other integratio
 
 * [`metrics-exporter-statsd`][metrics-exporter-statsd]: A `metrics`-compatible exporter for sending metrics via StatsD.
 * [`metrics-exporter-newrelic`][metrics-exporter-newrelic]: A `metrics`-compatible exporter for sending metrics to New Relic.
+* [`metrics-exporter-sentry`][metrics-exporter-sentry]: A `metrics`-compatible exporter for sending metrics to Sentry.
 * [`opinionated_metrics`][opinionated-metrics]: Opinionated interface to emitting metrics for CLI/server applications, based on `metrics`.
 * [`metrics-dashboard`][metrics-dashboard]: A dashboard for visualizing metrics from `metrics`.
 
@@ -95,6 +96,7 @@ We'd love to chat about any of the above, or anything else related to metrics. D
 [tracing]: https://tracing.rs
 [metrics-exporter-statsd]: https://docs.rs/metrics-exporter-statsd
 [metrics-exporter-newrelic]: https://docs.rs/metrics-exporter-newrelic
+[metrics-exporter-sentry]: https://docs.rs/metrics-exporter-sentry
 [opinionated-metrics]: https://docs.rs/opinionated_metrics
 [metrics-dashboard]: https://docs.rs/metrics-dashboard
 [rust-telemetry-workshop]: https://github.com/mainmatter/rust-telemetry-workshop
