@@ -256,7 +256,7 @@ macro_rules! histogram {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! describe {
-    ($method:ident, $name:expr, $unit:expr, $description:expr) => {{
+    ($method:ident, $name:expr, $unit:expr, $description:expr $(,)?) => {{
         $crate::with_recorder(|recorder| {
             recorder.$method(
                 ::core::convert::Into::into($name),
@@ -265,7 +265,7 @@ macro_rules! describe {
             );
         });
     }};
-    ($method:ident, $name:expr, $description:expr) => {{
+    ($method:ident, $name:expr, $description:expr $(,)?) => {{
         $crate::with_recorder(|recorder| {
             recorder.$method(
                 ::core::convert::Into::into($name),
@@ -314,10 +314,10 @@ macro_rules! describe {
 /// ```
 #[macro_export]
 macro_rules! describe_counter {
-    ($name:expr, $unit:expr, $description:expr) => {
+    ($name:expr, $unit:expr, $description:expr $(,)?) => {
         $crate::describe!(describe_counter, $name, $unit, $description)
     };
-    ($name:expr, $description:expr) => {
+    ($name:expr, $description:expr $(,)?) => {
         $crate::describe!(describe_counter, $name, $description)
     };
 }
@@ -360,10 +360,10 @@ macro_rules! describe_counter {
 /// ```
 #[macro_export]
 macro_rules! describe_gauge {
-    ($name:expr, $unit:expr, $description:expr) => {
+    ($name:expr, $unit:expr, $description:expr $(,)?) => {
         $crate::describe!(describe_gauge, $name, $unit, $description)
     };
-    ($name:expr, $description:expr) => {
+    ($name:expr, $description:expr $(,)?) => {
         $crate::describe!(describe_gauge, $name, $description)
     };
 }
@@ -406,10 +406,10 @@ macro_rules! describe_gauge {
 /// ```
 #[macro_export]
 macro_rules! describe_histogram {
-    ($name:expr, $unit:expr, $description:expr) => {
+    ($name:expr, $unit:expr, $description:expr $(,)?) => {
         $crate::describe!(describe_histogram, $name, $unit, $description)
     };
-    ($name:expr, $description:expr) => {
+    ($name:expr, $description:expr $(,)?) => {
         $crate::describe!(describe_histogram, $name, $description)
     };
 }
