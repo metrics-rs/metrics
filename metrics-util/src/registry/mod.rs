@@ -47,7 +47,6 @@ type RegistryHashMap<K, V> = HashMap<K, V, BuildHasherDefault<RegistryHasher>>;
 /// `Registry` is optimized for reads.
 pub struct Registry<K, S>
 where
-    K: Hashable,
     S: Storage<K>,
 {
     counters: Vec<RwLock<RegistryHashMap<K, S::Counter>>>,
@@ -75,7 +74,6 @@ impl Registry<Key, AtomicStorage> {
 
 impl<K, S> Registry<K, S>
 where
-    K: Clone + Eq + Hashable,
     S: Storage<K>,
 {
     /// Creates a new `Registry`.
@@ -92,6 +90,126 @@ where
         Self { counters, gauges, histograms, shard_mask, storage }
     }
 
+    /// Removes all metrics from the registry.
+    ///
+    /// This operation is eventually consistent: metrics will be removed piecemeal, and this method
+    /// does not ensure that callers will see the registry as entirely empty at any given point.
+    pub fn clear(&self) {
+        for shard in &self.counters {
+            shard.write().unwrap_or_else(PoisonError::into_inner).clear();
+        }
+        for shard in &self.gauges {
+            shard.write().unwrap_or_else(PoisonError::into_inner).clear();
+        }
+        for shard in &self.histograms {
+            shard.write().unwrap_or_else(PoisonError::into_inner).clear();
+        }
+    }
+
+    /// Visits every counter stored in this registry.
+    ///
+    /// This operation does not lock the entire registry, but proceeds directly through the
+    /// "subshards" that are kept internally.  As a result, all subshards will be visited, but a
+    /// metric that existed at the exact moment that `visit_counters` was called may not actually be observed
+    /// if it is deleted before that subshard is reached.  Likewise, a metric that is added after
+    /// the call to `visit_counters`, but before `visit_counters` finishes, may also not be observed.
+    pub fn visit_counters<F>(&self, mut collect: F)
+    where
+        F: FnMut(&K, &S::Counter),
+    {
+        for subshard in self.counters.iter() {
+            let shard_read = subshard.read().unwrap_or_else(PoisonError::into_inner);
+            for (key, counter) in shard_read.iter() {
+                collect(key, counter);
+            }
+        }
+    }
+    /// Visits every gauge stored in this registry.
+    ///
+    /// This operation does not lock the entire registry, but proceeds directly through the
+    /// "subshards" that are kept internally.  As a result, all subshards will be visited, but a
+    /// metric that existed at the exact moment that `visit_gauges` was called may not actually be observed
+    /// if it is deleted before that subshard is reached.  Likewise, a metric that is added after
+    /// the call to `visit_gauges`, but before `visit_gauges` finishes, may also not be observed.
+    pub fn visit_gauges<F>(&self, mut collect: F)
+    where
+        F: FnMut(&K, &S::Gauge),
+    {
+        for subshard in self.gauges.iter() {
+            let shard_read = subshard.read().unwrap_or_else(PoisonError::into_inner);
+            for (key, gauge) in shard_read.iter() {
+                collect(key, gauge);
+            }
+        }
+    }
+
+    /// Visits every histogram stored in this registry.
+    ///
+    /// This operation does not lock the entire registry, but proceeds directly through the
+    /// "subshards" that are kept internally.  As a result, all subshards will be visited, but a
+    /// metric that existed at the exact moment that `visit_histograms` was called may not actually be observed
+    /// if it is deleted before that subshard is reached.  Likewise, a metric that is added after
+    /// the call to `visit_histograms`, but before `visit_histograms` finishes, may also not be observed.
+    pub fn visit_histograms<F>(&self, mut collect: F)
+    where
+        F: FnMut(&K, &S::Histogram),
+    {
+        for subshard in self.histograms.iter() {
+            let shard_read = subshard.read().unwrap_or_else(PoisonError::into_inner);
+            for (key, histogram) in shard_read.iter() {
+                collect(key, histogram);
+            }
+        }
+    }
+
+    /// Retains only counters specified by the predicate.
+    ///
+    /// Remove all counters for which f(&k, &c) returns false. This operation proceeds
+    /// through the "subshards" in the same way as `visit_counters`.
+    pub fn retain_counters<F>(&self, mut f: F)
+    where
+        F: FnMut(&K, &S::Counter) -> bool,
+    {
+        for subshard in self.counters.iter() {
+            let mut shard_write = subshard.write().unwrap_or_else(PoisonError::into_inner);
+            shard_write.retain(|k, c| f(k, c));
+        }
+    }
+
+    /// Retains only gauges specified by the predicate.
+    ///
+    /// Remove all gauges for which f(&k, &g) returns false. This operation proceeds
+    /// through the "subshards" in the same way as `visit_gauges`.
+    pub fn retain_gauges<F>(&self, mut f: F)
+    where
+        F: FnMut(&K, &S::Gauge) -> bool,
+    {
+        for subshard in self.gauges.iter() {
+            let mut shard_write = subshard.write().unwrap_or_else(PoisonError::into_inner);
+            shard_write.retain(|k, g| f(k, g));
+        }
+    }
+
+    /// Retains only histograms specified by the predicate.
+    ///
+    /// Remove all histograms for which f(&k, &h) returns false. This operation proceeds
+    /// through the "subshards" in the same way as `visit_histograms`.
+    pub fn retain_histograms<F>(&self, mut f: F)
+    where
+        F: FnMut(&K, &S::Histogram) -> bool,
+    {
+        for subshard in self.histograms.iter() {
+            let mut shard_write = subshard.write().unwrap_or_else(PoisonError::into_inner);
+            shard_write.retain(|k, h| f(k, h));
+        }
+    }
+}
+
+impl<K, S> Registry<K, S>
+where
+    S: Storage<K>,
+    K: Hashable,
+{
     #[inline]
     fn get_hash_and_shard_for_counter(
         &self,
@@ -137,23 +255,85 @@ where
 
         (hash, shard)
     }
+}
 
-    /// Removes all metrics from the registry.
+impl<K, S> Registry<K, S>
+where
+    S: Storage<K>,
+    K: Eq + Hashable,
+{
+    /// Deletes a counter from the registry.
     ///
-    /// This operation is eventually consistent: metrics will be removed piecemeal, and this method
-    /// does not ensure that callers will see the registry as entirely empty at any given point.
-    pub fn clear(&self) {
-        for shard in &self.counters {
-            shard.write().unwrap_or_else(PoisonError::into_inner).clear();
+    /// Returns `true` if the counter existed and was removed, `false` otherwise.
+    pub fn delete_counter(&self, key: &K) -> bool {
+        let (hash, shard) = self.get_hash_and_shard_for_counter(key);
+        let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
+        let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
+        if let RawEntryMut::Occupied(entry) = entry {
+            let _ = entry.remove_entry();
+            return true;
         }
-        for shard in &self.gauges {
-            shard.write().unwrap_or_else(PoisonError::into_inner).clear();
-        }
-        for shard in &self.histograms {
-            shard.write().unwrap_or_else(PoisonError::into_inner).clear();
-        }
+
+        false
     }
 
+    /// Deletes a gauge from the registry.
+    ///
+    /// Returns `true` if the gauge existed and was removed, `false` otherwise.
+    pub fn delete_gauge(&self, key: &K) -> bool {
+        let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
+        let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
+        let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
+        if let RawEntryMut::Occupied(entry) = entry {
+            let _ = entry.remove_entry();
+            return true;
+        }
+
+        false
+    }
+
+    /// Deletes a histogram from the registry.
+    ///
+    /// Returns `true` if the histogram existed and was removed, `false` otherwise.
+    pub fn delete_histogram(&self, key: &K) -> bool {
+        let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
+        let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
+        let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
+        if let RawEntryMut::Occupied(entry) = entry {
+            let _ = entry.remove_entry();
+            return true;
+        }
+
+        false
+    }
+
+    /// Gets a copy of an existing counter.
+    pub fn get_counter(&self, key: &K) -> Option<S::Counter> {
+        let (hash, shard) = self.get_hash_and_shard_for_counter(key);
+        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
+        shard_read.raw_entry().from_key_hashed_nocheck(hash, key).map(|(_, v)| v.clone())
+    }
+
+    /// Gets a copy of an existing gauge.
+    pub fn get_gauge(&self, key: &K) -> Option<S::Gauge> {
+        let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
+        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
+        shard_read.raw_entry().from_key_hashed_nocheck(hash, key).map(|(_, v)| v.clone())
+    }
+
+    /// Gets a copy of an existing histogram.
+    pub fn get_histogram(&self, key: &K) -> Option<S::Histogram> {
+        let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
+        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
+        shard_read.raw_entry().from_key_hashed_nocheck(hash, key).map(|(_, v)| v.clone())
+    }
+}
+
+impl<K, S> Registry<K, S>
+where
+    S: Storage<K>,
+    K: Clone + Eq + Hashable,
+{
     /// Gets or creates the given counter.
     ///
     /// The `op` function will be called for the counter under the given `key`, with the counter
@@ -255,109 +435,6 @@ where
             op(v)
         }
     }
-
-    /// Deletes a counter from the registry.
-    ///
-    /// Returns `true` if the counter existed and was removed, `false` otherwise.
-    pub fn delete_counter(&self, key: &K) -> bool {
-        let (hash, shard) = self.get_hash_and_shard_for_counter(key);
-        let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
-        let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
-        if let RawEntryMut::Occupied(entry) = entry {
-            let _ = entry.remove_entry();
-            return true;
-        }
-
-        false
-    }
-
-    /// Deletes a gauge from the registry.
-    ///
-    /// Returns `true` if the gauge existed and was removed, `false` otherwise.
-    pub fn delete_gauge(&self, key: &K) -> bool {
-        let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
-        let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
-        let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
-        if let RawEntryMut::Occupied(entry) = entry {
-            let _ = entry.remove_entry();
-            return true;
-        }
-
-        false
-    }
-
-    /// Deletes a histogram from the registry.
-    ///
-    /// Returns `true` if the histogram existed and was removed, `false` otherwise.
-    pub fn delete_histogram(&self, key: &K) -> bool {
-        let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
-        let mut shard_write = shard.write().unwrap_or_else(PoisonError::into_inner);
-        let entry = shard_write.raw_entry_mut().from_key_hashed_nocheck(hash, key);
-        if let RawEntryMut::Occupied(entry) = entry {
-            let _ = entry.remove_entry();
-            return true;
-        }
-
-        false
-    }
-
-    /// Visits every counter stored in this registry.
-    ///
-    /// This operation does not lock the entire registry, but proceeds directly through the
-    /// "subshards" that are kept internally.  As a result, all subshards will be visited, but a
-    /// metric that existed at the exact moment that `visit_counters` was called may not actually be observed
-    /// if it is deleted before that subshard is reached.  Likewise, a metric that is added after
-    /// the call to `visit_counters`, but before `visit_counters` finishes, may also not be observed.
-    pub fn visit_counters<F>(&self, mut collect: F)
-    where
-        F: FnMut(&K, &S::Counter),
-    {
-        for subshard in self.counters.iter() {
-            let shard_read = subshard.read().unwrap_or_else(PoisonError::into_inner);
-            for (key, counter) in shard_read.iter() {
-                collect(key, counter);
-            }
-        }
-    }
-
-    /// Visits every gauge stored in this registry.
-    ///
-    /// This operation does not lock the entire registry, but proceeds directly through the
-    /// "subshards" that are kept internally.  As a result, all subshards will be visited, but a
-    /// metric that existed at the exact moment that `visit_gauges` was called may not actually be observed
-    /// if it is deleted before that subshard is reached.  Likewise, a metric that is added after
-    /// the call to `visit_gauges`, but before `visit_gauges` finishes, may also not be observed.
-    pub fn visit_gauges<F>(&self, mut collect: F)
-    where
-        F: FnMut(&K, &S::Gauge),
-    {
-        for subshard in self.gauges.iter() {
-            let shard_read = subshard.read().unwrap_or_else(PoisonError::into_inner);
-            for (key, gauge) in shard_read.iter() {
-                collect(key, gauge);
-            }
-        }
-    }
-
-    /// Visits every histogram stored in this registry.
-    ///
-    /// This operation does not lock the entire registry, but proceeds directly through the
-    /// "subshards" that are kept internally.  As a result, all subshards will be visited, but a
-    /// metric that existed at the exact moment that `visit_histograms` was called may not actually be observed
-    /// if it is deleted before that subshard is reached.  Likewise, a metric that is added after
-    /// the call to `visit_histograms`, but before `visit_histograms` finishes, may also not be observed.
-    pub fn visit_histograms<F>(&self, mut collect: F)
-    where
-        F: FnMut(&K, &S::Histogram),
-    {
-        for subshard in self.histograms.iter() {
-            let shard_read = subshard.read().unwrap_or_else(PoisonError::into_inner);
-            for (key, histogram) in shard_read.iter() {
-                collect(key, histogram);
-            }
-        }
-    }
-
     /// Gets a map of all present counters, mapped by key.
     ///
     /// This map is a point-in-time snapshot of the registry.
@@ -389,69 +466,6 @@ where
             histograms.insert(k.clone(), v.clone());
         });
         histograms
-    }
-
-    /// Gets a copy of an existing counter.
-    pub fn get_counter(&self, key: &K) -> Option<S::Counter> {
-        let (hash, shard) = self.get_hash_and_shard_for_counter(key);
-        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
-        shard_read.raw_entry().from_key_hashed_nocheck(hash, key).map(|(_, v)| v.clone())
-    }
-
-    /// Gets a copy of an existing gauge.
-    pub fn get_gauge(&self, key: &K) -> Option<S::Gauge> {
-        let (hash, shard) = self.get_hash_and_shard_for_gauge(key);
-        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
-        shard_read.raw_entry().from_key_hashed_nocheck(hash, key).map(|(_, v)| v.clone())
-    }
-
-    /// Gets a copy of an existing histogram.
-    pub fn get_histogram(&self, key: &K) -> Option<S::Histogram> {
-        let (hash, shard) = self.get_hash_and_shard_for_histogram(key);
-        let shard_read = shard.read().unwrap_or_else(PoisonError::into_inner);
-        shard_read.raw_entry().from_key_hashed_nocheck(hash, key).map(|(_, v)| v.clone())
-    }
-
-    /// Retains only counters specified by the predicate.
-    ///
-    /// Remove all counters for which f(&k, &c) returns false. This operation proceeds
-    /// through the "subshards" in the same way as `visit_counters`.
-    pub fn retain_counters<F>(&self, mut f: F)
-    where
-        F: FnMut(&K, &S::Counter) -> bool,
-    {
-        for subshard in self.counters.iter() {
-            let mut shard_write = subshard.write().unwrap_or_else(PoisonError::into_inner);
-            shard_write.retain(|k, c| f(k, c));
-        }
-    }
-
-    /// Retains only gauges specified by the predicate.
-    ///
-    /// Remove all gauges for which f(&k, &g) returns false. This operation proceeds
-    /// through the "subshards" in the same way as `visit_gauges`.
-    pub fn retain_gauges<F>(&self, mut f: F)
-    where
-        F: FnMut(&K, &S::Gauge) -> bool,
-    {
-        for subshard in self.gauges.iter() {
-            let mut shard_write = subshard.write().unwrap_or_else(PoisonError::into_inner);
-            shard_write.retain(|k, g| f(k, g));
-        }
-    }
-
-    /// Retains only histograms specified by the predicate.
-    ///
-    /// Remove all histograms for which f(&k, &h) returns false. This operation proceeds
-    /// through the "subshards" in the same way as `visit_histograms`.
-    pub fn retain_histograms<F>(&self, mut f: F)
-    where
-        F: FnMut(&K, &S::Histogram) -> bool,
-    {
-        for subshard in self.histograms.iter() {
-            let mut shard_write = subshard.write().unwrap_or_else(PoisonError::into_inner);
-            shard_write.retain(|k, h| f(k, h));
-        }
     }
 }
 
