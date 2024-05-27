@@ -1,6 +1,6 @@
 [package]
 name = "metrics-exporter-prometheus"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 rust-version = "1.70.0"
@@ -25,8 +25,8 @@ _hyper-server = ["http-body-util", "hyper/server", "hyper-util/server-auto"]
 _hyper-client = ["http-body-util", "hyper/client", "hyper-util/client", "hyper-util/http1", "hyper-util/client-legacy", "hyper-tls"]
 
 [dependencies]
-metrics = { version = "^0.22", path = "../metrics" }
-metrics-util = { version = "^0.16", path = "../metrics-util", default-features = false, features = ["recency", "registry", "summary"] }
+metrics = { version = "^0.23", path = "../metrics" }
+metrics-util = { version = "^0.17", path = "../metrics-util", default-features = false, features = ["recency", "registry", "summary"] }
 thiserror = { version = "1", default-features = false }
 quanta = { version = "0.12", default-features = false }
 indexmap = { version = "2.1", default-features = false, features = ["std"] }

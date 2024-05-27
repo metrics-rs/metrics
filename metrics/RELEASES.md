@@ -9,6 +9,10 @@ long-form description and would be too verbose for the changelog alone.
 
 - No notable changes.
 
+## [0.23.0] - 2024-05-27
+
+- No notable changes.
+
 ## [0.22.3] - 2024-03-16
 
 - No notable changes.
