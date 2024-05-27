@@ -12,13 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bump MSRV to 1.70.0.
+- `Snapshotter` now implements `Clone`.
+  ([#472](https://github.com/metrics-rs/metrics/pull/472))
+- Relaxed some bounds for different categories of methods on `Registry<K, S>`.
+  ([#484](https://github.com/metrics-rs/metrics/pull/484))
 
 ## [0.16.3] - 2024-03-16
 
 ### Added
 
 - New set of methods on `Registry` for getting a metric handle if it exists. ([#457](https://github.com/metrics-rs/metrics/pull/457))
-- New set of methods on `Registry` for retaining metric handles that match a given predicate. ([#461](https://github.com/metrics-rs/metrics/pull/461))
+- New set of methods on `Registry` for retaining metric handles that match a given predicate.
+  ([#461](https://github.com/metrics-rs/metrics/pull/461))
 
 ### Fixed
 

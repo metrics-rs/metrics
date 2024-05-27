@@ -8,9 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Implement `IntoLabels` for `BTreeMap<String, String>`.
+  ([#470](https://github.com/metrics-rs/metrics/pull/470))
+- Implement `From<Cow<'a, T>>` for `std::borrow::Cow<'a, T>`.
+  ([#478](https://github.com/metrics-rs/metrics/pull/478))
+
 ### Changed
 
 - Bump MSRV to 1.70.0.
+- `Counter`, `Gauge`, and `Histogram` are now marked with `#[mark_use]`.
+  ([#475](https://github.com/metrics-rs/metrics/pull/475))
+- Updated crate-level documentation around how histograms work.
+  ([#477](https://github.com/metrics-rs/metrics/pull/477))
+- Allow for trailing comma in arguments for all describe macros.
+  ([#483](https://github.com/metrics-rs/metrics/pull/483))
 
 ## [0.22.3] - 2024-03-16
 
