@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bump MSRV to 1.70.0.
-- `Counter`, `Gauge`, and `Histogram` are now marked with `#[mark_use]`.
+- `Counter`, `Gauge`, and `Histogram` are now marked with `#[must_use]`.
   ([#475](https://github.com/metrics-rs/metrics/pull/475))
 - Updated crate-level documentation around how histograms work.
   ([#477](https://github.com/metrics-rs/metrics/pull/477))
