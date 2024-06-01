@@ -3,7 +3,6 @@ use std::time::Duration;
 use http_body_util::{BodyExt, Collected, Full};
 use hyper::body::Bytes;
 use hyper::{header::HeaderValue, Method, Request, Uri};
-use hyper_tls::HttpsConnector;
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use tracing::error;
 
@@ -19,7 +18,12 @@ pub(super) fn new_push_gateway(
     handle: PrometheusHandle,
 ) -> ExporterFuture {
     Box::pin(async move {
-        let https = HttpsConnector::new();
+        let https = hyper_rustls::HttpsConnectorBuilder::new()
+            .with_native_roots()
+            .expect("no native root CA certificates found")
+            .https_only()
+            .enable_http1()
+            .build();
         let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new())
             .pool_idle_timeout(Duration::from_secs(30))
             .build(https);
