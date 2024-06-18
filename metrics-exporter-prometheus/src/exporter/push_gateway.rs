@@ -21,7 +21,7 @@ pub(super) fn new_push_gateway(
         let https = hyper_rustls::HttpsConnectorBuilder::new()
             .with_native_roots()
             .expect("no native root CA certificates found")
-            .https_only()
+            .https_or_http()
             .enable_http1()
             .build();
         let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new())
