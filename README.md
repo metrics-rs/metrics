@@ -5,7 +5,7 @@
 [![Code of Conduct][conduct-badge]][conduct]
 [![MIT licensed][license-badge]](#license)
 [![Documentation][docs-badge]][docs]
-[![Discord chat][discord-badge]][discord]
+[![Discord chat][discord-badge]][discord_invite]
 ![last-commit-badge][]
 ![contributors-badge][]
 
@@ -15,7 +15,6 @@
 [docs-badge]: https://docs.rs/metrics/badge.svg
 [docs]: https://docs.rs/metrics
 [discord-badge]: https://img.shields.io/discord/500028886025895936
-[discord]: https://discord.com/invite/tokio
 [last-commit-badge]: https://img.shields.io/github/last-commit/metrics-rs/metrics
 [contributors-badge]: https://img.shields.io/github/contributors/metrics-rs/metrics
 
@@ -85,7 +84,7 @@ To those of you who have already contributed to `metrics` in some way, shape, or
 
 To everyone else that we haven't had the pleasure of interacting with: we're always looking for thoughts on how to make `metrics` better, or users with interesting use cases.  Of course, we're also happy to accept code contributions for outstanding feature requests directly. 😀
 
-We'd love to chat about any of the above, or anything else related to metrics. Don't hesitate to file an issue on the repository, or come and chat with us over on [Discord](https://discord.gg/eTwKyY9).
+We'd love to chat about any of the above, or anything else related to metrics. Don't hesitate to file an issue on the repository, or come and chat with us over on [Discord][discord_invite].
 
 [metrics]: https://github.com/metrics-rs/metrics/tree/main/metrics
 [metrics-tracing-context]: https://github.com/metrics-rs/metrics/tree/main/metrics-tracing-context
@@ -100,3 +99,4 @@ We'd love to chat about any of the above, or anything else related to metrics. D
 [opinionated-metrics]: https://docs.rs/opinionated_metrics
 [metrics-dashboard]: https://docs.rs/metrics-dashboard
 [rust-telemetry-workshop]: https://github.com/mainmatter/rust-telemetry-workshop
+[discord_invite]: https://discord.gg/tokio
