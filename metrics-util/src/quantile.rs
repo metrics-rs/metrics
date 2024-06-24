@@ -1,6 +1,6 @@
 /// A quantile that has both the raw value and a human-friendly display label.
 ///
-/// We work with quantiles for optimal floating-point precison over percentiles, but most of the
+/// We work with quantiles for optimal floating-point precision over percentiles, but most of the
 /// time, monitoring systems show us percentiles, and usually in an abbreviated form: `p99`.
 ///
 /// On top of holding the quantile value, we calculate the familiar "p99" style of label, doing the

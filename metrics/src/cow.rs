@@ -226,7 +226,7 @@ where
 
         // SAFETY: We only ever hold a pointer to a borrowed value of at least the lifetime of
         // `Self`, or an owned value which we have ownership of (albeit indirectly when using
-        // `Arc<T>`), so our pointer is always valid and live for derefencing.
+        // `Arc<T>`), so our pointer is always valid and live for dereferencing.
         unsafe { borrowed_ptr.as_ref().unwrap() }
     }
 }
