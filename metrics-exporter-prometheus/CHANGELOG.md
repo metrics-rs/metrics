@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.15.1] - 2024-06-24
+
 ### Changed
 
 - Switch to `rustls`. ([#489](https://github.com/metrics-rs/metrics/pull/489))
