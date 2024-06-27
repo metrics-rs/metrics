@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use http_body_util::Full;
 use hyper::{
     body::{self, Bytes, Incoming},
+    header::{HeaderValue, CONTENT_TYPE},
     server::conn::http1::Builder as HyperHttpBuilder,
     service::service_fn,
     Request, Response, StatusCode,
@@ -69,10 +70,12 @@ impl HttpListeningExporter {
         req: &Request<Incoming>,
     ) -> Response<Full<Bytes>> {
         if is_allowed {
-            Response::new(match req.uri().path() {
+            let mut response = Response::new(match req.uri().path() {
                 "/health" => "OK".into(),
                 _ => handle.render().into(),
-            })
+            });
+            response.headers_mut().append(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+            response
         } else {
             Self::new_forbidden_response()
         }
