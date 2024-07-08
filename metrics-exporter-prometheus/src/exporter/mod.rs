@@ -20,6 +20,9 @@ enum ExporterConfig {
     #[cfg(feature = "http-listener")]
     HttpListener { listen_address: SocketAddr },
 
+    #[cfg(feature = "uds-listener")]
+    UdsListener { listen_path: std::path::PathBuf },
+
     // Run a push gateway task sending to the given `endpoint` after `interval` time has elapsed,
     // infinitely.
     #[cfg(feature = "push-gateway")]
@@ -43,6 +46,8 @@ impl ExporterConfig {
             #[cfg(feature = "push-gateway")]
             Self::PushGateway { .. } => "push-gateway",
             Self::Unconfigured => "unconfigured,",
+            #[cfg(feature = "uds-listener")]
+            Self::UdsListener { .. } => "uds-listener",
         }
     }
 }
@@ -52,5 +57,8 @@ mod http_listener;
 
 #[cfg(feature = "push-gateway")]
 mod push_gateway;
+
+#[cfg(feature = "uds-listener")]
+mod uds_listener;
 
 pub(crate) mod builder;

@@ -38,6 +38,8 @@ pub struct PrometheusBuilder {
     exporter_config: ExporterConfig,
     #[cfg(feature = "http-listener")]
     allowed_addresses: Option<Vec<IpNet>>,
+    #[cfg(feature = "uds-listener")]
+    listen_path: std::path::PathBuf,
     quantiles: Vec<Quantile>,
     bucket_duration: Option<Duration>,
     bucket_count: Option<NonZeroU32>,
@@ -61,12 +63,17 @@ impl PrometheusBuilder {
         #[cfg(not(feature = "http-listener"))]
         let exporter_config = ExporterConfig::Unconfigured;
 
+        #[cfg(feature = "uds-listener")]
+        let listen_path = std::path::PathBuf::from("/tmp/metrics.sock");
+
         let upkeep_timeout = Duration::from_secs(5);
 
         Self {
             exporter_config,
             #[cfg(feature = "http-listener")]
             allowed_addresses: None,
+            #[cfg(feature = "uds-listener")]
+            listen_path,
             quantiles,
             bucket_duration: None,
             bucket_count: None,
@@ -131,6 +138,24 @@ impl PrometheusBuilder {
         };
 
         Ok(self)
+    }
+
+    /// Configures the exporter to expose an HTTP Unix Domain Socket listener that functions as a [scrape endpoint].
+    ///
+    /// The HTTP listener that is spawned will respond to GET requests on any request path.
+    ///
+    /// Running in HTTP listener mode is mutually exclusive with the push gateway i.e. enabling the
+    /// HTTP listener will disable the push gateway, and vise versa.
+    ///
+    /// Defaults to disabled, if enabled, default listening at `/tmp/metrics.sock`
+    ///
+    /// [scrape endpoint]: https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format
+    #[cfg(feature = "uds-listener")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "uds-listener")))]
+    #[must_use]
+    pub fn with_http_uds_listener(mut self, addr: impl Into<std::path::PathBuf>) -> Self {
+        self.exporter_config = ExporterConfig::UdsListener { listen_path: addr.into() };
+        self
     }
 
     /// Adds an IP address or subnet to the allowlist for the scrape endpoint.
@@ -456,6 +481,11 @@ impl PrometheusBuilder {
                     super::push_gateway::new_push_gateway(
                         endpoint, interval, username, password, handle,
                     )
+                }
+
+                #[cfg(feature = "uds-listener")]
+                ExporterConfig::UdsListener { listen_path } => {
+                    super::uds_listener::new_http_uds_listener(handle, listen_path)?
                 }
             },
         ))
