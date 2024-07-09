@@ -1,3 +1,5 @@
+#[cfg(feature = "http-listener")]
+use http_listener::HttpListeningError;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::future::Future;
 #[cfg(feature = "http-listener")]
@@ -12,16 +14,22 @@ use hyper::Uri;
 
 /// Convenience type for Future implementing an exporter.
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-pub type ExporterFuture = Pin<Box<dyn Future<Output = Result<(), hyper::Error>> + Send + 'static>>;
+pub type ExporterFuture =
+    Pin<Box<dyn Future<Output = Result<(), HttpListeningError>> + Send + 'static>>;
+
+#[cfg(feature = "http-listener")]
+#[derive(Clone)]
+enum ListenDestination {
+    Tcp(SocketAddr),
+    #[cfg(feature = "uds-listener")]
+    Uds(std::path::PathBuf),
+}
 
 #[derive(Clone)]
 enum ExporterConfig {
     // Run an HTTP listener on the given `listen_address`.
     #[cfg(feature = "http-listener")]
-    HttpListener { listen_address: SocketAddr },
-
-    #[cfg(feature = "uds-listener")]
-    UdsListener { listen_path: std::path::PathBuf },
+    HttpListener { destination: ListenDestination },
 
     // Run a push gateway task sending to the given `endpoint` after `interval` time has elapsed,
     // infinitely.
@@ -46,8 +54,6 @@ impl ExporterConfig {
             #[cfg(feature = "push-gateway")]
             Self::PushGateway { .. } => "push-gateway",
             Self::Unconfigured => "unconfigured,",
-            #[cfg(feature = "uds-listener")]
-            Self::UdsListener { .. } => "uds-listener",
         }
     }
 }
@@ -57,8 +63,5 @@ mod http_listener;
 
 #[cfg(feature = "push-gateway")]
 mod push_gateway;
-
-#[cfg(feature = "uds-listener")]
-mod uds_listener;
 
 pub(crate) mod builder;

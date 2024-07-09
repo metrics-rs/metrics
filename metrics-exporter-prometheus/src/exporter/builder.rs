@@ -38,8 +38,6 @@ pub struct PrometheusBuilder {
     exporter_config: ExporterConfig,
     #[cfg(feature = "http-listener")]
     allowed_addresses: Option<Vec<IpNet>>,
-    #[cfg(feature = "uds-listener")]
-    listen_path: std::path::PathBuf,
     quantiles: Vec<Quantile>,
     bucket_duration: Option<Duration>,
     bucket_count: Option<NonZeroU32>,
@@ -58,13 +56,13 @@ impl PrometheusBuilder {
 
         #[cfg(feature = "http-listener")]
         let exporter_config = ExporterConfig::HttpListener {
-            listen_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 9000),
+            destination: super::ListenDestination::Tcp(SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+                9000,
+            )),
         };
         #[cfg(not(feature = "http-listener"))]
         let exporter_config = ExporterConfig::Unconfigured;
-
-        #[cfg(feature = "uds-listener")]
-        let listen_path = std::path::PathBuf::from("/tmp/metrics.sock");
 
         let upkeep_timeout = Duration::from_secs(5);
 
@@ -72,8 +70,6 @@ impl PrometheusBuilder {
             exporter_config,
             #[cfg(feature = "http-listener")]
             allowed_addresses: None,
-            #[cfg(feature = "uds-listener")]
-            listen_path,
             quantiles,
             bucket_duration: None,
             bucket_count: None,
@@ -100,7 +96,9 @@ impl PrometheusBuilder {
     #[cfg_attr(docsrs, doc(cfg(feature = "http-listener")))]
     #[must_use]
     pub fn with_http_listener(mut self, addr: impl Into<SocketAddr>) -> Self {
-        self.exporter_config = ExporterConfig::HttpListener { listen_address: addr.into() };
+        self.exporter_config = ExporterConfig::HttpListener {
+            destination: super::ListenDestination::Tcp(addr.into()),
+        };
         self
     }
 
@@ -147,14 +145,16 @@ impl PrometheusBuilder {
     /// Running in HTTP listener mode is mutually exclusive with the push gateway i.e. enabling the
     /// HTTP listener will disable the push gateway, and vise versa.
     ///
-    /// Defaults to disabled, if enabled, default listening at `/tmp/metrics.sock`
+    /// Defaults to disabled, if enabled, listens on the specified path
     ///
     /// [scrape endpoint]: https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format
     #[cfg(feature = "uds-listener")]
     #[cfg_attr(docsrs, doc(cfg(feature = "uds-listener")))]
     #[must_use]
     pub fn with_http_uds_listener(mut self, addr: impl Into<std::path::PathBuf>) -> Self {
-        self.exporter_config = ExporterConfig::UdsListener { listen_path: addr.into() };
+        self.exporter_config = ExporterConfig::HttpListener {
+            destination: super::ListenDestination::Uds(addr.into()),
+        };
         self
     }
 
@@ -468,24 +468,25 @@ impl PrometheusBuilder {
                 ExporterConfig::Unconfigured => Err(BuildError::MissingExporterConfiguration)?,
 
                 #[cfg(feature = "http-listener")]
-                ExporterConfig::HttpListener { listen_address } => {
-                    super::http_listener::new_http_listener(
-                        handle,
-                        listen_address,
-                        allowed_addresses,
-                    )?
-                }
+                ExporterConfig::HttpListener { destination } => match destination {
+                    super::ListenDestination::Tcp(listen_address) => {
+                        super::http_listener::new_http_listener(
+                            handle,
+                            listen_address,
+                            allowed_addresses,
+                        )?
+                    }
+                    #[cfg(feature = "uds-listener")]
+                    super::ListenDestination::Uds(listen_path) => {
+                        super::http_listener::new_http_uds_listener(handle, listen_path)?
+                    }
+                },
 
                 #[cfg(feature = "push-gateway")]
                 ExporterConfig::PushGateway { endpoint, interval, username, password } => {
                     super::push_gateway::new_push_gateway(
                         endpoint, interval, username, password, handle,
                     )
-                }
-
-                #[cfg(feature = "uds-listener")]
-                ExporterConfig::UdsListener { listen_path } => {
-                    super::uds_listener::new_http_uds_listener(handle, listen_path)?
                 }
             },
         ))
