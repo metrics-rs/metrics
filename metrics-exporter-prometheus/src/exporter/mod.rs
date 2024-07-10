@@ -12,10 +12,16 @@ use std::time::Duration;
 #[cfg(feature = "push-gateway")]
 use hyper::Uri;
 
+/// Error types possible from an exporter
+#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+pub enum ExporterError {
+    #[cfg(feature = "http-listener")]
+    HttpListener(HttpListeningError),
+    PushGateway(()),
+}
 /// Convenience type for Future implementing an exporter.
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-pub type ExporterFuture =
-    Pin<Box<dyn Future<Output = Result<(), HttpListeningError>> + Send + 'static>>;
+pub type ExporterFuture = Pin<Box<dyn Future<Output = Result<(), ExporterError>> + Send + 'static>>;
 
 #[cfg(feature = "http-listener")]
 #[derive(Clone)]

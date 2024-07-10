@@ -175,7 +175,7 @@ pub(crate) fn new_http_listener(
         listener_type: ListenerType::Tcp(listener),
     };
 
-    Ok(Box::pin(async move { exporter.serve().await }))
+    Ok(Box::pin(async move { exporter.serve().await.map_err(super::ExporterError::HttpListener) }))
 }
 
 /// Creates an `ExporterFuture` implementing a http listener that serves prometheus metrics.
@@ -200,5 +200,5 @@ pub(crate) fn new_http_uds_listener(
         listener_type: ListenerType::Uds(listener),
     };
 
-    Ok(Box::pin(async move { exporter.serve().await }))
+    Ok(Box::pin(async move { exporter.serve().await.map_err(super::ExporterError::HttpListener) }))
 }
