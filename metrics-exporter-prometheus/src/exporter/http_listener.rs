@@ -19,7 +19,7 @@ use tracing::warn;
 
 use crate::{common::BuildError, ExporterFuture, PrometheusHandle};
 
-pub struct HttpListeningExporter {
+struct HttpListeningExporter {
     handle: PrometheusHandle,
     allowed_addresses: Option<Vec<IpNet>>,
     listener_type: ListenerType,
@@ -81,18 +81,32 @@ impl HttpListeningExporter {
     }
 
     fn check_tcp_allowed(&self, stream: &TcpStream) -> bool {
-        if let Some(addrs) = &self.allowed_addresses {
-            if let Ok(peer_addr) = stream.peer_addr() {
-                return addrs.iter().any(|addr| addr.contains(&peer_addr.ip()));
-            }
-        }
-        true
+        let Some(addrs) = &self.allowed_addresses else {
+            // No allowed addresses specified, so everything is allowed
+            return true;
+        };
+        stream.peer_addr().map_or_else(
+            |e| {
+                warn!(error = ?e, "Error obtaining remote address.");
+                false
+            },
+            |peer_addr| {
+                let remote_ip = peer_addr.ip();
+                addrs.iter().any(|addr| addr.contains(&remote_ip))
+            },
+        )
     }
 
     #[cfg(feature = "uds-listener")]
     async fn serve_uds(&self, listener: &UnixListener) -> Result<(), std::io::Error> {
         loop {
-            let (stream, _) = listener.accept().await?;
+            let stream = match listener.accept().await {
+                Ok((stream, _)) => stream,
+                Err(e) => {
+                    warn!(error = ?e, "Error accepting connection. Ignoring request.");
+                    continue;
+                }
+            };
             self.process_uds_stream(stream).await;
         }
     }
@@ -127,6 +141,9 @@ impl HttpListeningExporter {
             response.headers_mut().append(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
             response
         } else {
+            // This unwrap should not fail because we don't use any function that
+            // can assign an Err to it's inner such as `Builder::header``. A unit test
+            // will have to suffice to detect if this fails to hold true.
             Response::builder()
                 .status(StatusCode::FORBIDDEN)
                 .body(Full::<Bytes>::default())
@@ -135,7 +152,11 @@ impl HttpListeningExporter {
     }
 }
 
-pub fn new_http_listener(
+/// Creates an `ExporterFuture` implementing a http listener that serves prometheus metrics.
+///
+/// # Errors
+/// Will return Err if it cannot bind to the listen address
+pub(crate) fn new_http_listener(
     handle: PrometheusHandle,
     listen_address: SocketAddr,
     allowed_addresses: Option<Vec<IpNet>>,
@@ -157,8 +178,13 @@ pub fn new_http_listener(
     Ok(Box::pin(async move { exporter.serve().await }))
 }
 
+/// Creates an `ExporterFuture` implementing a http listener that serves prometheus metrics.
+/// Binds a Unix Domain socket on the specified `listen_path`
+///
+/// # Errors
+/// Will return Err if it cannot bind to the listen path
 #[cfg(feature = "uds-listener")]
-pub fn new_http_uds_listener(
+pub(crate) fn new_http_uds_listener(
     handle: PrometheusHandle,
     listen_path: PathBuf,
 ) -> Result<ExporterFuture, BuildError> {

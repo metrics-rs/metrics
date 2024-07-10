@@ -138,14 +138,15 @@ impl PrometheusBuilder {
         Ok(self)
     }
 
-    /// Configures the exporter to expose an HTTP Unix Domain Socket listener that functions as a [scrape endpoint].
+    /// Configures the exporter to expose an HTTP listener that functions as a [scrape endpoint],
+    /// listening on a Unix Domain socket at the given path
     ///
     /// The HTTP listener that is spawned will respond to GET requests on any request path.
     ///
     /// Running in HTTP listener mode is mutually exclusive with the push gateway i.e. enabling the
     /// HTTP listener will disable the push gateway, and vise versa.
     ///
-    /// Defaults to disabled, if enabled, listens on the specified path
+    /// Defaults to disabled.
     ///
     /// [scrape endpoint]: https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format
     #[cfg(feature = "uds-listener")]
