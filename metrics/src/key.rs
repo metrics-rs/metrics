@@ -19,7 +19,7 @@ impl KeyName {
         KeyName(SharedString::const_str(name))
     }
 
-    /// Gets a reference to the strin used for this name.
+    /// Gets a reference to the string used for this name.
     pub fn as_str(&self) -> &str {
         &self.0
     }
