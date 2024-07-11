@@ -56,7 +56,10 @@ impl PrometheusBuilder {
 
         #[cfg(feature = "http-listener")]
         let exporter_config = ExporterConfig::HttpListener {
-            listen_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 9000),
+            destination: super::ListenDestination::Tcp(SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+                9000,
+            )),
         };
         #[cfg(not(feature = "http-listener"))]
         let exporter_config = ExporterConfig::Unconfigured;
@@ -93,7 +96,9 @@ impl PrometheusBuilder {
     #[cfg_attr(docsrs, doc(cfg(feature = "http-listener")))]
     #[must_use]
     pub fn with_http_listener(mut self, addr: impl Into<SocketAddr>) -> Self {
-        self.exporter_config = ExporterConfig::HttpListener { listen_address: addr.into() };
+        self.exporter_config = ExporterConfig::HttpListener {
+            destination: super::ListenDestination::Tcp(addr.into()),
+        };
         self
     }
 
@@ -131,6 +136,27 @@ impl PrometheusBuilder {
         };
 
         Ok(self)
+    }
+
+    /// Configures the exporter to expose an HTTP listener that functions as a [scrape endpoint],
+    /// listening on a Unix Domain socket at the given path
+    ///
+    /// The HTTP listener that is spawned will respond to GET requests on any request path.
+    ///
+    /// Running in HTTP listener mode is mutually exclusive with the push gateway i.e. enabling the
+    /// HTTP listener will disable the push gateway, and vise versa.
+    ///
+    /// Defaults to disabled.
+    ///
+    /// [scrape endpoint]: https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format
+    #[cfg(feature = "uds-listener")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "uds-listener")))]
+    #[must_use]
+    pub fn with_http_uds_listener(mut self, addr: impl Into<std::path::PathBuf>) -> Self {
+        self.exporter_config = ExporterConfig::HttpListener {
+            destination: super::ListenDestination::Uds(addr.into()),
+        };
+        self
     }
 
     /// Adds an IP address or subnet to the allowlist for the scrape endpoint.
@@ -443,13 +469,19 @@ impl PrometheusBuilder {
                 ExporterConfig::Unconfigured => Err(BuildError::MissingExporterConfiguration)?,
 
                 #[cfg(feature = "http-listener")]
-                ExporterConfig::HttpListener { listen_address } => {
-                    super::http_listener::new_http_listener(
-                        handle,
-                        listen_address,
-                        allowed_addresses,
-                    )?
-                }
+                ExporterConfig::HttpListener { destination } => match destination {
+                    super::ListenDestination::Tcp(listen_address) => {
+                        super::http_listener::new_http_listener(
+                            handle,
+                            listen_address,
+                            allowed_addresses,
+                        )?
+                    }
+                    #[cfg(feature = "uds-listener")]
+                    super::ListenDestination::Uds(listen_path) => {
+                        super::http_listener::new_http_uds_listener(handle, listen_path)?
+                    }
+                },
 
                 #[cfg(feature = "push-gateway")]
                 ExporterConfig::PushGateway { endpoint, interval, username, password } => {
