@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Added support to use a UDS listener for the HTTP gateway mode.
+  ([#498](https://github.com/metrics-rs/metrics/pull/498))
+
+### Changed
+
+- Update the `Content-Type` response header to `text/plain`, matching the Exposition format
+  specification. ([#496](https://github.com/metrics-rs/metrics/pull/496))
+
 ## [0.15.1] - 2024-06-24
 
 ### Changed
