@@ -56,7 +56,6 @@ quanta = { version = "0.12", default-features = false, optional = true }
 sketches-ddsketch = { version = "0.2", default-features = false, optional = true }
 radix_trie = { version = "0.2", default-features = false, optional = true }
 ordered-float = { version = "4.2", default-features = false, optional = true }
-num_cpus = { version = "1", default-features = false, optional = true }
 ahash = { version = "0.8.8", default-features = false, optional = true }
 hashbrown = { version = "0.14", default-features = false, optional = true, features = ["ahash"] }
 
@@ -90,4 +89,4 @@ layer-filter = ["aho-corasick"]
 layer-router = ["radix_trie"]
 summary = ["sketches-ddsketch"]
 recency = ["registry", "quanta"]
-registry = ["crossbeam-epoch", "crossbeam-utils", "handles", "hashbrown", "num_cpus"]
+registry = ["crossbeam-epoch", "crossbeam-utils", "handles", "hashbrown"]
