@@ -56,10 +56,14 @@ where
     storage: S,
 }
 
+fn shard_count() -> usize {
+    std::thread::available_parallelism().map(|x| x.get()).unwrap_or(1).next_power_of_two()
+}
+
 impl Registry<Key, AtomicStorage> {
     /// Creates a new `Registry` using a regular [`Key`] and atomic storage.
     pub fn atomic() -> Self {
-        let shard_count = std::cmp::max(1, num_cpus::get()).next_power_of_two();
+        let shard_count = shard_count();
         let shard_mask = shard_count - 1;
         let counters =
             repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
@@ -78,7 +82,7 @@ where
 {
     /// Creates a new `Registry`.
     pub fn new(storage: S) -> Self {
-        let shard_count = std::cmp::max(1, num_cpus::get()).next_power_of_two();
+        let shard_count = shard_count();
         let shard_mask = shard_count - 1;
         let counters =
             repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
