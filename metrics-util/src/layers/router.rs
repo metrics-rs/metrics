@@ -1,3 +1,5 @@
+use std::fmt;
+
 use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
 use radix_trie::{Trie, TrieCommon};
 
@@ -15,6 +17,16 @@ pub struct Router {
     histogram_routes: Trie<String, usize>,
 }
 
+impl fmt::Debug for Router {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Router")
+            .field("global_mask", &self.global_mask)
+            .field("counter_routes", &self.counter_routes)
+            .field("gauge_routes", &self.gauge_routes)
+            .field("histogram_routes", &self.histogram_routes)
+            .finish_non_exhaustive()
+    }
+}
 impl Router {
     fn route(
         &self,
@@ -85,6 +97,17 @@ pub struct RouterBuilder {
     counter_routes: Trie<String, usize>,
     gauge_routes: Trie<String, usize>,
     histogram_routes: Trie<String, usize>,
+}
+
+impl fmt::Debug for RouterBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RouterBuilder")
+            .field("global_mask", &self.global_mask)
+            .field("counter_routes", &self.counter_routes)
+            .field("gauge_routes", &self.gauge_routes)
+            .field("histogram_routes", &self.histogram_routes)
+            .finish_non_exhaustive()
+    }
 }
 
 impl RouterBuilder {
@@ -175,6 +198,7 @@ mod tests {
     };
 
     mock! {
+        #[derive(Debug)]
         pub TestRecorder {
         }
 

@@ -45,6 +45,7 @@ type RegistryHashMap<K, V> = HashMap<K, V, BuildHasherDefault<RegistryHasher>>;
 /// ## Performance
 ///
 /// `Registry` is optimized for reads.
+#[derive(Debug)]
 pub struct Registry<K, S>
 where
     S: Storage<K>,

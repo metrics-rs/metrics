@@ -1,6 +1,6 @@
 //! Label filtering.
 
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Debug};
 
 use metrics::{KeyName, Label};
 

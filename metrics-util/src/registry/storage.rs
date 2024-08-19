@@ -29,6 +29,7 @@ pub trait Storage<K> {
 ///
 /// Utilizes atomics for storing the value(s) of a given metric.  Shared access to the actual atomic
 /// is handling via `Arc`.
+#[derive(Debug)]
 pub struct AtomicStorage;
 
 impl<K> Storage<K> for AtomicStorage {

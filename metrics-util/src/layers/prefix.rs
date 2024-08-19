@@ -4,6 +4,7 @@ use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, Share
 /// Applies a prefix to every metric key.
 ///
 /// Keys will be prefixed in the format of `<prefix>.<remaining>`.
+#[derive(Debug)]
 pub struct Prefix<R> {
     prefix: SharedString,
     inner: R,
@@ -64,6 +65,7 @@ impl<R: Recorder> Recorder for Prefix<R> {
 /// A layer for applying a prefix to every metric key.
 ///
 /// More information on the behavior of the layer can be found in [`Prefix`].
+#[derive(Debug)]
 pub struct PrefixLayer(&'static str);
 
 impl PrefixLayer {

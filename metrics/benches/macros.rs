@@ -8,6 +8,7 @@ use metrics::{
 };
 use rand::{thread_rng, Rng};
 
+#[derive(Debug)]
 struct TestRecorder;
 
 impl Recorder for TestRecorder {
