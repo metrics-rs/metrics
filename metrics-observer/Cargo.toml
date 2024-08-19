@@ -3,7 +3,7 @@ name = "metrics-observer"
 version = "0.4.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
-rust-version = "1.70.0"
+rust-version = "1.74.0"
 
 license = "MIT"
 
@@ -23,8 +23,7 @@ bytes = { version = "1", default-features = false }
 crossbeam-channel = { version = "0.5", default-features = false, features = ["std"] }
 prost = { version = "0.12", default-features = false }
 prost-types = { version = "0.12", default-features = false }
-tui = { version = "0.19", default-features = false, features = ["termion"] }
-termion = { version = "2", default-features = false }
+ratatui = { version = "0.28.0", default-features = false, features = ["crossterm"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [build-dependencies]
