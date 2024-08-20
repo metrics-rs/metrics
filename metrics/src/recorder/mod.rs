@@ -1,4 +1,4 @@
-use std::{cell::Cell, ptr::NonNull};
+use std::{cell::Cell, ops::Deref, ptr::NonNull, rc::Rc, sync::Arc};
 
 mod cell;
 use self::cell::RecorderOnceCell;
@@ -55,6 +55,95 @@ pub trait Recorder {
 
     /// Registers a histogram.
     fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram;
+}
+
+// Blanket implementations.
+
+impl<T> Recorder for Rc<T>
+where
+    T: Recorder,
+{
+    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
+        Deref::deref(self).describe_counter(key, unit, description)
+    }
+
+    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
+        Deref::deref(self).describe_gauge(key, unit, description)
+    }
+
+    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
+        Deref::deref(self).describe_histogram(key, unit, description)
+    }
+
+    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
+        Deref::deref(self).register_counter(key, metadata)
+    }
+
+    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
+        Deref::deref(self).register_gauge(key, metadata)
+    }
+
+    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
+        Deref::deref(self).register_histogram(key, metadata)
+    }
+}
+
+impl<T> Recorder for Arc<T>
+where
+    T: Recorder,
+{
+    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
+        Deref::deref(self).describe_counter(key, unit, description)
+    }
+
+    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
+        Deref::deref(self).describe_gauge(key, unit, description)
+    }
+
+    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
+        Deref::deref(self).describe_histogram(key, unit, description)
+    }
+
+    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
+        Deref::deref(self).register_counter(key, metadata)
+    }
+
+    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
+        Deref::deref(self).register_gauge(key, metadata)
+    }
+
+    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
+        Deref::deref(self).register_histogram(key, metadata)
+    }
+}
+
+impl<T> Recorder for Box<T>
+where
+    T: Recorder,
+{
+    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
+        Deref::deref(self).describe_counter(key, unit, description)
+    }
+
+    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
+        Deref::deref(self).describe_gauge(key, unit, description)
+    }
+
+    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
+        Deref::deref(self).describe_histogram(key, unit, description)
+    }
+
+    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
+        Deref::deref(self).register_counter(key, metadata)
+    }
+
+    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
+        Deref::deref(self).register_gauge(key, metadata)
+    }
+
+    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
+        Deref::deref(self).register_histogram(key, metadata)
+    }
 }
 
 /// Guard for setting a local recorder.
@@ -142,10 +231,15 @@ pub fn with_recorder<T>(f: impl FnOnce(&dyn Recorder) -> T) -> T {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
+    use std::{
+        rc::Rc,
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        },
     };
+
+    use crate::NoopRecorder;
 
     use super::{Recorder, RecorderOnceCell};
 
@@ -226,5 +320,15 @@ mod tests {
         assert!(!was_dropped.load(Ordering::SeqCst));
         drop(second_set_result);
         assert!(was_dropped.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn blanket_implementations() {
+        fn is_recorder<T: Recorder>(_recorder: T) {}
+
+        is_recorder(NoopRecorder);
+        is_recorder(Rc::new(NoopRecorder));
+        is_recorder(Arc::new(NoopRecorder));
+        is_recorder(Box::new(NoopRecorder));
     }
 }
