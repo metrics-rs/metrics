@@ -225,7 +225,7 @@ fn f64_data_to_displayable(value: f64, unit: Unit) -> String {
     let offset = match unit {
         Unit::Kibibytes => 1,
         Unit::Mebibytes => 2,
-        Unit::Gigibytes => 3,
+        Unit::Gibibytes => 3,
         Unit::Tebibytes => 4,
         _ => 0,
     };
