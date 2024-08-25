@@ -1,16 +1,20 @@
-use std::fmt;
 use std::num::FpCategory;
 use std::time::Duration;
 use std::{error::Error, io};
+use std::{fmt, io::Stdout};
 
 use chrono::Local;
 use metrics::Unit;
-use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::IntoAlternateScreen};
-use tui::{
-    backend::TermionBackend,
+use ratatui::{
+    backend::CrosstermBackend,
+    crossterm::{
+        event::KeyCode,
+        execute,
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    },
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::{Span, Spans},
+    text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Terminal,
 };
@@ -27,23 +31,23 @@ mod selector;
 use self::selector::Selector;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let stdout = io::stdout().into_raw_mode()?;
-    let stdout = MouseTerminal::from(stdout).into_alternate_screen()?;
-    let backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+    let terminal = init_terminal()?;
+    let result = run(terminal);
+    restore_terminal()?;
+    result
+}
 
-    let mut events = InputEvents::new();
+fn run(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<(), Box<dyn Error>> {
     let address = std::env::args().nth(1).unwrap_or_else(|| "127.0.0.1:5000".to_owned());
     let client = metrics_inner::Client::new(address);
     let mut selector = Selector::new();
-
     loop {
         terminal.draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(1)
                 .constraints([Constraint::Length(4), Constraint::Percentage(90)].as_ref())
-                .split(f.size());
+                .split(f.area());
 
             let current_dt = Local::now().format(" (%Y/%m/%d %I:%M:%S %p)").to_string();
             let client_state = match client.state() {
@@ -58,9 +62,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                         spans.push(Span::raw(s));
                     }
 
-                    Spans::from(spans)
+                    Line::from(spans)
                 }
-                ClientState::Connected => Spans::from(vec![
+                ClientState::Connected => Line::from(vec![
                     Span::raw("state: "),
                     Span::styled("connected", Style::default().fg(Color::Green)),
                 ]),
@@ -75,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             let text = vec![
                 client_state,
-                Spans::from(vec![
+                Line::from(vec![
                     Span::styled("controls: ", Style::default().add_modifier(Modifier::BOLD)),
                     Span::raw("up/down = scroll, q = quit"),
                 ]),
@@ -149,19 +153,29 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Poll the event queue for input events.  `next` will only block for 1 second,
         // so our screen is never stale by more than 1 second.
-        if let Some(input) = events.next()? {
-            match input {
-                Key::Char('q') => break,
-                Key::Up => selector.previous(),
-                Key::Down => selector.next(),
-                Key::PageUp => selector.top(),
-                Key::PageDown => selector.bottom(),
+        if let Some(input) = InputEvents::next()? {
+            match input.code {
+                KeyCode::Char('q') => break,
+                KeyCode::Up => selector.previous(),
+                KeyCode::Down => selector.next(),
+                KeyCode::PageUp => selector.top(),
+                KeyCode::PageDown => selector.bottom(),
                 _ => {}
             }
         }
     }
-
     Ok(())
+}
+
+fn init_terminal() -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
+    enable_raw_mode()?;
+    execute!(io::stdout(), EnterAlternateScreen)?;
+    Terminal::new(CrosstermBackend::new(io::stdout()))
+}
+
+fn restore_terminal() -> io::Result<()> {
+    disable_raw_mode()?;
+    execute!(io::stdout(), LeaveAlternateScreen)
 }
 
 fn u64_to_displayable(value: u64, unit: Option<Unit>) -> String {

@@ -1,2 +1,5 @@
 [toolchain]
-channel = "1.70.0"
+# Note that this is greater than the MSRV of the workspace (1.70) due to metrics-observer needing
+# 1.74, while all the other crates only require 1.70. See
+# https://github.com/metrics-rs/metrics/pull/505#discussion_r1724092556 for more information.
+channel = "1.74.0"

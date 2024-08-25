@@ -276,7 +276,7 @@ macro_rules! into_f64 {
     };
 }
 
-pub(self) use into_f64;
+use into_f64;
 
 #[cfg(test)]
 mod tests {
