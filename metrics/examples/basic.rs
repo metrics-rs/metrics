@@ -45,7 +45,6 @@ impl HistogramFn for PrintHandle {
     }
 }
 
-#[derive(Default)]
 struct PrintRecorder;
 
 impl Recorder for PrintRecorder {
