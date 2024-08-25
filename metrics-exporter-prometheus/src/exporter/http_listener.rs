@@ -59,11 +59,11 @@ impl HttpListeningExporter {
                     continue;
                 }
             };
-            self.process_tcp_stream(stream).await;
+            self.process_tcp_stream(stream);
         }
     }
 
-    async fn process_tcp_stream(&self, stream: TcpStream) {
+    fn process_tcp_stream(&self, stream: TcpStream) {
         let is_allowed = self.check_tcp_allowed(&stream);
         let handle = self.handle.clone();
         let service = service_fn(move |req: Request<body::Incoming>| {

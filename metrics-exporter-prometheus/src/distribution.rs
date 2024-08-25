@@ -299,8 +299,11 @@ mod tests {
         let snapshot = summary.snapshot(clock.now());
 
         assert_eq!(0, snapshot.count());
-        assert_eq!(f64::INFINITY, snapshot.min());
-        assert_eq!(f64::NEG_INFINITY, snapshot.max());
+        #[allow(clippy::float_cmp)]
+        {
+            assert_eq!(f64::INFINITY, snapshot.min());
+            assert_eq!(f64::NEG_INFINITY, snapshot.max());
+        }
         assert_eq!(None, snapshot.quantile(0.5));
     }
 
@@ -318,8 +321,11 @@ mod tests {
 
         let snapshot = summary.snapshot(clock.now());
 
-        assert_eq!(42.0, snapshot.min());
-        assert_eq!(42.0, snapshot.max());
+        #[allow(clippy::float_cmp)]
+        {
+            assert_eq!(42.0, snapshot.min());
+            assert_eq!(42.0, snapshot.max());
+        }
         // 42 +/- (42 * 0.0001)
         assert!(Some(41.9958) < snapshot.quantile(0.5));
         assert!(Some(42.0042) > snapshot.quantile(0.5));

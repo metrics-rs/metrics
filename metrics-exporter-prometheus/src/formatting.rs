@@ -321,7 +321,7 @@ mod tests {
             let as_chars = result.chars().collect::<Vec<_>>();
 
             if let Some(c) = as_chars.first() {
-                assert_eq!(false, invalid_metric_name_start_character(*c),
+                assert!(!invalid_metric_name_start_character(*c),
                     "first character of metric name was not valid");
             }
 
@@ -335,7 +335,7 @@ mod tests {
             let as_chars = result.chars().collect::<Vec<_>>();
 
             if let Some(c) = as_chars.first() {
-                assert_eq!(false, invalid_label_key_start_character(*c),
+                assert!(!invalid_label_key_start_character(*c),
                     "first character of label key was not valid");
             }
 
@@ -369,7 +369,7 @@ mod tests {
             let as_chars = delayered_backslashes.chars().collect::<Vec<_>>();
 
             // If the first character is a double quote, then we messed up.
-            assert!(as_chars.first().map(|c| *c != '"').unwrap_or(true),
+            assert!(as_chars.first().map_or(true, |c| *c != '"'),
                 "first character cannot be a double quote: {}", result);
 
             // Now look for unescaped characters in the rest of the string, in a windowed fashion.
