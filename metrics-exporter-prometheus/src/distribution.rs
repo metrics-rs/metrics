@@ -33,7 +33,10 @@ pub enum Distribution {
 
 impl Distribution {
     /// Creates a histogram distribution.
-    #[warn(clippy::missing_panics_doc)]
+    ///
+    /// # Panics
+    ///
+    /// Panics if `buckets` is empty.
     pub fn new_histogram(buckets: &[f64]) -> Distribution {
         let hist = Histogram::new(buckets).expect("buckets should never be empty");
         Distribution::Histogram(hist)

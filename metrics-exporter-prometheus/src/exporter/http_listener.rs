@@ -107,12 +107,12 @@ impl HttpListeningExporter {
                     continue;
                 }
             };
-            self.process_uds_stream(stream).await;
+            self.process_uds_stream(stream);
         }
     }
 
     #[cfg(feature = "uds-listener")]
-    async fn process_uds_stream(&self, stream: UnixStream) {
+    fn process_uds_stream(&self, stream: UnixStream) {
         let handle = self.handle.clone();
         let service = service_fn(move |req: Request<body::Incoming>| {
             let handle = handle.clone();

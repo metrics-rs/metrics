@@ -195,7 +195,7 @@ mod tests {
         let mut builder = RouterBuilder::from_recorder(MockTestRecorder::new());
         builder
             .add_route(MetricKindMask::COUNTER, "foo", MockTestRecorder::new())
-            .add_route(MetricKindMask::GAUGE, "bar".to_owned(), MockTestRecorder::new())
+            .add_route(MetricKindMask::GAUGE, "bar", MockTestRecorder::new())
             .add_route(MetricKindMask::HISTOGRAM, Cow::Borrowed("baz"), MockTestRecorder::new())
             .add_route(MetricKindMask::ALL, "quux", MockTestRecorder::new());
         let _ = builder.build();
