@@ -1,4 +1,4 @@
-use tui::widgets::ListState;
+use ratatui::widgets::ListState;
 
 pub struct Selector(usize, ListState);
 
