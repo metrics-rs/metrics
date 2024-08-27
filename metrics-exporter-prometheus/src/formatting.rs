@@ -110,17 +110,18 @@ pub fn write_metric_line<T, T2>(
 /// [data model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_metric_name(name: &str) -> String {
     // The first character must be [a-zA-Z_:], and all subsequent characters must be [a-zA-Z0-9_:].
-    let mut out = String::with_capacity(name.len());
-    let mut is_invalid: fn(char) -> bool = invalid_metric_name_start_character;
-    for c in name.chars() {
-        if is_invalid(c) {
-            out.push('_');
-        } else {
-            out.push(c);
-        }
-        is_invalid = invalid_metric_name_character;
-    }
-    out
+    name.chars()
+        .enumerate()
+        .map(|(i, c)| {
+            if i == 0 && valid_metric_name_start_character(c)
+                || i != 0 && valid_metric_name_character(c)
+            {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 /// Sanitizes a label key to be valid under the Prometheus [data model].
@@ -128,17 +129,18 @@ pub fn sanitize_metric_name(name: &str) -> String {
 /// [data model]: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 pub fn sanitize_label_key(key: &str) -> String {
     // The first character must be [a-zA-Z_], and all subsequent characters must be [a-zA-Z0-9_].
-    let mut out = String::with_capacity(key.len());
-    let mut is_invalid: fn(char) -> bool = invalid_label_key_start_character;
-    for c in key.chars() {
-        if is_invalid(c) {
-            out.push('_');
-        } else {
-            out.push(c);
-        }
-        is_invalid = invalid_label_key_character;
-    }
-    out
+    key.chars()
+        .enumerate()
+        .map(|(i, c)| {
+            if i == 0 && valid_label_key_start_character(c)
+                || i != 0 && valid_label_key_character(c)
+            {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 /// Sanitizes a label value to be valid under the Prometheus [data model].
@@ -209,35 +211,35 @@ fn sanitize_label_value_or_description(value: &str, is_desc: bool) -> String {
 }
 
 #[inline]
-fn invalid_metric_name_start_character(c: char) -> bool {
+fn valid_metric_name_start_character(c: char) -> bool {
     // Essentially, needs to match the regex pattern of [a-zA-Z_:].
-    !(c.is_ascii_alphabetic() || c == '_' || c == ':')
+    c.is_ascii_alphabetic() || c == '_' || c == ':'
 }
 
 #[inline]
-fn invalid_metric_name_character(c: char) -> bool {
+fn valid_metric_name_character(c: char) -> bool {
     // Essentially, needs to match the regex pattern of [a-zA-Z0-9_:].
-    !(c.is_ascii_alphanumeric() || c == '_' || c == ':')
+    c.is_ascii_alphanumeric() || c == '_' || c == ':'
 }
 
 #[inline]
-fn invalid_label_key_start_character(c: char) -> bool {
+fn valid_label_key_start_character(c: char) -> bool {
     // Essentially, needs to match the regex pattern of [a-zA-Z_].
-    !(c.is_ascii_alphabetic() || c == '_')
+    c.is_ascii_alphabetic() || c == '_'
 }
 
 #[inline]
-fn invalid_label_key_character(c: char) -> bool {
+fn valid_label_key_character(c: char) -> bool {
     // Essentially, needs to match the regex pattern of [a-zA-Z0-9_].
-    !(c.is_ascii_alphanumeric() || c == '_')
+    c.is_ascii_alphanumeric() || c == '_'
 }
 
 #[cfg(test)]
 mod tests {
     use crate::formatting::{
-        invalid_label_key_character, invalid_label_key_start_character,
-        invalid_metric_name_character, invalid_metric_name_start_character, sanitize_description,
-        sanitize_label_key, sanitize_label_value, sanitize_metric_name,
+        sanitize_description, sanitize_label_key, sanitize_label_value, sanitize_metric_name,
+        valid_label_key_character, valid_label_key_start_character, valid_metric_name_character,
+        valid_metric_name_start_character,
     };
     use proptest::prelude::*;
 
@@ -321,11 +323,11 @@ mod tests {
             let as_chars = result.chars().collect::<Vec<_>>();
 
             if let Some(c) = as_chars.first() {
-                assert!(!invalid_metric_name_start_character(*c),
+                assert!(valid_metric_name_start_character(*c),
                     "first character of metric name was not valid");
             }
 
-            assert!(!as_chars.iter().any(|c| invalid_metric_name_character(*c)),
+            assert!(as_chars.iter().all(|c| valid_metric_name_character(*c)),
                 "invalid character in metric name");
         }
 
@@ -335,7 +337,7 @@ mod tests {
             let as_chars = result.chars().collect::<Vec<_>>();
 
             if let Some(c) = as_chars.first() {
-                assert!(!invalid_label_key_start_character(*c),
+                assert!(valid_label_key_start_character(*c),
                     "first character of label key was not valid");
             }
 
@@ -353,7 +355,7 @@ mod tests {
                 }
             }*/
 
-            assert!(!as_chars.iter().any(|c| invalid_label_key_character(*c)),
+            assert!(as_chars.iter().all(|c| valid_label_key_character(*c)),
                 "invalid character in label key");
         }
 
