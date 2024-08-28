@@ -193,9 +193,10 @@ mod tests {
         let _ = RouterBuilder::from_recorder(MockTestRecorder::new()).build();
 
         let mut builder = RouterBuilder::from_recorder(MockTestRecorder::new());
+        // ensure that &str, String, and Cow<str> are all are accepted by the builder
         builder
             .add_route(MetricKindMask::COUNTER, "foo", MockTestRecorder::new())
-            .add_route(MetricKindMask::GAUGE, "bar".to_owned(), MockTestRecorder::new())
+            .add_route(MetricKindMask::GAUGE, String::from("bar"), MockTestRecorder::new())
             .add_route(MetricKindMask::HISTOGRAM, Cow::Borrowed("baz"), MockTestRecorder::new())
             .add_route(MetricKindMask::ALL, "quux", MockTestRecorder::new());
         let _ = builder.build();

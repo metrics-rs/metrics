@@ -12,9 +12,9 @@ fn layer_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("layer");
     group.bench_function("base case", |b| {
         let recorder = NoopRecorder;
-        static KEY_NAME: &'static str = "key";
+        static KEY_NAME: &str = "key";
         static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-        static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
+        static KEY_DATA: Key = Key::from_static_parts(KEY_NAME, &KEY_LABELS);
         static METADATA: metrics::Metadata =
             metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
@@ -32,9 +32,9 @@ fn layer_benchmark(c: &mut Criterion) {
             let _guard = span.enter();
 
             let recorder = NoopRecorder;
-            static KEY_NAME: &'static str = "key";
+            static KEY_NAME: &str = "key";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(KEY_NAME, &KEY_LABELS);
             static METADATA: metrics::Metadata =
                 metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
@@ -53,9 +53,9 @@ fn layer_benchmark(c: &mut Criterion) {
             let _guard = span.enter();
 
             let recorder = NoopRecorder;
-            static KEY_NAME: &'static str = "key";
+            static KEY_NAME: &str = "key";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(KEY_NAME, &KEY_LABELS);
             static METADATA: metrics::Metadata =
                 metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
@@ -75,9 +75,9 @@ fn layer_benchmark(c: &mut Criterion) {
 
             let tracing_layer = TracingContextLayer::all();
             let recorder = tracing_layer.layer(NoopRecorder);
-            static KEY_NAME: &'static str = "key";
+            static KEY_NAME: &str = "key";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(KEY_NAME, &KEY_LABELS);
             static METADATA: metrics::Metadata =
                 metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
@@ -97,9 +97,9 @@ fn layer_benchmark(c: &mut Criterion) {
 
             let tracing_layer = TracingContextLayer::all();
             let recorder = tracing_layer.layer(NoopRecorder);
-            static KEY_NAME: &'static str = "key";
+            static KEY_NAME: &str = "key";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(KEY_NAME, &KEY_LABELS);
             static METADATA: metrics::Metadata =
                 metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
