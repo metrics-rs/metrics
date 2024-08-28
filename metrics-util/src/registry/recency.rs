@@ -217,6 +217,7 @@ impl GenerationalAtomicStorage {
 /// tracking recency does not matter, despite their otherwise tight coupling.
 pub struct Recency<K> {
     mask: MetricKindMask,
+    #[allow(clippy::type_complexity)]
     inner: Mutex<(Clock, HashMap<K, (Generation, Instant)>)>,
     idle_timeout: Option<Duration>,
 }

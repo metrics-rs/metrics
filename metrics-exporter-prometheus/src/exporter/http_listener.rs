@@ -59,11 +59,11 @@ impl HttpListeningExporter {
                     continue;
                 }
             };
-            self.process_tcp_stream(stream).await;
+            self.process_tcp_stream(stream);
         }
     }
 
-    async fn process_tcp_stream(&self, stream: TcpStream) {
+    fn process_tcp_stream(&self, stream: TcpStream) {
         let is_allowed = self.check_tcp_allowed(&stream);
         let handle = self.handle.clone();
         let service = service_fn(move |req: Request<body::Incoming>| {
@@ -107,12 +107,12 @@ impl HttpListeningExporter {
                     continue;
                 }
             };
-            self.process_uds_stream(stream).await;
+            self.process_uds_stream(stream);
         }
     }
 
     #[cfg(feature = "uds-listener")]
-    async fn process_uds_stream(&self, stream: UnixStream) {
+    fn process_uds_stream(&self, stream: UnixStream) {
         let handle = self.handle.clone();
         let service = service_fn(move |req: Request<body::Incoming>| {
             let handle = handle.clone();

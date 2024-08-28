@@ -223,7 +223,7 @@ mod tests {
         ];
 
         let recorder = MockBasicRecorder::from_operations(expectations);
-        let filter = FilterLayer::from_patterns(&["tokio", "bb8"]);
+        let filter = FilterLayer::from_patterns(["tokio", "bb8"]);
         let filter = filter.layer(recorder);
 
         for operation in inputs {
@@ -294,7 +294,7 @@ mod tests {
         ];
 
         let recorder = MockBasicRecorder::from_operations(expectations);
-        let mut filter = FilterLayer::from_patterns(&["tokio", "bb8"]);
+        let mut filter = FilterLayer::from_patterns(["tokio", "bb8"]);
         let filter = filter.case_insensitive(true).layer(recorder);
 
         for operation in inputs {

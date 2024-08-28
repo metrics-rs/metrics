@@ -260,25 +260,19 @@ mod tests {
     use crate::{KeyName, Label};
     use std::{collections::HashMap, ops::Deref, sync::Arc};
 
-    static BORROWED_NAME: &'static str = "name";
-    static FOOBAR_NAME: &'static str = "foobar";
-    static BORROWED_BASIC: Key = Key::from_static_name(&BORROWED_NAME);
+    static BORROWED_NAME: &str = "name";
+    static FOOBAR_NAME: &str = "foobar";
+    static BORROWED_BASIC: Key = Key::from_static_name(BORROWED_NAME);
     static LABELS: [Label; 1] = [Label::from_static_parts("key", "value")];
-    static BORROWED_LABELS: Key = Key::from_static_parts(&BORROWED_NAME, &LABELS);
+    static BORROWED_LABELS: Key = Key::from_static_parts(BORROWED_NAME, &LABELS);
 
     #[test]
     fn test_key_ord_and_partialord() {
-        let keys_expected: Vec<Key> = vec![
-            Key::from_name("aaaa").into(),
-            Key::from_name("bbbb").into(),
-            Key::from_name("cccc").into(),
-        ];
+        let keys_expected: Vec<Key> =
+            vec![Key::from_name("aaaa"), Key::from_name("bbbb"), Key::from_name("cccc")];
 
-        let keys_unsorted: Vec<Key> = vec![
-            Key::from_name("bbbb").into(),
-            Key::from_name("cccc").into(),
-            Key::from_name("aaaa").into(),
-        ];
+        let keys_unsorted: Vec<Key> =
+            vec![Key::from_name("bbbb"), Key::from_name("cccc"), Key::from_name("aaaa")];
 
         let keys = {
             let mut keys = keys_unsorted.clone();
@@ -299,7 +293,7 @@ mod tests {
     fn test_key_eq_and_hash() {
         let mut keys = HashMap::new();
 
-        let owned_basic: Key = Key::from_name("name").into();
+        let owned_basic: Key = Key::from_name("name");
         assert_eq!(&owned_basic, &BORROWED_BASIC);
 
         let previous = keys.insert(owned_basic, 42);
@@ -309,7 +303,7 @@ mod tests {
         assert_eq!(previous, Some(&42));
 
         let labels = LABELS.to_vec();
-        let owned_labels = Key::from_parts(&BORROWED_NAME[..], labels);
+        let owned_labels = Key::from_parts(BORROWED_NAME, labels);
         assert_eq!(&owned_labels, &BORROWED_LABELS);
 
         let previous = keys.insert(owned_labels, 43);
@@ -329,19 +323,19 @@ mod tests {
         let result1 = key1.to_string();
         assert_eq!(result1, "Key(foobar)");
 
-        let key2 = Key::from_parts(&FOOBAR_NAME[..], vec![Label::new("system", "http")]);
+        let key2 = Key::from_parts(FOOBAR_NAME, vec![Label::new("system", "http")]);
         let result2 = key2.to_string();
         assert_eq!(result2, "Key(foobar, [system = http])");
 
         let key3 = Key::from_parts(
-            &FOOBAR_NAME[..],
+            FOOBAR_NAME,
             vec![Label::new("system", "http"), Label::new("user", "joe")],
         );
         let result3 = key3.to_string();
         assert_eq!(result3, "Key(foobar, [system = http, user = joe])");
 
         let key4 = Key::from_parts(
-            &FOOBAR_NAME[..],
+            FOOBAR_NAME,
             vec![
                 Label::new("black", "black"),
                 Label::new("lives", "lives"),
@@ -354,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_key_name_equality() {
-        static KEY_NAME: &'static str = "key_name";
+        static KEY_NAME: &str = "key_name";
 
         let borrowed_const = KeyName::from_const_str(KEY_NAME);
         let borrowed_nonconst = KeyName::from(KEY_NAME);
