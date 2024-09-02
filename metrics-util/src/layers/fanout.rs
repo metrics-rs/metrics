@@ -105,7 +105,9 @@ pub struct Fanout {
 
 impl fmt::Debug for Fanout {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Fanout").finish_non_exhaustive()
+        f.debug_struct("Fanout")
+            .field("recorders_len", &self.recorders.len())
+            .finish_non_exhaustive()
     }
 }
 
@@ -166,7 +168,9 @@ pub struct FanoutBuilder {
 
 impl fmt::Debug for FanoutBuilder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FanoutBuilder").finish_non_exhaustive()
+        f.debug_struct("FanoutBuilder")
+            .field("recorders_len", &self.recorders.len())
+            .finish_non_exhaustive()
     }
 }
 

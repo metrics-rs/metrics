@@ -21,6 +21,7 @@ impl fmt::Debug for Router {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Router")
             .field("global_mask", &self.global_mask)
+            .field("targets_len", &self.targets.len())
             .field("counter_routes", &self.counter_routes)
             .field("gauge_routes", &self.gauge_routes)
             .field("histogram_routes", &self.histogram_routes)
@@ -103,6 +104,7 @@ impl fmt::Debug for RouterBuilder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RouterBuilder")
             .field("global_mask", &self.global_mask)
+            .field("targets_len", &self.targets.len())
             .field("counter_routes", &self.counter_routes)
             .field("gauge_routes", &self.gauge_routes)
             .field("histogram_routes", &self.histogram_routes)
