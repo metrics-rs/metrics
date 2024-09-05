@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use metrics::{
     Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, KeyName, Metadata, Recorder,
     SharedString, Unit,
 };
 
+#[derive(Debug)]
 struct FanoutCounter {
     counters: Vec<Counter>,
 }
@@ -35,6 +36,7 @@ impl From<FanoutCounter> for Counter {
     }
 }
 
+#[derive(Debug)]
 struct FanoutGauge {
     gauges: Vec<Gauge>,
 }
@@ -71,6 +73,7 @@ impl From<FanoutGauge> for Gauge {
     }
 }
 
+#[derive(Debug)]
 struct FanoutHistogram {
     histograms: Vec<Histogram>,
 }
@@ -98,6 +101,14 @@ impl From<FanoutHistogram> for Histogram {
 /// Fans out metrics to multiple recorders.
 pub struct Fanout {
     recorders: Vec<Box<dyn Recorder>>,
+}
+
+impl fmt::Debug for Fanout {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Fanout")
+            .field("recorders_len", &self.recorders.len())
+            .finish_non_exhaustive()
+    }
 }
 
 impl Recorder for Fanout {
@@ -153,6 +164,14 @@ impl Recorder for Fanout {
 #[derive(Default)]
 pub struct FanoutBuilder {
     recorders: Vec<Box<dyn Recorder>>,
+}
+
+impl fmt::Debug for FanoutBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FanoutBuilder")
+            .field("recorders_len", &self.recorders.len())
+            .finish_non_exhaustive()
+    }
 }
 
 impl FanoutBuilder {

@@ -23,7 +23,7 @@ pub type SharedString = Cow<'static, str>;
 ///
 /// For any use-case within a `metrics`-owned or adjacent crate, where hashing of a key is required,
 /// this is the hasher that will be used.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct KeyHasher(AHasher);
 
 impl Hasher for KeyHasher {

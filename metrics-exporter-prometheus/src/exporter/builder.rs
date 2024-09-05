@@ -33,6 +33,7 @@ use super::ExporterConfig;
 use super::ExporterFuture;
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
+#[derive(Debug)]
 pub struct PrometheusBuilder {
     #[cfg_attr(not(any(feature = "http-listener", feature = "push-gateway")), allow(dead_code))]
     exporter_config: ExporterConfig,

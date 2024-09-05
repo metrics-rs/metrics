@@ -13,6 +13,7 @@ use metrics::{
 };
 use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, Recorder, Unit};
 
+#[derive(Clone, Debug)]
 struct PrintHandle(Key);
 
 impl CounterFn for PrintHandle {
@@ -45,6 +46,7 @@ impl HistogramFn for PrintHandle {
     }
 }
 
+#[derive(Debug)]
 struct PrintRecorder;
 
 impl Recorder for PrintRecorder {

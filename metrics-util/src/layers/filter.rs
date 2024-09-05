@@ -5,6 +5,7 @@ use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, Share
 /// Filters and discards metrics matching certain name patterns.
 ///
 /// More information on the behavior of the layer can be found in [`FilterLayer`].
+#[derive(Debug)]
 pub struct Filter<R> {
     inner: R,
     automaton: AhoCorasick,
@@ -73,7 +74,7 @@ impl<R: Recorder> Recorder for Filter<R> {
 /// DFA, or case sensitivity.
 ///
 /// [ahocorasick]: https://en.wikipedia.org/wiki/Aho–Corasick_algorithm
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct FilterLayer {
     patterns: Vec<String>,
     case_insensitive: bool,

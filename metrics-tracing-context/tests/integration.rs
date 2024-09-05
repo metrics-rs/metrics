@@ -522,7 +522,7 @@ fn test_nested_spans() {
     );
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct OnlyUser;
 
 impl LabelFilter for OnlyUser {

@@ -4,6 +4,7 @@ use crate::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedS
 ///
 /// Used as the default recorder when one has not been installed yet.  Useful for acting as the root
 /// recorder when testing layers.
+#[derive(Debug)]
 pub struct NoopRecorder;
 
 impl Recorder for NoopRecorder {
