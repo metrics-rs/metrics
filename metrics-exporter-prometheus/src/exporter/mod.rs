@@ -14,6 +14,7 @@ use hyper::Uri;
 
 /// Error types possible from an exporter
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[derive(Debug)]
 pub enum ExporterError {
     #[cfg(feature = "http-listener")]
     HttpListener(HttpListeningError),
@@ -24,14 +25,14 @@ pub enum ExporterError {
 pub type ExporterFuture = Pin<Box<dyn Future<Output = Result<(), ExporterError>> + Send + 'static>>;
 
 #[cfg(feature = "http-listener")]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum ListenDestination {
     Tcp(SocketAddr),
     #[cfg(feature = "uds-listener")]
     Uds(std::path::PathBuf),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum ExporterConfig {
     // Run an HTTP listener on the given `listen_address`.
     #[cfg(feature = "http-listener")]

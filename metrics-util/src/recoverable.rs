@@ -5,6 +5,7 @@ use metrics::{
     Unit,
 };
 
+#[derive(Debug)]
 pub struct RecoveryHandle<R> {
     handle: Arc<R>,
 }
@@ -51,6 +52,7 @@ impl<R> RecoveryHandle<R> {
 /// This allows using `RecoveryHandle<R>` as a drop guard, ensuring that by dropping it, the
 /// recorder itself will be dropped, and any finalization logic implemented for the recorder will be
 /// run.
+#[derive(Debug)]
 pub struct RecoverableRecorder<R> {
     handle: Arc<R>,
 }
@@ -88,6 +90,7 @@ impl<R: Recorder + Sync + Send + 'static> RecoverableRecorder<R> {
     }
 }
 
+#[derive(Debug)]
 struct WeakRecorder<R> {
     recorder: Weak<R>,
 }
@@ -149,8 +152,13 @@ mod tests {
     use super::*;
     use metrics::{atomics::AtomicU64, CounterFn, GaugeFn, HistogramFn, Key, Recorder};
 
+    #[derive(Debug)]
     struct CounterWrapper(AtomicU64);
+
+    #[derive(Debug)]
     struct GaugeWrapper(AtomicU64);
+
+    #[derive(Debug)]
     struct HistogramWrapper(AtomicU64);
 
     impl CounterWrapper {
@@ -201,6 +209,7 @@ mod tests {
         }
     }
 
+    #[derive(Debug)]
     struct TestRecorder {
         dropped: Arc<AtomicBool>,
         counter: Arc<CounterWrapper>,

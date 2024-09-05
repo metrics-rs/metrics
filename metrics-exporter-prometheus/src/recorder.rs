@@ -15,6 +15,7 @@ use crate::formatting::{
 };
 use crate::registry::GenerationalAtomicStorage;
 
+#[derive(Debug)]
 pub(crate) struct Inner {
     pub registry: Registry<Key, GenerationalAtomicStorage>,
     pub recency: Recency<Key>,
@@ -214,6 +215,7 @@ impl Inner {
 /// Most users will not need to interact directly with the recorder, and can simply deal with the
 /// builder methods on [`PrometheusBuilder`](crate::PrometheusBuilder) for building and installing
 /// the recorder/exporter.
+#[derive(Debug)]
 pub struct PrometheusRecorder {
     inner: Arc<Inner>,
 }
@@ -275,7 +277,7 @@ impl Recorder for PrometheusRecorder {
 /// handled directly by the HTTP listener, or push gateway background task.  [`PrometheusHandle`]
 /// allows rendering a snapshot of the current metrics stored by an installed [`PrometheusRecorder`]
 /// as a payload conforming to the Prometheus exposition format.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PrometheusHandle {
     inner: Arc<Inner>,
 }

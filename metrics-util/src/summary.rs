@@ -45,6 +45,13 @@ pub struct Summary {
     sketch: DDSketch,
 }
 
+impl fmt::Debug for Summary {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // manual implementation because DDSketch does not implement Debug
+        f.debug_struct("Summary").finish_non_exhaustive()
+    }
+}
+
 impl Summary {
     /// Creates a new [`Summary`].
     ///

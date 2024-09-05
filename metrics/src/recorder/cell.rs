@@ -14,6 +14,7 @@ const INITIALIZING: usize = 1;
 const INITIALIZED: usize = 2;
 
 /// An specialized version of `OnceCell` for `Recorder`.
+#[derive(Debug)]
 pub struct RecorderOnceCell {
     recorder: UnsafeCell<Option<&'static dyn Recorder>>,
     state: AtomicUsize,

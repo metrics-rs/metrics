@@ -32,6 +32,7 @@ enum ListenerType {
 }
 
 /// Error type for HTTP listening.
+#[derive(Debug)]
 pub enum HttpListeningError {
     Hyper(hyper::Error),
     Io(std::io::Error),

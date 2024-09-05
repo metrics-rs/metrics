@@ -15,7 +15,7 @@ const DEFAULT_SUMMARY_BUCKET_COUNT: NonZeroU32 = match NonZeroU32::new(3) {
 const DEFAULT_SUMMARY_BUCKET_DURATION: Duration = Duration::from_secs(20);
 
 /// Distribution type.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Distribution {
     /// A Prometheus histogram.
     ///
@@ -137,14 +137,14 @@ impl DistributionBuilder {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Bucket {
     begin: Instant,
     summary: Summary,
 }
 
 /// A `RollingSummary` manages a list of [Summary] so that old results can be expired.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RollingSummary {
     // Buckets are ordered with the latest buckets first.  The buckets are kept in alignment based
     // on the instant of the first added bucket and the bucket_duration.  There may be gaps in the
