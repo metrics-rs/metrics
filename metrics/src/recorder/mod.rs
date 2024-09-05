@@ -248,6 +248,7 @@ mod tests {
         // This test simply ensures that if a boxed recorder is handed to us to install, and another
         // recorder has already been installed, that we drop th new boxed recorder instead of
         // leaking it.
+        #[derive(Debug)]
         struct TrackOnDropRecorder(Arc<AtomicBool>);
 
         impl TrackOnDropRecorder {

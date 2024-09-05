@@ -44,8 +44,14 @@ jobs:
     name: Test ${{ matrix.rust_version }}
     runs-on: ubuntu-latest
     strategy:
+      # 1.70 is the MSRV for the project, which currently does not match the version specified in
+      # the rust-toolchain.toml file as metrics-observer requires 1.74 to build. See
+      # https://github.com/metrics-rs/metrics/pull/505#discussion_r1724092556 for more information.
       matrix:
-        rust_version: ['stable', 'nightly']
+        rust_version: ['stable', 'nightly', '1.70']
+        include:
+          - rust_version: '1.70'
+            exclude-packages: '--exclude metrics-observer'
     steps:
     - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
@@ -53,7 +59,7 @@ jobs:
     - name: Install Rust ${{ matrix.rust_version }}
       run: rustup install ${{ matrix.rust_version }}
     - name: Run Tests
-      run: cargo +${{ matrix.rust_version }} test --all-features --workspace
+      run: cargo +${{ matrix.rust_version }} test --all-features --workspace ${{ matrix.exclude-packages }}
   docs:
     runs-on: ubuntu-latest
     env:

@@ -36,7 +36,7 @@ mod http_listener_test {
             let labels = vec![Label::new("wutang", "forever")];
             let key = Key::from_parts("basic_gauge", labels);
             let gauge = recorder.register_gauge(&key, &METADATA);
-            gauge.set(-3.14);
+            gauge.set(-1.23);
 
             runtime.spawn(exporter); //async { exporter.await});
             tokio::time::sleep(Duration::from_millis(200)).await;
@@ -48,7 +48,7 @@ mod http_listener_test {
             let (status, body) = read_from(uri).await;
 
             assert_eq!(status, StatusCode::OK);
-            assert!(body.contains("basic_gauge{wutang=\"forever\"} -3.14"));
+            assert!(body.contains("basic_gauge{wutang=\"forever\"} -1.23"));
         });
     }
 

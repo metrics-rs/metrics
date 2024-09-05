@@ -412,7 +412,7 @@ unsafe impl<T: Cowable + Sync + ?Sized> Sync for Cow<'_, T> {}
 unsafe impl<T: Cowable + Send + ?Sized> Send for Cow<'_, T> {}
 
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Metadata(usize, usize);
 
 impl Metadata {

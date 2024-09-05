@@ -80,6 +80,7 @@ pub enum BuildError {
     ZeroBucketDuration,
 }
 
+#[derive(Debug)]
 pub struct Snapshot {
     pub counters: HashMap<String, HashMap<Vec<String>, u64>>,
     pub gauges: HashMap<String, HashMap<Vec<String>, f64>>,

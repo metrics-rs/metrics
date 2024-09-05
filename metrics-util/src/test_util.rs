@@ -5,7 +5,7 @@ use mockall::{
     Predicate,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum RecorderOperation {
     DescribeCounter(KeyName, Option<Unit>, SharedString),
     DescribeGauge(KeyName, Option<Unit>, SharedString),
@@ -67,6 +67,7 @@ impl RecorderOperation {
 }
 
 mock! {
+    #[derive(Debug)]
     pub BasicRecorder {}
 
     impl Recorder for BasicRecorder {

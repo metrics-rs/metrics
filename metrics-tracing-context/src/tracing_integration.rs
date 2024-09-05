@@ -97,6 +97,7 @@ impl AsRef<Map> for Labels {
 /// fields and allows them to be later on used as metrics labels.
 #[derive(Default)]
 pub struct MetricsLayer {
+    #[allow(clippy::type_complexity)]
     with_labels:
         Option<fn(&Dispatch, &Id, f: &mut dyn FnMut(&Labels) -> Option<Key>) -> Option<Key>>,
 }

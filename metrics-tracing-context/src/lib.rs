@@ -114,6 +114,7 @@ use tracing_integration::Map;
 pub use tracing_integration::{Labels, MetricsLayer};
 
 /// [`TracingContextLayer`] provides an implementation of a [`Layer`] for [`TracingContext`].
+#[derive(Debug)]
 pub struct TracingContextLayer<F> {
     label_filter: F,
 }
@@ -156,6 +157,7 @@ where
 }
 
 /// [`TracingContext`] is a [`metrics::Recorder`] that injects labels from [`tracing::Span`]s.
+#[derive(Debug)]
 pub struct TracingContext<R, F> {
     inner: R,
     label_filter: F,

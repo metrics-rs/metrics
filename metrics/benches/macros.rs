@@ -8,8 +8,9 @@ use metrics::{
 };
 use rand::{thread_rng, Rng};
 
-#[derive(Default)]
+#[derive(Debug)]
 struct TestRecorder;
+
 impl Recorder for TestRecorder {
     fn describe_counter(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
     fn describe_gauge(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
@@ -38,19 +39,19 @@ fn macro_benchmark(c: &mut Criterion) {
         })
     });
     group.bench_function("global_initialized/no_labels", |b| {
-        let _ = metrics::set_global_recorder(TestRecorder::default());
+        let _ = metrics::set_global_recorder(TestRecorder);
         b.iter(|| {
             counter!("counter_bench").increment(42);
         });
     });
     group.bench_function("global_initialized/with_static_labels", |b| {
-        let _ = metrics::set_global_recorder(TestRecorder::default());
+        let _ = metrics::set_global_recorder(TestRecorder);
         b.iter(|| {
             counter!("counter_bench", "request" => "http", "svc" => "admin").increment(42);
         });
     });
     group.bench_function("global_initialized/with_dynamic_labels", |b| {
-        let _ = metrics::set_global_recorder(TestRecorder::default());
+        let _ = metrics::set_global_recorder(TestRecorder);
 
         let label_val = thread_rng().gen::<u64>().to_string();
         b.iter(move || {
@@ -59,27 +60,21 @@ fn macro_benchmark(c: &mut Criterion) {
         });
     });
     group.bench_function("local_initialized/no_labels", |b| {
-        let recorder = TestRecorder::default();
-
-        metrics::with_local_recorder(&recorder, || {
+        metrics::with_local_recorder(&TestRecorder, || {
             b.iter(|| {
                 counter!("counter_bench").increment(42);
             });
         });
     });
     group.bench_function("local_initialized/with_static_labels", |b| {
-        let recorder = TestRecorder::default();
-
-        metrics::with_local_recorder(&recorder, || {
+        metrics::with_local_recorder(&TestRecorder, || {
             b.iter(|| {
                 counter!("counter_bench", "request" => "http", "svc" => "admin").increment(42);
             });
         });
     });
     group.bench_function("local_initialized/with_dynamic_labels", |b| {
-        let recorder = TestRecorder::default();
-
-        metrics::with_local_recorder(&recorder, || {
+        metrics::with_local_recorder(&TestRecorder, || {
             let label_val = thread_rng().gen::<u64>().to_string();
             b.iter(move || {
                 counter!("counter_bench", "request" => "http", "uid" => label_val.clone())

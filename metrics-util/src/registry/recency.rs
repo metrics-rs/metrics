@@ -54,7 +54,7 @@ pub struct Generation(usize);
 /// again at a later point in time, it could have changed in between the two observations.  It also
 /// may not have changed, and thus `Generational` provides a way to determine if either of these
 /// events occurred.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Generational<T> {
     inner: T,
     gen: Arc<AtomicUsize>,
@@ -157,6 +157,7 @@ where
 ///
 /// Tracks the "generation" of a metric, which is used to detect updates to metrics where the value
 /// otherwise would not be sufficient to be used as an indicator.
+#[derive(Debug)]
 pub struct GenerationalStorage<S> {
     inner: S,
 }
@@ -215,8 +216,10 @@ impl GenerationalAtomicStorage {
 ///
 /// [`Recency`] is separate from [`Registry`] specifically to avoid imposing any slowdowns when
 /// tracking recency does not matter, despite their otherwise tight coupling.
+#[derive(Debug)]
 pub struct Recency<K> {
     mask: MetricKindMask,
+    #[allow(clippy::type_complexity)]
     inner: Mutex<(Clock, HashMap<K, (Generation, Instant)>)>,
     idle_timeout: Option<Duration>,
 }
