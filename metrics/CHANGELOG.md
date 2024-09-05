@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Blanket implementations of `Recorder` over smart pointer representations (i.e. `Arc<T> where T: Recorder`). ([#512](https://github.com/metrics-rs/metrics/pull/512))
+
 ## [0.23.0] - 2024-05-27
 
 ### Added
