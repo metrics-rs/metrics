@@ -104,7 +104,7 @@ impl Drop for LocalRecorderGuard {
 /// An error is returned if a recorder has already been set.
 pub fn set_global_recorder<R>(recorder: R) -> Result<(), SetRecorderError<R>>
 where
-    R: Recorder + 'static,
+    R: Recorder + Sync + 'static,
 {
     GLOBAL_RECORDER.set(recorder)
 }

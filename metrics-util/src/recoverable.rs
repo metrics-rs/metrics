@@ -55,7 +55,7 @@ pub struct RecoverableRecorder<R> {
     handle: Arc<R>,
 }
 
-impl<R: Recorder + 'static> RecoverableRecorder<R> {
+impl<R: Recorder + Sync + Send + 'static> RecoverableRecorder<R> {
     /// Creates a new `RecoverableRecorder` from the given recorder.
     pub fn new(recorder: R) -> Self {
         Self { handle: Arc::new(recorder) }
