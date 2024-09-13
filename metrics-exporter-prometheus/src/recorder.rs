@@ -25,7 +25,10 @@ pub(crate) struct Inner {
 }
 
 impl Inner {
-    fn get_recent_metrics(&self) -> Snapshot {
+    fn get_recent_metrics<F>(&self, filter: Option<F>) -> Snapshot
+    where
+        F: Fn(&str) -> bool,
+    {
         let mut counters = HashMap::new();
         let counter_handles = self.registry.get_counter_handles();
         for (key, counter) in counter_handles {
@@ -35,10 +38,12 @@ impl Inner {
             }
 
             let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
-            let value = counter.get_inner().load(Ordering::Acquire);
-            let entry =
-                counters.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0);
-            *entry = value;
+            if filter.as_ref().map(|f| f(&name)).unwrap_or(true) {
+                let value = counter.get_inner().load(Ordering::Acquire);
+                let entry =
+                    counters.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0);
+                *entry = value;
+            }
         }
 
         let mut gauges = HashMap::new();
@@ -50,10 +55,12 @@ impl Inner {
             }
 
             let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
-            let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
-            let entry =
-                gauges.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0.0);
-            *entry = value;
+            if filter.as_ref().map(|f| f(&name)).unwrap_or(true) {
+                let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
+                let entry =
+                    gauges.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0.0);
+                *entry = value;
+            }
         }
 
         // Update distributions
@@ -85,8 +92,19 @@ impl Inner {
             }
         }
 
-        let distributions =
-            self.distributions.read().unwrap_or_else(PoisonError::into_inner).clone();
+        let distributions = self
+            .distributions
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+            .filter_map(|(key, map)| {
+                if filter.as_ref().map(|f| f(key)).unwrap_or(true) {
+                    Some((key.clone(), map.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         Snapshot { counters, gauges, distributions }
     }
@@ -109,7 +127,8 @@ impl Inner {
     }
 
     fn render(&self) -> String {
-        let Snapshot { mut counters, mut distributions, mut gauges } = self.get_recent_metrics();
+        let Snapshot { mut counters, mut distributions, mut gauges } =
+            self.get_recent_metrics::<fn(&str) -> bool>(None);
 
         let mut output = String::new();
         let descriptions = self.descriptions.read().unwrap_or_else(PoisonError::into_inner);
@@ -291,5 +310,14 @@ impl PrometheusHandle {
     /// grow unboundedly.
     pub fn run_upkeep(&self) {
         self.inner.run_upkeep();
+    }
+
+    /// Returns a snapshot of the metrics held by the recorder, optionally filtered by the
+    /// provided function.
+    pub fn snapshot<F>(&self, filter: Option<F>) -> Snapshot
+    where
+        F: Fn(&str) -> bool,
+    {
+        self.inner.get_recent_metrics(filter)
     }
 }
