@@ -153,7 +153,7 @@ impl<R> Stack<R> {
     }
 }
 
-impl<R: Recorder + 'static> Stack<R> {
+impl<R: Recorder + Sync + 'static> Stack<R> {
     /// Installs this stack as the global recorder.
     ///
     /// An error will be returned if there's an issue with installing the stack as the global recorder.
