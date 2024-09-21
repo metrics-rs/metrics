@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Added `Debug` derive to numerous types. ([#504](https://github.com/metrics-rs/metrics/pull/504))
+
+### Changed
+
+- Updated `mio` to `1.0`.
+
 ## [0.10.0] - 2024-05-27
 
 ### Changed

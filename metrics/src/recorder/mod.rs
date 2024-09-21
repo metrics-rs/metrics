@@ -110,6 +110,10 @@ where
 }
 
 /// Runs the closure with the given recorder set as the global recorder for the duration.
+///
+/// This only applies as long as the closure is running, and on the thread where `with_local_recorder` is called. This
+/// does not extend to other threads, and so is not suitable for capturing metrics in asynchronous code where multiple
+/// threads are involved.
 pub fn with_local_recorder<T>(recorder: &dyn Recorder, f: impl FnOnce() -> T) -> T {
     let _local = LocalRecorderGuard::new(recorder);
     f()
