@@ -166,7 +166,7 @@ mod tests {
         predicate::{always, eq},
         Sequence,
     };
-    use std::{borrow::Cow, rc::Rc};
+    use std::{borrow::Cow, sync::Arc};
 
     use super::RouterBuilder;
     use crate::MetricKindMask;
@@ -299,7 +299,7 @@ mod tests {
             .with(eq(default_counter.clone()), always())
             .returning(|_, _| Counter::noop());
 
-        let foo_bar_mock = Rc::new(foo_bar_mock);
+        let foo_bar_mock = Arc::new(foo_bar_mock);
 
         let mut builder = RouterBuilder::from_recorder(default_mock);
         builder.add_route(MetricKindMask::COUNTER, "foo", foo_bar_mock.clone());

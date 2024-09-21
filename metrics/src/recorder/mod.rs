@@ -1,4 +1,4 @@
-use std::{cell::Cell, ops::Deref, ptr::NonNull, rc::Rc, sync::Arc};
+use std::{cell::Cell, ops::Deref, ptr::NonNull, sync::Arc};
 
 mod cell;
 use self::cell::RecorderOnceCell;
@@ -26,7 +26,7 @@ pub trait Recorder {
     /// Describes a counter.
     ///
     /// Callers may provide the unit or a description of the counter being registered. Whether or
-    /// not a metric can be reregistered to provide a unit/description, if one was already passed
+    /// not a metric can be re-registered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
     fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: SharedString);
@@ -34,7 +34,7 @@ pub trait Recorder {
     /// Describes a gauge.
     ///
     /// Callers may provide the unit or a description of the gauge being registered. Whether or
-    /// not a metric can be reregistered to provide a unit/description, if one was already passed
+    /// not a metric can be re-registered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
     fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: SharedString);
@@ -42,7 +42,7 @@ pub trait Recorder {
     /// Describes a histogram.
     ///
     /// Callers may provide the unit or a description of the histogram being registered. Whether or
-    /// not a metric can be reregistered to provide a unit/description, if one was already passed
+    /// not a metric can be re-registered to provide a unit/description, if one was already passed
     /// or not, as well as how units/descriptions are used by the underlying recorder, is an
     /// implementation detail.
     fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString);
@@ -58,93 +58,70 @@ pub trait Recorder {
 }
 
 // Blanket implementations.
+macro_rules! impl_recorder {
+    ($inner_ty:ident, $ptr_ty:ty) => {
+        impl<$inner_ty> $crate::Recorder for $ptr_ty
+        where
+            $inner_ty: $crate::Recorder + ?Sized,
+        {
+            fn describe_counter(
+                &self,
+                key: $crate::KeyName,
+                unit: Option<$crate::Unit>,
+                description: $crate::SharedString,
+            ) {
+                Deref::deref(self).describe_counter(key, unit, description)
+            }
 
-impl<T> Recorder for Rc<T>
-where
-    T: Recorder,
-{
-    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
-        Deref::deref(self).describe_counter(key, unit, description)
-    }
+            fn describe_gauge(
+                &self,
+                key: $crate::KeyName,
+                unit: Option<$crate::Unit>,
+                description: $crate::SharedString,
+            ) {
+                Deref::deref(self).describe_gauge(key, unit, description)
+            }
 
-    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
-        Deref::deref(self).describe_gauge(key, unit, description)
-    }
+            fn describe_histogram(
+                &self,
+                key: $crate::KeyName,
+                unit: Option<$crate::Unit>,
+                description: $crate::SharedString,
+            ) {
+                Deref::deref(self).describe_histogram(key, unit, description)
+            }
 
-    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
-        Deref::deref(self).describe_histogram(key, unit, description)
-    }
+            fn register_counter(
+                &self,
+                key: &$crate::Key,
+                metadata: &$crate::Metadata<'_>,
+            ) -> $crate::Counter {
+                Deref::deref(self).register_counter(key, metadata)
+            }
 
-    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
-        Deref::deref(self).register_counter(key, metadata)
-    }
+            fn register_gauge(
+                &self,
+                key: &$crate::Key,
+                metadata: &$crate::Metadata<'_>,
+            ) -> $crate::Gauge {
+                Deref::deref(self).register_gauge(key, metadata)
+            }
 
-    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
-        Deref::deref(self).register_gauge(key, metadata)
-    }
-
-    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
-        Deref::deref(self).register_histogram(key, metadata)
-    }
+            fn register_histogram(
+                &self,
+                key: &$crate::Key,
+                metadata: &$crate::Metadata<'_>,
+            ) -> $crate::Histogram {
+                Deref::deref(self).register_histogram(key, metadata)
+            }
+        }
+    };
 }
 
-impl<T> Recorder for Arc<T>
-where
-    T: Recorder,
-{
-    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
-        Deref::deref(self).describe_counter(key, unit, description)
-    }
-
-    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
-        Deref::deref(self).describe_gauge(key, unit, description)
-    }
-
-    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
-        Deref::deref(self).describe_histogram(key, unit, description)
-    }
-
-    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
-        Deref::deref(self).register_counter(key, metadata)
-    }
-
-    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
-        Deref::deref(self).register_gauge(key, metadata)
-    }
-
-    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
-        Deref::deref(self).register_histogram(key, metadata)
-    }
-}
-
-impl<T> Recorder for Box<T>
-where
-    T: Recorder,
-{
-    fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
-        Deref::deref(self).describe_counter(key, unit, description)
-    }
-
-    fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
-        Deref::deref(self).describe_gauge(key, unit, description)
-    }
-
-    fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString) {
-        Deref::deref(self).describe_histogram(key, unit, description)
-    }
-
-    fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
-        Deref::deref(self).register_counter(key, metadata)
-    }
-
-    fn register_gauge(&self, key: &Key, metadata: &Metadata<'_>) -> Gauge {
-        Deref::deref(self).register_gauge(key, metadata)
-    }
-
-    fn register_histogram(&self, key: &Key, metadata: &Metadata<'_>) -> Histogram {
-        Deref::deref(self).register_histogram(key, metadata)
-    }
-}
+impl_recorder!(T, &T);
+impl_recorder!(T, &mut T);
+impl_recorder!(T, Box<T>);
+impl_recorder!(T, Arc<T>);
 
 /// Guard for setting a local recorder.
 ///
@@ -231,12 +208,9 @@ pub fn with_recorder<T>(f: impl FnOnce(&dyn Recorder) -> T) -> T {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        rc::Rc,
-        sync::{
-            atomic::{AtomicBool, Ordering},
-            Arc,
-        },
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
     };
 
     use crate::NoopRecorder;
@@ -326,9 +300,12 @@ mod tests {
     fn blanket_implementations() {
         fn is_recorder<T: Recorder>(_recorder: T) {}
 
+        let mut local = NoopRecorder;
+
         is_recorder(NoopRecorder);
-        is_recorder(Rc::new(NoopRecorder));
         is_recorder(Arc::new(NoopRecorder));
         is_recorder(Box::new(NoopRecorder));
+        is_recorder(&local);
+        is_recorder(&mut local);
     }
 }
