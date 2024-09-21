@@ -12,7 +12,7 @@
 //! # use metrics::NoopRecorder as BasicRecorder;
 //! # use metrics_util::layers::{Layer, Stack, PrefixLayer};
 //! // A simple layer that denies any metrics that have "stairway" or "heaven" in their name.
-//! #[derive(Default)]
+//! #[derive(Default, Debug)]
 //! pub struct StairwayDeny<R>(pub(crate) R);
 //!
 //! impl<R> StairwayDeny<R> {
@@ -75,7 +75,7 @@
 //!     }
 //! }
 //!
-//! #[derive(Default)]
+//! #[derive(Debug, Default)]
 //! pub struct StairwayDenyLayer;
 //!
 //! impl<R> Layer<R> for StairwayDenyLayer {
@@ -137,6 +137,7 @@ pub trait Layer<R> {
 }
 
 /// Builder for composing layers together in a top-down/inside-out order.
+#[derive(Debug)]
 pub struct Stack<R> {
     inner: R,
 }

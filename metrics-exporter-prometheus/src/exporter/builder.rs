@@ -33,6 +33,7 @@ use super::ExporterConfig;
 use super::ExporterFuture;
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
+#[derive(Debug)]
 pub struct PrometheusBuilder {
     #[cfg_attr(not(any(feature = "http-listener", feature = "push-gateway")), allow(dead_code))]
     exporter_config: ExporterConfig,
@@ -560,8 +561,7 @@ mod tests {
         gauge1.set(-3.14);
         let rendered = handle.render();
         let expected_gauge = format!(
-            "{}# TYPE basic_gauge gauge\nbasic_gauge{{wutang=\"forever\"}} -3.14\n\n",
-            expected_counter
+            "{expected_counter}# TYPE basic_gauge gauge\nbasic_gauge{{wutang=\"forever\"}} -3.14\n\n",
         );
 
         assert_eq!(rendered, expected_gauge);
@@ -579,7 +579,7 @@ mod tests {
             "basic_histogram_count 1\n",
             "\n"
         );
-        let expected_histogram = format!("{}{}", expected_gauge, histogram_data);
+        let expected_histogram = format!("{expected_gauge}{histogram_data}");
 
         assert_eq!(rendered, expected_histogram);
     }

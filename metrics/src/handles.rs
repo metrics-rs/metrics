@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 use crate::IntoF64;
 
@@ -45,6 +45,12 @@ pub struct Counter {
     inner: Option<Arc<dyn CounterFn + Send + Sync>>,
 }
 
+impl Debug for Counter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Counter").finish_non_exhaustive()
+    }
+}
+
 /// A gauge.
 #[derive(Clone)]
 #[must_use = "gauges do nothing unless you use them"]
@@ -52,11 +58,23 @@ pub struct Gauge {
     inner: Option<Arc<dyn GaugeFn + Send + Sync>>,
 }
 
+impl Debug for Gauge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Gauge").finish_non_exhaustive()
+    }
+}
+
 /// A histogram.
 #[derive(Clone)]
 #[must_use = "histograms do nothing unless you use them"]
 pub struct Histogram {
     inner: Option<Arc<dyn HistogramFn + Send + Sync>>,
+}
+
+impl Debug for Histogram {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Histogram").finish_non_exhaustive()
+    }
 }
 
 impl Counter {

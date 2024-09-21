@@ -15,7 +15,7 @@ const DEFAULT_SUMMARY_BUCKET_COUNT: NonZeroU32 = match NonZeroU32::new(3) {
 const DEFAULT_SUMMARY_BUCKET_DURATION: Duration = Duration::from_secs(20);
 
 /// Distribution type.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Distribution {
     /// A Prometheus histogram.
     ///
@@ -33,7 +33,10 @@ pub enum Distribution {
 
 impl Distribution {
     /// Creates a histogram distribution.
-    #[warn(clippy::missing_panics_doc)]
+    ///
+    /// # Panics
+    ///
+    /// Panics if `buckets` is empty.
     pub fn new_histogram(buckets: &[f64]) -> Distribution {
         let hist = Histogram::new(buckets).expect("buckets should never be empty");
         Distribution::Histogram(hist)
@@ -134,14 +137,14 @@ impl DistributionBuilder {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Bucket {
     begin: Instant,
     summary: Summary,
 }
 
 /// A `RollingSummary` manages a list of [Summary] so that old results can be expired.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RollingSummary {
     // Buckets are ordered with the latest buckets first.  The buckets are kept in alignment based
     // on the instant of the first added bucket and the bucket_duration.  There may be gaps in the
@@ -299,8 +302,11 @@ mod tests {
         let snapshot = summary.snapshot(clock.now());
 
         assert_eq!(0, snapshot.count());
-        assert_eq!(f64::INFINITY, snapshot.min());
-        assert_eq!(f64::NEG_INFINITY, snapshot.max());
+        #[allow(clippy::float_cmp)]
+        {
+            assert_eq!(f64::INFINITY, snapshot.min());
+            assert_eq!(f64::NEG_INFINITY, snapshot.max());
+        }
         assert_eq!(None, snapshot.quantile(0.5));
     }
 
@@ -318,8 +324,11 @@ mod tests {
 
         let snapshot = summary.snapshot(clock.now());
 
-        assert_eq!(42.0, snapshot.min());
-        assert_eq!(42.0, snapshot.max());
+        #[allow(clippy::float_cmp)]
+        {
+            assert_eq!(42.0, snapshot.min());
+            assert_eq!(42.0, snapshot.max());
+        }
         // 42 +/- (42 * 0.0001)
         assert!(Some(41.9958) < snapshot.quantile(0.5));
         assert!(Some(42.0042) > snapshot.quantile(0.5));

@@ -13,6 +13,7 @@ use metrics::{
 };
 use metrics::{Counter, CounterFn, Gauge, GaugeFn, Histogram, HistogramFn, Key, Recorder, Unit};
 
+#[derive(Clone, Debug)]
 struct PrintHandle(Key);
 
 impl CounterFn for PrintHandle {
@@ -45,7 +46,7 @@ impl HistogramFn for PrintHandle {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug)]
 struct PrintRecorder;
 
 impl Recorder for PrintRecorder {
@@ -90,8 +91,7 @@ impl Recorder for PrintRecorder {
 }
 
 fn init_print_logger() {
-    let recorder = PrintRecorder::default();
-    metrics::set_global_recorder(recorder).unwrap()
+    metrics::set_global_recorder(PrintRecorder).unwrap()
 }
 
 fn main() {

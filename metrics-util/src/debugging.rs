@@ -36,6 +36,7 @@ impl CompositeKeyName {
 }
 
 /// A point-in-time snapshot of all metrics in [`DebuggingRecorder`].
+#[derive(Debug)]
 pub struct Snapshot(Vec<(CompositeKey, Option<Unit>, Option<SharedString>, DebugValue)>);
 
 impl Snapshot {
@@ -67,6 +68,7 @@ pub enum DebugValue {
     Histogram(Vec<OrderedFloat<f64>>),
 }
 
+#[derive(Debug)]
 struct Inner {
     registry: Registry<Key, AtomicStorage>,
     seen: Mutex<IndexMap<CompositeKey, ()>>,
@@ -84,7 +86,7 @@ impl Inner {
 }
 
 /// Captures point-in-time snapshots of [`DebuggingRecorder`].
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Snapshotter {
     inner: Arc<Inner>,
 }
@@ -138,6 +140,7 @@ impl Snapshotter {
 ///
 /// Callers can easily take snapshots of the metrics at any given time and get access
 /// to the raw values.
+#[derive(Debug)]
 pub struct DebuggingRecorder {
     inner: Arc<Inner>,
 }

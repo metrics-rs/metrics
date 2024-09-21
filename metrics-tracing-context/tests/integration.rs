@@ -7,13 +7,13 @@ use tracing::dispatcher::{set_default, Dispatch};
 use tracing::{span, Level};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
 
-static LOGIN_ATTEMPTS: &'static str = "login_attempts";
-static LOGIN_ATTEMPTS_NONE: &'static str = "login_attempts_no_labels";
-static LOGIN_ATTEMPTS_STATIC: &'static str = "login_attempts_static_labels";
-static LOGIN_ATTEMPTS_DYNAMIC: &'static str = "login_attempts_dynamic_labels";
-static LOGIN_ATTEMPTS_BOTH: &'static str = "login_attempts_static_and_dynamic_labels";
-static MY_COUNTER: &'static str = "my_counter";
-static USER_EMAIL: &'static [Label] = &[
+static LOGIN_ATTEMPTS: &str = "login_attempts";
+static LOGIN_ATTEMPTS_NONE: &str = "login_attempts_no_labels";
+static LOGIN_ATTEMPTS_STATIC: &str = "login_attempts_static_labels";
+static LOGIN_ATTEMPTS_DYNAMIC: &str = "login_attempts_dynamic_labels";
+static LOGIN_ATTEMPTS_BOTH: &str = "login_attempts_static_and_dynamic_labels";
+static MY_COUNTER: &str = "my_counter";
+static USER_EMAIL: &[Label] = &[
     Label::from_static_parts("user", "ferris"),
     Label::from_static_parts("user.email", "ferris@rust-lang.org"),
 ];
@@ -522,7 +522,7 @@ fn test_nested_spans() {
     );
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct OnlyUser;
 
 impl LabelFilter for OnlyUser {
@@ -560,7 +560,7 @@ fn test_label_filtering() {
 
 #[test]
 fn test_label_allowlist() {
-    let snapshot = with_tracing_layer(TracingContextLayer::only_allow(&["env", "service"]), || {
+    let snapshot = with_tracing_layer(TracingContextLayer::only_allow(["env", "service"]), || {
         let user = "ferris";
         let email = "ferris@rust-lang.org";
         let span = span!(

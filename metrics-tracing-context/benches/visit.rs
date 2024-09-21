@@ -140,7 +140,7 @@ struct DebugStruct {
 
 impl DebugStruct {
     pub fn new() -> DebugStruct {
-        DebugStruct { field1: format!("yeehaw!"), field2: 324242343243 }
+        DebugStruct { field1: "yeehaw!".to_string(), field2: 324242343243 }
     }
 }
 

@@ -23,7 +23,7 @@ pub type SharedString = Cow<'static, str>;
 ///
 /// For any use-case within a `metrics`-owned or adjacent crate, where hashing of a key is required,
 /// this is the hasher that will be used.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct KeyHasher(AHasher);
 
 impl Hasher for KeyHasher {
@@ -84,12 +84,12 @@ pub enum Unit {
     Nanoseconds,
     /// Tebibytes.
     ///
-    /// One tebibyte is equal to 1024 gigibytes.
+    /// One tebibyte is equal to 1024 gibibytes.
     Tebibytes,
-    /// Gigibytes.
+    /// Gibibytes.
     ///
-    /// One gigibyte is equal to 1024 mebibytes.
-    Gigibytes,
+    /// One gibibyte is equal to 1024 mebibytes.
+    Gibibytes,
     /// Mebibytes.
     ///
     /// One mebibyte is equal to 1024 kibibytes.
@@ -133,7 +133,7 @@ impl Unit {
             Unit::Microseconds => "microseconds",
             Unit::Nanoseconds => "nanoseconds",
             Unit::Tebibytes => "tebibytes",
-            Unit::Gigibytes => "gigibytes",
+            Unit::Gibibytes => "gibibytes",
             Unit::Mebibytes => "mebibytes",
             Unit::Kibibytes => "kibibytes",
             Unit::Bytes => "bytes",
@@ -161,7 +161,7 @@ impl Unit {
             Unit::Microseconds => "μs",
             Unit::Nanoseconds => "ns",
             Unit::Tebibytes => "TiB",
-            Unit::Gigibytes => "GiB",
+            Unit::Gibibytes => "GiB",
             Unit::Mebibytes => "MiB",
             Unit::Kibibytes => "KiB",
             Unit::Bytes => "B",
@@ -186,7 +186,7 @@ impl Unit {
             "microseconds" => Some(Unit::Microseconds),
             "nanoseconds" => Some(Unit::Nanoseconds),
             "tebibytes" => Some(Unit::Tebibytes),
-            "gigibytes" => Some(Unit::Gigibytes),
+            "gibibytes" => Some(Unit::Gibibytes),
             "mebibytes" => Some(Unit::Mebibytes),
             "kibibytes" => Some(Unit::Kibibytes),
             "bytes" => Some(Unit::Bytes),
@@ -210,7 +210,7 @@ impl Unit {
         matches!(
             self,
             Unit::Tebibytes
-                | Unit::Gigibytes
+                | Unit::Gibibytes
                 | Unit::Mebibytes
                 | Unit::Kibibytes
                 | Unit::Bytes
@@ -276,7 +276,7 @@ macro_rules! into_f64 {
     };
 }
 
-pub(self) use into_f64;
+use into_f64;
 
 #[cfg(test)]
 mod tests {
@@ -294,7 +294,7 @@ mod tests {
             Unit::Microseconds,
             Unit::Nanoseconds,
             Unit::Tebibytes,
-            Unit::Gigibytes,
+            Unit::Gibibytes,
             Unit::Mebibytes,
             Unit::Kibibytes,
             Unit::Bytes,

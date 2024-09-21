@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Switched from `tui` to `ratatui`. ([#505](https://github.com/metrics-rs/metrics/pull/505))
+- Bump MSRV to 1.74.0.
+
 ## [0.4.0] - 2024-05-27
 
 ### Changed
