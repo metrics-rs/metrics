@@ -1,4 +1,4 @@
-use std::{cell::Cell, ops::Deref, ptr::NonNull, sync::Arc};
+use std::{cell::Cell, ptr::NonNull};
 
 mod cell;
 use self::cell::RecorderOnceCell;
@@ -70,7 +70,7 @@ macro_rules! impl_recorder {
                 unit: Option<$crate::Unit>,
                 description: $crate::SharedString,
             ) {
-                Deref::deref(self).describe_counter(key, unit, description)
+                std::ops::Deref::deref(self).describe_counter(key, unit, description)
             }
 
             fn describe_gauge(
@@ -79,7 +79,7 @@ macro_rules! impl_recorder {
                 unit: Option<$crate::Unit>,
                 description: $crate::SharedString,
             ) {
-                Deref::deref(self).describe_gauge(key, unit, description)
+                std::ops::Deref::deref(self).describe_gauge(key, unit, description)
             }
 
             fn describe_histogram(
@@ -88,7 +88,7 @@ macro_rules! impl_recorder {
                 unit: Option<$crate::Unit>,
                 description: $crate::SharedString,
             ) {
-                Deref::deref(self).describe_histogram(key, unit, description)
+                std::ops::Deref::deref(self).describe_histogram(key, unit, description)
             }
 
             fn register_counter(
@@ -96,7 +96,7 @@ macro_rules! impl_recorder {
                 key: &$crate::Key,
                 metadata: &$crate::Metadata<'_>,
             ) -> $crate::Counter {
-                Deref::deref(self).register_counter(key, metadata)
+                std::ops::Deref::deref(self).register_counter(key, metadata)
             }
 
             fn register_gauge(
@@ -104,7 +104,7 @@ macro_rules! impl_recorder {
                 key: &$crate::Key,
                 metadata: &$crate::Metadata<'_>,
             ) -> $crate::Gauge {
-                Deref::deref(self).register_gauge(key, metadata)
+                std::ops::Deref::deref(self).register_gauge(key, metadata)
             }
 
             fn register_histogram(
@@ -112,7 +112,7 @@ macro_rules! impl_recorder {
                 key: &$crate::Key,
                 metadata: &$crate::Metadata<'_>,
             ) -> $crate::Histogram {
-                Deref::deref(self).register_histogram(key, metadata)
+                std::ops::Deref::deref(self).register_histogram(key, metadata)
             }
         }
     };
@@ -120,8 +120,8 @@ macro_rules! impl_recorder {
 
 impl_recorder!(T, &T);
 impl_recorder!(T, &mut T);
-impl_recorder!(T, Box<T>);
-impl_recorder!(T, Arc<T>);
+impl_recorder!(T, std::boxed::Box<T>);
+impl_recorder!(T, std::sync::Arc<T>);
 
 /// Guard for setting a local recorder.
 ///
