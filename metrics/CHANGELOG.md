@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `Debug` derive to numerous types. ([#504](https://github.com/metrics-rs/metrics/pull/504))
+- Blanket implementations of `Recorder` over smart pointer representations (i.e. `Arc<T> where T: Recorder`). ([#512](https://github.com/metrics-rs/metrics/pull/512))
 
 ### Changed
 

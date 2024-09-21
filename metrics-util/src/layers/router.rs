@@ -191,7 +191,7 @@ mod tests {
         predicate::{always, eq},
         Sequence,
     };
-    use std::borrow::Cow;
+    use std::{borrow::Cow, sync::Arc};
 
     use super::RouterBuilder;
     use crate::MetricKindMask;
@@ -291,5 +291,50 @@ mod tests {
         let _ = recorder.register_counter(&override_counter, &METADATA);
         let _ = recorder.register_counter(&all_override, &METADATA);
         let _ = recorder.register_histogram(&all_override, &METADATA);
+    }
+
+    #[test]
+    fn test_same_recorder_multiple_routes() {
+        let default_counter: Key = "default".into();
+        let foo_counter: Key = "foo.counter".into();
+        let bar_counter: Key = "bar.counter".into();
+
+        let mut default_mock = MockTestRecorder::new();
+        let mut foo_bar_mock = MockTestRecorder::new();
+
+        let mut seq = Sequence::new();
+
+        static METADATA: metrics::Metadata =
+            metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
+
+        foo_bar_mock
+            .expect_register_counter()
+            .times(1)
+            .in_sequence(&mut seq)
+            .with(eq(foo_counter.clone()), always())
+            .returning(|_, _| Counter::noop());
+        foo_bar_mock
+            .expect_register_counter()
+            .times(1)
+            .in_sequence(&mut seq)
+            .with(eq(bar_counter.clone()), always())
+            .returning(|_, _| Counter::noop());
+        default_mock
+            .expect_register_counter()
+            .times(1)
+            .in_sequence(&mut seq)
+            .with(eq(default_counter.clone()), always())
+            .returning(|_, _| Counter::noop());
+
+        let foo_bar_mock = Arc::new(foo_bar_mock);
+
+        let mut builder = RouterBuilder::from_recorder(default_mock);
+        builder.add_route(MetricKindMask::COUNTER, "foo", foo_bar_mock.clone());
+        builder.add_route(MetricKindMask::COUNTER, "bar", foo_bar_mock);
+        let recorder = builder.build();
+
+        let _ = recorder.register_counter(&foo_counter, &METADATA);
+        let _ = recorder.register_counter(&bar_counter, &METADATA);
+        let _ = recorder.register_counter(&default_counter, &METADATA);
     }
 }
