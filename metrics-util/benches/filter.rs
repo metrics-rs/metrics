@@ -15,9 +15,9 @@ fn layer_benchmark(c: &mut Criterion) {
             let patterns = vec!["tokio"];
             let filter_layer = FilterLayer::from_patterns(patterns);
             let recorder = filter_layer.layer(NoopRecorder);
-            static KEY_NAME: &'static str = "tokio.foo";
+            static KEY_NAME: &str = "tokio.foo";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(KEY_NAME, &KEY_LABELS);
             static METADATA: metrics::Metadata =
                 metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
@@ -29,9 +29,9 @@ fn layer_benchmark(c: &mut Criterion) {
             let patterns = vec!["tokio"];
             let filter_layer = FilterLayer::from_patterns(patterns);
             let recorder = filter_layer.layer(NoopRecorder);
-            static KEY_NAME: &'static str = "hyper.foo";
+            static KEY_NAME: &str = "hyper.foo";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(KEY_NAME, &KEY_LABELS);
             static METADATA: metrics::Metadata =
                 metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
@@ -41,9 +41,9 @@ fn layer_benchmark(c: &mut Criterion) {
         });
         group.bench_function("noop recorder overhead (increment_counter)", |b| {
             let recorder = NoopRecorder;
-            static KEY_NAME: &'static str = "tokio.foo";
+            static KEY_NAME: &str = "tokio.foo";
             static KEY_LABELS: [Label; 1] = [Label::from_static_parts("foo", "bar")];
-            static KEY_DATA: Key = Key::from_static_parts(&KEY_NAME, &KEY_LABELS);
+            static KEY_DATA: Key = Key::from_static_parts(KEY_NAME, &KEY_LABELS);
             static METADATA: metrics::Metadata =
                 metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 

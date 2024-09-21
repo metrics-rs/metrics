@@ -94,7 +94,7 @@ fn basic_auth(username: &str, password: Option<&str>) -> HeaderValue {
     header
 }
 
-#[cfg(all(test))]
+#[cfg(test)]
 mod tests {
     use super::basic_auth;
 

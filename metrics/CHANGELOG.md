@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Added `Debug` derive to numerous types. ([#504](https://github.com/metrics-rs/metrics/pull/504))
+
+### Changed
+
+- Changed `Unit::Gigibytes` to `Gibibytes` to match the proper SI prefix.
+  ([#508](https://github.com/metrics-rs/metrics/pull/508))
+- Fixed a number of Clippy lints. ([#510](https://github.com/metrics-rs/metrics/pull/510))
+- Updated the documentation for `with_local_recorder` to better explain limitations.
+- `set_global_recorder` now requires that the recorder is `Sync`. ([#511](https://github.com/metrics-rs/metrics/pull/511))
+
 ## [0.23.0] - 2024-05-27
 
 ### Added

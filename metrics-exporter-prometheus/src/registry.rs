@@ -7,6 +7,7 @@ use quanta::Instant;
 pub type GenerationalAtomicStorage = GenerationalStorage<AtomicStorage>;
 
 /// Atomic metric storage for the prometheus exporter.
+#[derive(Debug)]
 pub struct AtomicStorage;
 
 impl<K> metrics_util::registry::Storage<K> for AtomicStorage {
@@ -28,6 +29,7 @@ impl<K> metrics_util::registry::Storage<K> for AtomicStorage {
 }
 
 /// An `AtomicBucket` newtype wrapper that tracks the time of value insertion.
+#[derive(Debug)]
 pub struct AtomicBucketInstant<T> {
     inner: AtomicBucket<(T, Instant)>,
 }

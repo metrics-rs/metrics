@@ -53,10 +53,9 @@ crossbeam-utils = { version = "0.8", default-features = false, optional = true }
 aho-corasick = { version = "1", default-features = false, optional = true, features = ["std"] }
 indexmap = { version = "2.1", default-features = false, features = ["std"], optional = true }
 quanta = { version = "0.12", default-features = false, optional = true }
-sketches-ddsketch = { version = "0.2", default-features = false, optional = true }
+sketches-ddsketch = { version = "0.3", default-features = false, optional = true }
 radix_trie = { version = "0.2", default-features = false, optional = true }
 ordered-float = { version = "4.2", default-features = false, optional = true }
-num_cpus = { version = "1", default-features = false, optional = true }
 ahash = { version = "0.8.8", default-features = false, optional = true }
 hashbrown = { version = "0.14", default-features = false, optional = true, features = ["ahash"] }
 
@@ -67,7 +66,7 @@ rand = { version = "0.8", features = ["small_rng"] }
 rand_distr = "0.4"
 getopts = "0.2"
 hdrhistogram = { version = "7.2", default-features = false }
-sketches-ddsketch = "0.2"
+sketches-ddsketch = "0.3"
 ndarray = "0.15"
 ndarray-stats = "0.5"
 noisy_float = "0.2"
@@ -90,4 +89,4 @@ layer-filter = ["aho-corasick"]
 layer-router = ["radix_trie"]
 summary = ["sketches-ddsketch"]
 recency = ["registry", "quanta"]
-registry = ["crossbeam-epoch", "crossbeam-utils", "handles", "hashbrown", "num_cpus"]
+registry = ["crossbeam-epoch", "crossbeam-utils", "handles", "hashbrown"]

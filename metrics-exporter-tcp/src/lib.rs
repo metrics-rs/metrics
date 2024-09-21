@@ -137,6 +137,7 @@ impl std::error::Error for Error {
     }
 }
 
+#[derive(Debug)]
 struct State {
     client_count: AtomicUsize,
     should_send: AtomicBool,
@@ -188,6 +189,7 @@ impl State {
     }
 }
 
+#[derive(Debug)]
 struct Handle {
     key: Key,
     state: Arc<State>,
@@ -230,11 +232,13 @@ impl HistogramFn for Handle {
 }
 
 /// A TCP recorder.
+#[derive(Debug)]
 pub struct TcpRecorder {
     state: Arc<State>,
 }
 
 /// Builder for creating and installing a TCP recorder/exporter.
+#[derive(Debug)]
 pub struct TcpBuilder {
     listen_addr: SocketAddr,
     buffer_size: Option<usize>,
