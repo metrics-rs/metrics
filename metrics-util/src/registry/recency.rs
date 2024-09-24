@@ -248,22 +248,43 @@ where
     ///
     /// If the given key has been updated recently enough, and should continue to be stored, this
     /// method will return `true`.
-    pub fn should_counter<S>(&self, key: &K, gen: Generation, registry: &Registry<K, S>) -> bool
+    pub fn has_counter_expired<S>(
+        &self,
+        key: &K,
+        gen: Generation,
+        registry: &Registry<K, S>,
+    ) -> bool
     where
         S: Storage<K>,
     {
         self.should_store(key, gen, registry, MetricKind::Counter, |_, _| true)
     }
 
-    /// Checks if the given gauge should be stored, based on its known recency.
+    /// Checks if the given gauge has expired, based on its known recency.
     ///
     /// If the given key has been updated recently enough, and should continue to be stored, this
     /// method will return `true`.
-    pub fn should_gauge<S>(&self, key: &K, gen: Generation, registry: &Registry<K, S>) -> bool
+    pub fn has_gauge_expired<S>(&self, key: &K, gen: Generation, registry: &Registry<K, S>) -> bool
     where
         S: Storage<K>,
     {
         self.should_store(key, gen, registry, MetricKind::Gauge, |_, _| true)
+    }
+
+    /// Checks if the given histogram has expired, based on its known recency.
+    ///
+    /// If the given key has been updated recently enough, and should continue to be stored, this
+    /// method will return `true`.
+    pub fn has_histogram_expired<S>(
+        &self,
+        key: &K,
+        gen: Generation,
+        registry: &Registry<K, S>,
+    ) -> bool
+    where
+        S: Storage<K>,
+    {
+        self.should_store(key, gen, registry, MetricKind::Histogram, |_, _| true)
     }
 
     /// Checks if the given counter should be stored, based on its known recency.
