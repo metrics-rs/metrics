@@ -27,7 +27,7 @@ tracing = { version = "0.1", default-features = false, features = ["attributes"]
 
 [build-dependencies]
 prost-build = "0.12"
-home = "=0.5.5"
+home = "0.5.9"
 
 [dev-dependencies]
 quanta = "0.12"

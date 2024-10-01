@@ -3,15 +3,15 @@
 pub struct Level(LevelInner);
 
 impl Level {
-    /// The "error" level.
+    /// The "trace" level.
     pub const TRACE: Self = Self(LevelInner::Trace);
-    /// The "warn" level.
+    /// The "debug" level.
     pub const DEBUG: Self = Self(LevelInner::Debug);
     /// The "info" level.
     pub const INFO: Self = Self(LevelInner::Info);
-    /// The "debug" level.
+    /// The "warn" level.
     pub const WARN: Self = Self(LevelInner::Warn);
-    /// The "trace" level.
+    /// The "error" level.
     pub const ERROR: Self = Self(LevelInner::Error);
 }
 

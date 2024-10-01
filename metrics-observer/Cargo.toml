@@ -28,4 +28,4 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [build-dependencies]
 prost-build = "0.12"
-home = "=0.5.5"
+home = "0.5.9"
