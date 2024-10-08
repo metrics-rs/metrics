@@ -27,5 +27,5 @@ ratatui = { version = "0.28.0", default-features = false, features = ["crossterm
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [build-dependencies]
-prost-build = "0.12"
+prost-build = "0.13"
 home = "0.5.9"
