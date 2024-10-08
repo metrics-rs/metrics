@@ -67,7 +67,7 @@ rand_distr = "0.4"
 getopts = "0.2"
 hdrhistogram = { version = "7.2", default-features = false }
 sketches-ddsketch = "0.3"
-ndarray = "0.15"
+ndarray = "0.16"
 ndarray-stats = "0.5"
 noisy_float = "0.2"
 ordered-float = "4.2"
