@@ -3,7 +3,7 @@ name = "metrics-tracing-context"
 version = "0.16.0"
 authors = ["MOZGIII <mike-n@narod.ru>"]
 edition = "2018"
-rust-version = "1.70.0"
+rust-version = "1.71.1"
 
 license = "MIT"
 

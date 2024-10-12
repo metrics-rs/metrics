@@ -70,7 +70,7 @@ Additionally, here are some learning resource(s) to help you get started:
 
 ## MSRV and MSRV policy
 
-Minimum supported Rust version (MSRV) is currently **1.70.0**, enforced by CI.
+Minimum supported Rust version (MSRV) is currently **1.71.1**, enforced by CI.
 
 `metrics` will always support _at least_ the latest four versions of stable Rust, based on minor
 version releases, and excluding patch versions. Overall, we strive to support older versions where

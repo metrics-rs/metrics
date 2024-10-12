@@ -36,7 +36,7 @@ itoa = { version = "1", default-features = false }
 lockfree-object-pool = { version = "0.1", default-features = false }
 log = { version = "0.4", default-features = false }
 mio = { version = "1.0", default-features = false }
-mockall = { version = "0.13", default-features = false }
+mockall = { version = "0.12", default-features = false }
 ndarray = { version = "0.16", default-features = false }
 ndarray-stats = { version = "0.6", default-features = false }
 noisy_float = { version = "0.2", default-features = false }
@@ -44,8 +44,9 @@ once_cell = { version = "1", default-features = false, features = ["std"] }
 ordered-float = { version = "4.2", default-features = false }
 parking_lot = { version = "0.12", default-features = false }
 portable-atomic = { version = "1", default-features = false }
-predicates-core = { version = "1", default-features = false }
-predicates-tree = { version = "1", default-features = false }
+predicates = { version = "=3.1.0", default-features = false }
+predicates-core = { version = "=1.0.6", default-features = false }
+predicates-tree = { version = "=1.0.9", default-features = false }
 pretty_env_logger = { version = "0.5", default-features = false }
 proptest = { version = "1", default-features = false, features = ["std"] }
 prost = { version = "0.13", default-features = false, features = ["derive"] }

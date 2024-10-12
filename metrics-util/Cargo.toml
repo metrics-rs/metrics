@@ -3,7 +3,7 @@ name = "metrics-util"
 version = "0.17.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
-rust-version = "1.70.0"
+rust-version = "1.71.1"
 
 license = "MIT"
 
@@ -70,6 +70,7 @@ ndarray = { workspace = true }
 ndarray-stats = { workspace = true }
 noisy_float = { workspace = true }
 ordered-float = { workspace = true }
+predicates = { workspace = true }
 predicates-core = { workspace = true }
 predicates-tree = { workspace = true }
 quickcheck = { workspace = true }

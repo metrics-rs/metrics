@@ -3,7 +3,7 @@ name = "metrics"
 version = "0.23.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
-rust-version = "1.70.0"
+rust-version = "1.71.1"
 
 license = "MIT"
 
