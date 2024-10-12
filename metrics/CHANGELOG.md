@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Blanket implementations of `Recorder` over smart pointer representations (i.e. `Arc<T> where T: Recorder`).
   ([#512](https://github.com/metrics-rs/metrics/pull/512))
 - Added a new method, `record_many`, to `Histogram` and `HistogramFn`, for recording a single value multiple times. This
-  method is backwards compatible as `HistogramFn` provides a default implementation.
+  method is backwards compatible as `HistogramFn` provides a default implementation. ([#531](https://github.com/metrics-rs/metrics/pull/531))
 
 ### Changed
 
