@@ -19,7 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#508](https://github.com/metrics-rs/metrics/pull/508))
 - Fixed a number of Clippy lints. ([#510](https://github.com/metrics-rs/metrics/pull/510))
 - Updated the documentation for `with_local_recorder` to better explain limitations.
-- `set_global_recorder` now requires that the recorder is `Sync`. ([#511](https://github.com/metrics-rs/metrics/pull/511))
+- `set_global_recorder` now requires that the recorder is `Sync`.
+  ([#511](https://github.com/metrics-rs/metrics/pull/511))
+- Bump MSRV to 1.71.1. ([#530](https://github.com/metrics-rs/metrics/pull/530))
 
 ## [0.23.0] - 2024-05-27
 

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Fixed a number of Clippy lints. ([#510](https://github.com/metrics-rs/metrics/pull/510))
+- Bump MSRV to 1.71.1. ([#530](https://github.com/metrics-rs/metrics/pull/530))
 
 ## [0.16.0] - 2024-05-27
 
