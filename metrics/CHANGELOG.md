@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `set_global_recorder` now requires that the recorder is `Sync`.
   ([#511](https://github.com/metrics-rs/metrics/pull/511))
 - Bump MSRV to 1.71.1. ([#530](https://github.com/metrics-rs/metrics/pull/530))
+- `with_recorder` is no longer hidden in the docs.
 
 ## [0.23.0] - 2024-05-27
 

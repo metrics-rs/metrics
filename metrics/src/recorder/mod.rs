@@ -225,9 +225,8 @@ pub fn with_local_recorder<T>(recorder: &dyn Recorder, f: impl FnOnce() -> T) ->
 /// If a local recorder has been set, it will be used. Otherwise, the global recorder will be used.
 /// If neither a local recorder or global recorder have been set, a no-op recorder will be used.
 ///
-/// This is used primarily by the generated code from the convenience macros used to record metrics.
-/// It should typically not be necessary to call this function directly.
-#[doc(hidden)]
+/// It should typically not be necessary to call this function directly, as it is used primarily by generated code. You
+/// should prefer working with the macros provided by `metrics` instead: `counter!`, `gauge!`, `histogram!`, etc.
 pub fn with_recorder<T>(f: impl FnOnce(&dyn Recorder) -> T) -> T {
     LOCAL_RECORDER.with(|local_recorder| {
         if let Some(recorder) = local_recorder.get() {
