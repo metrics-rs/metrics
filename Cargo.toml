@@ -1,10 +1,67 @@
 [workspace]
 members = [
   "metrics",
-  "metrics-util",
-  "metrics-exporter-tcp",
-  "metrics-exporter-prometheus",
-  "metrics-tracing-context",
-  "metrics-observer",
   "metrics-benchmark",
+  "metrics-exporter-prometheus",
+  "metrics-exporter-tcp",
+  "metrics-observer",
+  "metrics-tracing-context",
+  "metrics-util",
 ]
+
+[workspace.dependencies]
+ahash = { version = "0.8", default-features = false }
+aho-corasick = { version = "1", default-features = false }
+approx = { version = "0.5", default-features = false }
+base64 = { version = "0.22", default-features = false, features = ["std"] }
+bytes = { version = "1", default-features = false }
+chrono = { version = "0.4", default-features = false }
+criterion = { version = "=0.3.3", default-features = false }
+crossbeam-channel = { version = "0.5", default-features = false }
+crossbeam-epoch = { version = "0.9", default-features = false }
+crossbeam-queue = { version = "0.3", default-features = false, features = ["std"] }
+crossbeam-utils = { version = "0.8", default-features = false }
+getopts = { version = "0.2", default-features = false }
+hashbrown = { version = "0.15", default-features = false, features = ["default-hasher", "raw-entry"] }
+hdrhistogram = { version = "7.2", default-features = false }
+home = { version = "0.5", default-features = false }
+http-body-util = { version = "0.1", default-features = false }
+hyper = { version = "1.1", default-features = false, features = ["server", "client"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["aws-lc-rs", "http1", "rustls-native-certs"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio", "service", "client", "client-legacy", "http1"] }
+indexmap = { version = "2.6", default-features = false, features = ["std"] }
+ipnet = { version = "2", default-features = false, features = ["std"] }
+itertools = { version = "0.13.0", default-features = false }
+itoa = { version = "1", default-features = false }
+lockfree-object-pool = { version = "0.1", default-features = false }
+log = { version = "0.4", default-features = false }
+mio = { version = "1.0", default-features = false }
+mockall = { version = "0.13", default-features = false }
+ndarray = { version = "0.16", default-features = false }
+ndarray-stats = { version = "0.6", default-features = false }
+noisy_float = { version = "0.2", default-features = false }
+once_cell = { version = "1", default-features = false, features = ["std"] }
+ordered-float = { version = "4.2", default-features = false }
+parking_lot = { version = "0.12", default-features = false }
+portable-atomic = { version = "1", default-features = false }
+predicates-core = { version = "1", default-features = false }
+predicates-tree = { version = "1", default-features = false }
+pretty_env_logger = { version = "0.5", default-features = false }
+proptest = { version = "1", default-features = false, features = ["std"] }
+prost = { version = "0.13", default-features = false, features = ["derive"] }
+prost-build = { version = "0.13", default-features = false }
+prost-types = { version = "0.13", default-features = false }
+quanta = { version = "0.12", default-features = false }
+quickcheck = { version = "1", default-features = false }
+quickcheck_macros = { version = "1", default-features = false }
+radix_trie = { version = "0.2", default-features = false }
+rand = { version = "0.8", default-features = false, features = ["std", "std_rng"] }
+rand_distr = { version = "0.4", default-features = false }
+ratatui = { version = "0.28", default-features = false }
+sketches-ddsketch = { version = "0.3", default-features = false }
+thiserror = { version = "1", default-features = false }
+tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "rt-multi-thread"] }
+tracing = { version = "0.1", default-features = false }
+tracing-core = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false }
+trybuild = { version = "1", default-features = false }

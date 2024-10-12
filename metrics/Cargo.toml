@@ -24,7 +24,7 @@ name = "macros"
 harness = false
 
 [dependencies]
-ahash = { version = "0.8.8", default-features = false }
+ahash = { workspace = true }
 
 [target.'cfg(target_pointer_width = "32")'.dependencies]
 portable-atomic = { version = "1", default-features = false, features = [
@@ -32,7 +32,7 @@ portable-atomic = { version = "1", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-log = "0.4"
-criterion = { version = "=0.3.3", default-features = false }
-rand = "0.8"
-trybuild = "1"
+criterion = { workspace = true }
+log = { workspace = true }
+rand = { workspace = true }
+trybuild = { workspace = true }

@@ -28,19 +28,19 @@ name = "layer"
 harness = false
 
 [dependencies]
-itoa = { version = "1", default-features = false }
+indexmap = { workspace = true }
+itoa = { workspace = true }
+lockfree-object-pool = { workspace = true }
 metrics = { version = "^0.23", path = "../metrics" }
 metrics-util = { version = "^0.17", path = "../metrics-util" }
-lockfree-object-pool = { version = "0.1.3", default-features = false }
-indexmap = { version = "2.1", default-features = false, features = ["std"] }
-once_cell = { version = "1", default-features = false, features = ["std"] }
-tracing = { version = "0.1.29", default-features = false }
-tracing-core = { version = "0.1.21", default-features = false }
-tracing-subscriber = { version = "0.3.1", default-features = false, features = ["std"] }
+once_cell = { workspace = true }
+tracing = { workspace = true }
+tracing-core = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-criterion = { version = "=0.3.3", default-features = false }
-parking_lot = { version = "0.12.1", default-features = false }
-tracing = { version = "0.1.29", default-features = false, features = ["std"] }
-tracing-subscriber = { version = "0.3.1", default-features = false, features = ["registry"] }
-itertools = { version = "0.12.0", default-features = false, features = ["use_std"] }
+criterion = { workspace = true }
+itertools = { workspace = true, features = ["use_std"] }
+parking_lot = { workspace = true }
+tracing = { workspace = true, features = ["std"] }
+tracing-subscriber = { workspace = true, features = ["registry"] }
