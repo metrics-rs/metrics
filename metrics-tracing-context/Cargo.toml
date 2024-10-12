@@ -31,7 +31,7 @@ harness = false
 indexmap = { workspace = true }
 itoa = { workspace = true }
 lockfree-object-pool = { workspace = true }
-metrics = { version = "^0.23", path = "../metrics" }
+metrics = { version = "^0.24", path = "../metrics" }
 metrics-util = { version = "^0.17", path = "../metrics-util" }
 once_cell = { workspace = true }
 tracing = { workspace = true }

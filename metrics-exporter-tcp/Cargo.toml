@@ -19,7 +19,7 @@ keywords = ["metrics", "telemetry", "tcp"]
 [dependencies]
 bytes = { workspace = true }
 crossbeam-channel = { workspace = true, features = ["std"] }
-metrics = { version = "^0.23", path = "../metrics" }
+metrics = { version = "^0.24", path = "../metrics" }
 mio = { workspace = true, features = ["os-poll", "net"] }
 prost = { workspace = true }
 prost-types = { workspace = true, features = ["std"] }

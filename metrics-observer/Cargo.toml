@@ -20,7 +20,7 @@ keywords = ["metrics", "facade", "macros"]
 bytes = { workspace = true }
 chrono = { workspace = true, features = ["clock"] }
 crossbeam-channel = { workspace = true, features = ["std"] }
-metrics = { version = "^0.23", path = "../metrics", default-features = false }
+metrics = { version = "^0.24", path = "../metrics", default-features = false }
 metrics-util = { version = "^0.17", path = "../metrics-util", default-features = false, features = ["summary"] }
 prost = { workspace = true }
 prost-types = { workspace = true }

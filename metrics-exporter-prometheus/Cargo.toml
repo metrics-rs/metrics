@@ -42,7 +42,7 @@ hyper-rustls = { workspace = true, optional = true }
 hyper-util = { workspace = true, optional = true }
 indexmap = { workspace = true }
 ipnet = { workspace = true, optional = true }
-metrics = { version = "^0.23", path = "../metrics" }
+metrics = { version = "^0.24", path = "../metrics" }
 metrics-util = { version = "^0.17", path = "../metrics-util", default-features = false, features = [
     "recency",
     "registry",

@@ -53,7 +53,7 @@ crossbeam-epoch = { workspace = true, features = ["alloc", "std"], optional = tr
 crossbeam-utils = { workspace = true, optional = true }
 hashbrown = { workspace = true, optional = true }
 indexmap = { workspace = true, optional = true }
-metrics = { version = "^0.23", path = "../metrics" }
+metrics = { version = "^0.24", path = "../metrics" }
 ordered-float = { workspace = true, optional = true }
 quanta = { workspace = true, optional = true }
 radix_trie = { workspace = true, optional = true }
