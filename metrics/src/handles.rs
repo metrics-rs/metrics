@@ -36,6 +36,13 @@ pub trait GaugeFn {
 pub trait HistogramFn {
     /// Records a value into the histogram.
     fn record(&self, value: f64);
+
+    /// Records a value into the histogram multiple times.
+    fn record_many(&self, value: f64, count: usize) {
+        for _ in 0..count {
+            self.record(value);
+        }
+    }
 }
 
 /// A counter.
@@ -156,10 +163,17 @@ impl Histogram {
         Self { inner: Some(a) }
     }
 
-    /// Records a value in the histogram.
+    /// Records a value into the histogram.
     pub fn record<T: IntoF64>(&self, value: T) {
         if let Some(ref inner) = self.inner {
             inner.record(value.into_f64())
+        }
+    }
+
+    /// Records a value into the histogram multiple times.
+    pub fn record_many<T: IntoF64>(&self, value: T, count: usize) {
+        if let Some(ref inner) = self.inner {
+            inner.record_many(value.into_f64(), count)
         }
     }
 }
