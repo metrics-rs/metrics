@@ -1,7 +1,7 @@
 //! Helpers for rendering metrics in the Prometheus exposition format.
 
 use indexmap::IndexMap;
-use metrics::Key;
+use metrics::{Key, Unit};
 
 /// Breaks a key into the name and label components, with optional default labels.
 ///
@@ -64,6 +64,7 @@ pub fn write_metric_line<T, T2>(
     labels: &[String],
     additional_label: Option<(&'static str, T)>,
     value: T2,
+    unit: Option<Unit>,
 ) where
     T: std::fmt::Display,
     T2: std::fmt::Display,
@@ -72,6 +73,18 @@ pub fn write_metric_line<T, T2>(
     if let Some(suffix) = suffix {
         buffer.push('_');
         buffer.push_str(suffix);
+    }
+
+    match unit {
+        Some(Unit::Count) | None => {}
+        Some(Unit::Percent) => {
+            buffer.push('_');
+            buffer.push_str("ratio");
+        }
+        Some(unit) => {
+            buffer.push('_');
+            buffer.push_str(unit.as_str());
+        }
     }
 
     if !labels.is_empty() || additional_label.is_some() {
