@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Updated the crate-level documentation, and the documentation for [`PrometheusBuilder::build_recorder`] and
+  [`PrometheusBuilder::install_recorder`], to call out the requirements around running upkeep periodically.
+
 ## [0.16.0] - 2024-10-12
 
 ### Added

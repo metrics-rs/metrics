@@ -2,42 +2,36 @@
 //!
 //! ## Basics
 //!
-//! `metrics-exporter-prometheus` is a [`metrics`]-compatible exporter for either exposing an HTTP
-//! endpoint that can be scraped by Prometheus, or that can push metrics to a Prometheus push
-//! gateway.
+//! `metrics-exporter-prometheus` is a [`metrics`]-compatible exporter for either exposing an HTTP endpoint that can be
+//! scraped by Prometheus, or that can push metrics to a Prometheus push gateway.
 //!
 //! ## High-level features
 //!
 //! - scrape endpoint support
 //! - push gateway support
 //! - IP-based allowlist for scrape endpoint
-//! - ability to push histograms as either aggregated summaries or aggregated histograms, with
-//!   configurable quantiles/buckets
+//! - ability to push histograms as either aggregated summaries or aggregated histograms, with configurable
+//!   quantiles/buckets
 //! - ability to control bucket configuration on a per-metric basis
 //! - configurable global labels (applied to all metrics, overridden by metric's own labels if present)
 //!
 //! ## Behavior
 //!
-//! In general, interacting with the exporter should look and feel like interacting with any other
-//! implementation of a Prometheus scrape endpoint or push gateway implementation, but there are
-//! some small caveats around metric naming.
+//! In general, interacting with the exporter should look and feel like interacting with any other implementation of a
+//! Prometheus scrape endpoint or push gateway implementation, but there are some small caveats around metric naming.
 //!
-//! We strive to match both the Prometheus [data model] and follow the [exposition format]
-//! specification, but due to the decoupled nature of [`metrics`][metrics], the exporter makes some
-//! specific trade-offs when ensuring compliance with the specification when it comes to metric
-//! names and label keys.  Below is a matrix of scenarios where the exporter will modify a metric
-//! name or label key:
+//! We strive to match both the Prometheus [data model] and follow the [exposition format] specification, but due to the
+//! decoupled nature of [`metrics`][metrics], the exporter makes some specific trade-offs when ensuring compliance with
+//! the specification when it comes to metric names and label keys.  Below is a matrix of scenarios where the exporter
+//! will modify a metric name or label key:
 //!
-//! - metric name starts with, or contains, an invalid character: **replace character with
-//!   underscore**
-//! - label key starts with, or contains, an invalid character: **replace character with
-//!   underscore**
+//! - metric name starts with, or contains, an invalid character: **replace character with underscore**
+//! - label key starts with, or contains, an invalid character: **replace character with underscore**
 //! - label key starts with two underscores: **add additional underscore** (three underscores total)
 //!
-//! This behavior may be confusing at first since [`metrics`][metrics] itself allows any valid UTF-8
-//! string for a metric name or label, but there is no way to report to the user that a metric name
-//! or label key is invalid only when using the Prometheus exporter, so we must cope with these
-//! situations by replacing invalid characters at runtime.
+//! This behavior may be confusing at first since [`metrics`][metrics] itself allows any valid UTF-8 string for a metric
+//! name or label, but there is no way to report to the user that a metric name or label key is invalid only when using
+//! the Prometheus exporter, so we must cope with these situations by replacing invalid characters at runtime.
 //!
 //! ## Usage
 //!
@@ -91,9 +85,23 @@
 //! - **`http-listener`**: allows running the exporter as a scrape endpoint (_enabled by default_)
 //! - **`push-gateway`**: allows running the exporter in push gateway mode (_enabled by default_)
 //!
-//! Neither of these flags are required to create, or install, only a recorder.  However, in order
-//! to create or build an exporter, at least one of these feature flags must be enabled.  Builder
-//! methods that require certain feature flags will be documented as such.
+//! Neither of these flags are required to create, or install, only a recorder.  However, in order to create or build an
+//! exporter, at least one of these feature flags must be enabled.  Builder methods that require certain feature flags
+//! will be documented as such.
+//!
+//! ## Upkeep and maintenance
+//!
+//! As Prometheus is generally a pull-based exporter -- clients "scrape" metrics by making an HTTP request to the
+//! exporter -- the exporter itself sometimes has few opportunities to do maintenance tasks, such as draining histogram
+//! buckets, which can grow over time and consume a large amount of memory.
+//!
+//! In order perform this maintenance, there is a concept of an "upkeep task", which periodically runs in the background
+//! and performs the necessary "upkeep" of the various data structures. When using either [`PrometheusBuilder::build`]
+//! or [`PrometheusBuilder::install`], an upkeep task will automatically be spawned on the asynchronous runtime being
+//! used to ensure this maintenance occurs. However, when using lower-level builder methods
+//! [`PrometheusBuilder::build_recorder`] or [`PrometheusBuilder::install_recorder`], this upkeep task is _not_ spawned
+//! automatically. Users are responsible for keeping a handle to the recorder ([`PrometheusHandle`]) and calling the
+//! [`run_upkeep`][PrometheusHandle::run_upkeep] method at a regular interval.
 //!
 //! [metrics]: https://docs.rs/metrics/latest/metrics/
 //! [data model]: https://prometheus.io/docs/concepts/data_model/

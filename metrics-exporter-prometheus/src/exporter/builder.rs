@@ -87,8 +87,8 @@ impl PrometheusBuilder {
     ///
     /// The HTTP listener that is spawned will respond to GET requests on any request path.
     ///
-    /// Running in HTTP listener mode is mutually exclusive with the push gateway i.e. enabling the
-    /// HTTP listener will disable the push gateway, and vise versa.
+    /// Running in HTTP listener mode is mutually exclusive with the push gateway i.e. enabling the HTTP listener will
+    /// disable the push gateway, and vise versa.
     ///
     /// Defaults to enabled, listening at `0.0.0.0:9000`.
     ///
@@ -105,15 +105,14 @@ impl PrometheusBuilder {
 
     /// Configures the exporter to push periodic requests to a Prometheus [push gateway].
     ///
-    /// Running in push gateway mode is mutually exclusive with the HTTP listener i.e. enabling the
-    /// push gateway will disable the HTTP listener, and vise versa.
+    /// Running in push gateway mode is mutually exclusive with the HTTP listener i.e. enabling the push gateway will
+    /// disable the HTTP listener, and vise versa.
     ///
     /// Defaults to disabled.
     ///
     /// ## Errors
     ///
-    /// If the given endpoint cannot be parsed into a valid URI, an error variant will be
-    /// returned describing the error.
+    /// If the given endpoint cannot be parsed into a valid URI, an error variant will be returned describing the error.
     ///
     /// [push gateway]: https://prometheus.io/docs/instrumenting/pushing/
     #[cfg(feature = "push-gateway")]
@@ -139,13 +138,13 @@ impl PrometheusBuilder {
         Ok(self)
     }
 
-    /// Configures the exporter to expose an HTTP listener that functions as a [scrape endpoint],
-    /// listening on a Unix Domain socket at the given path
+    /// Configures the exporter to expose an HTTP listener that functions as a [scrape endpoint], listening on a Unix
+    /// Domain socket at the given path
     ///
     /// The HTTP listener that is spawned will respond to GET requests on any request path.
     ///
-    /// Running in HTTP listener mode is mutually exclusive with the push gateway i.e. enabling the
-    /// HTTP listener will disable the push gateway, and vise versa.
+    /// Running in HTTP listener mode is mutually exclusive with the push gateway i.e. enabling the HTTP listener will
+    /// disable the push gateway, and vise versa.
     ///
     /// Defaults to disabled.
     ///
@@ -162,22 +161,21 @@ impl PrometheusBuilder {
 
     /// Adds an IP address or subnet to the allowlist for the scrape endpoint.
     ///
-    /// If a client makes a request to the scrape endpoint and their IP is not present in the
-    /// allowlist, either directly or within any of the allowed subnets, they will receive a 403
-    /// Forbidden response.
+    /// If a client makes a request to the scrape endpoint and their IP is not present in the allowlist, either directly
+    /// or within any of the allowed subnets, they will receive a 403 Forbidden response.
     ///
     /// Defaults to allowing all IPs.
     ///
     /// ## Security Considerations
     ///
-    /// On its own, an IP allowlist is insufficient for access control, if the exporter is running
-    /// in an environment alongside applications (such as web browsers) that are susceptible to [DNS
+    /// On its own, an IP allowlist is insufficient for access control, if the exporter is running in an environment
+    /// alongside applications (such as web browsers) that are susceptible to [DNS
     /// rebinding](https://en.wikipedia.org/wiki/DNS_rebinding) attacks.
     ///
     /// ## Errors
     ///
-    /// If the given address cannot be parsed into an IP address or subnet, an error variant will be
-    /// returned describing the error.
+    /// If the given address cannot be parsed into an IP address or subnet, an error variant will be returned describing
+    /// the error.
     #[cfg(feature = "http-listener")]
     #[cfg_attr(docsrs, doc(cfg(feature = "http-listener")))]
     pub fn add_allowed_address<A>(mut self, address: A) -> Result<Self, BuildError>
@@ -195,15 +193,15 @@ impl PrometheusBuilder {
 
     /// Sets the quantiles to use when rendering histograms.
     ///
-    /// Quantiles represent a scale of 0 to 1, where percentiles represent a scale of 1 to 100, so
-    /// a quantile of 0.99 is the 99th percentile, and a quantile of 0.99 is the 99.9th percentile.
+    /// Quantiles represent a scale of 0 to 1, where percentiles represent a scale of 1 to 100, so a quantile of 0.99 is
+    /// the 99th percentile, and a quantile of 0.99 is the 99.9th percentile.
     ///
-    /// Defaults to a hard-coded set of quantiles: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and 1.0. This means
-    /// that all histograms will be exposed as Prometheus summaries.
+    /// Defaults to a hard-coded set of quantiles: 0.0, 0.5, 0.9, 0.95, 0.99, 0.999, and 1.0. This means that all
+    /// histograms will be exposed as Prometheus summaries.
     ///
     /// If buckets are set (via [`set_buckets`][Self::set_buckets] or
-    /// [`set_buckets_for_metric`][Self::set_buckets_for_metric]) then all histograms will be exposed
-    /// as summaries instead.
+    /// [`set_buckets_for_metric`][Self::set_buckets_for_metric]) then all histograms will be exposed as summaries
+    /// instead.
     ///
     /// ## Errors
     ///
@@ -219,17 +217,16 @@ impl PrometheusBuilder {
 
     /// Sets the bucket width when using summaries.
     ///
-    /// Summaries are rolling, which means that they are divided into buckets of a fixed duration
-    /// (width), and older buckets are dropped as they age out. This means data from a period as
-    /// large as the width will be dropped at a time.
+    /// Summaries are rolling, which means that they are divided into buckets of a fixed duration (width), and older
+    /// buckets are dropped as they age out. This means data from a period as large as the width will be dropped at a
+    /// time.
     ///
-    /// The total amount of data kept for a summary is the number of buckets times the bucket width.
-    /// For example, a bucket count of 3 and a bucket width of 20 seconds would mean that 60 seconds
-    /// of data is kept at most, with the oldest 20 second chunk of data being dropped as the
-    /// summary rolls forward.
+    /// The total amount of data kept for a summary is the number of buckets times the bucket width.  For example, a
+    /// bucket count of 3 and a bucket width of 20 seconds would mean that 60 seconds of data is kept at most, with the
+    /// oldest 20 second chunk of data being dropped as the summary rolls forward.
     ///
-    /// Use more buckets with a smaller width to roll off smaller amounts of data at a time, or
-    /// fewer buckets with a larger width to roll it off in larger chunks.
+    /// Use more buckets with a smaller width to roll off smaller amounts of data at a time, or fewer buckets with a
+    /// larger width to roll it off in larger chunks.
     ///
     /// Defaults to 20 seconds.
     ///
@@ -247,17 +244,16 @@ impl PrometheusBuilder {
 
     /// Sets the bucket count when using summaries.
     ///
-    /// Summaries are rolling, which means that they are divided into buckets of a fixed duration
-    /// (width), and older buckets are dropped as they age out. This means data from a period as
-    /// large as the width will be dropped at a time.
+    /// Summaries are rolling, which means that they are divided into buckets of a fixed duration (width), and older
+    /// buckets are dropped as they age out. This means data from a period as large as the width will be dropped at a
+    /// time.
     ///
-    /// The total amount of data kept for a summary is the number of buckets times the bucket width.
-    /// For example, a bucket count of 3 and a bucket width of 20 seconds would mean that 60 seconds
-    /// of data is kept at most, with the oldest 20 second chunk of data being dropped as the
-    /// summary rolls forward.
+    /// The total amount of data kept for a summary is the number of buckets times the bucket width.  For example, a
+    /// bucket count of 3 and a bucket width of 20 seconds would mean that 60 seconds of data is kept at most, with the
+    /// oldest 20 second chunk of data being dropped as the summary rolls forward.
     ///
-    /// Use more buckets with a smaller width to roll off smaller amounts of data at a time, or
-    /// fewer buckets with a larger width to roll it off in larger chunks.
+    /// Use more buckets with a smaller width to roll off smaller amounts of data at a time, or fewer buckets with a
+    /// larger width to roll it off in larger chunks.
     ///
     /// Defaults to 3.
     #[must_use]
@@ -268,8 +264,8 @@ impl PrometheusBuilder {
 
     /// Sets the buckets to use when rendering histograms.
     ///
-    /// Buckets values represent the higher bound of each buckets.  If buckets are set, then all
-    /// histograms will be rendered as true Prometheus histograms, instead of summaries.
+    /// Buckets values represent the higher bound of each buckets.  If buckets are set, then all histograms will be
+    /// rendered as true Prometheus histograms, instead of summaries.
     ///
     /// ## Errors
     ///
@@ -285,16 +281,16 @@ impl PrometheusBuilder {
 
     /// Sets the bucket for a specific pattern.
     ///
-    /// The match pattern can be a full match (equality), prefix match, or suffix match.  The
-    /// matchers are applied in that order if two or more matchers would apply to a single metric.
-    /// That is to say, if a full match and a prefix match applied to a metric, the full match would
-    /// win, and if a prefix match and a suffix match applied to a metric, the prefix match would win.
+    /// The match pattern can be a full match (equality), prefix match, or suffix match.  The matchers are applied in
+    /// that order if two or more matchers would apply to a single metric.  That is to say, if a full match and a prefix
+    /// match applied to a metric, the full match would win, and if a prefix match and a suffix match applied to a
+    /// metric, the prefix match would win.
     ///
-    /// Buckets values represent the higher bound of each buckets.  If buckets are set, then any
-    /// histograms that match will be rendered as true Prometheus histograms, instead of summaries.
+    /// Buckets values represent the higher bound of each buckets.  If buckets are set, then any histograms that match
+    /// will be rendered as true Prometheus histograms, instead of summaries.
     ///
-    /// This option changes the observer's output of histogram-type metric into summaries.
-    /// It only affects matching metrics if [`set_buckets`][Self::set_buckets] was not used.
+    /// This option changes the observer's output of histogram-type metric into summaries.  It only affects matching
+    /// metrics if [`set_buckets`][Self::set_buckets] was not used.
     ///
     /// ## Errors
     ///
@@ -315,18 +311,17 @@ impl PrometheusBuilder {
 
     /// Sets the idle timeout for metrics.
     ///
-    /// If a metric hasn't been updated within this timeout, it will be removed from the registry
-    /// and in turn removed from the normal scrape output until the metric is emitted again.  This
-    /// behavior is driven by requests to generate rendered output, and so metrics will not be
-    /// removed unless a request has been made recently enough to prune the idle metrics.
+    /// If a metric hasn't been updated within this timeout, it will be removed from the registry and in turn removed
+    /// from the normal scrape output until the metric is emitted again.  This behavior is driven by requests to
+    /// generate rendered output, and so metrics will not be removed unless a request has been made recently enough to
+    /// prune the idle metrics.
     ///
-    /// Further, the metric kind "mask" configures which metrics will be considered by the idle
-    /// timeout.  If the kind of a metric being considered for idle timeout is not of a kind
-    /// represented by the mask, it will not be affected, even if it would have othered been removed
-    /// for exceeding the idle timeout.
+    /// Further, the metric kind "mask" configures which metrics will be considered by the idle timeout.  If the kind of
+    /// a metric being considered for idle timeout is not of a kind represented by the mask, it will not be affected,
+    /// even if it would have otherwise been removed for exceeding the idle timeout.
     ///
-    /// Refer to the documentation for [`MetricKindMask`](metrics_util::MetricKindMask) for more
-    /// information on defining a metric kind mask.
+    /// Refer to the documentation for [`MetricKindMask`](metrics_util::MetricKindMask) for more information on defining
+    /// a metric kind mask.
     #[must_use]
     pub fn idle_timeout(mut self, mask: MetricKindMask, timeout: Option<Duration>) -> Self {
         self.idle_timeout = timeout;
@@ -336,8 +331,8 @@ impl PrometheusBuilder {
 
     /// Sets the upkeep interval.
     ///
-    /// The upkeep task handles periodic maintenance operations, such as draining histogram data,
-    /// to ensure that all recorded data is up-to-date and prevent unbounded memory growth.
+    /// The upkeep task handles periodic maintenance operations, such as draining histogram data, to ensure that all
+    /// recorded data is up-to-date and prevent unbounded memory growth.
     #[must_use]
     pub fn upkeep_timeout(mut self, timeout: Duration) -> Self {
         self.upkeep_timeout = timeout;
@@ -346,9 +341,8 @@ impl PrometheusBuilder {
 
     /// Adds a global label to this exporter.
     ///
-    /// Global labels are applied to all metrics.  Labels defined on the metric key itself have precedence
-    /// over any global labels.  If this method is called multiple times, the latest value for a given label
-    /// key will be used.
+    /// Global labels are applied to all metrics.  Labels defined on the metric key itself have precedence over any
+    /// global labels.  If this method is called multiple times, the latest value for a given label key will be used.
     #[must_use]
     pub fn add_global_label<K, V>(mut self, key: K, value: V) -> Self
     where
@@ -362,14 +356,13 @@ impl PrometheusBuilder {
 
     /// Builds the recorder and exporter and installs them globally.
     ///
-    /// When called from within a Tokio runtime, the exporter future is spawned directly
-    /// into the runtime.  Otherwise, a new single-threaded Tokio runtime is created
-    /// on a background thread, and the exporter is spawned there.
+    /// When called from within a Tokio runtime, the exporter future is spawned directly into the runtime.  Otherwise, a
+    /// new single-threaded Tokio runtime is created on a background thread, and the exporter is spawned there.
     ///
     /// ## Errors
     ///
-    /// If there is an error while either building the recorder and exporter, or installing the
-    /// recorder and exporter, an error variant will be returned describing the error.
+    /// If there is an error while either building the recorder and exporter, or installing the recorder and exporter,
+    /// an error variant will be returned describing the error.
     #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
     #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
     pub fn install(self) -> Result<(), BuildError> {
@@ -415,10 +408,13 @@ impl PrometheusBuilder {
     ///
     /// The handle can be used to generate valid Prometheus scrape endpoint payloads directly.
     ///
+    /// The caller is responsible for ensuring that upkeep is run periodically. See the **Upkeep and maintenance**
+    /// section in the top-level crate documentation for more information.
+    ///
     /// ## Errors
     ///
-    /// If there is an error while building the recorder, or installing the recorder, an error
-    /// variant will be returned describing the error.
+    /// If there is an error while building the recorder, or installing the recorder, an error variant will be returned
+    /// describing the error.
     pub fn install_recorder(self) -> Result<PrometheusHandle, BuildError> {
         let recorder = self.build_recorder();
         let handle = recorder.handle();
@@ -430,10 +426,10 @@ impl PrometheusBuilder {
 
     /// Builds the recorder and exporter and returns them both.
     ///
-    /// In most cases, users should prefer to use [`install`][PrometheusBuilder::install] to create
-    /// and install the recorder and exporter automatically for them.  If a caller is combining
-    /// recorders, or needs to schedule the exporter to run in a particular way, this method, or
-    /// [`build_recorder`][PrometheusBuilder::build_recorder], provide the flexibility to do so.
+    /// In most cases, users should prefer to use [`install`][PrometheusBuilder::install] to create and install the
+    /// recorder and exporter automatically for them.  If a caller is combining recorders, or needs to schedule the
+    /// exporter to run in a particular way, this method, or [`build_recorder`][PrometheusBuilder::build_recorder],
+    /// provide the flexibility to do so.
     ///
     /// ## Panics
     ///
@@ -441,8 +437,8 @@ impl PrometheusBuilder {
     ///
     /// ## Errors
     ///
-    /// If there is an error while building the recorder and exporter, an error variant will be
-    /// returned describing the error.
+    /// If there is an error while building the recorder and exporter, an error variant will be returned describing the
+    /// error.
     #[warn(clippy::too_many_lines)]
     #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
     #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
@@ -495,6 +491,9 @@ impl PrometheusBuilder {
     }
 
     /// Builds the recorder and returns it.
+    ///
+    /// The caller is responsible for ensuring that upkeep is run periodically. See the **Upkeep and maintenance**
+    /// section in the top-level crate documentation for more information.
     pub fn build_recorder(self) -> PrometheusRecorder {
         self.build_with_clock(Clock::new())
     }
