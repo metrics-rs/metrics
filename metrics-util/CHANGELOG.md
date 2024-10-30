@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- `FanoutBuilder` and `RouterBuilder` now both require recorders to be `Sync` to facilitate usage with being installed
+  as the global recorder.
+
 ## [0.18.0] - 2024-10-12
 
 ### Added

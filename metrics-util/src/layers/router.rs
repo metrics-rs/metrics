@@ -9,9 +9,9 @@ use crate::{MetricKind, MetricKindMask};
 ///
 /// More information on the behavior of the layer can be found in [`RouterBuilder`].
 pub struct Router {
-    default: Box<dyn Recorder>,
+    default: Box<dyn Recorder + Sync>,
     global_mask: MetricKindMask,
-    targets: Vec<Box<dyn Recorder>>,
+    targets: Vec<Box<dyn Recorder + Sync>>,
     counter_routes: Trie<String, usize>,
     gauge_routes: Trie<String, usize>,
     histogram_routes: Trie<String, usize>,
@@ -92,9 +92,9 @@ impl Recorder for Router {
 ///
 /// A default route (recorder) is always present and used in the case that no specific route exists.
 pub struct RouterBuilder {
-    default: Box<dyn Recorder>,
+    default: Box<dyn Recorder + Sync>,
     global_mask: MetricKindMask,
-    targets: Vec<Box<dyn Recorder>>,
+    targets: Vec<Box<dyn Recorder + Sync>>,
     counter_routes: Trie<String, usize>,
     gauge_routes: Trie<String, usize>,
     histogram_routes: Trie<String, usize>,
@@ -118,7 +118,7 @@ impl RouterBuilder {
     /// The given recorder is used as the default route when no other specific route exists.
     pub fn from_recorder<R>(recorder: R) -> Self
     where
-        R: Recorder + 'static,
+        R: Recorder + Sync + 'static,
     {
         RouterBuilder {
             default: Box::new(recorder),
@@ -144,7 +144,7 @@ impl RouterBuilder {
     ) -> &mut RouterBuilder
     where
         P: AsRef<str>,
-        R: Recorder + 'static,
+        R: Recorder + Sync + 'static,
     {
         let target_idx = self.targets.len();
         self.targets.push(Box::new(recorder));
@@ -212,6 +212,15 @@ mod tests {
             fn register_gauge<'a>(&'a self, key: &'a Key, metadata: &'a Metadata<'a>) -> Gauge;
             fn register_histogram<'a>(&'a self, key: &'a Key, metadata: &'a Metadata<'a>) -> Histogram;
         }
+    }
+
+    #[test]
+    fn sync() {
+        #[allow(dead_code)]
+        fn assert_sync_recorder<T: Recorder + Sync>(_t: &T) {}
+
+        let recorder = RouterBuilder::from_recorder(MockTestRecorder::new()).build();
+        assert_sync_recorder(&recorder);
     }
 
     #[test]
