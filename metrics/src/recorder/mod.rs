@@ -20,31 +20,28 @@ thread_local! {
 
 /// A trait for registering and recording metrics.
 ///
-/// This is the core trait that allows interoperability between exporter implementations and the
-/// macros provided by `metrics`.
+/// This is the core trait that allows interoperability between exporter implementations and the macros provided by
+/// `metrics`.
 pub trait Recorder {
     /// Describes a counter.
     ///
-    /// Callers may provide the unit or a description of the counter being registered. Whether or
-    /// not a metric can be re-registered to provide a unit/description, if one was already passed
-    /// or not, as well as how units/descriptions are used by the underlying recorder, is an
-    /// implementation detail.
+    /// Callers may provide the unit or a description of the counter being registered. Whether or not a metric can be
+    /// re-registered to provide a unit/description, if one was already passed or not, as well as how units/descriptions
+    /// are used by the underlying recorder, is an implementation detail.
     fn describe_counter(&self, key: KeyName, unit: Option<Unit>, description: SharedString);
 
     /// Describes a gauge.
     ///
-    /// Callers may provide the unit or a description of the gauge being registered. Whether or
-    /// not a metric can be re-registered to provide a unit/description, if one was already passed
-    /// or not, as well as how units/descriptions are used by the underlying recorder, is an
-    /// implementation detail.
+    /// Callers may provide the unit or a description of the gauge being registered. Whether or not a metric can be
+    /// re-registered to provide a unit/description, if one was already passed or not, as well as how units/descriptions
+    /// are used by the underlying recorder, is an implementation detail.
     fn describe_gauge(&self, key: KeyName, unit: Option<Unit>, description: SharedString);
 
     /// Describes a histogram.
     ///
-    /// Callers may provide the unit or a description of the histogram being registered. Whether or
-    /// not a metric can be re-registered to provide a unit/description, if one was already passed
-    /// or not, as well as how units/descriptions are used by the underlying recorder, is an
-    /// implementation detail.
+    /// Callers may provide the unit or a description of the histogram being registered. Whether or not a metric can be
+    /// re-registered to provide a unit/description, if one was already passed or not, as well as how units/descriptions
+    /// are used by the underlying recorder, is an implementation detail.
     fn describe_histogram(&self, key: KeyName, unit: Option<Unit>, description: SharedString);
 
     /// Registers a counter.
@@ -125,19 +122,16 @@ impl_recorder!(T, std::sync::Arc<T>);
 
 /// Guard for setting a local recorder.
 ///
-/// When using a local recorder, we take a reference to the recorder and only hold it for as long as
-/// the duration of the closure. However, we must store this reference in a static variable
-/// (thread-local storage) so that it can be accessed by the macros. This guard ensures that the
-/// pointer we store to the reference is cleared when the guard is dropped, so that it can't be used
-/// after the closure has finished, even if the closure panics and unwinds the stack.
+/// When using a local recorder, we take a reference to the recorder and only hold it for as long as the duration of the
+/// closure. However, we must store this reference in a static variable (thread-local storage) so that it can be
+/// accessed by the macros. This guard ensures that the pointer we store to the reference is cleared when the guard is
+/// dropped, so that it can't be used after the closure has finished, even if the closure panics and unwinds the stack.
 ///
 /// ## Note
 ///
-/// The guard has a lifetime parameter `'a` that is bounded using a
-/// `PhantomData` type. This upholds the guard's contravariance, it must live
-/// _at most as long_ as the recorder it takes a reference to. The bounded
-/// lifetime prevents accidental use-after-free errors when using a guard
-/// directly through [`crate::set_default_local_recorder`].
+/// The guard has a lifetime parameter `'a` that is bounded using a `PhantomData` type. This upholds the guard's
+/// contravariance, it must live _at most as long_ as the recorder it takes a reference to. The bounded lifetime
+/// prevents accidental use-after-free errors when using a guard directly through [`crate::set_default_local_recorder`].
 pub struct LocalRecorderGuard<'a> {
     prev_recorder: Option<NonNull<dyn Recorder>>,
     phantom: PhantomData<&'a dyn Recorder>,
@@ -146,10 +140,9 @@ pub struct LocalRecorderGuard<'a> {
 impl<'a> LocalRecorderGuard<'a> {
     /// Creates a new `LocalRecorderGuard` and sets the thread-local recorder.
     fn new(recorder: &'a dyn Recorder) -> Self {
-        // SAFETY: While we take a lifetime-less pointer to the given reference, the reference we
-        // derive _from_ the pointer is given the same lifetime of the reference
-        // used to construct the guard -- captured in the guard type itself --
-        // and so derived references never outlive the source reference.
+        // SAFETY: While we take a lifetime-less pointer to the given reference, the reference we derive _from_ the
+        // pointer is given the same lifetime of the reference used to construct the guard -- captured in the guard type
+        // itself -- and so derived references never outlive the source reference.
         let recorder_ptr = unsafe { NonNull::new_unchecked(recorder as *const _ as *mut _) };
 
         let prev_recorder =
@@ -168,11 +161,11 @@ impl<'a> Drop for LocalRecorderGuard<'a> {
 
 /// Sets the global recorder.
 ///
-/// This function may only be called once in the lifetime of a program. Any metrics recorded
-/// before this method is called will be completely ignored.
+/// This function may only be called once in the lifetime of a program. Any metrics recorded before this method is
+/// called will be completely ignored.
 ///
-/// This function does not typically need to be called manually.  Metrics implementations should
-/// provide an initialization method that installs the recorder internally.
+/// This function does not typically need to be called manually.  Metrics implementations should provide an
+/// initialization method that installs the recorder internally.
 ///
 /// # Errors
 ///
@@ -184,25 +177,21 @@ where
     GLOBAL_RECORDER.set(recorder)
 }
 
-/// Sets the recorder as the default for the current thread for the duration of
+/// Sets the recorder as the default for the current thread for the duration of the lifetime of the returned
+/// [`LocalRecorderGuard`].
+///
+/// This function is suitable for capturing metrics in asynchronous code, in particular when using a single-threaded
+/// runtime. Any metrics registered prior to the returned guard will remain attached to the recorder that was present at
+/// the time of registration, and so this cannot be used to intercept existing metrics.
+///
+/// Additionally, local recorders can be used in a nested fashion. When setting a new default local recorder, the
+/// previous default local recorder will be captured if one was set, and will be restored when the returned guard drops.
 /// the lifetime of the returned [`LocalRecorderGuard`].
 ///
-/// This function is suitable for capturing metrics in asynchronous code, in particular
-/// when using a single-threaded runtime. Any metrics registered prior to the returned
-/// guard will remain attached to the recorder that was present at the time of registration,
-/// and so this cannot be used to intercept existing metrics.
+/// Any metrics recorded before a guard is returned will be completely ignored.  Metrics implementations should provide
+/// an initialization method that installs the recorder internally.
 ///
-/// Additionally, local recorders can be used in a nested fashion. When setting a new
-/// default local recorder, the previous default local recorder will be captured if one
-/// was set, and will be restored when the returned guard drops.
-/// the lifetime of the returned [`LocalRecorderGuard`].
-///
-/// Any metrics recorded before a guard is returned will be completely ignored.
-/// Metrics implementations should provide an initialization method that
-/// installs the recorder internally.
-///
-/// The function is suitable for capturing metrics in asynchronous code that
-/// uses a single threaded runtime.
+/// The function is suitable for capturing metrics in asynchronous code that uses a single threaded runtime.
 ///
 /// If a global recorder is set, it will be restored once the guard is dropped.
 #[must_use]
@@ -222,19 +211,18 @@ pub fn with_local_recorder<T>(recorder: &dyn Recorder, f: impl FnOnce() -> T) ->
 
 /// Runs the closure with a reference to the current recorder for this scope.
 ///
-/// If a local recorder has been set, it will be used. Otherwise, the global recorder will be used.
-/// If neither a local recorder or global recorder have been set, a no-op recorder will be used.
+/// If a local recorder has been set, it will be used. Otherwise, the global recorder will be used.  If neither a local
+/// recorder or global recorder have been set, a no-op recorder will be used.
 ///
 /// It should typically not be necessary to call this function directly, as it is used primarily by generated code. You
 /// should prefer working with the macros provided by `metrics` instead: `counter!`, `gauge!`, `histogram!`, etc.
 pub fn with_recorder<T>(f: impl FnOnce(&dyn Recorder) -> T) -> T {
     LOCAL_RECORDER.with(|local_recorder| {
         if let Some(recorder) = local_recorder.get() {
-            // SAFETY: If we have a local recorder, we know that it is valid because it can only be
-            // set during the duration of a closure that is passed to `with_local_recorder`, which
-            // is the only time this method can be called and have a local recorder set. This
-            // ensures that the lifetime of the recorder is valid for the duration of this method
-            // call.
+            // SAFETY: If we have a local recorder, we know that it is valid because it can only be set during the
+            // duration of a closure that is passed to `with_local_recorder`, which is the only time this method can be
+            // called and have a local recorder set. This ensures that the lifetime of the recorder is valid for the
+            // duration of this method call.
             unsafe { f(recorder.as_ref()) }
         } else if let Some(global_recorder) = GLOBAL_RECORDER.try_load() {
             f(global_recorder)

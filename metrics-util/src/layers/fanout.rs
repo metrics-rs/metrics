@@ -100,7 +100,7 @@ impl From<FanoutHistogram> for Histogram {
 
 /// Fans out metrics to multiple recorders.
 pub struct Fanout {
-    recorders: Vec<Box<dyn Recorder>>,
+    recorders: Vec<Box<dyn Recorder + Sync>>,
 }
 
 impl fmt::Debug for Fanout {
@@ -163,7 +163,7 @@ impl Recorder for Fanout {
 /// More information on the behavior of the layer can be found in [`Fanout`].
 #[derive(Default)]
 pub struct FanoutBuilder {
-    recorders: Vec<Box<dyn Recorder>>,
+    recorders: Vec<Box<dyn Recorder + Sync>>,
 }
 
 impl fmt::Debug for FanoutBuilder {
@@ -178,7 +178,7 @@ impl FanoutBuilder {
     /// Adds a recorder to the fanout list.
     pub fn add_recorder<R>(mut self, recorder: R) -> FanoutBuilder
     where
-        R: Recorder + 'static,
+        R: Recorder + Sync + 'static,
     {
         self.recorders.push(Box::new(recorder));
         self
@@ -194,10 +194,19 @@ impl FanoutBuilder {
 mod tests {
     use super::FanoutBuilder;
     use crate::test_util::*;
-    use metrics::{Counter, Gauge, Histogram, Unit};
+    use metrics::{Counter, Gauge, Histogram, Recorder, Unit};
 
     static METADATA: metrics::Metadata =
         metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
+
+    #[test]
+    fn sync() {
+        #[allow(dead_code)]
+        fn assert_sync_recorder<T: Recorder + Sync>(_t: &T) {}
+
+        let recorder = FanoutBuilder::default().build();
+        assert_sync_recorder(&recorder);
+    }
 
     #[test]
     fn test_basic_functionality() {
