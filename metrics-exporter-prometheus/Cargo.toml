@@ -68,6 +68,10 @@ name = "prometheus_push_gateway"
 required-features = ["push-gateway"]
 
 [[example]]
+name = "prometheus_remote_write"
+required-features = ["remote-write"]
+
+[[example]]
 name = "prometheus_server"
 required-features = ["http-listener"]
 
