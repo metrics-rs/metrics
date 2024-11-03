@@ -1,6 +1,7 @@
 //! Types and utilities for calling Prometheus remote write API endpoints.
-
-use hyper::{header, Method, Request, Uri};
+// Copy from https://github.com/theduke/prom-write
+use http_body_util::Full;
+use hyper::{body::Bytes, header, Method, Request, Uri};
 
 /// Special label for the name of a metric.
 pub const LABEL_NAME: &str = "__name__";
@@ -46,12 +47,11 @@ impl WriteRequest {
     }
 
     /// Encode this write request as a protobuf message.
-    ///
-    /// NOTE: The API requires snappy compression, not a raw protobuf message.
     pub fn encode_proto3(self) -> Vec<u8> {
         prost::Message::encode_to_vec(&self.sorted())
     }
-
+    /// Encode this write request as a compressed protobuf message.
+    /// NOTE: The API requires snappy compression, not a raw protobuf message.
     pub fn encode_compressed(self) -> Result<Vec<u8>, snap::Error> {
         snap::raw::Encoder::new().compress_vec(&self.encode_proto3())
     }
@@ -133,7 +133,7 @@ impl WriteRequest {
         self,
         endpoint: &Uri,
         user_agent: &str,
-    ) -> Result<Request<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Request<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync>> {
         let req = Request::builder()
             .method(Method::POST)
             .uri(endpoint)
@@ -141,8 +141,7 @@ impl WriteRequest {
             .header(HEADER_NAME_REMOTE_WRITE_VERSION, REMOTE_WRITE_VERSION_01)
             .header(header::CONTENT_ENCODING, "snappy")
             .header(header::USER_AGENT, user_agent)
-            .body(self.encode_compressed()?)?;
-
+            .body(Full::new(self.encode_compressed()?.into()))?;
         Ok(req)
     }
 }

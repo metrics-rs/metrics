@@ -48,6 +48,11 @@ enum ExporterConfig {
         password: Option<String>,
     },
 
+    // Run a remote write task sending to the given `endpoint` after `interval` time has elapsed,
+    // infinitely.
+    #[cfg(feature = "remote-write")]
+    RemoteWrite { endpoint: Uri, interval: Duration, user_agent: String },
+
     #[allow(dead_code)]
     Unconfigured,
 }
@@ -60,6 +65,8 @@ impl ExporterConfig {
             Self::HttpListener { .. } => "http-listener",
             #[cfg(feature = "push-gateway")]
             Self::PushGateway { .. } => "push-gateway",
+            #[cfg(feature = "remote-write")]
+            Self::RemoteWrite { .. } => "remote-write",
             Self::Unconfigured => "unconfigured,",
         }
     }
