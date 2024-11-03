@@ -35,13 +35,13 @@ impl WriteRequest {
     ///
     /// Ensures that the request conforms to the specification.
     /// See https://prometheus.io/docs/concepts/remote_write_spec.
-    pub fn sort(&mut self) {
+    fn sort(&mut self) {
         for series in &mut self.timeseries {
             series.sort_labels_and_samples();
         }
     }
 
-    pub fn sorted(mut self) -> Self {
+    fn sorted(mut self) -> Self {
         self.sort();
         self
     }
