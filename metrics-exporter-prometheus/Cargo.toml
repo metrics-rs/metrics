@@ -22,7 +22,7 @@ async-runtime = ["tokio", "hyper-util/tokio"]
 http-listener = ["async-runtime", "ipnet", "tracing", "_hyper-server"]
 uds-listener = ["http-listener"]
 push-gateway = ["async-runtime", "tracing", "_hyper-client"]
-remote-write = ["_hyper-client","async-runtime","dep:prost","dep:snap","dep:prometheus-parse","dep:prost"]
+remote-write = ["_hyper-client","async-runtime","dep:prost","dep:snap","dep:prometheus-parse"]
 _hyper-server = ["http-body-util", "hyper/server", "hyper-util/server-auto"]
 _hyper-client = [
     "http-body-util",

@@ -149,8 +149,8 @@ impl PrometheusBuilder {
     ///
     /// If the given endpoint cannot be parsed into a valid URI, an error variant will be returned describing the error.
     ///
-    #[cfg(feature = "push-gateway")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "push-gateway")))]
+    #[cfg(feature = "remote-write")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "remote-write")))]
     pub fn with_remote_write<T>(
         mut self,
         endpoint: T,
@@ -162,7 +162,7 @@ impl PrometheusBuilder {
     {
         self.exporter_config = ExporterConfig::RemoteWrite {
             endpoint: Uri::try_from(endpoint.as_ref())
-                .map_err(|e| BuildError::InvalidPushGatewayEndpoint(e.to_string()))?,
+                .map_err(|e| BuildError::InvalidRemoteWriteEndpoint(e.to_string()))?,
             interval,
             user_agent: user_agent.to_string(),
         };

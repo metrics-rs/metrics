@@ -9,7 +9,7 @@ use crate::PrometheusHandle;
 
 use super::{remote_write_proto::WriteRequest, ExporterFuture};
 
-// Creates an ExporterFuture implementing a push gateway.
+// Creates an ExporterFuture implementing a remote write.
 pub(super) fn new_remote_write(
     endpoint: Uri,
     interval: Duration,

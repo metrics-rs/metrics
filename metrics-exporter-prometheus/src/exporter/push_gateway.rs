@@ -40,7 +40,6 @@ pub(super) fn new_push_gateway(
             }
 
             let output = handle.render();
-            println!("output {}", output);
             let result = builder.method(Method::PUT).uri(endpoint.clone()).body(Full::from(output));
             let req = match result {
                 Ok(req) => req,
