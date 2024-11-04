@@ -68,18 +68,19 @@ impl WriteRequest {
         let mut req = WriteRequest::default();
         let mut all_series = std::collections::HashMap::<String, TimeSeries>::new();
         for (name, mut by_labels) in counters.drain() {
-            if let Some(desc) = descriptions.get(name.as_str()) {}
-
             for (labels, value) in by_labels.drain() {}
         }
         for (name, mut by_labels) in gauges.drain() {
-            if let Some(desc) = descriptions.get(name.as_str()) {}
-
-            for (labels, value) in by_labels.drain() {}
+            let mut labels = vec![];
+            labels.push(Label { name: LABEL_NAME.to_string(), value: name });
+            for (labels, value) in by_labels.drain() {
+                // labels.into_iter().map(|f|Label {
+                //     name:f,
+                //     value
+                // }).collect();
+            }
         }
         for (name, mut by_labels) in distributions.drain() {
-            if let Some(desc) = descriptions.get(name.as_str()) {}
-
             let distribution_type = inner.distribution_builder.get_distribution_type(name.as_str());
 
             for (labels, distribution) in by_labels.drain(..) {
