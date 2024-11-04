@@ -3,6 +3,8 @@
 use http_body_util::Full;
 use hyper::{body::Bytes, header, Method, Request, Uri};
 
+use crate::{common::Snapshot, recorder::Inner};
+
 /// Special label for the name of a metric.
 pub const LABEL_NAME: &str = "__name__";
 pub const CONTENT_TYPE: &str = "application/x-protobuf";
@@ -56,12 +58,14 @@ impl WriteRequest {
         snap::raw::Encoder::new().compress_vec(&self.encode_proto3())
     }
 
+    /// Parse metrics from inner metric object, and convert them into a [`WriteRequest`]
+    pub fn from_raw(inner: &Inner) -> Self {
+        let Snapshot { mut counters, mut distributions, mut gauges } = inner.get_recent_metrics();
+        todo!()
+    }
     /// Parse metrics from the Prometheus text format, and convert them into a
     /// [`WriteRequest`].
-
-    pub fn from_text_format(
-        text: String,
-    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    fn from_text_format(text: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         fn samples_to_timeseries(
             samples: Vec<prometheus_parse::Sample>,
         ) -> Result<Vec<TimeSeries>, Box<dyn std::error::Error + Send + Sync>> {
@@ -123,7 +127,7 @@ impl WriteRequest {
             name_a.value.cmp(&name_b.value)
         });
 
-        let s = Self { timeseries: series };
+        let s = WriteRequest { timeseries: series };
 
         Ok(s.sorted())
     }

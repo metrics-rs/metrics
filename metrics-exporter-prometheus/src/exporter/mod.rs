@@ -80,7 +80,5 @@ mod push_gateway;
 
 #[cfg(feature = "remote-write")]
 mod remote_write;
-#[cfg(feature = "remote-write")]
-mod remote_write_proto;
 
 pub(crate) mod builder;

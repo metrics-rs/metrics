@@ -26,7 +26,7 @@ pub(crate) struct Inner {
 }
 
 impl Inner {
-    fn get_recent_metrics(&self) -> Snapshot {
+    pub(crate) fn get_recent_metrics(&self) -> Snapshot {
         let mut counters = HashMap::new();
         let counter_handles = self.registry.get_counter_handles();
         for (key, counter) in counter_handles {
@@ -108,7 +108,12 @@ impl Inner {
             histogram.get_inner().clear_with(|samples| entry.record_samples(samples));
         }
     }
-
+    /// Render metric to [Remote-Write format](https://prometheus.io/docs/specs/remote_write_spec/)
+    #[cfg(feature = "remote-write")]
+    fn render_remote_write_format(&self) -> crate::remote_write_proto::WriteRequest {
+        use crate::remote_write_proto::WriteRequest;
+        WriteRequest::from_raw(self)
+    }
     fn render(&self) -> String {
         let Snapshot { mut counters, mut distributions, mut gauges } = self.get_recent_metrics();
 
@@ -287,6 +292,13 @@ impl PrometheusHandle {
     /// the Prometheus exposition format.
     pub fn render(&self) -> String {
         self.inner.render()
+    }
+
+    /// Takes a snapshot of the metrics held by the recorder and generates a payload conforming to
+    /// the Prometheus remote write format.
+    #[cfg(feature = "remote-write")]
+    pub fn render_remote_write_format(&self) -> crate::remote_write_proto::WriteRequest {
+        self.inner.render_remote_write_format()
     }
 
     /// Performs upkeeping operations to ensure metrics held by recorder are up-to-date and do not

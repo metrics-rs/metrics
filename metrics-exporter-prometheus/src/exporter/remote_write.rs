@@ -7,7 +7,7 @@ use tracing::error;
 
 use crate::PrometheusHandle;
 
-use super::{remote_write_proto::WriteRequest, ExporterFuture};
+use super::ExporterFuture;
 
 // Creates an ExporterFuture implementing a remote write.
 pub(super) fn new_remote_write(
@@ -32,14 +32,7 @@ pub(super) fn new_remote_write(
             // Sleep for `interval` amount of time, and then do a push.
             tokio::time::sleep(interval).await;
 
-            let output = handle.render();
-            let binary = match WriteRequest::from_text_format(output) {
-                Ok(req) => req,
-                Err(err) => {
-                    error!("failed to build output to remote write request: {}", err);
-                    continue;
-                }
-            };
+            let binary = handle.render_remote_write_format();
 
             let req = match binary.build_http_request(&endpoint, &user_agent) {
                 Ok(req) => req,
