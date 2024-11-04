@@ -103,74 +103,6 @@ impl WriteRequest {
         }
         req
     }
-    /// Parse metrics from the Prometheus text format, and convert them into a
-    /// [`WriteRequest`].
-    fn from_text_format(text: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        fn samples_to_timeseries(
-            samples: Vec<prometheus_parse::Sample>,
-        ) -> Result<Vec<TimeSeries>, Box<dyn std::error::Error + Send + Sync>> {
-            let mut all_series = std::collections::HashMap::<String, TimeSeries>::new();
-
-            for sample in &samples {
-                let mut labels =
-                    sample.labels.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect::<Vec<_>>();
-
-                labels.push((LABEL_NAME, sample.metric.as_str()));
-
-                labels.sort_by(|a, b| a.0.cmp(b.0));
-
-                let mut ident = sample.metric.clone();
-                ident.push_str("_$$_");
-                for (k, v) in &labels {
-                    ident.push_str(k);
-                    ident.push('=');
-                    ident.push_str(v);
-                }
-
-                let series = all_series.entry(ident).or_insert_with(|| {
-                    let labels = labels
-                        .iter()
-                        .map(|(k, v)| Label { name: k.to_string(), value: v.to_string() })
-                        .collect::<Vec<_>>();
-
-                    TimeSeries { labels, samples: vec![] }
-                });
-
-                let value = match sample.value {
-                    prometheus_parse::Value::Counter(v) => v,
-                    prometheus_parse::Value::Gauge(v) => v,
-                    prometheus_parse::Value::Histogram(_) => {
-                        Err("histogram not supported yet".to_string())?
-                    }
-                    prometheus_parse::Value::Summary(_) => {
-                        Err("summary not supported yet".to_string())?
-                    }
-                    prometheus_parse::Value::Untyped(v) => v,
-                };
-
-                series
-                    .samples
-                    .push(Sample { value, timestamp: sample.timestamp.timestamp_millis() });
-            }
-
-            Ok(all_series.into_values().collect())
-        }
-
-        let iter = text.trim().lines().map(|x| Ok(x.to_string()));
-        let parsed = prometheus_parse::Scrape::parse(iter)
-            .map_err(|err| format!("could not parse input as Prometheus text format: {err}"))?;
-
-        let mut series = samples_to_timeseries(parsed.samples)?;
-        series.sort_by(|a, b| {
-            let name_a = a.labels.iter().find(|x| x.name == LABEL_NAME).unwrap();
-            let name_b = b.labels.iter().find(|x| x.name == LABEL_NAME).unwrap();
-            name_a.value.cmp(&name_b.value)
-        });
-
-        let s = WriteRequest { timeseries: series };
-
-        Ok(s.sorted())
-    }
 
     /// Build a fully prepared HTTP request that an be sent to a remote write endpoint.
     pub fn build_http_request(
@@ -254,6 +186,77 @@ pub struct Sample {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Parse metrics from the Prometheus text format, and convert them into a
+    /// [`WriteRequest`].
+    fn from_text_format(
+        text: String,
+    ) -> Result<WriteRequest, Box<dyn std::error::Error + Send + Sync>> {
+        fn samples_to_timeseries(
+            samples: Vec<prometheus_parse::Sample>,
+        ) -> Result<Vec<TimeSeries>, Box<dyn std::error::Error + Send + Sync>> {
+            let mut all_series = std::collections::HashMap::<String, TimeSeries>::new();
+
+            for sample in &samples {
+                let mut labels =
+                    sample.labels.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect::<Vec<_>>();
+
+                labels.push((LABEL_NAME, sample.metric.as_str()));
+
+                labels.sort_by(|a, b| a.0.cmp(b.0));
+
+                let mut ident = sample.metric.clone();
+                ident.push_str("_$$_");
+                for (k, v) in &labels {
+                    ident.push_str(k);
+                    ident.push('=');
+                    ident.push_str(v);
+                }
+
+                let series = all_series.entry(ident).or_insert_with(|| {
+                    let labels = labels
+                        .iter()
+                        .map(|(k, v)| Label { name: k.to_string(), value: v.to_string() })
+                        .collect::<Vec<_>>();
+
+                    TimeSeries { labels, samples: vec![] }
+                });
+
+                let value = match sample.value {
+                    prometheus_parse::Value::Counter(v) => v,
+                    prometheus_parse::Value::Gauge(v) => v,
+                    prometheus_parse::Value::Histogram(_) => {
+                        Err("histogram not supported yet".to_string())?
+                    }
+                    prometheus_parse::Value::Summary(_) => {
+                        Err("summary not supported yet".to_string())?
+                    }
+                    prometheus_parse::Value::Untyped(v) => v,
+                };
+
+                series
+                    .samples
+                    .push(Sample { value, timestamp: sample.timestamp.timestamp_millis() });
+            }
+
+            Ok(all_series.into_values().collect())
+        }
+
+        let iter = text.trim().lines().map(|x| Ok(x.to_string()));
+        let parsed = prometheus_parse::Scrape::parse(iter)
+            .map_err(|err| format!("could not parse input as Prometheus text format: {err}"))?;
+
+        let mut series = samples_to_timeseries(parsed.samples)?;
+        series.sort_by(|a, b| {
+            let name_a = a.labels.iter().find(|x| x.name == LABEL_NAME).unwrap();
+            let name_b = b.labels.iter().find(|x| x.name == LABEL_NAME).unwrap();
+            name_a.value.cmp(&name_b.value)
+        });
+
+        let s = WriteRequest { timeseries: series };
+
+        Ok(s.sorted())
+    }
     #[test]
     fn test_name() {
         let input = r#"
@@ -267,7 +270,7 @@ alpha 10 1000
 http_requests_total{method="post",code="200"} 50 1000
     "#;
 
-        let req = WriteRequest::from_text_format(input.to_string()).unwrap();
+        let req = from_text_format(input.to_string()).unwrap();
 
         assert_eq!(
             req,
