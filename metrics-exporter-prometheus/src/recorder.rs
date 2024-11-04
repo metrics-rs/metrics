@@ -23,6 +23,7 @@ pub(crate) struct Inner {
     pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, (SharedString, Option<Unit>)>>,
     pub global_labels: IndexMap<String, String>,
+    pub enable_unit_suffix: bool,
 }
 
 impl Inner {
@@ -130,7 +131,7 @@ impl Inner {
                     &labels,
                     None,
                     value,
-                    unit,
+                    unit.filter(|_| self.enable_unit_suffix),
                 );
             }
             output.push('\n');
@@ -151,7 +152,7 @@ impl Inner {
                     &labels,
                     None,
                     value,
-                    unit,
+                    unit.filter(|_| self.enable_unit_suffix),
                 );
             }
             output.push('\n');
@@ -178,7 +179,7 @@ impl Inner {
                                 &labels,
                                 Some(("quantile", quantile.value())),
                                 value,
-                                unit,
+                                unit.filter(|_| self.enable_unit_suffix),
                             );
                         }
 
@@ -193,7 +194,7 @@ impl Inner {
                                 &labels,
                                 Some(("le", le)),
                                 count,
-                                unit,
+                                unit.filter(|_| self.enable_unit_suffix),
                             );
                         }
                         write_metric_line(
@@ -203,7 +204,7 @@ impl Inner {
                             &labels,
                             Some(("le", "+Inf")),
                             histogram.count(),
-                            unit,
+                            unit.filter(|_| self.enable_unit_suffix),
                         );
 
                         (histogram.sum(), histogram.count())
