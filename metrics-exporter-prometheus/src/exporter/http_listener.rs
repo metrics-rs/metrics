@@ -137,8 +137,15 @@ impl HttpListeningExporter {
         if is_allowed {
             let mut response = Response::new(match req.uri().path() {
                 "/health" => "OK".into(),
-                _ => handle.render().into(),
+                "/metrics" => handle.render().into(),
+                _ => "404 Not Found".into()
             });
+            
+            // If it's a 404, set the status code
+            if req.uri().path() != "/health" && req.uri().path() != "/metrics" {
+                *response.status_mut() = StatusCode::NOT_FOUND;
+            }
+
             response.headers_mut().append(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
             response
         } else {
