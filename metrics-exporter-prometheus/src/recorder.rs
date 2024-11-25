@@ -21,8 +21,9 @@ pub(crate) struct Inner {
     pub recency: Recency<Key>,
     pub distributions: RwLock<HashMap<String, IndexMap<Vec<String>, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
-    pub descriptions: RwLock<HashMap<String, SharedString>>,
+    pub descriptions: RwLock<HashMap<String, (SharedString, Option<Unit>)>>,
     pub global_labels: IndexMap<String, String>,
+    pub enable_unit_suffix: bool,
 }
 
 impl Inner {
@@ -116,33 +117,52 @@ impl Inner {
         let descriptions = self.descriptions.read().unwrap_or_else(PoisonError::into_inner);
 
         for (name, mut by_labels) in counters.drain() {
-            if let Some(desc) = descriptions.get(name.as_str()) {
+            let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
                 write_help_line(&mut output, name.as_str(), desc);
-            }
+                *unit
+            });
 
             write_type_line(&mut output, name.as_str(), "counter");
             for (labels, value) in by_labels.drain() {
-                write_metric_line::<&str, u64>(&mut output, &name, None, &labels, None, value);
+                write_metric_line::<&str, u64>(
+                    &mut output,
+                    &name,
+                    None,
+                    &labels,
+                    None,
+                    value,
+                    unit.filter(|_| self.enable_unit_suffix),
+                );
             }
             output.push('\n');
         }
 
         for (name, mut by_labels) in gauges.drain() {
-            if let Some(desc) = descriptions.get(name.as_str()) {
+            let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
                 write_help_line(&mut output, name.as_str(), desc);
-            }
+                *unit
+            });
 
             write_type_line(&mut output, name.as_str(), "gauge");
             for (labels, value) in by_labels.drain() {
-                write_metric_line::<&str, f64>(&mut output, &name, None, &labels, None, value);
+                write_metric_line::<&str, f64>(
+                    &mut output,
+                    &name,
+                    None,
+                    &labels,
+                    None,
+                    value,
+                    unit.filter(|_| self.enable_unit_suffix),
+                );
             }
             output.push('\n');
         }
 
         for (name, mut by_labels) in distributions.drain() {
-            if let Some(desc) = descriptions.get(name.as_str()) {
+            let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
                 write_help_line(&mut output, name.as_str(), desc);
-            }
+                *unit
+            });
 
             let distribution_type = self.distribution_builder.get_distribution_type(name.as_str());
             write_type_line(&mut output, name.as_str(), distribution_type);
@@ -159,6 +179,7 @@ impl Inner {
                                 &labels,
                                 Some(("quantile", quantile.value())),
                                 value,
+                                unit.filter(|_| self.enable_unit_suffix),
                             );
                         }
 
@@ -173,6 +194,7 @@ impl Inner {
                                 &labels,
                                 Some(("le", le)),
                                 count,
+                                unit.filter(|_| self.enable_unit_suffix),
                             );
                         }
                         write_metric_line(
@@ -182,13 +204,22 @@ impl Inner {
                             &labels,
                             Some(("le", "+Inf")),
                             histogram.count(),
+                            unit.filter(|_| self.enable_unit_suffix),
                         );
 
                         (histogram.sum(), histogram.count())
                     }
                 };
 
-                write_metric_line::<&str, f64>(&mut output, &name, Some("sum"), &labels, None, sum);
+                write_metric_line::<&str, f64>(
+                    &mut output,
+                    &name,
+                    Some("sum"),
+                    &labels,
+                    None,
+                    sum,
+                    unit,
+                );
                 write_metric_line::<&str, u64>(
                     &mut output,
                     &name,
@@ -196,6 +227,7 @@ impl Inner {
                     &labels,
                     None,
                     count,
+                    unit,
                 );
             }
 
@@ -226,11 +258,16 @@ impl PrometheusRecorder {
         PrometheusHandle { inner: self.inner.clone() }
     }
 
-    fn add_description_if_missing(&self, key_name: &KeyName, description: SharedString) {
+    fn add_description_if_missing(
+        &self,
+        key_name: &KeyName,
+        description: SharedString,
+        unit: Option<Unit>,
+    ) {
         let sanitized = sanitize_metric_name(key_name.as_str());
         let mut descriptions =
             self.inner.descriptions.write().unwrap_or_else(PoisonError::into_inner);
-        descriptions.entry(sanitized).or_insert(description);
+        descriptions.entry(sanitized).or_insert((description, unit));
     }
 }
 
@@ -241,21 +278,16 @@ impl From<Inner> for PrometheusRecorder {
 }
 
 impl Recorder for PrometheusRecorder {
-    fn describe_counter(&self, key_name: KeyName, _unit: Option<Unit>, description: SharedString) {
-        self.add_description_if_missing(&key_name, description);
+    fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
+        self.add_description_if_missing(&key_name, description, unit);
     }
 
-    fn describe_gauge(&self, key_name: KeyName, _unit: Option<Unit>, description: SharedString) {
-        self.add_description_if_missing(&key_name, description);
+    fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
+        self.add_description_if_missing(&key_name, description, unit);
     }
 
-    fn describe_histogram(
-        &self,
-        key_name: KeyName,
-        _unit: Option<Unit>,
-        description: SharedString,
-    ) {
-        self.add_description_if_missing(&key_name, description);
+    fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
+        self.add_description_if_missing(&key_name, description, unit);
     }
 
     fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {

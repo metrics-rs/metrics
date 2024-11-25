@@ -48,6 +48,7 @@ pub struct PrometheusBuilder {
     upkeep_timeout: Duration,
     recency_mask: MetricKindMask,
     global_labels: Option<IndexMap<String, String>>,
+    enable_unit_suffix: bool,
 }
 
 impl PrometheusBuilder {
@@ -80,6 +81,7 @@ impl PrometheusBuilder {
             upkeep_timeout,
             recency_mask: MetricKindMask::NONE,
             global_labels: None,
+            enable_unit_suffix: false,
         }
     }
 
@@ -277,6 +279,19 @@ impl PrometheusBuilder {
 
         self.buckets = Some(values.to_vec());
         Ok(self)
+    }
+
+    /// Sets whether a unit suffix is appended to metric names.
+    ///
+    /// When this is enabled and the [`Unit`][metrics::Unit] of metric is
+    /// given, then the exported metric name will be appended to according to
+    /// the [Prometheus Best Practices](https://prometheus.io/docs/practices/naming/).
+    ///
+    /// Defaults to false.
+    #[must_use]
+    pub fn set_enable_unit_suffix(mut self, enabled: bool) -> Self {
+        self.enable_unit_suffix = enabled;
+        self
     }
 
     /// Sets the bucket for a specific pattern.
@@ -512,6 +527,7 @@ impl PrometheusBuilder {
             ),
             descriptions: RwLock::new(HashMap::new()),
             global_labels: self.global_labels.unwrap_or_default(),
+            enable_unit_suffix: self.enable_unit_suffix,
         };
 
         PrometheusRecorder::from(inner)
