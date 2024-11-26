@@ -58,7 +58,7 @@ quickcheck_macros = { version = "1", default-features = false }
 radix_trie = { version = "0.2", default-features = false }
 rand = { version = "0.8", default-features = false, features = ["std", "std_rng"] }
 rand_distr = { version = "0.4", default-features = false }
-ratatui = { version = "0.28", default-features = false }
+ratatui = { version = "0.29", default-features = false }
 sketches-ddsketch = { version = "0.3", default-features = false }
 thiserror = { version = "1", default-features = false }
 tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "rt-multi-thread"] }
