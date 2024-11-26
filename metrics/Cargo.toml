@@ -1,6 +1,6 @@
 [package]
 name = "metrics"
-version = "0.24.0"
+version = "0.24.1"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 rust-version = "1.71.1"

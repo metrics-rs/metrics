@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.24.1] - 2024-11-26
+
 ### Added
 
 - Added a section to the crate-level documentation about `Metadata` and how it's used.
