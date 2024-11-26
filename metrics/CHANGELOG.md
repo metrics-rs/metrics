@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Added a section to the crate-level documentation about `Metadata` and how it's used.
+- Derived `Copy`, `PartialOrd` and `Ord` for `Metadata` to allow for cheap copies and the ability to compare levels for
+  filtering purposes.
+- Added `TryFrom<&str>` for `Level` to allow parsing levels from strings.
+- Updated the documentation for `Metadata` to better explain how it's used.
+
 ## [0.24.0] - 2024-10-12
 
 ### Added

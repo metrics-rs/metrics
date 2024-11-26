@@ -1,5 +1,5 @@
-/// Describes the level of verbosity of a metric event.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Verbosity of a metric.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd)]
 pub struct Level(LevelInner);
 
 impl Level {
@@ -19,7 +19,22 @@ impl Level {
     pub const ERROR: Self = Self(LevelInner::Error);
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl std::convert::TryFrom<&str> for Level {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.trim() {
+            "trace" | "TRACE" => Ok(Level::TRACE),
+            "debug" | "DEBUG" => Ok(Level::DEBUG),
+            "info" | "INFO" => Ok(Level::INFO),
+            "warn" | "WARN" => Ok(Level::WARN),
+            "error" | "ERROR" => Ok(Level::ERROR),
+            unknown => Err(format!("unknown log level: {} (expected one of 'trace', 'debug', 'info', 'warn', or 'error')", unknown)),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 enum LevelInner {
     Trace = 0,
     Debug = 1,
@@ -44,7 +59,7 @@ enum LevelInner {
 ///
 /// Metadata usage is exporter-specific, and may be ignored entirely. See the documentation of the specific exporter
 /// being used for more information.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Metadata<'a> {
     target: &'a str,
     level: Level,
@@ -75,5 +90,70 @@ impl<'a> Metadata<'a> {
     /// This specifies the module where the metric originates from, or `None` if the module path is unknown.
     pub fn module_path(&self) -> Option<&'a str> {
         self.module_path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::convert::TryFrom as _;
+
+    use super::*;
+
+    #[test]
+    fn level_try_from_valid() {
+        let cases = &[
+            ("trace", Level::TRACE), ("TRACE", Level::TRACE),
+            ("debug", Level::DEBUG), ("DEBUG", Level::DEBUG),
+            ("info", Level::INFO), ("INFO", Level::INFO),
+            ("warn", Level::WARN), ("WARN", Level::WARN),
+            ("error", Level::ERROR), ("ERROR", Level::ERROR),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(Level::try_from(*input).unwrap(), *expected);
+
+            // Now try with some whitespace on either end.
+            let input_whitespace = format!("  {}  ", input);
+            assert_eq!(Level::try_from(&*input_whitespace).unwrap(), *expected);
+        }
+    }
+
+    #[test]
+    fn level_try_from_invalid() {
+        let cases = &["", "foo", "bar", "baz", "qux", "quux"];
+
+        for input in cases {
+            assert!(Level::try_from(*input).is_err());
+        }
+    }
+
+    #[test]
+    fn level_ordering() {
+        // A few manual comparisons because it makes me feel better:
+        assert!(Level::TRACE < Level::DEBUG);
+        assert!(Level::DEBUG < Level::INFO);
+        assert!(Level::ERROR > Level::DEBUG);
+        assert!(Level::WARN == Level::WARN);
+
+        // Now check each level programmatically.
+        let levels = &[
+            Level::TRACE, Level::DEBUG, Level::INFO, Level::WARN, Level::ERROR,
+        ];
+
+        for i in 0..levels.len() {
+            let current_level = levels[i];
+            let lower_levels = &levels[..i];
+            let higher_levels = &levels[i + 1..];
+
+            for lower_level in lower_levels {
+                assert!(current_level > *lower_level);
+                assert!(*lower_level < current_level);
+            }
+
+            for higher_level in higher_levels {
+                assert!(current_level < *higher_level);
+                assert!(*higher_level > current_level);
+            }
+        }
     }
 }
