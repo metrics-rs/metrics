@@ -63,7 +63,9 @@ pub enum BuildError {
     /// The given push gateway endpoint is not a valid URI.
     #[error("push gateway endpoint is not valid: {0}")]
     InvalidPushGatewayEndpoint(String),
-
+    /// The given push gateway endpoint is not a valid URI.
+    #[error("remote write endpoint is not valid: {0}")]
+    InvalidRemoteWriteEndpoint(String),
     /// No exporter configuration was present.
     ///
     /// This generally only occurs when HTTP listener support is disabled, but no push gateway
