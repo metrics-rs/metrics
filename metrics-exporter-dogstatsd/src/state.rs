@@ -114,15 +114,16 @@ impl State {
         telemetry.increment_histogram_contexts(histograms.len());
 
         for (key, histogram) in histograms {
-            histogram.flush(|sample_rate, values| {
+            histogram.flush(|maybe_sample_rate, values| {
                 let points_len = values.len();
                 let result = if self.config.histograms_as_distributions {
-                    writer.write_distribution(&key, values, sample_rate)
+                    writer.write_distribution(&key, values, maybe_sample_rate)
                 } else {
-                    writer.write_histogram(&key, values, sample_rate)
+                    writer.write_histogram(&key, values, maybe_sample_rate)
                 };
 
                 // Scale the points flushed/dropped values by the sample rate to determine the true number of points flushed/dropped.
+                let sample_rate = maybe_sample_rate.unwrap_or(1.0);
                 let points_flushed =
                     ((points_len as u64 - result.points_dropped()) as f64 / sample_rate) as u64;
                 telemetry.increment_histogram_points(points_flushed);

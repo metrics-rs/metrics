@@ -52,7 +52,10 @@ impl PayloadWriter {
     pub fn new(max_payload_len: usize, with_length_prefix: bool) -> Self {
         // NOTE: This should also be handled in the builder, but we want to just double check here that we're getting a
         // properly sanitized value.
-        assert!(u32::try_from(max_payload_len).is_ok(), "maximum payload length must be less than 2^32 bytes");
+        assert!(
+            u32::try_from(max_payload_len).is_ok(),
+            "maximum payload length must be less than 2^32 bytes"
+        );
 
         let mut writer = Self {
             max_payload_len,
@@ -119,7 +122,7 @@ impl PayloadWriter {
     }
 
     fn write_trailing(&mut self, key: &Key, timestamp: Option<u64>) {
-        write_metric_trailer(key, timestamp, &mut self.buf, 1.0);
+        write_metric_trailer(key, timestamp, &mut self.buf, None);
     }
 
     /// Writes a counter payload.
@@ -161,21 +164,31 @@ impl PayloadWriter {
     }
 
     /// Writes a histogram payload.
-    pub fn write_histogram<I>(&mut self, key: &Key, values: I, sample_rate: f64) -> WriteResult
+    pub fn write_histogram<I>(
+        &mut self,
+        key: &Key,
+        values: I,
+        maybe_sample_rate: Option<f64>,
+    ) -> WriteResult
     where
         I: IntoIterator<Item = f64>,
         I::IntoIter: ExactSizeIterator,
     {
-        self.write_hist_dist_inner(key, values, b'h', sample_rate)
+        self.write_hist_dist_inner(key, values, b'h', maybe_sample_rate)
     }
 
     /// Writes a distribution payload.
-    pub fn write_distribution<I>(&mut self, key: &Key, values: I, sample_rate: f64) -> WriteResult
+    pub fn write_distribution<I>(
+        &mut self,
+        key: &Key,
+        values: I,
+        maybe_sample_rate: Option<f64>,
+    ) -> WriteResult
     where
         I: IntoIterator<Item = f64>,
         I::IntoIter: ExactSizeIterator,
     {
-        self.write_hist_dist_inner(key, values, b'd', sample_rate)
+        self.write_hist_dist_inner(key, values, b'd', maybe_sample_rate)
     }
 
     fn write_hist_dist_inner<I>(
@@ -183,7 +196,7 @@ impl PayloadWriter {
         key: &Key,
         values: I,
         metric_type: u8,
-        sample_rate: f64,
+        maybe_sample_rate: Option<f64>,
     ) -> WriteResult
     where
         I: IntoIterator<Item = f64>,
@@ -197,7 +210,7 @@ impl PayloadWriter {
         //
         // We do this for efficiency reasons, but also to calculate the minimum payload length.
         self.trailer_buf.clear();
-        write_metric_trailer(key, None, &mut self.trailer_buf, sample_rate);
+        write_metric_trailer(key, None, &mut self.trailer_buf, maybe_sample_rate);
 
         // Calculate the minimum payload length, which is the key name, the metric trailer, and the metric type
         // substring (`|<metric type>`). This is the minimum amount of space we need to write out the metric without
@@ -319,10 +332,10 @@ fn write_metric_trailer(
     key: &Key,
     maybe_timestamp: Option<u64>,
     buf: &mut Vec<u8>,
-    sample_rate: f64,
+    maybe_sample_rate: Option<f64>,
 ) {
     // Write the sample rate if it's not 1.0, as that is the implied default.
-    if sample_rate != 1.0 {
+    if let Some(sample_rate) = maybe_sample_rate {
         let mut float_writer = ryu::Buffer::new();
         let sample_rate_str = float_writer.format(sample_rate);
 
@@ -516,7 +529,7 @@ mod tests {
 
         for (key, values, expected) in cases {
             let mut writer = PayloadWriter::new(8192, false);
-            let result = writer.write_histogram(&key, values.iter().copied(), 1.0);
+            let result = writer.write_histogram(&key, values.iter().copied(), None);
             assert_eq!(result.payloads_written(), 1);
 
             let actual = string_from_writer(&mut writer);
@@ -548,7 +561,7 @@ mod tests {
 
         for (key, values, expected) in cases {
             let mut writer = PayloadWriter::new(8192, false);
-            let result = writer.write_distribution(&key, values.iter().copied(), 1.0);
+            let result = writer.write_distribution(&key, values.iter().copied(), None);
             assert_eq!(result.payloads_written(), 1);
 
             let actual = string_from_writer(&mut writer);
@@ -587,7 +600,7 @@ mod tests {
 
         for (key, values, expected) in cases {
             let mut writer = PayloadWriter::new(8192, true);
-            let result = writer.write_distribution(&key, values.iter().copied(), 1.0);
+            let result = writer.write_distribution(&key, values.iter().copied(), None);
             assert_eq!(result.payloads_written(), 1);
 
             let actual = buf_from_writer(&mut writer);
@@ -624,7 +637,7 @@ mod tests {
                     InputMetric::Histogram(key, values) => {
                         total_input_points += values.len() as u64;
 
-                        let result = writer.write_histogram(&key, values, 1.0);
+                        let result = writer.write_histogram(&key, values, None);
                         payloads_written += result.payloads_written();
                         points_dropped += result.points_dropped();
                     },

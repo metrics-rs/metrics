@@ -16,6 +16,13 @@ const DEFAULT_HISTOGRAM_RESERVOIR_SIZE: usize = 1024;
 /// Errors that could occur while building or installing a DogStatsD recorder/exporter.
 #[derive(Debug, Error)]
 pub enum BuildError {
+    /// A generic invalid configuration setting.
+    #[error("invalid configuration: {reason}")]
+    InvalidConfiguration {
+        /// Details about the invalid configuration.
+        reason: String,
+    },
+
     /// Failed to parse the remote address.
     #[error("invalid remote address: {reason}")]
     InvalidRemoteAddress {
@@ -110,10 +117,24 @@ impl DogStatsDBuilder {
     /// received.
     ///
     /// Defaults to 8192 bytes.
-    #[must_use]
-    pub fn with_maximum_payload_length(mut self, max_payload_len: usize) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// If the maximum payload size is larger than 2^32 bytes, an error will be returned.
+    pub fn with_maximum_payload_length(
+        mut self,
+        max_payload_len: usize,
+    ) -> Result<Self, BuildError> {
+        if max_payload_len > u32::MAX as usize {
+            return Err(BuildError::InvalidConfiguration {
+                reason: format!(
+                    "maximum payload length must be less than 2^32 bytes ({max_payload_len} given)"
+                ),
+            });
+        }
+
         self.max_payload_len = max_payload_len;
-        self
+        Ok(self)
     }
 
     /// Use a synchronous backend for forwarding metrics.

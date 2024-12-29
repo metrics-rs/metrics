@@ -141,19 +141,24 @@ impl AtomicHistogram {
     /// Flushes the histogram, calling the given closure with the calculated sample rate and an iterator over the
     /// histogram values.
     ///
+    /// If the sample rate is `None`, the histogram has not been sampled at all and the iterator will contain all of the
+    /// values since the last flush. Otherwise, the sample rate will be a value between 0.0 and 1.0, indicating the
+    /// extent of sampling which has occurred since the last flush. The values may not _necessarily_ have been sampled,
+    /// in which case the sample rate will be a nominal 1.0 value.
+    ///
     /// Depending on the underlying histogram implementation, the closure may be called multiple times. Callers are
     /// responsible for using the sample rate and reported length of the iterator ([`Values<'a>`] implements
     /// [`ExactSizeIterator`]) to calculate the unsampled length of the histogram.
     pub fn flush<F>(&self, mut f: F)
     where
-        F: FnMut(f64, Values<'_>),
+        F: FnMut(Option<f64>, Values<'_>),
     {
         match self {
             AtomicHistogram::Raw(bucket) => bucket.clear_with(|values| {
-                f(1.0, Values::Raw(values.iter()));
+                f(None, Values::Raw(values.iter()));
             }),
             AtomicHistogram::Sampled(reservoir) => reservoir.consume(|values| {
-                f(values.sample_rate(), Values::Sampled(values));
+                f(Some(values.sample_rate()), Values::Sampled(values));
             }),
         }
     }
