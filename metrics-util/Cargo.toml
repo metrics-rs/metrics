@@ -44,7 +44,7 @@ required-features = ["layer-router"]
 
 [[example]]
 name = "bucket-crusher"
-required-features = ["handles"]
+required-features = ["storage"]
 
 [dependencies]
 ahash = { workspace = true, optional = true }
