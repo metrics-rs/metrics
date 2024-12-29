@@ -9,10 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Added new module `storage` -- behind a feature flag of the same name -- which contains all storage implementations
+  such as `Summary`, `Histogram`, `AtomicBucket`, etc.
+- Added new histogram storage type, `AtomicSamplingReservoir`, which provides a memory-bounded histogram storage
+  container utilizing reservoir sampling for statistically accurate sampling.
+
 ### Changed
 
 - `FanoutBuilder` and `RouterBuilder` now both require recorders to be `Sync` to facilitate usage with being installed
   as the global recorder.
+- Moved `AtomicBucket`, `Histogram`, and `Summary` to new `storage` module.
+
+### Removed
+
+- Removed `handles` feature which has been subsumed by the new `storage` feature flag.
 
 ## [0.18.0] - 2024-10-12
 

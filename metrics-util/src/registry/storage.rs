@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use metrics::{atomics::AtomicU64, CounterFn, GaugeFn, HistogramFn};
 
-use crate::AtomicBucket;
+use crate::storage::AtomicBucket;
 
 /// Defines the underlying storage for metrics as well as how to create them.
 pub trait Storage<K> {

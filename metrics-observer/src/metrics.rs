@@ -13,7 +13,7 @@ use bytes::{BufMut, BytesMut};
 use prost::Message;
 
 use metrics::{Key, Label, Unit};
-use metrics_util::{CompositeKey, MetricKind, Summary};
+use metrics_util::{storage::Summary, CompositeKey, MetricKind};
 
 mod proto {
     include!(concat!(env!("OUT_DIR"), "/event.proto.rs"));

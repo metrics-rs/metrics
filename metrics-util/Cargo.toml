@@ -56,6 +56,8 @@ indexmap = { workspace = true, optional = true }
 metrics = { version = "^0.24", path = "../metrics" }
 ordered-float = { workspace = true, optional = true }
 quanta = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
+rand_xoshiro = { version = "0.6", default-features = false, optional = true }
 radix_trie = { workspace = true, optional = true }
 sketches-ddsketch = { workspace = true, optional = true }
 
@@ -82,12 +84,11 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["fmt", "ansi"] }
 
 [features]
-handles = ["crossbeam-epoch", "crossbeam-utils"]
+default = ["debugging", "layers", "recency", "registry", "storage"]
 debugging = ["indexmap", "ordered-float", "registry"]
-default = ["debugging", "handles", "layers", "summary", "recency", "registry"]
 layers = ["layer-filter", "layer-router"]
 layer-filter = ["aho-corasick"]
 layer-router = ["radix_trie"]
-summary = ["sketches-ddsketch"]
 recency = ["registry", "quanta"]
-registry = ["crossbeam-epoch", "crossbeam-utils", "handles", "hashbrown"]
+registry = ["hashbrown", "storage"]
+storage = ["crossbeam-epoch", "crossbeam-utils", "rand", "rand_xoshiro", "sketches-ddsketch"]
