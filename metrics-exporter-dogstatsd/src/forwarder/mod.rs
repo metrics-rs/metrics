@@ -57,7 +57,7 @@ impl<'a> TryFrom<&'a str> for RemoteAddr {
 
 /// Forwarder configuration.
 #[derive(Clone)]
-pub struct ForwarderConfiguration {
+pub(crate) struct ForwarderConfiguration {
     pub remote_addr: RemoteAddr,
     pub max_payload_len: usize,
     pub flush_interval: Duration,

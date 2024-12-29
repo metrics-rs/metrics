@@ -27,5 +27,4 @@ prost-types = { workspace = true }
 ratatui = { workspace = true, features = ["crossterm"] }
 
 [build-dependencies]
-home = { workspace = true }
 prost-build = { workspace = true }

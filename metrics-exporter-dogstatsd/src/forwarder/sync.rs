@@ -106,7 +106,7 @@ impl ClientState {
     }
 }
 
-pub struct Forwarder {
+pub(crate) struct Forwarder {
     client_state: ClientState,
     config: ForwarderConfiguration,
     state: Arc<State>,
