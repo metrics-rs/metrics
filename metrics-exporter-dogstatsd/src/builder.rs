@@ -69,8 +69,8 @@ impl DogStatsDBuilder {
     /// Set the remote address to forward metrics to.
     ///
     /// For UDP, the address simply needs to be in the format of `<host>:<port>`. For Unix domain sockets, an address in
-    /// the format of `<scheme>://<path>`. The scheme can be either `unix` or `unixgram`, for a stream (SOCK_STREAM) or
-    /// datagram (SOCK_DGRAM) socket, respectively.
+    /// the format of `<scheme>://<path>`. The scheme can be either `unix` or `unixgram`, for a stream (`SOCK_STREAM`)
+    /// or datagram (`SOCK_DGRAM`) socket, respectively.
     ///
     /// Defaults to sending to `127.0.0.1:8125` over UDP.
     ///
@@ -93,6 +93,7 @@ impl DogStatsDBuilder {
     /// will be dropped without retrying.
     ///
     /// Defaults to 1 second.
+    #[must_use]
     pub fn with_write_timeout(mut self, timeout: Duration) -> Self {
         self.write_timeout = timeout;
         self
@@ -109,6 +110,7 @@ impl DogStatsDBuilder {
     /// received.
     ///
     /// Defaults to 8192 bytes.
+    #[must_use]
     pub fn with_maximum_payload_length(mut self, max_payload_len: usize) -> Self {
         self.max_payload_len = max_payload_len;
         self
@@ -119,6 +121,7 @@ impl DogStatsDBuilder {
     /// A background OS thread will be spawned to handle forwarding metrics to the remote server.
     ///
     /// Defaults to `true`.
+    #[must_use]
     pub fn with_synchronous_backend(mut self) -> Self {
         self.synchronous = true;
         self
@@ -133,6 +136,7 @@ impl DogStatsDBuilder {
     /// See [`AggregationMode`] for more details.
     ///
     /// Defaults to [`AggregationMode::Conservative`].
+    #[must_use]
     pub fn with_aggregation_mode(mut self, mode: AggregationMode) -> Self {
         self.agg_mode = mode;
         self
@@ -145,6 +149,7 @@ impl DogStatsDBuilder {
     /// network traffic and processing overhead.
     ///
     /// Defaults to 3 seconds.
+    #[must_use]
     pub fn with_flush_interval(mut self, flush_interval: Duration) -> Self {
         self.flush_interval = flush_interval;
         self
@@ -157,6 +162,7 @@ impl DogStatsDBuilder {
     /// how many payloads and bytes were sent, and so on.
     ///
     /// Defaults to `true`.
+    #[must_use]
     pub fn with_telemetry(mut self, telemetry: bool) -> Self {
         self.telemetry = telemetry;
         self
@@ -180,6 +186,7 @@ impl DogStatsDBuilder {
     /// Defaults to `false`.
     ///
     /// [reservoir]: https://en.wikipedia.org/wiki/Reservoir_sampling
+    #[must_use]
     pub fn with_histogram_sampling(mut self, histogram_sampling: bool) -> Self {
         self.histogram_sampling = histogram_sampling;
         self
@@ -188,6 +195,7 @@ impl DogStatsDBuilder {
     /// Sets the reservoir size for histogram sampling.
     ///
     /// Defaults to 1,024.
+    #[must_use]
     pub fn with_histogram_reservoir_size(mut self, reservoir_size: usize) -> Self {
         self.histogram_reservoir_size = reservoir_size;
         self
@@ -205,6 +213,7 @@ impl DogStatsDBuilder {
     /// histograms may be required to ensure parity with existing applications.
     ///
     /// Defaults to `true`.
+    #[must_use]
     pub fn send_histograms_as_distributions(mut self, histograms_as_distributions: bool) -> Self {
         self.histograms_as_distributions = histograms_as_distributions;
         self

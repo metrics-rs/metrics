@@ -44,7 +44,7 @@ impl<'a> TryFrom<&'a str> for RemoteAddr {
             return match scheme {
                 "unix" => Ok(RemoteAddr::Unix(PathBuf::from(path))),
                 "unixgram" => Ok(RemoteAddr::Unixgram(PathBuf::from(path))),
-                _ => Err(format!("invalid scheme '{}' (expected 'unix' or 'unixgram')", scheme)),
+                _ => Err(format!("invalid scheme '{scheme}' (expected 'unix' or 'unixgram')")),
             };
         }
 

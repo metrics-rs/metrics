@@ -86,6 +86,7 @@
 #![deny(clippy::pedantic)]
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::struct_excessive_bools)]
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 

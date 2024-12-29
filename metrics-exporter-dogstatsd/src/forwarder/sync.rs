@@ -63,7 +63,7 @@ impl Client {
 
             #[cfg(target_os = "linux")]
             Client::Unix(socket) => match socket.write_all(buf) {
-                Ok(_) => Ok(buf.len()),
+                Ok(()) => Ok(buf.len()),
                 Err(e) => Err(e),
             },
         }
@@ -89,7 +89,7 @@ impl ClientState {
                 ClientState::Inconsistent => unreachable!("transitioned _from_ inconsistent state"),
                 ClientState::Disconnected(config) => {
                     let client = Client::from_forwarder_config(&config)?;
-                    *self = ClientState::Ready(config, client)
+                    *self = ClientState::Ready(config, client);
                 }
                 ClientState::Ready(config, mut client) => {
                     let result = client.send(payload);
@@ -181,7 +181,7 @@ impl Forwarder {
             let mut payloads_dropped = 0;
 
             while let Some(payload) = payloads.next_payload() {
-                if let Err(e) = self.client_state.try_send(&payload) {
+                if let Err(e) = self.client_state.try_send(payload) {
                     error!(error = %e, "Failed to send payload.");
                     telemetry_update.track_packet_send_failed(payload.len());
                     payloads_dropped += 1;

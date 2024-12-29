@@ -50,6 +50,10 @@ pub(super) struct PayloadWriter {
 impl PayloadWriter {
     /// Creates a new `PayloadWriter` with the given maximum payload length.
     pub fn new(max_payload_len: usize, with_length_prefix: bool) -> Self {
+        // NOTE: This should also be handled in the builder, but we want to just double check here that we're getting a
+        // properly sanitized value.
+        assert!(u32::try_from(max_payload_len).is_ok(), "maximum payload length must be less than 2^32 bytes");
+
         let mut writer = Self {
             max_payload_len,
             buf: Vec::new(),
@@ -101,7 +105,9 @@ impl PayloadWriter {
         // If we're dealing with length-delimited payloads, go back to the beginning of this payload and fill in the
         // length of it.
         if self.with_length_prefix {
-            let current_len_buf = (current_len as u32).to_le_bytes();
+            // NOTE: We unwrap the conversion here because we know that `self.max_payload_len` is less than 2^32, and we
+            // check above that `current_len` is less than or equal to `self.max_payload_len`.
+            let current_len_buf = u32::try_from(current_len).unwrap().to_le_bytes();
             self.buf[current_last_offset..current_last_offset + 4]
                 .copy_from_slice(&current_len_buf[..]);
         }
@@ -128,10 +134,10 @@ impl PayloadWriter {
 
         self.write_trailing(key, timestamp);
 
-        if !self.commit() {
-            WriteResult::failure(1)
-        } else {
+        if self.commit() {
             WriteResult::success(1)
+        } else {
+            WriteResult::failure(1)
         }
     }
 
@@ -147,10 +153,10 @@ impl PayloadWriter {
 
         self.write_trailing(key, timestamp);
 
-        if !self.commit() {
-            WriteResult::failure(1)
-        } else {
+        if self.commit() {
             WriteResult::success(1)
+        } else {
+            WriteResult::failure(1)
         }
     }
 
@@ -228,7 +234,7 @@ impl PayloadWriter {
             if current_len + value_str.len() + 1 > self.max_payload_len {
                 // Write the metric type and then the trailer.
                 self.buf.push(b'|');
-                self.buf.push(metric_type as u8);
+                self.buf.push(metric_type);
                 self.buf.extend_from_slice(&self.trailer_buf);
 
                 assert!(self.commit(), "should not fail to commit histogram metric at this stage");
@@ -257,7 +263,7 @@ impl PayloadWriter {
         // If we have any remaining uncommitted values, finalize them and commit.
         if self.current_len() != 0 {
             self.buf.push(b'|');
-            self.buf.push(metric_type as u8);
+            self.buf.push(metric_type);
             self.buf.extend_from_slice(&self.trailer_buf);
 
             assert!(self.commit(), "should not fail to commit histogram metric at this stage");
