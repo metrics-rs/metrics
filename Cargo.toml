@@ -2,6 +2,7 @@
 members = [
   "metrics",
   "metrics-benchmark",
+  "metrics-exporter-dogstatsd",
   "metrics-exporter-prometheus",
   "metrics-exporter-tcp",
   "metrics-observer",

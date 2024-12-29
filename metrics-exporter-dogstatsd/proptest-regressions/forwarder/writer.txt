@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 996294ee8ec0a637930c95346f0165bbaba2cbf701d321de8d713d7f723f0ff0 # shrinks to payload_limit = 43, inputs = [Histogram(Key { name: KeyName("A0AA0A0A"), labels: [], hashed: true, hash: 18423047812237334005 }, [-0.0, 3.1748022040256364e164], 10000000)]

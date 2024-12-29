@@ -1,0 +1,19 @@
+[package]
+name = "metrics-exporter-dogstatsd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bytes = { version = "1", default-features = false }
+ryu = { version = "1", default-features = false }
+itoa = { version = "1", default-features = false }
+metrics = { version = "^0.24", path = "../metrics" }
+metrics-util = { version = "^0.18", path = "../metrics-util" }
+tracing = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+rand = { workspace = true }
+rand_xoshiro = { version = "0.6", default-features = false }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["fmt"] }
