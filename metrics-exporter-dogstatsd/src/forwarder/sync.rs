@@ -41,18 +41,16 @@ impl Client {
             }
 
             #[cfg(target_os = "linux")]
-            RemoteAddr::Unixgram(path) => UnixDatagram::bind(path)
-                .and_then(|socket| {
-                    socket.set_write_timeout(Some(config.write_timeout))?;
-                    Ok(Client::Unixgram(socket))
-                }),
+            RemoteAddr::Unixgram(path) => UnixDatagram::bind(path).and_then(|socket| {
+                socket.set_write_timeout(Some(config.write_timeout))?;
+                Ok(Client::Unixgram(socket))
+            }),
 
             #[cfg(target_os = "linux")]
-            RemoteAddr::Unix(path) => UnixStream::connect(path)
-                .and_then(|socket| {
-                    socket.set_write_timeout(Some(config.write_timeout))?;
-                    Ok(Client::Unix(socket))
-                }),
+            RemoteAddr::Unix(path) => UnixStream::connect(path).and_then(|socket| {
+                socket.set_write_timeout(Some(config.write_timeout))?;
+                Ok(Client::Unix(socket))
+            }),
         }
     }
 
@@ -136,7 +134,9 @@ impl Forwarder {
         // When we have updates, we know that can only have happened if the recorder was installed and metrics were
         // being processed, so we can safely initialize our telemetry at this point.
         if self.state.telemetry_enabled() && update.had_updates() {
-            let telemetry = self.telemetry.get_or_insert_with(|| Telemetry::new(self.config.remote_addr.transport_id()));
+            let telemetry = self
+                .telemetry
+                .get_or_insert_with(|| Telemetry::new(self.config.remote_addr.transport_id()));
             telemetry.apply_update(update);
         }
     }

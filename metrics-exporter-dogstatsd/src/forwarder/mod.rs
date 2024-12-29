@@ -1,4 +1,7 @@
-use std::{net::{SocketAddr, ToSocketAddrs as _}, time::Duration};
+use std::{
+    net::{SocketAddr, ToSocketAddrs as _},
+    time::Duration,
+};
 
 #[cfg(target_os = "linux")]
 use std::path::PathBuf;

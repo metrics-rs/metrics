@@ -172,7 +172,13 @@ impl PayloadWriter {
         self.write_hist_dist_inner(key, values, b'd', sample_rate)
     }
 
-    fn write_hist_dist_inner<I>(&mut self, key: &Key, values: I, metric_type: u8, sample_rate: f64) -> WriteResult
+    fn write_hist_dist_inner<I>(
+        &mut self,
+        key: &Key,
+        values: I,
+        metric_type: u8,
+        sample_rate: f64,
+    ) -> WriteResult
     where
         I: IntoIterator<Item = f64>,
         I::IntoIter: ExactSizeIterator,
