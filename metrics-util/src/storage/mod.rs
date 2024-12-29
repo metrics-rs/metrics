@@ -8,8 +8,7 @@ pub use self::bucket::AtomicBucket;
 mod histogram;
 pub use self::histogram::Histogram;
 
-mod reservoir;
-pub use self::reservoir::AtomicSamplingReservoir;
+pub mod reservoir;
 
 mod summary;
 pub use self::summary::Summary;
@@ -20,7 +19,7 @@ impl HistogramFn for AtomicBucket<f64> {
     }
 }
 
-impl HistogramFn for AtomicSamplingReservoir {
+impl HistogramFn for self::reservoir::AtomicSamplingReservoir {
     fn record(&self, value: f64) {
         self.push(value);
     }
