@@ -2,6 +2,31 @@
 //!
 //! [dsd]: https://docs.datadoghq.com/developers/dogstatsd/
 //!
+//! # Usage
+//!
+//! Using the exporter is straightforward:
+//!
+//! ```no_run
+//! # use metrics_exporter_dogstatsd::DogStatsDBuilder;
+//! // First, create a builder.
+//! //
+//! // The builder can configure many aspects of the exporter, such as changing the listen address, adjusting how
+//! // histograms will be reported, configuring sampling, and more.
+//! let builder = DogStatsDBuilder::default();
+//!
+//! // At this point, any of the methods on `DogStatsDBuilder` can be called to configure the exporter, such as
+//! // setting a non-default remote address, or configuring how histograms are sampled, and so on.
+//!
+//! // Normally, most users will want to "install" the exporter which sets it as the global recorder for all `metrics`
+//! // calls, and creates the necessary background thread/task to flush the metrics to the remote DogStatsD server.
+//! builder.install().expect("failed to install recorder/exporter");
+//!
+//! // For scenarios where you need access to the `Recorder` object, perhaps to wrap it in a layer stack, or something
+//! // else, you can simply call `build` instead of `install`:
+//! # let builder = DogStatsDBuilder::default();
+//! let recorder = builder.build().expect("failed to build recorder");
+//! ```
+//!
 //! # Features
 //!
 //! ## Client-side aggregation
@@ -12,7 +37,7 @@
 //!
 //! This helps reduce load on the downstream DogStatsD server.
 //!
-//! # Histogram sampling
+//! ## Histogram sampling
 //!
 //! Histograms can be sampled at a configurable rate to limit the maximum per-histogram memory consumption and reduce
 //! load on the downstream DogStatsD server. Reservoir sampling is used to ensure that the samples are statistically
@@ -23,25 +48,28 @@
 //! ## Smart reporting
 //!
 //! The exporter will "splay" the reporting of metrics over time, to smooth out the rate of payloads received by the
-//! downstream DogStatsD server. This means that instead of reporting N metrics as fast as possibler every M seconds,
-//! the exporter tries to ensure that over the period of M seconds, metrics are flushed at a rate of M/N.
+//! downstream DogStatsD server. This means that instead of reporting `N` metrics as fast as possibler every `M`
+//! seconds, the exporter tries to ensure that over the period of `M` seconds, metrics are flushed at a rate of `M/N`.
 //!
 //! This is also designed to help reduce load on the downstream DogStatsD server to help avoid spiky resource
 //! consumption and potentially dropped metrics.
 //!
-//! # Full transport support for Unix domain sockets
+//! ## Full transport support for Unix domain sockets
 //!
 //! The exporter supports sending metrics to a DogStatsD server over all three major allowable transports: UDP, and Unix
-//! domain sockets in either SOCK_DGRAM or SOCK_STREAM mode.
+//! domain sockets in either `SOCK_DGRAM` or `SOCK_STREAM` mode.
 //!
-//! SOCK_STREAM mode is roughly equivalent to TCP, but only available on the same host, and provides better guarantees
-//! around message delivery in high-throughput scenarios.
+//! `SOCK_STREAM` mode is roughly equivalent to TCP, but only available on the same host, and provides better
+//! guarantees around message delivery in high-throughput scenarios.
 //!
-//! # Telemetry
+//! ## Telemetry
 //!
 //! The exporter captures its own internal telemetry around the number of active metrics, points flushed or dropped,
 //! payloads/bytes sent, and so on. This telemetry can be emitted to the same downstream DogStatsD server as the
 //! exporter itself.
+//!
+//! All internal telemetry is under the `datadog.dogstatsd.client` namespace, to align with the internal telemetry
+//! emitted by official DogStatsD clients.
 //!
 //! # Missing
 //!

@@ -4,6 +4,8 @@ use std::{
     time::Duration,
 };
 
+use thiserror::Error;
+
 use crate::{
     forwarder::{self, ForwarderConfiguration, RemoteAddr},
     recorder::DogStatsDRecorder,
@@ -16,18 +18,21 @@ const DEFAULT_FLUSH_INTERVAL: Duration = Duration::from_secs(3);
 const DEFAULT_HISTOGRAM_RESERVOIR_SIZE: usize = 1024;
 
 /// Errors that could occur while building or installing a DogStatsD recorder/exporter.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum BuildError {
     /// Failed to parse the remote address.
+    #[error("invalid remote address: {reason}")]
     InvalidRemoteAddress {
         /// Details about the parsing failure.
         reason: String,
     },
 
     /// Failed to spawn the background thread in synchronous mode.
+    #[error("failed to spawn background thread for exporter in synchronous mode")]
     Backend,
 
     /// Failed to install the recorder due to an existing global recorder already being installed.
+    #[error("failed to install exporter as global recorder")]
     FailedToInstall,
 }
 
