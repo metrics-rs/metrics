@@ -23,6 +23,11 @@ impl KeyName {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// Consumes this [`KeyName`], returning the inner string.
+    pub fn into_inner(self) -> SharedString {
+        self.0
+    }
 }
 
 impl<T> From<T> for KeyName
