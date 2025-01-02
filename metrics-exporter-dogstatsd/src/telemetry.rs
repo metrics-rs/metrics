@@ -12,6 +12,7 @@ pub struct Telemetry {
     packets_sent: Counter,
     packets_dropped: Counter,
     packets_dropped_writer: Counter,
+    packets_dropped_serializer: Counter,
     bytes_dropped: Counter,
     bytes_sent: Counter,
     bytes_dropped_writer: Counter,
@@ -23,10 +24,6 @@ pub struct Telemetry {
 
 impl Telemetry {
     /// Creates a `Telemetry` instance.
-    ///
-    /// # Note
-    ///
-    /// This _must_ be called after the recorder is installed in order to properly register the internal metrics.
     pub fn new(transport: &'static str) -> Self {
         let base_labels = telemetry_tags!("client_transport" => transport);
         let counter_labels =
@@ -54,6 +51,10 @@ impl Telemetry {
             ),
             packets_dropped_writer: counter!(
                 "datadog.dogstatsd.client.packets_dropped_writer",
+                base_labels.iter()
+            ),
+            packets_dropped_serializer: counter!(
+                "datadog.dogstatsd.client.packets_dropped_serializer",
                 base_labels.iter()
             ),
             bytes_dropped: counter!("datadog.dogstatsd.client.bytes_dropped", base_labels.iter()),
@@ -94,6 +95,7 @@ impl Telemetry {
         self.packets_sent.increment(update.packets_sent);
         self.packets_dropped.increment(update.packets_dropped);
         self.packets_dropped_writer.increment(update.packets_dropped_writer);
+        self.packets_dropped_serializer.increment(update.packets_dropped_serializer);
         self.bytes_dropped.increment(update.bytes_dropped);
         self.bytes_sent.increment(update.bytes_sent);
         self.bytes_dropped_writer.increment(update.bytes_dropped_writer);
@@ -116,6 +118,7 @@ pub struct TelemetryUpdate {
     packets_sent: u64,
     packets_dropped: u64,
     packets_dropped_writer: u64,
+    packets_dropped_serializer: u64,
     bytes_sent: u64,
     bytes_dropped: u64,
     bytes_dropped_writer: u64,
@@ -133,6 +136,7 @@ impl TelemetryUpdate {
         self.packets_sent = 0;
         self.packets_dropped = 0;
         self.packets_dropped_writer = 0;
+        self.packets_dropped_serializer = 0;
         self.bytes_sent = 0;
         self.bytes_dropped = 0;
         self.bytes_dropped_writer = 0;
@@ -185,6 +189,12 @@ impl TelemetryUpdate {
         self.packets_dropped_writer += 1;
         self.bytes_dropped += bytes_len as u64;
         self.bytes_dropped_writer += bytes_len as u64;
+    }
+
+    /// Tracks a failed packet serialization.
+    pub fn track_packet_serializer_failed(&mut self) {
+        self.packets_dropped += 1;
+        self.packets_dropped_serializer += 1;
     }
 }
 

@@ -8,13 +8,19 @@ use crate::{
     state::{State, StateConfiguration},
 };
 
+// Maximum data length for a UDP datagram.
+//
+// Realistically, users should basically never send payloads anywhere _near_ this large, but we're only trying to ensure
+// we're not about to do anything that we _know_ is technically invalid.
+const UDP_DATAGRAM_MAX_PAYLOAD_LEN: usize = (u16::MAX as usize) - 8;
+
 const DEFAULT_WRITE_TIMEOUT: Duration = Duration::from_secs(1);
 const DEFAULT_MAX_PAYLOAD_LEN: usize = 8192;
 const DEFAULT_FLUSH_INTERVAL: Duration = Duration::from_secs(3);
 const DEFAULT_HISTOGRAM_RESERVOIR_SIZE: usize = 1024;
 
 /// Errors that could occur while building or installing a DogStatsD recorder/exporter.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Eq, PartialEq)]
 pub enum BuildError {
     /// A generic invalid configuration setting.
     #[error("invalid configuration: {reason}")]
@@ -40,6 +46,7 @@ pub enum BuildError {
 }
 
 /// Aggregation mode.
+#[derive(Debug)]
 pub enum AggregationMode {
     /// Counters and gauges are aggregated but are not sent with a timestamp.
     ///
@@ -59,6 +66,7 @@ pub enum AggregationMode {
 }
 
 /// Builder for a DogStatsD exporter.
+#[derive(Debug)]
 pub struct DogStatsDBuilder {
     remote_addr: RemoteAddr,
     write_timeout: Duration,
@@ -73,6 +81,28 @@ pub struct DogStatsDBuilder {
 }
 
 impl DogStatsDBuilder {
+    fn validate_max_payload_len(&self) -> Result<(), BuildError> {
+        if let RemoteAddr::Udp(_) = &self.remote_addr {
+            if self.max_payload_len > UDP_DATAGRAM_MAX_PAYLOAD_LEN {
+                return Err(BuildError::InvalidConfiguration {
+                    reason: format!("maximum payload length ({} bytes) exceeds UDP datagram maximum length ({} bytes)", self.max_payload_len, UDP_DATAGRAM_MAX_PAYLOAD_LEN),
+                });
+            }
+        }
+
+        if self.max_payload_len > u32::MAX as usize {
+            return Err(BuildError::InvalidConfiguration {
+                reason: format!(
+                    "maximum payload length ({} bytes) exceeds theoretical upper bound ({} bytes)",
+                    self.max_payload_len,
+                    u32::MAX
+                ),
+            });
+        }
+
+        Ok(())
+    }
+
     /// Set the remote address to forward metrics to.
     ///
     /// For UDP, the address simply needs to be in the format of `<host>:<port>`. For Unix domain sockets, an address in
@@ -83,14 +113,14 @@ impl DogStatsDBuilder {
     ///
     /// # Errors
     ///
-    /// If the given address is not able to be parsed as a valid address, an error will be returned indicating the
-    /// reason.
+    /// If the given address is not able to be parsed as a valid address, an error will be returned.
     pub fn with_remote_address<A>(mut self, addr: A) -> Result<Self, BuildError>
     where
         A: AsRef<str>,
     {
         self.remote_addr = RemoteAddr::try_from(addr.as_ref())
             .map_err(|reason| BuildError::InvalidRemoteAddress { reason })?;
+
         Ok(self)
     }
 
@@ -120,20 +150,14 @@ impl DogStatsDBuilder {
     ///
     /// # Errors
     ///
-    /// If the maximum payload size is larger than 2^32 bytes, an error will be returned.
+    /// If the maximum payload length is not valid for the underlying transport, an error will be returned.
     pub fn with_maximum_payload_length(
         mut self,
         max_payload_len: usize,
     ) -> Result<Self, BuildError> {
-        if max_payload_len > u32::MAX as usize {
-            return Err(BuildError::InvalidConfiguration {
-                reason: format!(
-                    "maximum payload length must be less than 2^32 bytes ({max_payload_len} given)"
-                ),
-            });
-        }
-
         self.max_payload_len = max_payload_len;
+        self.validate_max_payload_len()?;
+
         Ok(self)
     }
 
@@ -204,7 +228,7 @@ impl DogStatsDBuilder {
     /// If your application frequently has many (100s or more) active histograms, or if your application does not have a
     /// high number of histogram updates, you likely will not benefit from enabling histogram sampling.
     ///
-    /// Defaults to `false`.
+    /// Defaults to `true`.
     ///
     /// [reservoir]: https://en.wikipedia.org/wiki/Reservoir_sampling
     #[must_use]
@@ -225,10 +249,10 @@ impl DogStatsDBuilder {
     /// Sets whether or not to send histograms as distributions.
     ///
     /// When enabled, histograms will be sent as distributions to the remote server. This changes the default behavior
-    /// of how the metrics will be processed by the Datadog Agent, as histograms have a specific set of default "aggregates"
-    /// calculated -- `max`, `median`, `avg`, `count`, etc -- locally in the Datadog Agent, whereas distributions are
-    /// aggregated entirely on the Datadog backend, and provide richer support for global aggregation and specific
-    /// percentiles.
+    /// of how the metrics will be processed by the Datadog Agent, as histograms have a specific set of default
+    /// "aggregates" calculated -- `max`, `median`, `avg`, `count`, etc -- locally in the Datadog Agent, whereas
+    /// distributions are aggregated entirely on the Datadog backend, and provide richer support for global aggregation
+    /// and specific percentiles.
     ///
     /// Generally speaking, distributions are vastly more powerful and preferred over histograms, but sending as
     /// histograms may be required to ensure parity with existing applications.
@@ -248,8 +272,10 @@ impl DogStatsDBuilder {
     /// # Errors
     ///
     /// If the exporter is configured to use an asynchronous backend but is not built in the context of an asynchronous
-    /// runtime, an error will be returned.
+    /// runtime, or if the maximum payload length is not valid for the underlying transport, an error will be returned.
     pub fn build(self) -> Result<DogStatsDRecorder, BuildError> {
+        self.validate_max_payload_len()?;
+
         let state_config = StateConfiguration {
             agg_mode: self.agg_mode,
             telemetry: self.telemetry,
@@ -290,7 +316,8 @@ impl DogStatsDBuilder {
     /// # Errors
     ///
     /// If the exporter is configured to use an asynchronous backend but is not built in the context of an asynchronous
-    /// runtime, or if a global recorder is already installed, an error will be returned.
+    /// runtime, or if the maximum payload length is not valid for the underlying transport, or if a global recorder is
+    /// already installed, an error will be returned.
     pub fn install(self) -> Result<(), BuildError> {
         let recorder = self.build()?;
 
@@ -311,6 +338,73 @@ impl Default for DogStatsDBuilder {
             histogram_sampling: false,
             histogram_reservoir_size: DEFAULT_HISTOGRAM_RESERVOIR_SIZE,
             histograms_as_distributions: true,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn max_payload_len_exceeds_udp_max_len() {
+        let builder =
+            DogStatsDBuilder::default().with_maximum_payload_length(UDP_DATAGRAM_MAX_PAYLOAD_LEN);
+        assert!(builder.is_ok());
+
+        let builder = DogStatsDBuilder::default()
+            .with_maximum_payload_length(UDP_DATAGRAM_MAX_PAYLOAD_LEN + 1);
+        assert_eq!(
+            builder.unwrap_err(),
+            BuildError::InvalidConfiguration {
+                reason: format!(
+                    "maximum payload length (65528 bytes) exceeds UDP datagram maximum length (65527 bytes)"
+                )
+            }
+        );
+    }
+
+    mod linux {
+        use super::*;
+
+        #[test]
+        fn max_payload_len_exceeds_udp_max_len_transport_change() {
+            let builder = DogStatsDBuilder::default()
+                .with_remote_address("unix:///tmp/dogstatsd.sock")
+                .unwrap()
+                .with_maximum_payload_length(u32::MAX as usize)
+                .unwrap()
+                .with_remote_address("127.0.0.1:9125")
+                .unwrap();
+
+            match builder.build() {
+                Ok(_) => panic!("expected error"),
+                Err(e) => assert_eq!(e, BuildError::InvalidConfiguration {
+                    reason: "maximum payload length (4294967295 bytes) exceeds UDP datagram maximum length (65527 bytes)".to_string()
+                }),
+            }
+        }
+
+        #[test]
+        fn max_payload_len_exceeds_theoretical_max() {
+            let builder = DogStatsDBuilder::default()
+                .with_remote_address("unix:///tmp/dogstatsd.sock")
+                .unwrap()
+                .with_maximum_payload_length(u32::MAX as usize);
+            assert!(builder.is_ok());
+
+            let builder = DogStatsDBuilder::default()
+                .with_remote_address("unix:///tmp/dogstatsd.sock")
+                .unwrap()
+                .with_maximum_payload_length((u32::MAX as usize) + 1);
+            assert_eq!(
+                builder.unwrap_err(),
+                BuildError::InvalidConfiguration {
+                    reason: format!(
+                        "maximum payload length (4294967296 bytes) exceeds theoretical upper bound (4294967295 bytes)"
+                    )
+                }
+            );
         }
     }
 }

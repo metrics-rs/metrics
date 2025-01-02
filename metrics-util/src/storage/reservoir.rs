@@ -146,6 +146,16 @@ impl AtomicSamplingReservoir {
         }
     }
 
+    /// Returns `true` if the reservoir is empty.
+    pub fn is_empty(&self) -> bool {
+        let use_primary = self.use_primary.load(Acquire);
+        if use_primary {
+            self.primary.count.load(Relaxed) == 0
+        } else {
+            self.secondary.count.load(Relaxed) == 0
+        }
+    }
+
     /// Pushes a sample into the reservoir.
     pub fn push(&self, value: f64) {
         let use_primary = self.use_primary.load(Relaxed);

@@ -611,7 +611,7 @@ mod tests {
     proptest! {
         #[test]
         fn property_test_gauntlet(payload_limit in 0..16384usize, inputs in arb_vec(arb_metric(), 1..128)) {
-            // TODO: parameterize reservoir size so we can exercise the sample rate stuff
+            // TODO: Parameterize reservoir size so we can exercise the sample rate stuff.[]
 
             let mut writer = PayloadWriter::new(payload_limit, false);
             let mut total_input_points: u64 = 0;

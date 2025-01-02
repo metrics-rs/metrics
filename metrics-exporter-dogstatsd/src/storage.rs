@@ -36,7 +36,8 @@ impl AtomicCounter {
         }
     }
 
-    /// Flushes the current counter value, returning the delta of the counter value, and the number of updates, since the last flush.
+    /// Flushes the current counter value, returning the delta of the counter value, and the number of updates, since
+    /// the last flush.
     pub fn flush(&self) -> (u64, u64) {
         let current = self.current.load(Acquire);
         let last = self.last.swap(current, AcqRel);
@@ -127,6 +128,14 @@ impl AtomicHistogram {
             AtomicHistogram::Sampled(AtomicSamplingReservoir::new(reservoir_size))
         } else {
             AtomicHistogram::Raw(AtomicBucket::new())
+        }
+    }
+
+    /// Returns `true` if the histogram is empty.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            AtomicHistogram::Raw(bucket) => bucket.is_empty(),
+            AtomicHistogram::Sampled(reservoir) => reservoir.is_empty(),
         }
     }
 

@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+use std::os::unix::net::{UnixDatagram, UnixStream};
 use std::{
     io::{self, Write as _},
     net::{Ipv4Addr, UdpSocket},
@@ -6,18 +8,14 @@ use std::{
     time::Instant,
 };
 
-#[cfg(target_os = "linux")]
-use std::os::unix::net::{UnixDatagram, UnixStream};
-
 use tracing::{debug, error, trace};
 
+use super::{ForwarderConfiguration, RemoteAddr};
 use crate::{
-    state::State,
+    state::{FlushState, State},
     telemetry::{Telemetry, TelemetryUpdate},
     writer::PayloadWriter,
 };
-
-use super::{ForwarderConfiguration, RemoteAddr};
 
 enum Client {
     Udp(UdpSocket),
@@ -143,9 +141,9 @@ impl Forwarder {
 
     /// Run the forwarder, sending out payloads to the configured remote address at the configured interval.
     pub fn run(mut self) {
+        let mut flush_state = FlushState::default();
         let mut writer =
-            PayloadWriter::new(self.config.max_payload_len, self.config.requires_length_prefix());
-
+            PayloadWriter::new(self.config.max_payload_len, self.config.is_length_prefixed());
         let mut telemetry_update = TelemetryUpdate::default();
 
         let mut next_flush = Instant::now() + self.config.flush_interval;
@@ -164,11 +162,15 @@ impl Forwarder {
             next_flush = Instant::now() + self.config.flush_interval;
 
             telemetry_update.clear();
-            self.state.flush(&mut writer, &mut telemetry_update);
+            self.state.flush(&mut flush_state, &mut writer, &mut telemetry_update);
 
             // Send out all of the payloads that we've written, but splay them out over the remaining time until our
             // next flush, in order to smooth out the network traffic / processing demands on the Datadog Agent.
             let mut payloads = writer.payloads();
+            if u32::try_from(payloads.len()).is_err() {
+                error!(num_payloads = payloads.len(), "Too many payloads to send.");
+                continue;
+            };
 
             let splay_duration = next_flush.saturating_duration_since(Instant::now());
             debug!(
@@ -193,8 +195,8 @@ impl Forwarder {
                 // Figure out how long we should sleep based on the remaining time until the next flush and the number
                 // of remaining payloads.
                 let next_flush_delta = next_flush.saturating_duration_since(Instant::now());
-                let remaining_payloads = payloads.len();
-                let inter_payload_sleep = next_flush_delta / (remaining_payloads as u32 + 1);
+                let remaining_payloads = u32::try_from(payloads.len()).unwrap();
+                let inter_payload_sleep = next_flush_delta / remaining_payloads.saturating_add(1);
 
                 trace!(remaining_payloads, "Sleeping {:?} between payloads.", inter_payload_sleep);
                 sleep(inter_payload_sleep);
