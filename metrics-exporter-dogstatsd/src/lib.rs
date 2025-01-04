@@ -94,7 +94,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 
 mod builder;
-pub use self::builder::{BuildError, DogStatsDBuilder};
+pub use self::builder::{AggregationMode, BuildError, DogStatsDBuilder};
 
 mod forwarder;
 mod recorder;
