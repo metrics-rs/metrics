@@ -7,7 +7,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use getopts::Options;
-use metrics_util::AtomicBucket;
+use metrics_util::storage::AtomicBucket;
 use rand::{thread_rng, Rng};
 use tracing::{debug, error, info};
 

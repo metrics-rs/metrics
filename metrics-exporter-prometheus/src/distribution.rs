@@ -6,7 +6,10 @@ use quanta::Instant;
 
 use crate::common::Matcher;
 
-use metrics_util::{Histogram, Quantile, Summary};
+use metrics_util::{
+    storage::{Histogram, Summary},
+    Quantile,
+};
 
 const DEFAULT_SUMMARY_BUCKET_COUNT: NonZeroU32 = match NonZeroU32::new(3) {
     Some(v) => v,

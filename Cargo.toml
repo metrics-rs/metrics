@@ -1,7 +1,9 @@
 [workspace]
+resolver = "2"
 members = [
   "metrics",
   "metrics-benchmark",
+  "metrics-exporter-dogstatsd",
   "metrics-exporter-prometheus",
   "metrics-exporter-tcp",
   "metrics-observer",
@@ -24,7 +26,6 @@ crossbeam-utils = { version = "0.8", default-features = false }
 getopts = { version = "0.2", default-features = false }
 hashbrown = { version = "0.15", default-features = false, features = ["default-hasher", "raw-entry"] }
 hdrhistogram = { version = "7.2", default-features = false }
-home = { version = "0.5", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1.1", default-features = false, features = ["server", "client"] }
 hyper-rustls = { version = "0.27", default-features = false, features = ["aws-lc-rs", "http1", "rustls-native-certs"] }

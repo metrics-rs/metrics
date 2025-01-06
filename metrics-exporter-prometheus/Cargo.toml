@@ -46,7 +46,7 @@ metrics = { version = "^0.24", path = "../metrics" }
 metrics-util = { version = "^0.18", path = "../metrics-util", default-features = false, features = [
     "recency",
     "registry",
-    "summary",
+    "storage",
 ] }
 quanta = { workspace = true }
 thiserror = { workspace = true }

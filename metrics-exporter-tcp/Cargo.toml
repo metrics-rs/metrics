@@ -26,7 +26,6 @@ prost-types = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["attributes"] }
 
 [build-dependencies]
-home = { workspace = true }
 prost-build = { workspace = true }
 
 [dev-dependencies]

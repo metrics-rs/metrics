@@ -8,7 +8,7 @@ use std::fmt;
 /// provides relative-error guarantees, regardless of the absolute range between the smallest and
 /// larger values.
 ///
-/// `Summary` is similiar to [HDRHistogram][hdrhistogram] in practice, but supports an arbitrary
+/// `Summary` is similar to [HDRHistogram][hdrhistogram] in practice, but supports an arbitrary
 /// range of values, and supports floating-point numbers.
 ///
 /// Numbers with an absolute value smaller than given `min_value` will be recognized as zeroes.

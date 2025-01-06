@@ -102,11 +102,16 @@ mod tests {
     #[test]
     fn level_try_from_valid() {
         let cases = &[
-            ("trace", Level::TRACE), ("TRACE", Level::TRACE),
-            ("debug", Level::DEBUG), ("DEBUG", Level::DEBUG),
-            ("info", Level::INFO), ("INFO", Level::INFO),
-            ("warn", Level::WARN), ("WARN", Level::WARN),
-            ("error", Level::ERROR), ("ERROR", Level::ERROR),
+            ("trace", Level::TRACE),
+            ("TRACE", Level::TRACE),
+            ("debug", Level::DEBUG),
+            ("DEBUG", Level::DEBUG),
+            ("info", Level::INFO),
+            ("INFO", Level::INFO),
+            ("warn", Level::WARN),
+            ("WARN", Level::WARN),
+            ("error", Level::ERROR),
+            ("ERROR", Level::ERROR),
         ];
 
         for (input, expected) in cases {
@@ -136,9 +141,7 @@ mod tests {
         assert!(Level::WARN == Level::WARN);
 
         // Now check each level programmatically.
-        let levels = &[
-            Level::TRACE, Level::DEBUG, Level::INFO, Level::WARN, Level::ERROR,
-        ];
+        let levels = &[Level::TRACE, Level::DEBUG, Level::INFO, Level::WARN, Level::ERROR];
 
         for i in 0..levels.len() {
             let current_level = levels[i];

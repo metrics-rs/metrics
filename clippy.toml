@@ -1,2 +1,3 @@
 too-many-lines-threshold = 150
 ignore-interior-mutability = ["metrics::key::Key"]
+doc-valid-idents = ["DogStatsD", ".."]
