@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.19.0] - 2025-01-06
+
 ### Added
 
 - Added new module `storage` -- behind a feature flag of the same name -- which contains all storage implementations
