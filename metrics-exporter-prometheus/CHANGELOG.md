@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated the crate-level documentation, and the documentation for `PrometheusBuilder::build_recorder` and
   `PrometheusBuilder::install_recorder`, to call out the requirements around running upkeep periodically.
   ([#537](https://github.com/metrics-rs/metrics/pull/537))
+- Updated to new version of `metrics-util`.
 
 ## [0.16.0] - 2024-10-12
 

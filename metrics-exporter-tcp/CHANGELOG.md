@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Removed build-time dependency on `home` crate.
+
 ## [0.11.0] - 2024-10-12
 
 ### Added
