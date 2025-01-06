@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#537](https://github.com/metrics-rs/metrics/pull/537))
 - Updated to new version of `metrics-util`.
 
+### Added
+
+- Added support for suffixing metric names based on their configured units. ([#535](https://github.com/metircs-rs/metrics/pull/535))
+
 ## [0.16.0] - 2024-10-12
 
 ### Added
