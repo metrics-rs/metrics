@@ -99,14 +99,9 @@
 //! seamless emit their own metrics without knowing or caring which exporter implementation is chosen, or even if one is
 //! installed.
 //!
-//! In cases where no global recorder is installed, a "noop" recorder lives in its place, which has an incredibly very
+//! In cases where no global recorder is installed, a "noop" recorder lives in its place, which has an incredibly
 //! low overhead: an atomic load and comparison.  Libraries can safely instrument their code without fear of ruining
 //! baseline performance.
-//!
-//! By default, a "noop" recorder is present so that the macros can work even if no exporter has been installed.  This
-//! recorder has extremely low overhead -- a relaxed load and conditional -- and so, practically speaking, the overhead
-//! when no exporter is installed is extremely low.  You can safely instrument applications knowing that you won't pay a
-//! heavy performance cost even if you're not shipping metrics.
 //!
 //! ### Examples
 //!
