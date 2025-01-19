@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.0] - 2025-01-19
+
 ### Added
 
 - Genesis of the new version of this crate. This version of the exporter is a successor to the original
