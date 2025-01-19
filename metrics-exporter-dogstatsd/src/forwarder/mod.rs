@@ -1,6 +1,7 @@
 #[cfg(target_os = "linux")]
 use std::path::PathBuf;
 use std::{
+    fmt,
     net::{SocketAddr, ToSocketAddrs as _},
     time::Duration,
 };
@@ -32,6 +33,14 @@ impl RemoteAddr {
             RemoteAddr::Unixgram(_) => "uds",
         }
     }
+
+    pub(crate) fn default_max_payload_len(&self) -> usize {
+        match self {
+            RemoteAddr::Udp(_) => 1432,
+            #[cfg(target_os = "linux")]
+            RemoteAddr::Unix(_) | RemoteAddr::Unixgram(_) => 8192,
+        }
+    }
 }
 
 impl<'a> TryFrom<&'a str> for RemoteAddr {
@@ -57,6 +66,33 @@ impl<'a> TryFrom<&'a str> for RemoteAddr {
         match addr.to_socket_addrs() {
             Ok(addr) => Ok(RemoteAddr::Udp(addr.collect())),
             Err(e) => Err(e.to_string()),
+        }
+    }
+}
+
+impl fmt::Display for RemoteAddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RemoteAddr::Udp(addrs) => {
+                if addrs.len() == 1 {
+                    write!(f, "udp://{}", addrs[0])
+                } else {
+                    write!(f, "udp://[")?;
+
+                    for (idx, addr) in addrs.iter().enumerate() {
+                        if idx == 0 {
+                            write!(f, "{}", addr)?;
+                        } else {
+                            write!(f, ",{}", addr)?;
+                        }
+                    }
+                    write!(f, "]")
+                }
+            }
+            #[cfg(target_os = "linux")]
+            RemoteAddr::Unix(path) | RemoteAddr::Unixgram(path) => {
+                write!(f, "unixgram://{}", path.display())
+            }
         }
     }
 }
