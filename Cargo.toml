@@ -11,6 +11,12 @@ members = [
   "metrics-util",
 ]
 
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/metrics-rs/metrics"
+homepage = "https://github.com/metrics-rs/metrics"
+
 [workspace.dependencies]
 ahash = { version = "0.8", default-features = false }
 aho-corasick = { version = "1", default-features = false }

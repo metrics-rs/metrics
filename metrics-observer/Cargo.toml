@@ -1,15 +1,14 @@
 [package]
 name = "metrics-observer"
 version = "0.4.0"
-authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 rust-version = "1.74.0"
 
-license = "MIT"
-
 description = "Text-based UI for metrics-exporter-tcp."
-homepage = "https://github.com/metrics-rs/metrics"
-repository = "https://github.com/metrics-rs/metrics"
+license = { workspace = true }
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+repository = { workspace = true }
+homepage = { workspace = true }
 documentation = "https://docs.rs/metrics"
 readme = "README.md"
 

@@ -1,15 +1,14 @@
 [package]
 name = "metrics-util"
 version = "0.19.0"
-authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 rust-version = "1.71.1"
 
-license = "MIT"
-
 description = "Helper types/functions used by the metrics ecosystem."
-homepage = "https://github.com/metrics-rs/metrics"
-repository = "https://github.com/metrics-rs/metrics"
+license = { workspace = true }
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+repository = { workspace = true }
+homepage = { workspace = true }
 documentation = "https://docs.rs/metrics-util"
 readme = "README.md"
 

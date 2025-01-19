@@ -1,15 +1,14 @@
 [package]
 name = "metrics"
 version = "0.24.1"
-authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
 rust-version = "1.71.1"
 
-license = "MIT"
-
 description = "A lightweight metrics facade."
-homepage = "https://github.com/metrics-rs/metrics"
-repository = "https://github.com/metrics-rs/metrics"
+license = { workspace = true }
+authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
+repository = { workspace = true }
+homepage = { workspace = true }
 documentation = "https://docs.rs/metrics"
 readme = "README.md"
 

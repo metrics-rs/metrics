@@ -11,7 +11,7 @@
 [crate]: https://crates.io/crates/metrics-exporter-prometheus
 [docs]: https://docs.rs/metrics-exporter-prometheus
 
-__metrics-exporter-prometheus__ is a `metrics`-compatible exporter that serves a Prometheus scrape endpoint.
+__metrics-exporter-prometheus__ is a `metrics`-compatible exporter for sending metrics to Prometheus.
 
 ## code of conduct
 

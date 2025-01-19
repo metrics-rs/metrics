@@ -1,16 +1,15 @@
 [package]
 name = "metrics-tracing-context"
 version = "0.18.0"
-authors = ["MOZGIII <mike-n@narod.ru>"]
 edition = "2018"
 rust-version = "1.71.1"
 
-license = "MIT"
-
 description = "A crate to use tracing context as metrics labels."
-homepage = "https://github.com/metrics-rs/metrics"
-repository = "https://github.com/metrics-rs/metrics"
-documentation = "https://docs.rs/metrics"
+license = { workspace = true }
+authors = ["MOZGIII <mike-n@narod.ru>"]
+repository = { workspace = true }
+homepage = { workspace = true }
+documentation = "https://docs.rs/metrics-tracing-context"
 readme = "README.md"
 
 categories = ["development-tools::debugging"]
