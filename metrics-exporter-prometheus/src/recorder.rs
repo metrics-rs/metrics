@@ -202,7 +202,7 @@ impl Inner {
                             &name,
                             Some("bucket"),
                             &labels,
-                            Some(("le", "+Inf")),
+                            Some(("le", "+Inf")),i
                             histogram.count(),
                             unit.filter(|_| self.enable_unit_suffix),
                         );
@@ -218,7 +218,7 @@ impl Inner {
                     &labels,
                     None,
                     sum,
-                    unit,
+                    unit.filter(|_| self.enable_unit_suffix),
                 );
                 write_metric_line::<&str, u64>(
                     &mut output,
@@ -227,7 +227,7 @@ impl Inner {
                     &labels,
                     None,
                     count,
-                    unit,
+                    unit.filter(|_| self.enable_unit_suffix),
                 );
             }
 
