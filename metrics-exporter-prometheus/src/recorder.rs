@@ -202,7 +202,7 @@ impl Inner {
                             &name,
                             Some("bucket"),
                             &labels,
-                            Some(("le", "+Inf")),i
+                            Some(("le", "+Inf")),
                             histogram.count(),
                             unit.filter(|_| self.enable_unit_suffix),
                         );
