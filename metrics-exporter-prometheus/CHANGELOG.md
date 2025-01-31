@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Fixed a bug where the configurable unit suffix was not properly applied to the "sum" and "count" lines for histograms.
+  The prior release will be yanked as this represented a backwards-incompatible change.
+
 ## [0.16.1] - 2025-01-06
 
 ### Changed
