@@ -1,10 +1,9 @@
-use metrics_util::Summary;
+use metrics_util::storage::Summary;
 use ndarray::{Array1, Axis};
 use ndarray_stats::{interpolate::Linear, QuantileExt};
 use noisy_float::types::n64;
 use ordered_float::NotNan;
-use rand::{distributions::Distribution, thread_rng};
-use rand_distr::Uniform;
+use rand::distr::{Distribution, Uniform};
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -15,8 +14,8 @@ fn main() -> io::Result<()> {
     // Generates a consistent set of inputs, and uses them to feed to a reference DDSketch
     // implementation so we can get the quantiles produced for our comparison.
     println!("generating uniform distribution...");
-    let mut rng = thread_rng();
-    let dist = Uniform::new(-25.0, 75.0);
+    let mut rng = rand::rng();
+    let dist = Uniform::new(-25.0, 75.0).unwrap();
 
     let mut summary = Summary::new(0.0001, 32768, 1.0e-9);
     let mut uniform = Vec::new();

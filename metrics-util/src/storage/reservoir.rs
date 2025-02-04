@@ -11,12 +11,12 @@ use std::{
     },
 };
 
-use rand::{rngs::OsRng, Rng as _, SeedableRng as _};
+use rand::{rngs::OsRng, Rng, SeedableRng};
 use rand_xoshiro::Xoshiro256StarStar;
 
 thread_local! {
     static FAST_RNG: UnsafeCell<Xoshiro256StarStar> = {
-        UnsafeCell::new(Xoshiro256StarStar::from_rng(OsRng).unwrap())
+        UnsafeCell::new(Xoshiro256StarStar::try_from_rng(&mut OsRng).unwrap())
     };
 }
 
@@ -25,7 +25,7 @@ fn fastrand(upper: usize) -> usize {
         // SAFETY: We know it's safe to take a mutable reference since we're getting a pointer to a thread-local value,
         // and the reference never outlives the closure executing on this thread.
         let rng = unsafe { &mut *rng.get() };
-        rng.gen_range(0..upper)
+        rng.random_range(0..upper)
     })
 }
 

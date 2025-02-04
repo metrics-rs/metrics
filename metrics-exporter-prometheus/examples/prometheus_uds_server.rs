@@ -6,7 +6,6 @@ use metrics_exporter_prometheus::PrometheusBuilder;
 use metrics_util::MetricKindMask;
 
 use quanta::Clock;
-use rand::{thread_rng, Rng};
 
 fn main() {
     tracing_subscriber::fmt::init();
@@ -47,7 +46,7 @@ fn main() {
             histogram!("tcp_server_loop_delta_secs", "system" => "foo").record(delta);
         }
 
-        let increment_gauge = thread_rng().gen_bool(0.75);
+        let increment_gauge = rand::random_bool(0.75);
         let gauge = gauge!("lucky_iterations");
         if increment_gauge {
             gauge.increment(1.0);

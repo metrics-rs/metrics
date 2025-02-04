@@ -27,6 +27,6 @@ tracing = { workspace = true }
 [dev-dependencies]
 proptest = { workspace = true }
 rand = { workspace = true }
-rand_xoshiro = { version = "0.6", default-features = false }
+rand_xoshiro = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["fmt"] }

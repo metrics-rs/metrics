@@ -179,8 +179,7 @@ mod tests {
     use ndarray_stats::{interpolate::Linear, QuantileExt};
     use noisy_float::types::n64;
     use ordered_float::NotNan;
-    use rand::{distributions::Distribution, thread_rng};
-    use rand_distr::Uniform;
+    use rand::distr::{Distribution, Uniform};
 
     #[test]
     fn test_basics() {
@@ -248,8 +247,8 @@ mod tests {
         let max_bins = 32_768;
         let min_value = 1.0e-9;
 
-        let mut rng = thread_rng();
-        let dist = Uniform::new(0.0, 100.0);
+        let mut rng = rand::rng();
+        let dist = Uniform::new(0.0, 100.0).unwrap();
 
         let mut summary = Summary::new(alpha, max_bins, min_value);
         let mut uniform = Vec::new();
@@ -283,8 +282,8 @@ mod tests {
         let max_bins = 65_536;
         let min_value = 1.0e-9;
 
-        let mut rng = thread_rng();
-        let dist = Uniform::new(-100.0, 100.0);
+        let mut rng = rand::rng();
+        let dist = Uniform::new(-100.0, 100.0).unwrap();
 
         let mut summary = Summary::new(alpha, max_bins, min_value);
         let mut uniform = Vec::new();

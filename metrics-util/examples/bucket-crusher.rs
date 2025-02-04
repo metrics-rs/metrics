@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use getopts::Options;
 use metrics_util::storage::AtomicBucket;
-use rand::{thread_rng, Rng};
+use rand::Rng;
 use tracing::{debug, error, info};
 
 const COUNTER_LOOP: usize = 1024;
@@ -102,7 +102,7 @@ fn run_producer(
 ) {
     let mut counter_local = 0;
     let mut total_local = 0;
-    let mut rand = thread_rng();
+    let mut rand = rand::rng();
 
     loop {
         // Every COUNTER_LOOP iterations, do housekeeping.
@@ -120,7 +120,7 @@ fn run_producer(
 
         // Significantly speeds things up if we just push a bunch of values in a tight loop,
         // which should really exercise the core bucket push logic more efficiently.
-        let value = rand.gen_range(0..1024);
+        let value = rand.random_range(0..1024);
         let n = 32;
         for _ in 0..n {
             bucket.push(value);

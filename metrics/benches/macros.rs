@@ -6,7 +6,6 @@ use criterion::Criterion;
 use metrics::{
     counter, Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit,
 };
-use rand::{thread_rng, Rng};
 
 #[derive(Debug)]
 struct TestRecorder;
@@ -53,7 +52,7 @@ fn macro_benchmark(c: &mut Criterion) {
     group.bench_function("global_initialized/with_dynamic_labels", |b| {
         let _ = metrics::set_global_recorder(TestRecorder);
 
-        let label_val = thread_rng().gen::<u64>().to_string();
+        let label_val = rand::random::<u64>().to_string();
         b.iter(move || {
             counter!("counter_bench", "request" => "http", "uid" => label_val.clone())
                 .increment(42);
@@ -75,7 +74,7 @@ fn macro_benchmark(c: &mut Criterion) {
     });
     group.bench_function("local_initialized/with_dynamic_labels", |b| {
         metrics::with_local_recorder(&TestRecorder, || {
-            let label_val = thread_rng().gen::<u64>().to_string();
+            let label_val = rand::random::<u64>().to_string();
             b.iter(move || {
                 counter!("counter_bench", "request" => "http", "uid" => label_val.clone())
                     .increment(42);
