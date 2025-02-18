@@ -125,6 +125,7 @@ impl PrometheusBuilder {
         interval: Duration,
         username: Option<String>,
         password: Option<String>,
+        http_method: Option<hyper::Method>,
     ) -> Result<Self, BuildError>
     where
         T: AsRef<str>,
@@ -135,6 +136,7 @@ impl PrometheusBuilder {
             interval,
             username,
             password,
+            http_method,
         };
 
         Ok(self)
@@ -496,9 +498,9 @@ impl PrometheusBuilder {
                 },
 
                 #[cfg(feature = "push-gateway")]
-                ExporterConfig::PushGateway { endpoint, interval, username, password } => {
+                ExporterConfig::PushGateway { endpoint, interval, username, password, http_method } => {
                     super::push_gateway::new_push_gateway(
-                        endpoint, interval, username, password, handle,
+                        endpoint, interval, username, password, http_method, handle
                     )
                 }
             },
