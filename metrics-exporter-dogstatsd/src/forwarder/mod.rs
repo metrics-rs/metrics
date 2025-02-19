@@ -81,9 +81,9 @@ impl fmt::Display for RemoteAddr {
 
                     for (idx, addr) in addrs.iter().enumerate() {
                         if idx == 0 {
-                            write!(f, "{}", addr)?;
+                            write!(f, "{addr}")?;
                         } else {
-                            write!(f, ",{}", addr)?;
+                            write!(f, ",{addr}")?;
                         }
                     }
                     write!(f, "]")

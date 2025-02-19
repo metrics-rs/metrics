@@ -114,7 +114,7 @@ impl DogStatsDBuilder {
         if let RemoteAddr::Udp(_) = &self.remote_addr {
             if max_payload_len > UDP_DATAGRAM_MAX_PAYLOAD_LEN {
                 return Err(BuildError::InvalidConfiguration {
-                    reason: format!("maximum payload length ({} bytes) exceeds UDP datagram maximum length ({} bytes)", max_payload_len, UDP_DATAGRAM_MAX_PAYLOAD_LEN),
+                    reason: format!("maximum payload length ({max_payload_len} bytes) exceeds UDP datagram maximum length ({UDP_DATAGRAM_MAX_PAYLOAD_LEN} bytes)"),
                 });
             }
         }
