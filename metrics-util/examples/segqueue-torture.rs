@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use crossbeam_queue::SegQueue;
 use getopts::Options;
-use rand::{thread_rng, Rng};
+use rand::Rng;
 use tracing::{error, info};
 
 const COUNTER_LOOP: usize = 1024;
@@ -102,7 +102,7 @@ fn run_producer(
 ) {
     let mut counter_local = 0;
     let mut total_local = 0;
-    let mut rand = thread_rng();
+    let mut rand = rand::rng();
 
     loop {
         // Every COUNTER_LOOP iterations, do housekeeping.
@@ -118,7 +118,7 @@ fn run_producer(
             }
         }
 
-        let value = rand.gen_range(0..1024);
+        let value = rand.random_range(0..1024);
         queue.push(value);
 
         total_local += value;
