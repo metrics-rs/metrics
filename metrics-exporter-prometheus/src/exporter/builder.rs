@@ -140,6 +140,37 @@ impl PrometheusBuilder {
         Ok(self)
     }
 
+    /// Configures the exporter to push periodic requests to endpoint by [remote write protocol](https://prometheus.io/docs/specs/remote_write_spec/).
+    ///
+    /// Running in remote write mode is mutually exclusive with the HTTP listener/push gateway i.e. enabling the remote write will
+    /// disable the HTTP listener/push gateway, and vise versa.
+    ///
+    /// Defaults to disabled.
+    ///
+    /// ## Errors
+    ///
+    /// If the given endpoint cannot be parsed into a valid URI, an error variant will be returned describing the error.
+    ///
+    #[cfg(feature = "remote-write")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "remote-write")))]
+    pub fn with_remote_write<T>(
+        mut self,
+        endpoint: T,
+        interval: Duration,
+        user_agent: &str,
+    ) -> Result<Self, BuildError>
+    where
+        T: AsRef<str>,
+    {
+        self.exporter_config = ExporterConfig::RemoteWrite {
+            endpoint: Uri::try_from(endpoint.as_ref())
+                .map_err(|e| BuildError::InvalidRemoteWriteEndpoint(e.to_string()))?,
+            interval,
+            user_agent: user_agent.to_string(),
+        };
+        Ok(self)
+    }
+
     /// Configures the exporter to expose an HTTP listener that functions as a [scrape endpoint], listening on a Unix
     /// Domain socket at the given path
     ///
@@ -500,6 +531,10 @@ impl PrometheusBuilder {
                     super::push_gateway::new_push_gateway(
                         endpoint, interval, username, password, handle,
                     )
+                }
+                #[cfg(feature = "remote-write")]
+                ExporterConfig::RemoteWrite { endpoint, interval, user_agent } => {
+                    super::remote_write::new_remote_write(endpoint, interval, handle, &user_agent)
                 }
             },
         ))
