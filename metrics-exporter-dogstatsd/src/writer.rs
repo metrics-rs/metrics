@@ -1,4 +1,6 @@
-use metrics::Key;
+use std::slice::Iter;
+
+use metrics::{Key, Label};
 
 pub struct WriteResult {
     payloads_written: u64,
@@ -121,21 +123,32 @@ impl PayloadWriter {
         true
     }
 
-    fn write_trailing(&mut self, key: &Key, timestamp: Option<u64>) {
-        write_metric_trailer(key, timestamp, &mut self.buf, None);
+    fn write_trailing(&mut self, key: &Key, timestamp: Option<u64>, global_labels: &[Label]) {
+        write_metric_trailer(key, timestamp, &mut self.buf, None, global_labels.iter());
     }
 
     /// Writes a counter payload.
-    pub fn write_counter(&mut self, key: &Key, value: u64, timestamp: Option<u64>) -> WriteResult {
+    pub fn write_counter(
+        &mut self,
+        key: &Key,
+        value: u64,
+        timestamp: Option<u64>,
+        prefix: Option<&str>,
+        global_labels: &[Label],
+    ) -> WriteResult {
         let mut int_writer = itoa::Buffer::new();
         let value_str = int_writer.format(value);
 
+        if let Some(prefix) = prefix {
+            self.buf.extend_from_slice(prefix.as_bytes());
+            self.buf.push(b'.');
+        }
         self.buf.extend_from_slice(key.name().as_bytes());
         self.buf.push(b':');
         self.buf.extend_from_slice(value_str.as_bytes());
         self.buf.extend_from_slice(b"|c");
 
-        self.write_trailing(key, timestamp);
+        self.write_trailing(key, timestamp, global_labels);
 
         if self.commit() {
             WriteResult::success(1)
@@ -145,16 +158,27 @@ impl PayloadWriter {
     }
 
     /// Writes a gauge payload.
-    pub fn write_gauge(&mut self, key: &Key, value: f64, timestamp: Option<u64>) -> WriteResult {
+    pub fn write_gauge(
+        &mut self,
+        key: &Key,
+        value: f64,
+        timestamp: Option<u64>,
+        prefix: Option<&str>,
+        global_labels: &[Label],
+    ) -> WriteResult {
         let mut float_writer = ryu::Buffer::new();
         let value_str = float_writer.format(value);
 
+        if let Some(prefix) = prefix {
+            self.buf.extend_from_slice(prefix.as_bytes());
+            self.buf.push(b'.');
+        }
         self.buf.extend_from_slice(key.name().as_bytes());
         self.buf.push(b':');
         self.buf.extend_from_slice(value_str.as_bytes());
         self.buf.extend_from_slice(b"|g");
 
-        self.write_trailing(key, timestamp);
+        self.write_trailing(key, timestamp, global_labels);
 
         if self.commit() {
             WriteResult::success(1)
@@ -169,12 +193,14 @@ impl PayloadWriter {
         key: &Key,
         values: I,
         maybe_sample_rate: Option<f64>,
+        prefix: Option<&str>,
+        global_labels: &[Label],
     ) -> WriteResult
     where
         I: IntoIterator<Item = f64>,
         I::IntoIter: ExactSizeIterator,
     {
-        self.write_hist_dist_inner(key, values, b'h', maybe_sample_rate)
+        self.write_hist_dist_inner(key, values, b'h', maybe_sample_rate, prefix, global_labels)
     }
 
     /// Writes a distribution payload.
@@ -183,12 +209,14 @@ impl PayloadWriter {
         key: &Key,
         values: I,
         maybe_sample_rate: Option<f64>,
+        prefix: Option<&str>,
+        global_labels: &[Label],
     ) -> WriteResult
     where
         I: IntoIterator<Item = f64>,
         I::IntoIter: ExactSizeIterator,
     {
-        self.write_hist_dist_inner(key, values, b'd', maybe_sample_rate)
+        self.write_hist_dist_inner(key, values, b'd', maybe_sample_rate, prefix, global_labels)
     }
 
     fn write_hist_dist_inner<I>(
@@ -197,6 +225,8 @@ impl PayloadWriter {
         values: I,
         metric_type: u8,
         maybe_sample_rate: Option<f64>,
+        prefix: Option<&str>,
+        global_labels: &[Label],
     ) -> WriteResult
     where
         I: IntoIterator<Item = f64>,
@@ -210,7 +240,13 @@ impl PayloadWriter {
         //
         // We do this for efficiency reasons, but also to calculate the minimum payload length.
         self.trailer_buf.clear();
-        write_metric_trailer(key, None, &mut self.trailer_buf, maybe_sample_rate);
+        write_metric_trailer(
+            key,
+            None,
+            &mut self.trailer_buf,
+            maybe_sample_rate,
+            global_labels.iter(),
+        );
 
         // Calculate the minimum payload length, which is the key name, the metric trailer, and the metric type
         // substring (`|<metric type>`). This is the minimum amount of space we need to write out the metric without
@@ -261,6 +297,10 @@ impl PayloadWriter {
 
             // Write the metric name if it hasn't been written yet.
             if needs_name {
+                if let Some(prefix) = prefix {
+                    self.buf.extend_from_slice(prefix.as_bytes());
+                    self.buf.push(b'.');
+                }
                 self.buf.extend_from_slice(key.name().as_bytes());
                 needs_name = false;
             }
@@ -333,6 +373,7 @@ fn write_metric_trailer(
     maybe_timestamp: Option<u64>,
     buf: &mut Vec<u8>,
     maybe_sample_rate: Option<f64>,
+    global_labels: Iter<Label>,
 ) {
     // Write the sample rate if it's not 1.0, as that is the implied default.
     if let Some(sample_rate) = maybe_sample_rate {
@@ -346,7 +387,7 @@ fn write_metric_trailer(
     // Write the metric tags first.
     let tags = key.labels();
     let mut wrote_tag = false;
-    for tag in tags {
+    for tag in global_labels.chain(tags) {
         // If we haven't written a tag yet, write out the tags prefix first.
         //
         // Otherwise, write a tag separator.
@@ -449,25 +490,60 @@ mod tests {
     fn counter() {
         // Cases are defined as: metric key, metric value, metric timestamp, expected output.
         let cases = [
-            (Key::from("test_counter"), 91919, None, "test_counter:91919|c\n"),
-            (Key::from("test_counter"), 666, Some(345678), "test_counter:666|c|T345678\n"),
+            (Key::from("test_counter"), 91919, None, None, &[][..], "test_counter:91919|c\n"),
+            (
+                Key::from("test_counter"),
+                666,
+                Some(345678),
+                None,
+                &[],
+                "test_counter:666|c|T345678\n",
+            ),
             (
                 Key::from_parts("test_counter", &[("bug", "boop")]),
                 12345,
                 None,
+                None,
+                &[],
                 "test_counter:12345|c|#bug:boop\n",
             ),
             (
                 Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
                 777,
                 Some(234567),
+                None,
+                &[],
                 "test_counter:777|c|#foo:bar,baz:quux|T234567\n",
+            ),
+            (
+                Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
+                777,
+                Some(234567),
+                Some("server1"),
+                &[],
+                "server1.test_counter:777|c|#foo:bar,baz:quux|T234567\n",
+            ),
+            (
+                Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
+                777,
+                Some(234567),
+                None,
+                &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
+                "test_counter:777|c|#gfoo:bar,gbaz:quux,foo:bar,baz:quux|T234567\n",
+            ),
+            (
+                Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
+                777,
+                Some(234567),
+                Some("server1"),
+                &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
+                "server1.test_counter:777|c|#gfoo:bar,gbaz:quux,foo:bar,baz:quux|T234567\n",
             ),
         ];
 
-        for (key, value, ts, expected) in cases {
+        for (key, value, ts, prefix, global_labels, expected) in cases {
             let mut writer = PayloadWriter::new(8192, false);
-            let result = writer.write_counter(&key, value, ts);
+            let result = writer.write_counter(&key, value, ts, prefix, global_labels);
             assert_eq!(result.payloads_written(), 1);
 
             let actual = string_from_writer(&mut writer);
@@ -479,25 +555,60 @@ mod tests {
     fn gauge() {
         // Cases are defined as: metric key, metric value, metric timestamp, expected output.
         let cases = [
-            (Key::from("test_gauge"), 42.0, None, "test_gauge:42.0|g\n"),
-            (Key::from("test_gauge"), 1967.0, Some(345678), "test_gauge:1967.0|g|T345678\n"),
+            (Key::from("test_gauge"), 42.0, None, None, &[][..], "test_gauge:42.0|g\n"),
+            (
+                Key::from("test_gauge"),
+                1967.0,
+                Some(345678),
+                None,
+                &[],
+                "test_gauge:1967.0|g|T345678\n",
+            ),
             (
                 Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
                 3.13232,
                 None,
+                None,
+                &[],
                 "test_gauge:3.13232|g|#foo:bar,baz:quux\n",
             ),
             (
                 Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
                 3.13232,
                 Some(234567),
+                None,
+                &[],
                 "test_gauge:3.13232|g|#foo:bar,baz:quux|T234567\n",
+            ),
+            (
+                Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
+                3.13232,
+                Some(234567),
+                Some("server1"),
+                &[],
+                "server1.test_gauge:3.13232|g|#foo:bar,baz:quux|T234567\n",
+            ),
+            (
+                Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
+                3.13232,
+                Some(234567),
+                None,
+                &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
+                "test_gauge:3.13232|g|#gfoo:bar,gbaz:quux,foo:bar,baz:quux|T234567\n",
+            ),
+            (
+                Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
+                3.13232,
+                Some(234567),
+                Some("server1"),
+                &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
+                "server1.test_gauge:3.13232|g|#gfoo:bar,gbaz:quux,foo:bar,baz:quux|T234567\n",
             ),
         ];
 
-        for (key, value, ts, expected) in cases {
+        for (key, value, ts, prefix, global_labels, expected) in cases {
             let mut writer = PayloadWriter::new(8192, false);
-            let result = writer.write_gauge(&key, value, ts);
+            let result = writer.write_gauge(&key, value, ts, prefix, global_labels);
             assert_eq!(result.payloads_written(), 1);
 
             let actual = string_from_writer(&mut writer);
@@ -509,27 +620,55 @@ mod tests {
     fn histogram() {
         // Cases are defined as: metric key, metric values, metric timestamp, expected output.
         let cases = [
-            (Key::from("test_histogram"), &[22.22][..], "test_histogram:22.22|h\n"),
+            (Key::from("test_histogram"), &[22.22][..], None, &[][..], "test_histogram:22.22|h\n"),
             (
                 Key::from_parts("test_histogram", &[("foo", "bar"), ("baz", "quux")]),
                 &[88.0][..],
+                None,
+                &[],
                 "test_histogram:88.0|h|#foo:bar,baz:quux\n",
             ),
             (
                 Key::from("test_histogram"),
                 &[22.22, 33.33, 44.44][..],
+                None,
+                &[],
                 "test_histogram:22.22:33.33:44.44|h\n",
             ),
             (
                 Key::from_parts("test_histogram", &[("foo", "bar"), ("baz", "quux")]),
                 &[88.0, 66.6, 123.4][..],
+                None,
+                &[],
                 "test_histogram:88.0:66.6:123.4|h|#foo:bar,baz:quux\n",
+            ),
+            (
+                Key::from_parts("test_histogram", &[("foo", "bar"), ("baz", "quux")]),
+                &[88.0, 66.6, 123.4][..],
+                Some("server1"),
+                &[],
+                "server1.test_histogram:88.0:66.6:123.4|h|#foo:bar,baz:quux\n",
+            ),
+            (
+                Key::from_parts("test_histogram", &[("foo", "bar"), ("baz", "quux")]),
+                &[88.0, 66.6, 123.4][..],
+                None,
+                &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
+                "test_histogram:88.0:66.6:123.4|h|#gfoo:bar,gbaz:quux,foo:bar,baz:quux\n",
+            ),
+            (
+                Key::from_parts("test_histogram", &[("foo", "bar"), ("baz", "quux")]),
+                &[88.0, 66.6, 123.4][..],
+                Some("server1"),
+                &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
+                "server1.test_histogram:88.0:66.6:123.4|h|#gfoo:bar,gbaz:quux,foo:bar,baz:quux\n",
             ),
         ];
 
-        for (key, values, expected) in cases {
+        for (key, values, prefix, global_labels, expected) in cases {
             let mut writer = PayloadWriter::new(8192, false);
-            let result = writer.write_histogram(&key, values.iter().copied(), None);
+            let result =
+                writer.write_histogram(&key, values.iter().copied(), None, prefix, global_labels);
             assert_eq!(result.payloads_written(), 1);
 
             let actual = string_from_writer(&mut writer);
@@ -541,27 +680,60 @@ mod tests {
     fn distribution() {
         // Cases are defined as: metric key, metric values, metric timestamp, expected output.
         let cases = [
-            (Key::from("test_distribution"), &[22.22][..], "test_distribution:22.22|d\n"),
+            (Key::from("test_distribution"), &[22.22][..], None, &[][..], "test_distribution:22.22|d\n"),
             (
                 Key::from_parts("test_distribution", &[("foo", "bar"), ("baz", "quux")]),
                 &[88.0][..],
+                None,
+                &[],
                 "test_distribution:88.0|d|#foo:bar,baz:quux\n",
             ),
             (
                 Key::from("test_distribution"),
                 &[22.22, 33.33, 44.44][..],
+                None,
+                &[],
                 "test_distribution:22.22:33.33:44.44|d\n",
             ),
             (
                 Key::from_parts("test_distribution", &[("foo", "bar"), ("baz", "quux")]),
                 &[88.0, 66.6, 123.4][..],
+                None,
+                &[],
                 "test_distribution:88.0:66.6:123.4|d|#foo:bar,baz:quux\n",
+            ),
+            (
+                Key::from_parts("test_distribution", &[("foo", "bar"), ("baz", "quux")]),
+                &[88.0, 66.6, 123.4][..],
+                Some("server1"),
+                &[],
+                "server1.test_distribution:88.0:66.6:123.4|d|#foo:bar,baz:quux\n",
+            ),
+            (
+                Key::from_parts("test_distribution", &[("foo", "bar"), ("baz", "quux")]),
+                &[88.0, 66.6, 123.4][..],
+                None,
+                &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
+                "test_distribution:88.0:66.6:123.4|d|#gfoo:bar,gbaz:quux,foo:bar,baz:quux\n",
+            ),
+            (
+                Key::from_parts("test_distribution", &[("foo", "bar"), ("baz", "quux")]),
+                &[88.0, 66.6, 123.4][..],
+                Some("server1"),
+                &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
+                "server1.test_distribution:88.0:66.6:123.4|d|#gfoo:bar,gbaz:quux,foo:bar,baz:quux\n",
             ),
         ];
 
-        for (key, values, expected) in cases {
+        for (key, values, prefix, global_labels, expected) in cases {
             let mut writer = PayloadWriter::new(8192, false);
-            let result = writer.write_distribution(&key, values.iter().copied(), None);
+            let result = writer.write_distribution(
+                &key,
+                values.iter().copied(),
+                None,
+                prefix,
+                global_labels,
+            );
             assert_eq!(result.payloads_written(), 1);
 
             let actual = string_from_writer(&mut writer);
@@ -600,7 +772,7 @@ mod tests {
 
         for (key, values, expected) in cases {
             let mut writer = PayloadWriter::new(8192, true);
-            let result = writer.write_distribution(&key, values.iter().copied(), None);
+            let result = writer.write_distribution(&key, values.iter().copied(), None, None, &[]);
             assert_eq!(result.payloads_written(), 1);
 
             let actual = buf_from_writer(&mut writer);
@@ -623,21 +795,21 @@ mod tests {
                     InputMetric::Counter(key, value, ts) => {
                         total_input_points += 1;
 
-                        let result = writer.write_counter(&key, value, ts);
+                        let result = writer.write_counter(&key, value, ts, None, Default::default());
                         payloads_written += result.payloads_written();
                         points_dropped += result.points_dropped();
                     },
                     InputMetric::Gauge(key, value, ts) => {
                         total_input_points += 1;
 
-                        let result = writer.write_gauge(&key, value, ts);
+                        let result = writer.write_gauge(&key, value, ts, None, Default::default());
                         payloads_written += result.payloads_written();
                         points_dropped += result.points_dropped();
                     },
                     InputMetric::Histogram(key, values) => {
                         total_input_points += values.len() as u64;
 
-                        let result = writer.write_histogram(&key, values, None);
+                        let result = writer.write_histogram(&key, values, None, None, Default::default());
                         payloads_written += result.payloads_written();
                         points_dropped += result.points_dropped();
                     },
