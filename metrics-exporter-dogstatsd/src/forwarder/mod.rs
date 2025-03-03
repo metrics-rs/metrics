@@ -110,19 +110,6 @@ pub(crate) struct ForwarderConfiguration {
     pub write_timeout: Duration,
 }
 
-impl ForwarderConfiguration {
-    /// Returns `true` if the remote address requires a length prefix to be sent before each payload.
-    pub fn is_length_prefixed(&self) -> bool {
-        match self.remote_addr {
-            RemoteAddr::Udp(_) => false,
-            #[cfg(target_os = "linux")]
-            RemoteAddr::Unix(_) => true,
-            #[cfg(target_os = "linux")]
-            RemoteAddr::Unixgram(_) => true,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::net::SocketAddrV4;
