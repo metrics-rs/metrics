@@ -83,8 +83,19 @@ impl PayloadWriter {
             return false;
         }
 
-        // Track the new offset.
-        self.offsets.push(self.buf.len());
+        // Offset update
+        if current_len + self.last_offset() <= self.max_payload_len {
+            // If the current metric can be written within the max_payload_len
+            // replace the last offset (if there is valid offset)
+            if let Some(last_offset) = self.offsets.last_mut() {
+                *last_offset = self.buf.len();
+            } else {
+                self.offsets.push(self.buf.len());
+            }
+        } else {
+            // - else add a new offset to send current metric in a new Packet
+            self.offsets.push(self.buf.len());
+        }
 
         true
     }
