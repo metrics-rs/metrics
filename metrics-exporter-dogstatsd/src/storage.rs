@@ -19,40 +19,42 @@ use metrics_util::{
 };
 
 pub(crate) struct AtomicCounter {
-    is_absolute: AtomicBool,
-    last: AtomicU64,
+    //is_absolute: AtomicBool,
+    //last: AtomicU64,
     current: AtomicU64,
-    updates: AtomicU64,
+    //updates: AtomicU64,
 }
 
 impl AtomicCounter {
     /// Creates a new `AtomicCounter`.
     fn new() -> Self {
         Self {
-            is_absolute: AtomicBool::new(false),
-            last: AtomicU64::new(0),
+            //is_absolute: AtomicBool::new(false),
+            //last: AtomicU64::new(0),
             current: AtomicU64::new(0),
-            updates: AtomicU64::new(0),
+            //updates: AtomicU64::new(0),
         }
     }
 
     /// Flushes the current counter value, returning the delta of the counter value, and the number of updates, since
     /// the last flush.
     pub fn flush(&self) -> (u64, u64) {
-        let current = self.current.load(Acquire);
-        let last = self.last.swap(current, AcqRel);
-        let delta = current.wrapping_sub(last);
-        let updates = self.updates.swap(0, AcqRel);
+        //let current = self.current.load(Acquire);
+        //let last = self.last.swap(current, AcqRel);
+        //let delta = current.wrapping_sub(last);
+        //let updates = self.updates.swap(0, AcqRel);
 
-        (delta, updates)
+        //(delta, updates)
+        let delta = self.current.swap(0, Relaxed);
+        (delta, if delta > 0 { 1 } else { 0 })
     }
 }
 
 impl CounterFn for AtomicCounter {
     fn increment(&self, value: u64) {
-        self.is_absolute.store(false, Release);
+        //self.is_absolute.store(false, Release);
         self.current.fetch_add(value, Relaxed);
-        self.updates.fetch_add(1, Relaxed);
+        //self.updates.fetch_add(1, Relaxed);
     }
 
     fn absolute(&self, value: u64) {
@@ -60,32 +62,36 @@ impl CounterFn for AtomicCounter {
         // consistent starting point when flushing. This ensures that we only start flushing deltas once we've gotten
         // two consecutive absolute values, since otherwise we might be calculating a delta between a `last` of 0 and a
         // very large `current` value.
-        if !self.is_absolute.swap(true, Release) {
-            self.last.store(value, Release);
-        }
+        //if !self.is_absolute.swap(true, Release) {
+        //    self.last.store(value, Release);
+        //}
 
-        self.current.store(value, Release);
-        self.updates.fetch_add(1, Relaxed);
+        //self.current.store(value, Release);
+        //self.updates.fetch_add(1, Relaxed);
     }
 }
 
 pub(crate) struct AtomicGauge {
     inner: AtomicU64,
-    updates: AtomicU64,
+    //updates: AtomicU64,
 }
 
 impl AtomicGauge {
     /// Creates a new `AtomicGauge`.
     fn new() -> Self {
-        Self { inner: AtomicU64::new(0.0f64.to_bits()), updates: AtomicU64::new(0) }
+        Self {
+            inner: AtomicU64::new(0.0f64.to_bits()),
+            //updates: AtomicU64::new(0),
+        }
     }
 
     /// Flushes the current gauge value and the number of updates since the last flush.
     pub fn flush(&self) -> (f64, u64) {
         let current = f64::from_bits(self.inner.load(Acquire));
-        let updates = self.updates.swap(0, AcqRel);
+        //let updates = self.updates.swap(0, AcqRel);
 
-        (current, updates)
+        //(current, updates)
+        (current, 0)
     }
 }
 
@@ -97,7 +103,7 @@ impl GaugeFn for AtomicGauge {
                 Some(f64::to_bits(new))
             })
             .expect("should never fail to update gauge");
-        self.updates.fetch_add(1, Relaxed);
+        //self.updates.fetch_add(1, Relaxed);
     }
 
     fn decrement(&self, value: f64) {
@@ -107,12 +113,12 @@ impl GaugeFn for AtomicGauge {
                 Some(f64::to_bits(new))
             })
             .expect("should never fail to update gauge");
-        self.updates.fetch_add(1, Relaxed);
+        //self.updates.fetch_add(1, Relaxed);
     }
 
     fn set(&self, value: f64) {
         self.inner.store(value.to_bits(), Release);
-        self.updates.fetch_add(1, Relaxed);
+        //self.updates.fetch_add(1, Relaxed);
     }
 }
 
