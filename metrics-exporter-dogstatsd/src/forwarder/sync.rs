@@ -91,7 +91,7 @@ impl ClientState {
                         *self = ClientState::Disconnected(config);
                         return Err(e);
                     }
-                }
+                },
                 ClientState::Ready(config, mut client) => {
                     let result = client.send(payload);
                     if result.is_ok() {
