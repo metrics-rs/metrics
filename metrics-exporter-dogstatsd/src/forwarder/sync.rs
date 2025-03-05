@@ -85,10 +85,13 @@ impl ClientState {
             let old_state = std::mem::replace(self, ClientState::Inconsistent);
             match old_state {
                 ClientState::Inconsistent => unreachable!("transitioned _from_ inconsistent state"),
-                ClientState::Disconnected(config) => {
-                    let client = Client::from_forwarder_config(&config)?;
-                    *self = ClientState::Ready(config, client);
-                }
+                ClientState::Disconnected(config) => match Client::from_forwarder_config(&config) {
+                    Ok(client) => *self = ClientState::Ready(config, client),
+                    Err(e) => {
+                        *self = ClientState::Disconnected(config);
+                        return Err(e);
+                    }
+                },
                 ClientState::Ready(config, mut client) => {
                     let result = client.send(payload);
                     if result.is_ok() {
