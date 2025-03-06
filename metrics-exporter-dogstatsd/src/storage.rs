@@ -1,10 +1,7 @@
 use std::{
     slice::Iter,
     sync::{
-        atomic::{
-            AtomicBool, AtomicU64,
-            Ordering::{AcqRel, Acquire, Relaxed, Release},
-        },
+        atomic::{AtomicU64, Ordering::Relaxed},
         Arc,
     },
 };
@@ -18,10 +15,12 @@ use metrics_util::{
     },
 };
 
+use crate::util::CachePadded;
+
 pub(crate) struct AtomicCounter {
     //is_absolute: AtomicBool,
     //last: AtomicU64,
-    current: AtomicU64,
+    current: CachePadded<AtomicU64>,
     //updates: AtomicU64,
 }
 
@@ -31,7 +30,7 @@ impl AtomicCounter {
         Self {
             //is_absolute: AtomicBool::new(false),
             //last: AtomicU64::new(0),
-            current: AtomicU64::new(0),
+            current: CachePadded::new(AtomicU64::new(0)),
             //updates: AtomicU64::new(0),
         }
     }
@@ -57,7 +56,7 @@ impl CounterFn for AtomicCounter {
         //self.updates.fetch_add(1, Relaxed);
     }
 
-    fn absolute(&self, value: u64) {
+    fn absolute(&self, _value: u64) {
         // Ensure the counter is in absolute mode, and if it wasn't already, reset `last` to `value` to give ourselves a
         // consistent starting point when flushing. This ensures that we only start flushing deltas once we've gotten
         // two consecutive absolute values, since otherwise we might be calculating a delta between a `last` of 0 and a
@@ -72,66 +71,65 @@ impl CounterFn for AtomicCounter {
 }
 
 pub(crate) struct AtomicGauge {
-    inner: AtomicU64,
-    //updates: AtomicU64,
+    inner: CachePadded<AtomicU64>,
+    updates: CachePadded<AtomicU64>,
 }
 
 impl AtomicGauge {
     /// Creates a new `AtomicGauge`.
     fn new() -> Self {
         Self {
-            inner: AtomicU64::new(0.0f64.to_bits()),
-            //updates: AtomicU64::new(0),
+            inner: CachePadded::new(AtomicU64::new(0.0f64.to_bits())),
+            updates: CachePadded::new(AtomicU64::new(0)),
         }
     }
 
     /// Flushes the current gauge value and the number of updates since the last flush.
     pub fn flush(&self) -> (f64, u64) {
-        let current = f64::from_bits(self.inner.load(Acquire));
-        //let updates = self.updates.swap(0, AcqRel);
+        let current = f64::from_bits(self.inner.load(Relaxed));
+        let updates = self.updates.swap(0, Relaxed);
 
-        //(current, updates)
-        (current, 0)
+        (current, updates)
     }
 }
 
 impl GaugeFn for AtomicGauge {
     fn increment(&self, value: f64) {
         self.inner
-            .fetch_update(AcqRel, Relaxed, |current| {
+            .fetch_update(Relaxed, Relaxed, |current| {
                 let new = f64::from_bits(current) + value;
                 Some(f64::to_bits(new))
             })
             .expect("should never fail to update gauge");
-        //self.updates.fetch_add(1, Relaxed);
+        self.updates.fetch_add(1, Relaxed);
     }
 
     fn decrement(&self, value: f64) {
         self.inner
-            .fetch_update(AcqRel, Relaxed, |current| {
+            .fetch_update(Relaxed, Relaxed, |current| {
                 let new = f64::from_bits(current) - value;
                 Some(f64::to_bits(new))
             })
             .expect("should never fail to update gauge");
-        //self.updates.fetch_add(1, Relaxed);
+        self.updates.fetch_add(1, Relaxed);
     }
 
     fn set(&self, value: f64) {
-        self.inner.store(value.to_bits(), Release);
-        //self.updates.fetch_add(1, Relaxed);
+        self.inner.store(value.to_bits(), Relaxed);
+        self.updates.fetch_add(1, Relaxed);
     }
 }
 
 pub(crate) enum AtomicHistogram {
     Raw(AtomicBucket<f64>),
-    Sampled(AtomicSamplingReservoir),
+    Sampled(CachePadded<AtomicSamplingReservoir>),
 }
 
 impl AtomicHistogram {
     /// Creates a new `AtomicHistogram` based on the given sampling configuration.
     fn new(sampling: bool, reservoir_size: usize) -> Self {
         if sampling {
-            AtomicHistogram::Sampled(AtomicSamplingReservoir::new(reservoir_size))
+            AtomicHistogram::Sampled(CachePadded::new(AtomicSamplingReservoir::new(reservoir_size)))
         } else {
             AtomicHistogram::Raw(AtomicBucket::new())
         }
