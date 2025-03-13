@@ -140,10 +140,16 @@ pub struct LocalRecorderGuard<'a> {
 impl<'a> LocalRecorderGuard<'a> {
     /// Creates a new `LocalRecorderGuard` and sets the thread-local recorder.
     fn new(recorder: &'a dyn Recorder) -> Self {
+        // SAFETY: Why this it okay to extend the lifetime of the object type from `'a` to `'static`?
+        let recorder_ptr = unsafe {
+            std::mem::transmute::<*const (dyn Recorder + '_), *mut (dyn Recorder + 'static)>(
+                recorder as &dyn Recorder,
+            )
+        };
         // SAFETY: While we take a lifetime-less pointer to the given reference, the reference we derive _from_ the
         // pointer is given the same lifetime of the reference used to construct the guard -- captured in the guard type
         // itself -- and so derived references never outlive the source reference.
-        let recorder_ptr = unsafe { NonNull::new_unchecked(recorder as *const _ as *mut _) };
+        let recorder_ptr = unsafe { NonNull::new_unchecked(recorder_ptr) };
 
         let prev_recorder =
             LOCAL_RECORDER.with(|local_recorder| local_recorder.replace(Some(recorder_ptr)));
