@@ -60,10 +60,17 @@ impl Client {
             Client::Unixgram(socket) => socket.send(buf),
 
             #[cfg(target_os = "linux")]
-            Client::Unix(socket) => match socket.write_all(buf) {
-                Ok(()) => Ok(buf.len()),
-                Err(e) => Err(e),
-            },
+            Client::Unix(socket) => {
+                match u32::try_from(buf.len()) {
+                    Ok(len) => socket.write_all(&len.to_be_bytes())?,
+                    Err(e) => {
+                        use std::io::{Error, ErrorKind};
+                        return Err(Error::new(ErrorKind::InvalidData, e));
+                    }
+                }
+
+                socket.write_all(buf).map(|()| buf.len())
+            }
         }
     }
 }
@@ -145,8 +152,7 @@ impl Forwarder {
     /// Run the forwarder, sending out payloads to the configured remote address at the configured interval.
     pub fn run(mut self) {
         let mut flush_state = FlushState::default();
-        let mut writer =
-            PayloadWriter::new(self.config.max_payload_len, self.config.is_length_prefixed());
+        let mut writer = PayloadWriter::new(self.config.max_payload_len);
         let mut telemetry_update = TelemetryUpdate::default();
 
         let mut next_flush = Instant::now() + self.config.flush_interval;
