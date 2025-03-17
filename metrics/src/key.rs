@@ -175,7 +175,34 @@ fn generate_key_hash(name: &KeyName, labels: &Cow<'static, [Label]>) -> u64 {
 
 fn key_hasher_impl<H: Hasher>(state: &mut H, name: &KeyName, labels: &Cow<'static, [Label]>) {
     name.0.hash(state);
-    labels.hash(state);
+    labels.len().hash(state);
+    match labels.len() {
+        0 => {}
+        1 => labels[0].hash(state),
+        2 => {
+            if labels[0] < labels[1] {
+                labels[0].hash(state);
+                labels[1].hash(state);
+            } else {
+                labels[1].hash(state);
+                labels[0].hash(state);
+            }
+        }
+        n if n < 8 => {
+            let mut labels_sort_map: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+            labels_sort_map[..n].sort_by_key(|i| labels[*i as usize].key());
+            for i in 0..n {
+                labels[labels_sort_map[i] as usize].hash(state)
+            }
+        }
+        n => {
+            let mut labels_sort_map: Vec<usize> = (0..n).collect();
+            labels_sort_map.sort_by_key(|i| labels[*i].key());
+            for i in 0..n {
+                labels[labels_sort_map[i]].hash(state)
+            }
+        }
+    }
 }
 
 impl Clone for Key {
@@ -191,7 +218,51 @@ impl Clone for Key {
 
 impl PartialEq for Key {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.labels == other.labels
+        if self.name != other.name {
+            return false;
+        }
+        if self.labels.len() != other.labels.len() {
+            return false;
+        }
+        match self.labels.len() {
+            0 => true,
+            1 => self.labels[0] == other.labels[0],
+            2 => {
+                if self.labels[0] == other.labels[0] {
+                    self.labels[1] == other.labels[1]
+                } else if self.labels[0] == other.labels[1] {
+                    self.labels[1] == other.labels[0]
+                } else {
+                    false
+                }
+            }
+            n if n < 8 => {
+                let mut labels_sort_map: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+                labels_sort_map[..n].sort_by_key(|i| self.labels[*i as usize].key());
+                let mut his_labels_sort_map: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+                his_labels_sort_map[..n].sort_by_key(|i| other.labels[*i as usize].key());
+                for i in 0..n {
+                    if self.labels[labels_sort_map[i] as usize]
+                        != other.labels[his_labels_sort_map[i] as usize]
+                    {
+                        return false;
+                    }
+                }
+                true
+            }
+            n => {
+                let mut labels_sort_map: Vec<usize> = (0..n).collect();
+                labels_sort_map.sort_by_key(|i| self.labels[*i].key());
+                let mut his_labels_sort_map: Vec<usize> = (0..n).collect();
+                his_labels_sort_map.sort_by_key(|i| other.labels[*i].key());
+                for i in 0..n {
+                    if self.labels[labels_sort_map[i]] != other.labels[his_labels_sort_map[i]] {
+                        return false;
+                    }
+                }
+                true
+            }
+        }
     }
 }
 
@@ -205,7 +276,46 @@ impl PartialOrd for Key {
 
 impl Ord for Key {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        (&self.name, &self.labels).cmp(&(&other.name, &other.labels))
+        match (&self.name, self.labels.len()).cmp(&(&other.name, other.labels.len())) {
+            cmp::Ordering::Less => return cmp::Ordering::Less,
+            cmp::Ordering::Equal => {}
+            cmp::Ordering::Greater => return cmp::Ordering::Greater,
+        }
+        match self.labels.len() {
+            0 => cmp::Ordering::Equal,
+            1 => self.labels[0].cmp(&other.labels[0]),
+            n if n < 8 => {
+                let mut labels_sort_map: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+                labels_sort_map[..n].sort_by_key(|i| self.labels[*i as usize].key());
+                let mut his_labels_sort_map: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+                his_labels_sort_map[..n].sort_by_key(|i| other.labels[*i as usize].key());
+                for i in 0..n {
+                    match self.labels[labels_sort_map[i] as usize]
+                        .cmp(&other.labels[his_labels_sort_map[i] as usize])
+                    {
+                        cmp::Ordering::Less => return cmp::Ordering::Less,
+                        cmp::Ordering::Equal => {}
+                        cmp::Ordering::Greater => return cmp::Ordering::Greater,
+                    }
+                }
+                cmp::Ordering::Equal
+            }
+            n => {
+                let mut labels_sort_map: Vec<usize> = (0..n).collect();
+                labels_sort_map.sort_by_key(|i| self.labels[*i].key());
+                let mut his_labels_sort_map: Vec<usize> = (0..n).collect();
+                his_labels_sort_map.sort_by_key(|i| other.labels[*i].key());
+                for i in 0..n {
+                    match self.labels[labels_sort_map[i]].cmp(&other.labels[his_labels_sort_map[i]])
+                    {
+                        cmp::Ordering::Less => return cmp::Ordering::Less,
+                        cmp::Ordering::Equal => {}
+                        cmp::Ordering::Greater => return cmp::Ordering::Greater,
+                    }
+                }
+                cmp::Ordering::Equal
+            }
+        }
     }
 }
 
@@ -258,7 +368,7 @@ where
 mod tests {
     use super::Key;
     use crate::{KeyName, Label};
-    use std::{collections::HashMap, ops::Deref, sync::Arc};
+    use std::{cmp, collections::HashMap, ops::Deref, sync::Arc};
 
     static BORROWED_NAME: &str = "name";
     static FOOBAR_NAME: &str = "foobar";
@@ -290,6 +400,56 @@ mod tests {
     }
 
     #[test]
+    fn test_key_ord_total() {
+        let mut keys: Vec<_> = (1..16)
+            .flat_map(|i| {
+                let names: Vec<Label> =
+                    (0..i).map(|s| Label::new(format!("{}", s), format!("{}", s))).collect();
+                let key1 = Key::from_parts("key", names.clone());
+
+                // test that changing the order doesn't affect the value
+                let mut names_alt = names.clone();
+                names_alt.rotate_left(1);
+                let key2 = Key::from_parts("key", names_alt);
+                assert_eq!(key1, key2);
+
+                // check that the first element affects the order
+                names_alt = names.clone();
+                names_alt[0] = Label::new("x".to_string(), "0".to_string());
+                let key3 = Key::from_parts("key", names_alt);
+                assert_ne!(key1, key3);
+
+                // check that the last element affects the order
+                names_alt = names.clone();
+                names_alt[i - 1] = Label::new("x".to_string(), "0".to_string());
+                let key4 = Key::from_parts("key", names_alt);
+                assert_ne!(key1, key4);
+
+                [key1, key2, key3, key4]
+            })
+            .collect();
+        keys.push(Key::from_parts("key", vec![]));
+        keys.sort();
+        for i in 0..keys.len() {
+            for j in 0..keys.len() {
+                // check that the order is a total order
+                match (keys[i] == keys[j], keys[i].cmp(&keys[j])) {
+                    (true, cmp::Ordering::Equal) => {}
+                    (true, cmp::Ordering::Less) => panic!("at {} {} equal keys compared lt", i, j),
+                    (true, cmp::Ordering::Greater) => {
+                        panic!("at {} {} equal keys compared gt", i, j)
+                    }
+                    (false, cmp::Ordering::Equal) => {
+                        panic!("at {} {} unequal keys compared equal", i, j)
+                    }
+                    (false, cmp::Ordering::Less) => assert!(i < j),
+                    (false, cmp::Ordering::Greater) => assert!(i > j),
+                }
+            }
+        }
+    }
+
+    #[test]
     fn test_key_eq_and_hash() {
         let mut keys = HashMap::new();
 
@@ -315,6 +475,38 @@ mod tests {
         let basic: Key = "constant_key".into();
         let cloned_basic = basic.clone();
         assert_eq!(basic, cloned_basic);
+
+        for i in 1..16 {
+            let names: Vec<Label> =
+                (0..i).map(|s| Label::new(format!("{}", s), format!("{}", s))).collect();
+            let key1 = Key::from_parts("key", names.clone());
+            let mut names_alt = names.clone();
+
+            // test that changing the order doesn't affect the hash
+            names_alt.rotate_left(1);
+            let key2 = Key::from_parts("key", names_alt);
+            assert_eq!(key1, key2);
+            assert_eq!(key1.get_hash(), key2.get_hash());
+
+            // check that the first element affects the hash
+            names_alt = names.clone();
+            names_alt[0] = Label::new("x".to_string(), "0".to_string());
+            let key2 = Key::from_parts("key", names_alt);
+            assert_ne!(key1, key2);
+            assert_ne!(key1.get_hash(), key2.get_hash());
+
+            // check that the last element affects the hash
+            names_alt = names.clone();
+            names_alt[i - 1] = Label::new("x".to_string(), "0".to_string());
+            let key2 = Key::from_parts("key", names_alt);
+            assert_ne!(key1, key2);
+            assert_ne!(key1.get_hash(), key2.get_hash());
+
+            // check that it differs from a key with no labels
+            let key2 = Key::from_parts("key", vec![]);
+            assert_ne!(key1, key2);
+            assert_ne!(key1.get_hash(), key2.get_hash());
+        }
     }
 
     #[test]
