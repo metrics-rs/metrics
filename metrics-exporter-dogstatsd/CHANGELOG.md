@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Allow Unix sockets to be used on more than just Linux platforms.
+  ([#569](https://github.com/metrics-rs/metrics/pull/569))
+
+### Fixed
+
+- Create Unix datagram socket in unbound mode to avoid taking over socket, which caused silent errors when the path was
+  already bound, leading to metrics not being forwarded properly. ([#569](https://github.com/metrics-rs/metrics/pull/569))
+
 ## [0.9.1] - 2025-03-25
 
 ### Fixed
