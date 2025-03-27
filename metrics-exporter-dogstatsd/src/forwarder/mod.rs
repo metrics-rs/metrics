@@ -118,7 +118,7 @@ impl ForwarderConfiguration {
             #[cfg(unix)]
             RemoteAddr::Unix(_) => true,
             #[cfg(unix)]
-            RemoteAddr::Unixgram(_) => true,
+            RemoteAddr::Unixgram(_) => false,
         }
     }
 }
