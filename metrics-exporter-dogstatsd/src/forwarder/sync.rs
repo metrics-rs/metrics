@@ -38,21 +38,18 @@ impl Client {
             }
 
             #[cfg(unix)]
-            RemoteAddr::Unixgram(path) => {
-                UnixDatagram::unbound().and_then(|socket| {
-                    socket.connect(path)?;
-                    socket.set_write_timeout(Some(config.write_timeout))?;
-                    Ok(Client::Unixgram(socket))
-                })
-            },
+            RemoteAddr::Unixgram(path) => UnixDatagram::unbound().and_then(|socket| {
+                socket.connect(path)?;
+                socket.set_write_timeout(Some(config.write_timeout))?;
+                Ok(Client::Unixgram(socket))
+            }),
 
             #[cfg(unix)]
-            RemoteAddr::Unix(path) => {
-                UnixStream::connect(path).and_then(|socket| {
-                    socket.set_write_timeout(Some(config.write_timeout))?;
-                    Ok(Client::Unix(socket))
-                })
-            },
+            RemoteAddr::Unix(path) =>
+            UnixStream::connect(path).and_then(|socket| {
+                socket.set_write_timeout(Some(config.write_timeout))?;
+                Ok(Client::Unix(socket))
+            }),
         }
     }
 
@@ -61,10 +58,7 @@ impl Client {
             Client::Udp(socket) => socket.send(buf),
 
             #[cfg(unix)]
-            Client::Unixgram(socket) => {
-                println!("Sending unixgram data!");
-                socket.send(buf)
-            },
+            Client::Unixgram(socket) => socket.send(buf),
 
             #[cfg(unix)]
             Client::Unix(socket) => match socket.write_all(buf) {
@@ -95,7 +89,6 @@ impl ClientState {
                 ClientState::Disconnected(config) => match Client::from_forwarder_config(&config) {
                     Ok(client) => *self = ClientState::Ready(config, client),
                     Err(e) => {
-                        println!("Failed to create client: {:?}", e);
                         *self = ClientState::Disconnected(config);
                         return Err(e);
                     }
