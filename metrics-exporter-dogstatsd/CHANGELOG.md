@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.2] - 2025-03-27
+
 ### Changed
 
 - Allow Unix sockets to be used on more than just Linux platforms.
