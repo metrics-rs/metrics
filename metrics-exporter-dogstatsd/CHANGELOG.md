@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.3] - 2025-03-27
+
 ### Fixed
 
 - Don't prepend a length delimiter for payloads when in UDS datagram mode.
