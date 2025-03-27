@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Don't prepend a length delimiter for payloads when in UDS datagram mode.
+  ([#571](https://github.com/metrics-rs/metrics/pull/571))
+
 ## [0.9.2] - 2025-03-27
 
 ### Changed
