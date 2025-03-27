@@ -1,4 +1,4 @@
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 use std::os::unix::net::{UnixDatagram, UnixStream};
 use std::{
     io::{self, Write as _},
@@ -7,7 +7,6 @@ use std::{
     thread::sleep,
     time::Instant,
 };
-
 use tracing::{debug, error, trace};
 
 use super::{ForwarderConfiguration, RemoteAddr};
@@ -20,10 +19,10 @@ use crate::{
 enum Client {
     Udp(UdpSocket),
 
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     Unixgram(UnixDatagram),
 
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     Unix(UnixStream),
 }
 
@@ -38,17 +37,22 @@ impl Client {
                 })
             }
 
-            #[cfg(target_os = "linux")]
-            RemoteAddr::Unixgram(path) => UnixDatagram::bind(path).and_then(|socket| {
-                socket.set_write_timeout(Some(config.write_timeout))?;
-                Ok(Client::Unixgram(socket))
-            }),
+            #[cfg(unix)]
+            RemoteAddr::Unixgram(path) => {
+                UnixDatagram::unbound().and_then(|socket| {
+                    socket.connect(path)?;
+                    socket.set_write_timeout(Some(config.write_timeout))?;
+                    Ok(Client::Unixgram(socket))
+                })
+            },
 
-            #[cfg(target_os = "linux")]
-            RemoteAddr::Unix(path) => UnixStream::connect(path).and_then(|socket| {
-                socket.set_write_timeout(Some(config.write_timeout))?;
-                Ok(Client::Unix(socket))
-            }),
+            #[cfg(unix)]
+            RemoteAddr::Unix(path) => {
+                UnixStream::connect(path).and_then(|socket| {
+                    socket.set_write_timeout(Some(config.write_timeout))?;
+                    Ok(Client::Unix(socket))
+                })
+            },
         }
     }
 
@@ -56,10 +60,13 @@ impl Client {
         match self {
             Client::Udp(socket) => socket.send(buf),
 
-            #[cfg(target_os = "linux")]
-            Client::Unixgram(socket) => socket.send(buf),
+            #[cfg(unix)]
+            Client::Unixgram(socket) => {
+                println!("Sending unixgram data!");
+                socket.send(buf)
+            },
 
-            #[cfg(target_os = "linux")]
+            #[cfg(unix)]
             Client::Unix(socket) => match socket.write_all(buf) {
                 Ok(()) => Ok(buf.len()),
                 Err(e) => Err(e),
@@ -88,6 +95,7 @@ impl ClientState {
                 ClientState::Disconnected(config) => match Client::from_forwarder_config(&config) {
                     Ok(client) => *self = ClientState::Ready(config, client),
                     Err(e) => {
+                        println!("Failed to create client: {:?}", e);
                         *self = ClientState::Disconnected(config);
                         return Err(e);
                     }
