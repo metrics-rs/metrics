@@ -45,8 +45,7 @@ impl Client {
             }),
 
             #[cfg(unix)]
-            RemoteAddr::Unix(path) =>
-            UnixStream::connect(path).and_then(|socket| {
+            RemoteAddr::Unix(path) => UnixStream::connect(path).and_then(|socket| {
                 socket.set_write_timeout(Some(config.write_timeout))?;
                 Ok(Client::Unix(socket))
             }),
