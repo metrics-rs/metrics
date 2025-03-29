@@ -1,4 +1,4 @@
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 use std::path::PathBuf;
 use std::{
     fmt,
@@ -12,10 +12,10 @@ pub mod sync;
 pub(crate) enum RemoteAddr {
     Udp(Vec<SocketAddr>),
 
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     Unixgram(PathBuf),
 
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     Unix(PathBuf),
 }
 
@@ -27,9 +27,9 @@ impl RemoteAddr {
     pub const fn transport_id(&self) -> &'static str {
         match self {
             RemoteAddr::Udp(_) => "udp",
-            #[cfg(target_os = "linux")]
+            #[cfg(unix)]
             RemoteAddr::Unix(_) => "uds-stream",
-            #[cfg(target_os = "linux")]
+            #[cfg(unix)]
             RemoteAddr::Unixgram(_) => "uds",
         }
     }
@@ -37,7 +37,7 @@ impl RemoteAddr {
     pub(crate) fn default_max_payload_len(&self) -> usize {
         match self {
             RemoteAddr::Udp(_) => 1432,
-            #[cfg(target_os = "linux")]
+            #[cfg(unix)]
             RemoteAddr::Unix(_) | RemoteAddr::Unixgram(_) => 8192,
         }
     }
@@ -50,9 +50,9 @@ impl<'a> TryFrom<&'a str> for RemoteAddr {
         // Try treating the address as a fully-qualified URL, where the scheme is the transport identifier.
         if let Some((scheme, path)) = addr.split_once("://") {
             return match scheme {
-                #[cfg(target_os = "linux")]
+                #[cfg(unix)]
                 "unix" => Ok(RemoteAddr::Unix(PathBuf::from(path))),
-                #[cfg(target_os = "linux")]
+                #[cfg(unix)]
                 "unixgram" => Ok(RemoteAddr::Unixgram(PathBuf::from(path))),
                 "udp" => match path.to_socket_addrs() {
                     Ok(addr) => Ok(RemoteAddr::Udp(addr.collect())),
@@ -89,7 +89,7 @@ impl fmt::Display for RemoteAddr {
                     write!(f, "]")
                 }
             }
-            #[cfg(target_os = "linux")]
+            #[cfg(unix)]
             RemoteAddr::Unix(path) | RemoteAddr::Unixgram(path) => {
                 write!(f, "unixgram://{}", path.display())
             }
@@ -115,10 +115,10 @@ impl ForwarderConfiguration {
     pub fn is_length_prefixed(&self) -> bool {
         match self.remote_addr {
             RemoteAddr::Udp(_) => false,
-            #[cfg(target_os = "linux")]
+            #[cfg(unix)]
             RemoteAddr::Unix(_) => true,
-            #[cfg(target_os = "linux")]
-            RemoteAddr::Unixgram(_) => true,
+            #[cfg(unix)]
+            RemoteAddr::Unixgram(_) => false,
         }
     }
 }
@@ -149,7 +149,7 @@ mod tests {
         assert_eq!(addr, Err(unknown_scheme_error_str("spongebob")));
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     mod linux {
         #[test]
         fn remote_addr_scheme_unix() {
