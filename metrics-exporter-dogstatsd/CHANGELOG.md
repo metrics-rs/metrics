@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.3] - 2025-03-27
+
+### Fixed
+
+- Don't prepend a length delimiter for payloads when in UDS datagram mode.
+  ([#571](https://github.com/metrics-rs/metrics/pull/571))
+
+## [0.9.2] - 2025-03-27
+
+### Changed
+
+- Allow Unix sockets to be used on more than just Linux platforms.
+  ([#569](https://github.com/metrics-rs/metrics/pull/569))
+
+### Fixed
+
+- Create Unix datagram socket in unbound mode to avoid taking over socket, which caused silent errors when the path was
+  already bound, leading to metrics not being forwarded properly. ([#569](https://github.com/metrics-rs/metrics/pull/569))
+
 ## [0.9.1] - 2025-03-25
 
 ### Fixed

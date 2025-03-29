@@ -468,7 +468,7 @@ mod tests {
         );
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     mod linux {
         use super::*;
 
