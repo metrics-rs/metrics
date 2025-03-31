@@ -79,12 +79,19 @@ pub struct LocalRecorderGuard<'a> {
 
 impl<'a> LocalRecorderGuard<'a> {
     /// Creates a new `LocalRecorderGuard` and sets the thread-local recorder.
-    fn new(recorder: &'a dyn Recorder) -> Self {
-        // SAFETY: While we take a lifetime-less pointer to the given reference, the reference we
-        // derive _from_ the pointer is given the same lifetime of the reference
-        // used to construct the guard -- captured in the guard type itself --
-        // and so derived references never outlive the source reference.
-        let recorder_ptr = unsafe { NonNull::new_unchecked(recorder as *const _ as *mut _) };
+    fn new(recorder: &'a (dyn Recorder + 'a)) -> Self {
+        // SAFETY: We extend `'a` to `'static` to satisfy the signature of `LOCAL_RECORDER`, which
+        // has an implied `'static` bound on `dyn Recorder`. We enforce that all usages of `LOCAL_RECORDER`
+        // are limited to `'a` as we mediate its access entirely through `LocalRecorderGuard<'a>`.
+        let recorder_ptr = unsafe {
+            std::mem::transmute::<*const (dyn Recorder + 'a), *mut (dyn Recorder + 'static)>(
+                recorder as &'a (dyn Recorder + 'a),
+            )
+        };
+        // SAFETY: While we take a lifetime-less pointer to the given reference, the reference we derive _from_ the
+        // pointer is given the same lifetime of the reference used to construct the guard -- captured in the guard type
+        // itself -- and so derived references never outlive the source reference.
+        let recorder_ptr = unsafe { NonNull::new_unchecked(recorder_ptr) };
 
         let prev_recorder =
             LOCAL_RECORDER.with(|local_recorder| local_recorder.replace(Some(recorder_ptr)));
@@ -177,11 +184,11 @@ pub fn with_recorder<T>(f: impl FnOnce(&dyn Recorder) -> T) -> T {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{atomic::Ordering, Arc};
+    use std::sync::atomic::Ordering;
 
-    use crate::{with_local_recorder, NoopRecorder};
+    use crate::with_local_recorder;
 
-    use super::{Recorder, RecorderOnceCell};
+    use super::RecorderOnceCell;
 
     #[test]
     fn boxed_recorder_dropped_on_existing_set() {
