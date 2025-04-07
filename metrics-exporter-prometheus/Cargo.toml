@@ -16,11 +16,12 @@ categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "prometheus"]
 
 [features]
-default = ["http-listener", "push-gateway"]
+default = ["http-listener", "push-gateway","remote-write"]
 async-runtime = ["tokio", "hyper-util/tokio"]
 http-listener = ["async-runtime", "ipnet", "tracing", "_hyper-server"]
 uds-listener = ["http-listener"]
 push-gateway = ["async-runtime", "tracing", "_hyper-client"]
+remote-write = ["_hyper-client","async-runtime","dep:prost","dep:snap","dep:prometheus-parse"]
 _hyper-server = ["http-body-util", "hyper/server", "hyper-util/server-auto"]
 _hyper-client = [
     "http-body-util",
@@ -47,7 +48,10 @@ metrics-util = { version = "^0.19", path = "../metrics-util", default-features =
     "registry",
     "storage",
 ] }
+prometheus-parse = {version = "0.2.5", optional = true}
+prost = {workspace = true, optional = true}
 quanta = { workspace = true }
+snap = { version = "1.1.1", optional = true}
 thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
@@ -61,6 +65,10 @@ tracing-subscriber = { workspace = true, features = ["fmt"] }
 [[example]]
 name = "prometheus_push_gateway"
 required-features = ["push-gateway"]
+
+[[example]]
+name = "prometheus_remote_write"
+required-features = ["remote-write"]
 
 [[example]]
 name = "prometheus_server"
