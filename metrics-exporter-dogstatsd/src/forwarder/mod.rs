@@ -6,6 +6,8 @@ use std::{
     time::Duration,
 };
 
+use metrics::Label;
+
 pub mod sync;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -105,9 +107,20 @@ fn unknown_scheme_error_str(scheme: &str) -> String {
 #[derive(Clone)]
 pub(crate) struct ForwarderConfiguration {
     pub remote_addr: RemoteAddr,
+
+    /// Maximum size, in bytes, for an individual payload.
+    ///
+    /// Payloads may contain multiple metrics.
     pub max_payload_len: usize,
+
+    /// Duration to wait between flushing metrics.
     pub flush_interval: Duration,
+
+    /// Timeout for writing to the socket.
     pub write_timeout: Duration,
+
+    /// Global labels to attach to all metrics.
+    pub global_labels: Vec<Label>,
 }
 
 impl ForwarderConfiguration {
