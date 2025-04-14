@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use http_body_util::Full;
 use hyper::{
-    body::{self, Bytes, Incoming},
+    body::{Bytes, Incoming},
     header::{HeaderValue, CONTENT_TYPE},
     server::conn::http1::Builder as HyperHttpBuilder,
     service::service_fn,
@@ -67,10 +67,8 @@ impl HttpListeningExporter {
     fn process_tcp_stream(&self, stream: TcpStream) {
         let is_allowed = self.check_tcp_allowed(&stream);
         let handle = self.handle.clone();
-        let service = service_fn(move |req: Request<body::Incoming>| {
-            let handle = handle.clone();
-            async move { Ok::<_, hyper::Error>(Self::handle_http_request(is_allowed, &handle, &req)) }
-        });
+        let service =
+            service_fn(move |req| Self::handle_http_request(is_allowed, handle.clone(), req));
 
         tokio::spawn(async move {
             if let Err(err) =
@@ -115,10 +113,7 @@ impl HttpListeningExporter {
     #[cfg(feature = "uds-listener")]
     fn process_uds_stream(&self, stream: UnixStream) {
         let handle = self.handle.clone();
-        let service = service_fn(move |req: Request<body::Incoming>| {
-            let handle = handle.clone();
-            async move { Ok::<_, hyper::Error>(Self::handle_http_request(true, &handle, &req)) }
-        });
+        let service = service_fn(move |req| Self::handle_http_request(true, handle.clone(), req));
 
         tokio::spawn(async move {
             if let Err(err) =
@@ -129,26 +124,26 @@ impl HttpListeningExporter {
         });
     }
 
-    fn handle_http_request(
+    async fn handle_http_request(
         is_allowed: bool,
-        handle: &PrometheusHandle,
-        req: &Request<Incoming>,
-    ) -> Response<Full<Bytes>> {
+        handle: PrometheusHandle,
+        req: Request<Incoming>,
+    ) -> Result<Response<Full<Bytes>>, hyper::Error> {
         if is_allowed {
             let mut response = Response::new(match req.uri().path() {
                 "/health" => "OK".into(),
-                _ => handle.render().into(),
+                _ => tokio::task::spawn_blocking(move || handle.render()).await.unwrap().into(),
             });
             response.headers_mut().append(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
-            response
+            Ok(response)
         } else {
             // This unwrap should not fail because we don't use any function that
             // can assign an Err to it's inner such as `Builder::header``. A unit test
             // will have to suffice to detect if this fails to hold true.
-            Response::builder()
+            Ok(Response::builder()
                 .status(StatusCode::FORBIDDEN)
                 .body(Full::<Bytes>::default())
-                .unwrap()
+                .unwrap())
         }
     }
 }

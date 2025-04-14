@@ -41,7 +41,8 @@ pub(super) fn new_push_gateway(
                 builder = builder.header("authorization", auth.clone());
             }
 
-            let output = handle.render();
+            let handle = handle.clone();
+            let output = tokio::task::spawn_blocking(move || handle.render()).await.unwrap();
             let result =
                 builder.method(http_method.clone()).uri(endpoint.clone()).body(Full::from(output));
             let req = match result {
