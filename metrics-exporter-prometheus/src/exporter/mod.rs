@@ -46,7 +46,7 @@ enum ExporterConfig {
         interval: Duration,
         username: Option<String>,
         password: Option<String>,
-        http_method: Option<hyper::Method>,
+        use_http_post_method: bool,
     },
 
     #[allow(dead_code)]

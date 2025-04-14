@@ -15,10 +15,10 @@ pub(super) fn new_push_gateway(
     interval: Duration,
     username: Option<String>,
     password: Option<String>,
-    http_method: Option<hyper::Method>,
+    use_http_post_method: bool,
     handle: PrometheusHandle,
 ) -> ExporterFuture {
-    let http_method = http_method.unwrap_or(Method::PUT);
+    let http_method = if use_http_post_method { Method::POST } else { Method::PUT };
     Box::pin(async move {
         let https = hyper_rustls::HttpsConnectorBuilder::new()
             .with_native_roots()
@@ -42,7 +42,8 @@ pub(super) fn new_push_gateway(
             }
 
             let output = handle.render();
-            let result = builder.method(http_method.clone()).uri(endpoint.clone()).body(Full::from(output));
+            let result =
+                builder.method(http_method.clone()).uri(endpoint.clone()).body(Full::from(output));
             let req = match result {
                 Ok(req) => req,
                 Err(e) => {

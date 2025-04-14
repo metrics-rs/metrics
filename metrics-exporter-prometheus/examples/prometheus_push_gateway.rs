@@ -22,7 +22,7 @@ fn main() {
             Duration::from_secs(10),
             None,
             None,
-            None,
+            false,
         )
         .expect("push gateway endpoint should be valid")
         .idle_timeout(
