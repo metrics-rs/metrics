@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.23.1] - 2025-04-16
+
 ### Changed
 
  - Updated the documentation for with_local_recorder to better explain limitations.
