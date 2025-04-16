@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+ - Updated the documentation for with_local_recorder to better explain limitations.
+ - Remove object lifetime cast in `LocalRecorderGuard<'a>`. ([#564](https://github.com/metrics-rs/metrics/pull/564))
+
 ## [0.23.0] - 2024-05-27
 
 ### Added
