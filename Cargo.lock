@@ -1107,7 +1107,7 @@ dependencies = [
 
 [[package]]
 name = "metrics-exporter-dogstatsd"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "bytes",
  "itoa",
