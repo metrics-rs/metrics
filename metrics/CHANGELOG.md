@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Remove object lifetime cast in `LocalRecorderGuard<'a>`. ([#564](https://github.com/metrics-rs/metrics/pull/564))
+- Update `Key` comparison logic to be independent of the order of any labels.
+  ([#565](https://github.com/metrics-rs/metrics/pull/565))
+
 ## [0.24.1] - 2024-11-26
 
 ### Added

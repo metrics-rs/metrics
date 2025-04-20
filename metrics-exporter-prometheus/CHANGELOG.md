@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Updated `rand` to `0.9`. ([#556](https://github.com/metrics-rs/metrics/pull/556))
+- Bumped `thiserror` to `2.0`. ([#572](https://github.com//metrics-rs/metrics/pull/572))
+- Added new flag, `use_http_post_method`, to `PrometheusBuilder::with_push_gateway`, to allow changing the HTTP method
+  used for pushing from PUT to POST. This enables usage with systems like Vector which don't natively support PUT.
+  ([#574](https://github.com/metrics-rs/metrics/pull/574))
+- Render scrape endpoint/push gateway payloads in a blocking thread to avoid blocking regular Tokio executor threads.
+  ([#576](https://github.com/metrics-rs/metrics/pull/576))
+
 ## [0.16.2] - 2025-01-31
 
 ### Fixed

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Bumped `thiserror` to `2.0`. ([#572](https://github.com//metrics-rs/metrics/pull/572))
+
 ## [0.9.3] - 2025-03-27
 
 ### Fixed
