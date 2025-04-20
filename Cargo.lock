@@ -1146,7 +1146,7 @@ dependencies = [
 
 [[package]]
 name = "metrics-exporter-tcp"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "bytes",
  "crossbeam-channel",
