@@ -63,6 +63,7 @@ As well, there are also some community-maintained exporters and other integratio
 * [`metrics-exporter-sentry`][metrics-exporter-sentry]: A `metrics`-compatible exporter for sending metrics to Sentry.
 * [`opinionated_metrics`][opinionated-metrics]: Opinionated interface to emitting metrics for CLI/server applications, based on `metrics`.
 * [`metrics-dashboard`][metrics-dashboard]: A dashboard for visualizing metrics from `metrics`.
+* [`actix-web-metrics`][actix-web-metrics]: `metrics` integration for actix-web.
 
 Additionally, here are some learning resource(s) to help you get started:
 
@@ -100,3 +101,4 @@ We'd love to chat about any of the above, or anything else related to metrics. D
 [metrics-dashboard]: https://docs.rs/metrics-dashboard
 [rust-telemetry-workshop]: https://github.com/mainmatter/rust-telemetry-workshop
 [discord_invite]: https://discord.gg/tokio
+[actix-web-metrics]: https://docs.rs/actix-web-metrics
