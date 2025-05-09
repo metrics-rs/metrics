@@ -1,8 +1,8 @@
-#[cfg(feature = "http-listener")]
+#[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
 use http_listener::HttpListeningError;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::future::Future;
-#[cfg(feature = "http-listener")]
+#[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
 use std::net::SocketAddr;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::pin::Pin;
@@ -16,15 +16,18 @@ use hyper::Uri;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 #[derive(Debug)]
 pub enum ExporterError {
-    #[cfg(feature = "http-listener")]
+    #[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
     HttpListener(HttpListeningError),
     PushGateway(()),
 }
+#[cfg(all(any(feature = "http-listener", feature = "push-gateway"), not(target_arch = "wasm32")))]
 /// Convenience type for Future implementing an exporter.
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 pub type ExporterFuture = Pin<Box<dyn Future<Output = Result<(), ExporterError>> + Send + 'static>>;
+#[cfg(target_arch = "wasm32")]
+/// Convenience type for Future implementing an exporter.
+pub type ExporterFuture = Pin<Box<dyn Future<Output = Result<(), ExporterError>>>>;
 
-#[cfg(feature = "http-listener")]
+#[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
 #[derive(Clone, Debug)]
 enum ListenDestination {
     Tcp(SocketAddr),
@@ -35,7 +38,7 @@ enum ListenDestination {
 #[derive(Clone, Debug)]
 enum ExporterConfig {
     // Run an HTTP listener on the given `listen_address`.
-    #[cfg(feature = "http-listener")]
+    #[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
     HttpListener { destination: ListenDestination },
 
     // Run a push gateway task sending to the given `endpoint` after `interval` time has elapsed,
@@ -54,10 +57,13 @@ enum ExporterConfig {
 }
 
 impl ExporterConfig {
-    #[cfg_attr(not(any(feature = "http-listener", feature = "push-gateway")), allow(dead_code))]
+    #[cfg_attr(
+        any(not(feature = "http-listener"), not(feature = "push-gateway"), target_arch = "wasm32"),
+        allow(dead_code)
+    )]
     fn as_type_str(&self) -> &'static str {
         match self {
-            #[cfg(feature = "http-listener")]
+            #[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
             Self::HttpListener { .. } => "http-listener",
             #[cfg(feature = "push-gateway")]
             Self::PushGateway { .. } => "push-gateway",
@@ -66,7 +72,7 @@ impl ExporterConfig {
     }
 }
 
-#[cfg(feature = "http-listener")]
+#[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
 mod http_listener;
 
 #[cfg(feature = "push-gateway")]

@@ -1,18 +1,21 @@
 use std::collections::HashMap;
 #[cfg(feature = "push-gateway")]
 use std::convert::TryFrom;
-#[cfg(feature = "http-listener")]
+#[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::num::NonZeroU32;
 use std::sync::RwLock;
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[cfg(all(
+    any(feature = "http-listener", feature = "push-gateway"),
+    not(target_arch = "wasm32")
+))]
 use std::thread;
 use std::time::Duration;
 
 #[cfg(feature = "push-gateway")]
 use hyper::Uri;
 use indexmap::IndexMap;
-#[cfg(feature = "http-listener")]
+#[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
 use ipnet::IpNet;
 use quanta::Clock;
 
@@ -37,7 +40,7 @@ use super::ExporterFuture;
 pub struct PrometheusBuilder {
     #[cfg_attr(not(any(feature = "http-listener", feature = "push-gateway")), allow(dead_code))]
     exporter_config: ExporterConfig,
-    #[cfg(feature = "http-listener")]
+    #[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
     allowed_addresses: Option<Vec<IpNet>>,
     quantiles: Vec<Quantile>,
     bucket_duration: Option<Duration>,
@@ -56,21 +59,21 @@ impl PrometheusBuilder {
     pub fn new() -> Self {
         let quantiles = parse_quantiles(&[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0]);
 
-        #[cfg(feature = "http-listener")]
+        #[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
         let exporter_config = ExporterConfig::HttpListener {
             destination: super::ListenDestination::Tcp(SocketAddr::new(
                 IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
                 9000,
             )),
         };
-        #[cfg(not(feature = "http-listener"))]
+        #[cfg(any(not(feature = "http-listener"), target_arch = "wasm32"))]
         let exporter_config = ExporterConfig::Unconfigured;
 
         let upkeep_timeout = Duration::from_secs(5);
 
         Self {
             exporter_config,
-            #[cfg(feature = "http-listener")]
+            #[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
             allowed_addresses: None,
             quantiles,
             bucket_duration: None,
@@ -95,7 +98,7 @@ impl PrometheusBuilder {
     /// Defaults to enabled, listening at `0.0.0.0:9000`.
     ///
     /// [scrape endpoint]: https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format
-    #[cfg(feature = "http-listener")]
+    #[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
     #[cfg_attr(docsrs, doc(cfg(feature = "http-listener")))]
     #[must_use]
     pub fn with_http_listener(mut self, addr: impl Into<SocketAddr>) -> Self {
@@ -180,7 +183,7 @@ impl PrometheusBuilder {
     ///
     /// If the given address cannot be parsed into an IP address or subnet, an error variant will be returned describing
     /// the error.
-    #[cfg(feature = "http-listener")]
+    #[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
     #[cfg_attr(docsrs, doc(cfg(feature = "http-listener")))]
     pub fn add_allowed_address<A>(mut self, address: A) -> Result<Self, BuildError>
     where
@@ -383,42 +386,56 @@ impl PrometheusBuilder {
     #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
     #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
     pub fn install(self) -> Result<(), BuildError> {
-        use tokio::runtime;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use tokio::runtime;
 
-        let recorder = if let Ok(handle) = runtime::Handle::try_current() {
-            let (recorder, exporter) = {
-                let _g = handle.enter();
-                self.build()?
+            let recorder = if let Ok(handle) = runtime::Handle::try_current() {
+                let (recorder, exporter) = {
+                    let _g = handle.enter();
+                    self.build()?
+                };
+
+                handle.spawn(exporter);
+
+                recorder
+            } else {
+                let thread_name =
+                    format!("metrics-exporter-prometheus-{}", self.exporter_config.as_type_str());
+
+                let runtime = runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|e| BuildError::FailedToCreateRuntime(e.to_string()))?;
+
+                let (recorder, exporter) = {
+                    let _g = runtime.enter();
+                    self.build()?
+                };
+
+                thread::Builder::new()
+                    .name(thread_name)
+                    .spawn(move || runtime.block_on(exporter))
+                    .map_err(|e| BuildError::FailedToCreateRuntime(e.to_string()))?;
+
+                recorder
             };
 
-            handle.spawn(exporter);
+            metrics::set_global_recorder(recorder)?;
 
-            recorder
-        } else {
-            let thread_name =
-                format!("metrics-exporter-prometheus-{}", self.exporter_config.as_type_str());
+            Ok(())
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let (recorder, exporter) = self.build()?;
+            wasm_bindgen_futures::spawn_local(async move {
+                let _ = exporter.await;
+            });
 
-            let runtime = runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|e| BuildError::FailedToCreateRuntime(e.to_string()))?;
+            metrics::set_global_recorder(recorder)?;
 
-            let (recorder, exporter) = {
-                let _g = runtime.enter();
-                self.build()?
-            };
-
-            thread::Builder::new()
-                .name(thread_name)
-                .spawn(move || runtime.block_on(exporter))
-                .map_err(|e| BuildError::FailedToCreateRuntime(e.to_string()))?;
-
-            recorder
-        };
-
-        metrics::set_global_recorder(recorder)?;
-
-        Ok(())
+            Ok(())
+        }
     }
 
     /// Builds the recorder and installs it globally, returning a handle to it.
@@ -461,7 +478,7 @@ impl PrometheusBuilder {
     #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
     #[cfg_attr(not(feature = "http-listener"), allow(unused_mut))]
     pub fn build(mut self) -> Result<(PrometheusRecorder, ExporterFuture), BuildError> {
-        #[cfg(feature = "http-listener")]
+        #[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
         let allowed_addresses = self.allowed_addresses.take();
         let exporter_config = self.exporter_config.clone();
         let upkeep_timeout = self.upkeep_timeout;
@@ -470,19 +487,29 @@ impl PrometheusBuilder {
         let handle = recorder.handle();
 
         let recorder_handle = handle.clone();
+        #[cfg(not(target_arch = "wasm32"))]
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(upkeep_timeout).await;
                 recorder_handle.run_upkeep();
             }
         });
+        #[cfg(target_arch = "wasm32")]
+        {
+            wasm_bindgen_futures::spawn_local(async move {
+                loop {
+                    gloo_timers::future::sleep(upkeep_timeout).await;
+                    recorder_handle.run_upkeep();
+                }
+            });
+        }
 
         Ok((
             recorder,
             match exporter_config {
                 ExporterConfig::Unconfigured => Err(BuildError::MissingExporterConfiguration)?,
 
-                #[cfg(feature = "http-listener")]
+                #[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
                 ExporterConfig::HttpListener { destination } => match destination {
                     super::ListenDestination::Tcp(listen_address) => {
                         super::http_listener::new_http_listener(
