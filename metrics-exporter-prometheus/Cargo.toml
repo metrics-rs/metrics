@@ -37,8 +37,6 @@ http-body-util = { workspace = true, optional = true }
 
 # Optional
 hyper = { workspace = true, optional = true }
-hyper-rustls = { workspace = true, optional = true }
-hyper-util = { workspace = true, optional = true }
 indexmap = { workspace = true }
 ipnet = { workspace = true, optional = true }
 metrics = { version = "^0.24", path = "../metrics" }
@@ -49,7 +47,6 @@ metrics-util = { version = "^0.19", path = "../metrics-util", default-features =
 ] }
 quanta = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -57,6 +54,17 @@ proptest = { workspace = true }
 rand = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["fmt"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, optional = true }
+hyper-util = { workspace = true, optional = true }
+hyper-rustls = { workspace = true, optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { workspace = true, features = ["wasm_js"] }
+gloo-timers = { workspace = true, features = ["futures"] }
+wasm-bindgen-futures = { workspace = true, features = ["std"] }
+reqwest = { workspace = true }
 
 [[example]]
 name = "prometheus_push_gateway"

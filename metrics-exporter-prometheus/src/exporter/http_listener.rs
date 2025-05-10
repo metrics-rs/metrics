@@ -8,6 +8,7 @@ use hyper::{
     service::service_fn,
     Request, Response, StatusCode,
 };
+#[cfg(all(feature = "http-listener", not(target_arch = "wasm32")))]
 use hyper_util::rt::TokioIo;
 use ipnet::IpNet;
 #[cfg(feature = "uds-listener")]

@@ -73,3 +73,7 @@ tracing = { version = "0.1", default-features = false }
 tracing-core = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false }
 trybuild = { version = "1", default-features = false }
+getrandom = { version = "0.3", default-features = false, features = ["wasm_js"] }
+gloo-timers = { version = "0.3.0", default-features = false, features = ["futures"] }
+wasm-bindgen-futures = { version = "0.4.30", default-features = false }
+reqwest = { version = "0.12", default-features = false }
