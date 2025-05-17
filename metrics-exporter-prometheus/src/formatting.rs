@@ -77,14 +77,8 @@ pub fn write_metric_line<T, T2>(
 
     match unit {
         Some(Unit::Count) | None => {}
-        Some(Unit::Percent) => {
-            buffer.push('_');
-            buffer.push_str("ratio");
-        }
-        Some(unit) => {
-            buffer.push('_');
-            buffer.push_str(unit.as_str());
-        }
+        Some(Unit::Percent) => add_unit(buffer, "ratio"),
+        Some(unit) => add_unit(buffer, unit.as_str()),
     }
 
     if !labels.is_empty() || additional_label.is_some() {
@@ -116,6 +110,25 @@ pub fn write_metric_line<T, T2>(
     buffer.push(' ');
     buffer.push_str(value.to_string().as_str());
     buffer.push('\n');
+}
+
+fn add_unit(buffer: &mut String, unit: &str) {
+    if buffer.ends_with("_sum") {
+        let suffix_pos = buffer.len() - 4; // Position of "_sum"
+        buffer.insert(suffix_pos, '_');
+        buffer.insert_str(suffix_pos + 1, unit);
+    } else if buffer.ends_with("_count") {
+        let suffix_pos = buffer.len() - 6; // Position of "_count"
+        buffer.insert(suffix_pos, '_');
+        buffer.insert_str(suffix_pos + 1, unit);
+    } else if buffer.ends_with("_bucket") {
+        let suffix_pos = buffer.len() - 7; // Position of "_bucket"
+        buffer.insert(suffix_pos, '_');
+        buffer.insert_str(suffix_pos + 1, unit);
+    } else {
+        buffer.push('_');
+        buffer.push_str(unit);
+    }
 }
 
 /// Sanitizes a metric name to be valid under the Prometheus [data model].
