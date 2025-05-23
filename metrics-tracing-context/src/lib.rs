@@ -26,7 +26,7 @@
 //!     .with(tracing_subscriber::fmt::layer())
 //!     .with(MetricsLayer::new());
 //! tracing::subscriber::set_global_default(subscriber).unwrap();
-//! 
+//!
 //! // Prepare recorder.
 //! let recorder = TracingContextLayer::all().layer(recorder);
 //! metrics::set_global_recorder(recorder).unwrap();
