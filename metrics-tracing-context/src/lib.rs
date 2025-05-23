@@ -9,20 +9,26 @@
 //! First, set up `tracing` and `metrics` crates:
 //!
 //! ```rust
-//! # use metrics_util::debugging::DebuggingRecorder;
-//! # use tracing_subscriber::Registry;
-//! use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
+//! use metrics_exporter_prometheus::PrometheusBuilder;
+//! use metrics_tracing_context::MetricsLayer;
+//! use metrics_tracing_context::TracingContextLayer;
 //! use metrics_util::layers::Layer;
 //! use tracing_subscriber::layer::SubscriberExt;
+//! use tracing_subscriber::{self, Registry};
 //!
 //! // Prepare tracing.
-//! # let my_subscriber = Registry::default();
-//! let subscriber = my_subscriber.with(MetricsLayer::new());
+//! let (recorder, metric_server) = PrometheusBuilder::new()
+//!     .with_http_listener(([0, 0, 0, 0], 1111))
+//!     .build()
+//!     .unwrap();
+//! let server_handle = tokio::spawn(metric_server);
+//! let subscriber = Registry::default()
+//!     .with(tracing_subscriber::fmt::layer())
+//!     .with(MetricsLayer::new());
 //! tracing::subscriber::set_global_default(subscriber).unwrap();
-//!
-//! // Prepare metrics.
-//! # let my_recorder = DebuggingRecorder::new();
-//! let recorder = TracingContextLayer::all().layer(my_recorder);
+//! 
+//! // Prepare recorder.
+//! let recorder = TracingContextLayer::all().layer(recorder);
 //! metrics::set_global_recorder(recorder).unwrap();
 //! ```
 //!
