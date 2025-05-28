@@ -1,10 +1,11 @@
 //! An atomic sampling reservoir.
 
+use metrics::atomics::AtomicU64;
 use std::{
     cell::UnsafeCell,
     sync::{
         atomic::{
-            AtomicBool, AtomicU64, AtomicUsize,
+            AtomicBool, AtomicUsize,
             Ordering::{Acquire, Relaxed, Release},
         },
         Mutex,
