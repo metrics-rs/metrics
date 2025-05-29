@@ -10,8 +10,7 @@
 //!
 //! ```rust
 //! use metrics_exporter_prometheus::PrometheusBuilder;
-//! use metrics_tracing_context::MetricsLayer;
-//! use metrics_tracing_context::TracingContextLayer;
+//! use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
 //! use metrics_util::layers::Layer;
 //! use tracing_subscriber::layer::SubscriberExt;
 //! use tracing_subscriber::{self, Registry};
