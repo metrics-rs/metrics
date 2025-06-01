@@ -44,4 +44,5 @@ parking_lot = { workspace = true }
 tracing = { workspace = true, features = ["std"] }
 tracing-subscriber = { workspace = true, features = ["registry", "fmt"] }
 tokio = { workspace = true }
-metrics-exporter-prometheus = { version = "0.17.0", features = ["http-listener", "hyper", "hyper-util"] }
+metrics-exporter-prometheus = { version = "0.17.0", path = "../metrics-exporter-prometheus" }
+tokio-test = "0.4.4"

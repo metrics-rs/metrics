@@ -9,6 +9,7 @@
 //! First, set up `tracing` and `metrics` crates:
 //!
 //! ```rust
+//! # tokio_test::block_on(async {
 //! use metrics_exporter_prometheus::PrometheusBuilder;
 //! use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
 //! use metrics_util::layers::Layer;
@@ -29,6 +30,7 @@
 //! // Prepare recorder.
 //! let recorder = TracingContextLayer::all().layer(recorder);
 //! metrics::set_global_recorder(recorder).unwrap();
+//! # });
 //! ```
 //!
 //! Then emit some metrics within spans and see the labels being injected!
