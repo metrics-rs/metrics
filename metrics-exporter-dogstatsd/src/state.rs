@@ -62,10 +62,10 @@ impl State {
 
     fn get_aggregation_timestamp(&self) -> Option<u64> {
         match self.config.agg_mode {
-            AggregationMode::Conservative => None,
-            AggregationMode::Aggressive => {
+            AggregationMode::Conservative => {
                 SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).ok().map(|d| d.as_secs())
             }
+            AggregationMode::Aggressive => None,
         }
     }
 
