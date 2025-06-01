@@ -7,6 +7,7 @@ use metrics::{Key, Label};
 
 const SMALLEST_VALID_PAYLOAD: &[u8] = b"a:0|c\n";
 
+#[derive(Clone, Copy)]
 enum MetricType {
     Counter,
     Gauge,
@@ -15,7 +16,7 @@ enum MetricType {
 }
 
 impl MetricType {
-    fn as_bytes(&self) -> &'static [u8] {
+    fn as_bytes(self) -> &'static [u8] {
         match self {
             MetricType::Counter => b"|c",
             MetricType::Gauge => b"|g",
@@ -25,6 +26,7 @@ impl MetricType {
     }
 }
 
+#[derive(Clone, Copy)]
 enum MetricValue {
     Integer(u64),
     FloatingPoint(f64),
@@ -346,10 +348,10 @@ impl PayloadWriter {
         }
     }
 
-    fn try_write_multiple<'a, I>(
+    fn try_write_multiple<I>(
         &mut self,
         key: &Key,
-        mut metric_values: I,
+        metric_values: I,
         metric_type: MetricType,
         maybe_sample_rate: Option<f64>,
         prefix: Option<&str>,
@@ -378,7 +380,7 @@ impl PayloadWriter {
         // exceed the maximum payload length, we commit what we have so far, and then move on. This allows us to
         // basically keep writing until we're done, while letting `commit` figure out where to separate things.
         let mut uncommitted_points = 0;
-        while let Some(metric_value) = metric_values.next() {
+        for metric_value in metric_values {
             let metric_value_str = formatter.format(metric_value);
 
             // Do a sanity check to see if writing this value by itself would create a payload that exceeds the maximum
@@ -470,7 +472,7 @@ impl PayloadWriter {
         I: IntoIterator<Item = f64>,
         I::IntoIter: ExactSizeIterator,
     {
-        let metric_values = values.into_iter().map(|v| MetricValue::FloatingPoint(v));
+        let metric_values = values.into_iter().map(MetricValue::FloatingPoint);
         self.try_write_multiple(
             key,
             metric_values,
@@ -492,7 +494,7 @@ impl PayloadWriter {
         I: IntoIterator<Item = f64>,
         I::IntoIter: ExactSizeIterator,
     {
-        let metric_values = values.into_iter().map(|v| MetricValue::FloatingPoint(v));
+        let metric_values = values.into_iter().map(MetricValue::FloatingPoint);
         self.try_write_multiple(
             key,
             metric_values,
