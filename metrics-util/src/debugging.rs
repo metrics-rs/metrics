@@ -105,9 +105,9 @@ impl Snapshotter {
 
         for (ck, _) in seen.into_iter() {
             let value = match ck.kind() {
-                MetricKind::Counter => counters.get(ck.key()).map(|c| {
-                    DebugValue::Counter(c.swap(0, Ordering::SeqCst))
-                }),
+                MetricKind::Counter => {
+                    counters.get(ck.key()).map(|c| DebugValue::Counter(c.swap(0, Ordering::SeqCst)))
+                }
                 MetricKind::Gauge => gauges.get(ck.key()).map(|g| {
                     let value = f64::from_bits(g.swap(0, Ordering::SeqCst));
                     DebugValue::Gauge(value.into())
