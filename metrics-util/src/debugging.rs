@@ -105,11 +105,14 @@ impl Snapshotter {
 
         for (ck, _) in seen.into_iter() {
             let value = match ck.kind() {
-                MetricKind::Counter => {
-                    counters.get(ck.key()).map(|c| DebugValue::Counter(c.load(Ordering::SeqCst)))
-                }
+                MetricKind::Counter => counters.get(ck.key()).map(|c| {
+                    let counter = DebugValue::Counter(c.load(Ordering::SeqCst));
+                    c.swap(0, Ordering::Relaxed);
+                    counter
+                }),
                 MetricKind::Gauge => gauges.get(ck.key()).map(|g| {
                     let value = f64::from_bits(g.load(Ordering::SeqCst));
+                    g.swap(0, Ordering::Relaxed);
                     DebugValue::Gauge(value.into())
                 }),
                 MetricKind::Histogram => histograms.get(ck.key()).map(|h| {
@@ -217,5 +220,90 @@ impl Recorder for DebuggingRecorder {
 impl Default for DebuggingRecorder {
     fn default() -> Self {
         DebuggingRecorder::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use metrics::Label;
+
+    #[test]
+    fn test_debugging_recorder() {
+        let recorder = DebuggingRecorder::default();
+        let snapshotter = recorder.snapshotter();
+        metrics::with_local_recorder(&recorder, move || {
+            // We run this multiple times to validate the counters, gauges and histograms are
+            // "consumed" after being snapshotted. Consumption refers to resetting the value of a
+            // counter and gauge to 0 and clearing observed values from a histogram.
+            for _ in 1..3 {
+                let counter = metrics::counter!("test.counter", "counter.key" => "counter.value");
+                let gauge_incr = metrics::gauge!("test.gauge.incr", "gauge.key" => "gauge.value");
+                let gauge_set = metrics::gauge!("test.gauge.set", "gauge.key" => "gauge.value");
+                let histogram =
+                    metrics::histogram!("test.histogram", "histogram.key" => "histogram.value");
+
+                counter.increment(123);
+                gauge_incr.increment(456);
+                gauge_set.set(654);
+                histogram.record(789);
+
+                let metrics = snapshotter.snapshot().into_vec();
+
+                assert_eq!(
+                    metrics,
+                    vec![
+                        (
+                            CompositeKey::new(
+                                MetricKind::Counter,
+                                Key::from_parts(
+                                    "test.counter",
+                                    vec![Label::new("counter.key", "counter.value")]
+                                )
+                            ),
+                            None,
+                            None,
+                            DebugValue::Counter(123)
+                        ),
+                        (
+                            CompositeKey::new(
+                                MetricKind::Gauge,
+                                Key::from_parts(
+                                    "test.gauge.incr",
+                                    vec![Label::new("gauge.key", "gauge.value")]
+                                )
+                            ),
+                            None,
+                            None,
+                            DebugValue::Gauge(OrderedFloat(456.0 as f64))
+                        ),
+                        (
+                            CompositeKey::new(
+                                MetricKind::Gauge,
+                                Key::from_parts(
+                                    "test.gauge.set",
+                                    vec![Label::new("gauge.key", "gauge.value")]
+                                )
+                            ),
+                            None,
+                            None,
+                            DebugValue::Gauge(OrderedFloat(654.0 as f64))
+                        ),
+                        (
+                            CompositeKey::new(
+                                MetricKind::Histogram,
+                                Key::from_parts(
+                                    "test.histogram",
+                                    vec![Label::new("histogram.key", "histogram.value")]
+                                )
+                            ),
+                            None,
+                            None,
+                            DebugValue::Histogram(vec![OrderedFloat(789.0)])
+                        )
+                    ]
+                );
+            }
+        });
     }
 }
