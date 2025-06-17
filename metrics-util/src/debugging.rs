@@ -109,8 +109,7 @@ impl Snapshotter {
                     DebugValue::Counter(c.swap(0, Ordering::SeqCst))
                 }),
                 MetricKind::Gauge => gauges.get(ck.key()).map(|g| {
-                    let value = f64::from_bits(g.load(Ordering::SeqCst));
-                    g.swap(0, Ordering::Relaxed);
+                    let value = f64::from_bits(g.swap(0, Ordering::SeqCst));
                     DebugValue::Gauge(value.into())
                 }),
                 MetricKind::Histogram => histograms.get(ck.key()).map(|h| {
