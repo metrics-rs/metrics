@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.19.2] - 2025-06-18
+
 ### Changed
 
 - Taking a snapshot from `DebuggingRecorder` now has "consume" semantics for counters and gauges, matching the behavior
