@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.17.1] - 2025-06-18
+
 ### Fixed
 
 - Apply unit suffixes in the correct portion of metric names when unit suffixing is enabled.
