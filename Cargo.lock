@@ -1127,7 +1127,7 @@ dependencies = [
 
 [[package]]
 name = "metrics-exporter-prometheus"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "base64",
  "http-body-util",
@@ -1199,7 +1199,7 @@ dependencies = [
 
 [[package]]
 name = "metrics-util"
-version = "0.19.1"
+version = "0.19.2"
 dependencies = [
  "ahash",
  "aho-corasick",
