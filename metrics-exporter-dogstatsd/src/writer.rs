@@ -618,6 +618,9 @@ mod tests {
     use metrics::{Key, Label};
     use proptest::{collection::vec as arb_vec, prelude::*, prop_oneof, proptest};
 
+    use crate::writer::SMALLEST_VALID_PAYLOAD;
+    const SMALLEST_VALID_PAYLOAD_LEN: usize = SMALLEST_VALID_PAYLOAD.len();
+
     use super::PayloadWriter;
 
     #[derive(Debug)]
@@ -960,7 +963,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn property_test_gauntlet(payload_limit in 0..16384usize, inputs in arb_vec(arb_metric(), 1..128)) {
+        fn property_test_gauntlet(payload_limit in SMALLEST_VALID_PAYLOAD_LEN..16384usize, inputs in arb_vec(arb_metric(), 1..128)) {
             // TODO: Parameterize reservoir size so we can exercise the sample rate stuff.
 
             let mut writer = PayloadWriter::new(payload_limit, false);

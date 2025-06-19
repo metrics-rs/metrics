@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc ecafaadc4a51995b06f20080248f4e17c818026dc20e29e2a2dd233393af6773 # shrinks to payload_limit = 27, inputs = [Histogram(Key { name: KeyName("aAAaAa0a"), labels: [Label("aaaaa", "")], hashed: true, hash: 4563833112871895604 }, [-0.0]), Histogram(Key { name: KeyName("0AA0AaaA"), labels: [], hashed: true, hash: 13699395814728153738 }, [-0.0])]
+cc 8d5fca863d5e68150df55ff75e9718f6491d27dfd598e53b29fd0583a5e05a66 # shrinks to payload_limit = 0, inputs = [Counter(Key { name: KeyName("aaAAAAaa"), labels: [], hashed: true, hash: 15261619708481900111 }, 0, None)]
