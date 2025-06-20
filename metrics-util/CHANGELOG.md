@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- No changes. This release replaces 0.19.2, as [#588](https://github.com/metrics-rs/metrics/pull/588) introduced a
+  breaking change that should not have been released as a patch version.
+
 ## [0.19.2] - 2025-06-18
 
 ### Changed
