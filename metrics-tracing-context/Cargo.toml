@@ -31,7 +31,7 @@ indexmap = { workspace = true }
 itoa = { workspace = true }
 lockfree-object-pool = { workspace = true }
 metrics = { version = "^0.24", path = "../metrics" }
-metrics-util = { version = "^0.19", path = "../metrics-util" }
+metrics-util = { version = "^0.20", path = "../metrics-util" }
 once_cell = { workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true }

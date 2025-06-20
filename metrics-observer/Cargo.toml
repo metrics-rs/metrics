@@ -20,7 +20,7 @@ bytes = { workspace = true }
 chrono = { workspace = true, features = ["clock"] }
 crossbeam-channel = { workspace = true, features = ["std"] }
 metrics = { version = "^0.24", path = "../metrics", default-features = false }
-metrics-util = { version = "^0.19", path = "../metrics-util", default-features = false, features = ["storage"] }
+metrics-util = { version = "^0.20", path = "../metrics-util", default-features = false, features = ["storage"] }
 prost = { workspace = true }
 prost-types = { workspace = true }
 ratatui = { workspace = true, features = ["crossterm"] }
