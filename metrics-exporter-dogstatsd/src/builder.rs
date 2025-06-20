@@ -347,7 +347,6 @@ impl DogStatsDBuilder {
             histogram_sampling: self.histogram_sampling,
             histogram_reservoir_size: self.histogram_reservoir_size,
             histograms_as_distributions: self.histograms_as_distributions,
-            global_labels: self.global_labels,
             global_prefix: self.global_prefix,
         };
 
@@ -367,6 +366,7 @@ impl DogStatsDBuilder {
             max_payload_len,
             flush_interval,
             write_timeout: self.write_timeout,
+            global_labels: self.global_labels,
         };
 
         if self.synchronous {
