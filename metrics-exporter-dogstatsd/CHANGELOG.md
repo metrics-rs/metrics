@@ -8,11 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Fix reversed aggregation behavior based on the configured aggregation mode.
+  ([#589](https://github.com/metrics-rs/metrics/pull/589))
+- Pack multiple metrics into a single payload based on the configured transport/payload size limit to improve I/O
+  efficiency. ([#586](https://github.com/metrics-rs/metrics/pull/586))
+- Update `metrics-util` to `0.20`.
+
 ## [0.9.4] - 2025-04-20
 
 ### Changed
 
-- Bumped `thiserror` to `2.0`. ([#572](https://github.com//metrics-rs/metrics/pull/572))
+- Bumped `thiserror` to `2.0`. ([#572](https://github.com/metrics-rs/metrics/pull/572))
 
 ## [0.9.3] - 2025-03-27
 
