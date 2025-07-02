@@ -105,6 +105,25 @@ impl PrometheusBuilder {
         self
     }
 
+    /// Same as `with_http_listener`, but allows to bring your own configured tcp listener.
+    #[cfg(feature = "http-listener")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "http-listener")))]
+    #[must_use]
+    pub fn with_http_listener_from_existing_listener(
+        mut self,
+        listener: tokio::net::TcpListener,
+    ) -> Self {
+        use std::sync::Arc;
+
+        // We need to wrap the listener in an Arc to allow for cloning.
+        let listener = Arc::new(listener);
+
+        self.exporter_config = ExporterConfig::HttpListener {
+            destination: super::ListenDestination::ExistingListener(listener),
+        };
+        self
+    }
+
     /// Configures the exporter to push periodic requests to a Prometheus [push gateway].
     ///
     /// Running in push gateway mode is mutually exclusive with the HTTP listener i.e. enabling the push gateway will
@@ -485,11 +504,25 @@ impl PrometheusBuilder {
                 #[cfg(feature = "http-listener")]
                 ExporterConfig::HttpListener { destination } => match destination {
                     super::ListenDestination::Tcp(listen_address) => {
-                        super::http_listener::new_http_listener(
-                            handle,
-                            listen_address,
-                            allowed_addresses,
-                        )?
+                        let listener = std::net::TcpListener::bind(listen_address)
+                            .and_then(|listener| {
+                                listener.set_nonblocking(true)?;
+                                Ok(listener)
+                            })
+                            .map_err(|e| BuildError::FailedToCreateHTTPListener(e.to_string()))?;
+                        let listener = tokio::net::TcpListener::from_std(listener).unwrap();
+                        super::http_listener::new_http_listener(handle, listener, allowed_addresses)
+                    }
+                    super::ListenDestination::ExistingListener(listener) => {
+                        use std::sync::Arc;
+
+                        // Should always succeed as we only created the Arc so the TcpListener can be stored in a Clone
+                        let listener = Arc::try_unwrap(listener).map_err(|_| {
+                            BuildError::FailedToCreateHTTPListener(
+                                "Failed to unwrap Arc<TcpListener>".to_string(),
+                            )
+                        })?;
+                        super::http_listener::new_http_listener(handle, listener, allowed_addresses)
                     }
                     #[cfg(feature = "uds-listener")]
                     super::ListenDestination::Uds(listen_path) => {
