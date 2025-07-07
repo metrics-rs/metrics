@@ -958,6 +958,11 @@ mod tests {
 
             let actual = buf_from_writer(&mut writer);
             assert_eq!(actual, expected);
+
+            // --- The below code panics due to ConsumingBufferSwap wiping the length prefix bug. ---
+            // Write another payload
+            let result = writer.write_distribution(&key, values.iter().copied(), None, None);
+            assert_eq!(result.payloads_written(), 1);
         }
     }
 
