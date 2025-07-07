@@ -1,7 +1,4 @@
-use std::{
-    ops::{Deref, DerefMut},
-    vec::Drain,
-};
+use std::vec::Drain;
 
 use metrics::{Key, Label};
 
@@ -523,16 +520,26 @@ impl PayloadWriter {
 }
 
 /// Iterator over all payloads written by a `PayloadWriter`.
+///
+/// The source payload buffer is immediately drained of consumed data during the creation of this iterator
+/// ("pre-pooping our pants"). This ensures that the end state - the payload buffer contains only preserved
+/// bytes (like length prefixes) - is established immediately.
+///
+/// https://faultlore.com/blah/everyone-poops/
 pub struct Payloads<'a> {
-    payloads_buf: ConsumingBufferSwap<'a, u8>,
+    payloads_buf: Vec<u8>,
     start: usize,
     offsets: Drain<'a, usize>,
 }
 
 impl<'a> Payloads<'a> {
     fn new(payload_buf: &'a mut Vec<u8>, offsets: &'a mut Vec<usize>) -> Self {
+        // When draining payloads, we need to preserve any bytes that come after the last offset.
+        // These bytes (like length prefixes) are not part of the current payloads but are needed
+        // for the next write operation.
+        let drain_size = offsets.last().copied().unwrap_or(0);
         Self {
-            payloads_buf: ConsumingBufferSwap::new(payload_buf),
+            payloads_buf: payload_buf.drain(0..drain_size).collect(),
             start: 0,
             offsets: offsets.drain(..),
         }
@@ -553,51 +560,6 @@ impl<'a> Payloads<'a> {
         self.start = offset;
 
         Some(offset_buf)
-    }
-}
-
-// Helper type for "pre-pooping our pants".
-//
-// This type is used when a `Vec<T>` is meant to be drained during an operation, such that the buffer is entirely empty
-// after the operation is finished. Since it's safe to "forget" a value and not have its drop logic called, how do we
-// ensure that we don't leave the buffer in an indeterminate state without drop logic? We pre-poop our pants.
-//
-// By swapping out the buffer with an empty one, we ensure that the end state -- the buffer is cleared -- is established
-// as soon as we create `ConsumingBufferSwap`. When the drop logic is called, we replace the original buffer, which lets
-// use reuse the allocation. At worst, if the drop logic doesn't run, then the buffer is still empty.
-//
-// https://faultlore.com/blah/everyone-poops/
-struct ConsumingBufferSwap<'a, T> {
-    source: &'a mut Vec<T>,
-    original: Vec<T>,
-}
-
-impl<'a, T> ConsumingBufferSwap<'a, T> {
-    fn new(source: &'a mut Vec<T>) -> Self {
-        let original = std::mem::take(source);
-        Self { source, original }
-    }
-}
-
-impl<'a, T> Drop for ConsumingBufferSwap<'a, T> {
-    fn drop(&mut self) {
-        // Clear out the original buffer to reset it, and then return it to the source.
-        self.original.clear();
-        std::mem::swap(self.source, &mut self.original);
-    }
-}
-
-impl<'a, T> Deref for ConsumingBufferSwap<'a, T> {
-    type Target = Vec<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.original
-    }
-}
-
-impl<'a, T> DerefMut for ConsumingBufferSwap<'a, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.original
     }
 }
 
@@ -958,6 +920,10 @@ mod tests {
 
             let actual = buf_from_writer(&mut writer);
             assert_eq!(actual, expected);
+
+            // Write another payload (as a sanity check for previous panic bug)
+            let result = writer.write_distribution(&key, values.iter().copied(), None, None);
+            assert_eq!(result.payloads_written(), 1);
         }
     }
 
