@@ -521,11 +521,11 @@ impl PayloadWriter {
 
 /// Iterator over all payloads written by a `PayloadWriter`.
 ///
-/// The source payload buffer is immediately drained of consumed data during the creation of this iterator
-/// ("pre-pooping our pants"). This ensures that the end state - the payload buffer contains only preserved
-/// bytes (like length prefixes) - is established immediately.
+/// The source payload buffer is immediately drained of consumed data during the creation of this iterator (as known as
+/// ["pre-pooping our pants"][everyone_poops]). This ensures that the end state - the payload buffer contains only
+/// preserved bytes (like length prefixes) - is established immediately.
 ///
-/// https://faultlore.com/blah/everyone-poops/
+/// [everyone_poops]: https://faultlore.com/blah/everyone-poops/
 pub struct Payloads<'a> {
     payloads_buf: Vec<u8>,
     start: usize,
