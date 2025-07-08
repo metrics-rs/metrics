@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use http_body_util::Full;
 use hyper::{
     body::{Bytes, Incoming},
@@ -17,7 +15,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::net::{UnixListener, UnixStream};
 use tracing::warn;
 
-use crate::{common::BuildError, ExporterFuture, PrometheusHandle};
+use crate::{ExporterFuture, PrometheusHandle};
 
 struct HttpListeningExporter {
     handle: PrometheusHandle,
@@ -154,24 +152,16 @@ impl HttpListeningExporter {
 /// Will return Err if it cannot bind to the listen address
 pub(crate) fn new_http_listener(
     handle: PrometheusHandle,
-    listen_address: SocketAddr,
+    listener: TcpListener,
     allowed_addresses: Option<Vec<IpNet>>,
-) -> Result<ExporterFuture, BuildError> {
-    let listener = std::net::TcpListener::bind(listen_address)
-        .and_then(|listener| {
-            listener.set_nonblocking(true)?;
-            Ok(listener)
-        })
-        .map_err(|e| BuildError::FailedToCreateHTTPListener(e.to_string()))?;
-    let listener = TcpListener::from_std(listener).unwrap();
-
+) -> ExporterFuture {
     let exporter = HttpListeningExporter {
         handle,
         allowed_addresses,
         listener_type: ListenerType::Tcp(listener),
     };
 
-    Ok(Box::pin(async move { exporter.serve().await.map_err(super::ExporterError::HttpListener) }))
+    Box::pin(async move { exporter.serve().await.map_err(super::ExporterError::HttpListener) })
 }
 
 /// Creates an `ExporterFuture` implementing a http listener that serves prometheus metrics.

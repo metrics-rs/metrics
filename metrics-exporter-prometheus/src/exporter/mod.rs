@@ -2,12 +2,14 @@
 use http_listener::HttpListeningError;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::future::Future;
-#[cfg(feature = "http-listener")]
-use std::net::SocketAddr;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
 use std::pin::Pin;
 #[cfg(feature = "push-gateway")]
 use std::time::Duration;
+#[cfg(feature = "http-listener")]
+use std::{net::SocketAddr, sync::Arc};
+#[cfg(feature = "http-listener")]
+use tokio::net::TcpListener;
 
 #[cfg(feature = "push-gateway")]
 use hyper::Uri;
@@ -28,6 +30,7 @@ pub type ExporterFuture = Pin<Box<dyn Future<Output = Result<(), ExporterError>>
 #[derive(Clone, Debug)]
 enum ListenDestination {
     Tcp(SocketAddr),
+    ExistingListener(Arc<TcpListener>),
     #[cfg(feature = "uds-listener")]
     Uds(std::path::PathBuf),
 }
