@@ -65,6 +65,7 @@ As well, there are also some community-maintained exporters and other integratio
 * [`metrics-dashboard`][metrics-dashboard]: A dashboard for visualizing metrics from `metrics`.
 * [`actix-web-metrics`][actix-web-metrics]: `metrics` integration for actix-web.
 * [`metrics-rs-dashboard-actix`][metrics-rs-dashboard-actix]: Alternative dashboard for visualizing metrics from `metrics`
+* [`reqwest-metrics`][reqwest-metrics]: `metrics` integration for reqwest.
 
 Additionally, here are some learning resource(s) to help you get started:
 
@@ -104,3 +105,4 @@ We'd love to chat about any of the above, or anything else related to metrics. D
 [discord_invite]: https://discord.gg/tokio
 [actix-web-metrics]: https://docs.rs/actix-web-metrics
 [metrics-rs-dashboard-actix]: https://github.com/singerxt/metrics-rs-dashboard-actix
+[reqwest-metrics]: https://docs.rs/reqwest-metrics
