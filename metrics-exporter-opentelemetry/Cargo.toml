@@ -1,0 +1,26 @@
+[package]
+name = "metrics-exporter-opentelemetry"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75.0"
+
+description = "A metrics-compatible exporter for sending metrics to OpenTelemetry collectors."
+license = { workspace = true }
+authors = ["Metrics Contributors"]
+repository = { workspace = true }
+homepage = { workspace = true }
+documentation = "https://docs.rs/metrics-exporter-opentelemetry"
+readme = "README.md"
+
+categories = ["development-tools::debugging"]
+keywords = ["metrics", "telemetry", "opentelemetry", "otel", "observability"]
+
+[dependencies]
+metrics = { version = "^0.24", path = "../metrics" }
+metrics-util = { version = "^0.20", path = "../metrics-util", default-features = false, features = ["registry"] }
+opentelemetry = { workspace = true, features = ["metrics"] }
+portable-atomic = { workspace = true, features = ["float", "critical-section"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
