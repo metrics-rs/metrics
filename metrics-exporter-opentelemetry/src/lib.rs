@@ -1,4 +1,7 @@
-//! An OpenTelemetry metrics exporter for `metrics`.
+#![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
+#![deny(missing_docs)]
+
 mod instruments;
 mod metadata;
 mod storage;
@@ -10,7 +13,19 @@ use metrics_util::registry::Registry;
 use metrics_util::MetricKind;
 use opentelemetry::metrics::Meter;
 
-/// The OpenTelemetry recorder.
+/// A [`Recorder`] that exports metrics to OpenTelemetry.
+///
+/// ```rust,no_run
+/// use opentelemetry::metrics::MeterProvider;
+/// use metrics_exporter_opentelemetry::OpenTelemetryRecorder;
+/// use opentelemetry_sdk::metrics::SdkMeterProvider;
+///
+/// let provider = SdkMeterProvider::default();
+/// let meter = provider.meter("my_app");
+/// let recorder = OpenTelemetryRecorder::new(meter);
+///
+/// metrics::set_global_recorder(recorder).expect("failed to install recorder");
+/// ```
 pub struct OpenTelemetryRecorder {
     registry: Registry<Key, OtelMetricStorage>,
     metadata: MetricMetadata,
@@ -21,20 +36,17 @@ impl OpenTelemetryRecorder {
     pub fn new(meter: Meter) -> Self {
         let metadata = MetricMetadata::new();
         let storage = OtelMetricStorage::new(meter, metadata.clone());
-        Self { 
-            registry: Registry::new(storage), 
-            metadata,
-        }
+        Self { registry: Registry::new(storage), metadata }
     }
 
-    pub fn set_histogram_bounds(
-        &self,
-        key: &KeyName,
-        bounds: Vec<f64>,
-    ) {
+    /// Sets custom bucket boundaries for a histogram metric.
+    ///
+    /// Must be called before the histogram is first created. Boundaries cannot be
+    /// changed after a histogram has been created.
+    pub fn set_histogram_bounds(&self, key: &KeyName, bounds: Vec<f64>) {
         self.metadata.set_histogram_bounds(key.clone(), bounds);
     }
-    
+
     /// Gets a description entry for testing purposes.
     #[cfg(test)]
     pub fn get_description(
