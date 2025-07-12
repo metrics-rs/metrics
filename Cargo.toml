@@ -4,6 +4,7 @@ members = [
   "metrics",
   "metrics-benchmark",
   "metrics-exporter-dogstatsd",
+  "metrics-exporter-opentelemetry",
   "metrics-exporter-prometheus",
   "metrics-exporter-tcp",
   "metrics-observer",
@@ -48,6 +49,8 @@ ndarray = { version = "0.16", default-features = false }
 ndarray-stats = { version = "0.6", default-features = false }
 noisy_float = { version = "0.2", default-features = false }
 once_cell = { version = "1", default-features = false, features = ["std"] }
+opentelemetry = { version = "0.30", default-features = false }
+opentelemetry_sdk = { version = "0.30", default-features = false }
 ordered-float = { version = "4.2", default-features = false }
 parking_lot = { version = "0.12", default-features = false }
 portable-atomic = { version = "1", default-features = false }
@@ -66,6 +69,7 @@ radix_trie = { version = "0.2", default-features = false }
 rand = { version = "0.9", default-features = false, features = [ "thread_rng" ] }
 rand_xoshiro = { version = "0.7", default-features = false }
 ratatui = { version = "0.28", default-features = false }
+scc = { version = "2.1", default-features = false }
 sketches-ddsketch = { version = "0.3", default-features = false }
 thiserror = { version = "2", default-features = false }
 tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "rt-multi-thread"] }
