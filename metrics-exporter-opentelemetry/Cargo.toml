@@ -21,6 +21,9 @@ metrics-util = { version = "^0.20", path = "../metrics-util", default-features =
 opentelemetry = { workspace = true, features = ["metrics"] }
 portable-atomic = { workspace = true, features = ["float", "critical-section"] }
 
+[dev-dependencies]
+opentelemetry_sdk = { workspace = true, features = ["metrics", "rt-tokio", "testing"] }
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
