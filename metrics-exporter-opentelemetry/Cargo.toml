@@ -20,6 +20,7 @@ metrics = { version = "^0.24", path = "../metrics" }
 metrics-util = { version = "^0.20", path = "../metrics-util", default-features = false, features = ["registry"] }
 opentelemetry = { workspace = true, features = ["metrics"] }
 portable-atomic = { workspace = true, features = ["float", "critical-section"] }
+scc = { workspace = true }
 
 [dev-dependencies]
 opentelemetry_sdk = { workspace = true, features = ["metrics", "rt-tokio", "testing"] }

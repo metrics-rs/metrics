@@ -53,11 +53,11 @@ impl Recorder for OpenTelemetryRecorder {
         _unit: Option<Unit>,
         _description: SharedString,
     ) {
-        self.metadata.add_description(_key_name, MetricKind::Counter, _unit, _description);
+        self.metadata.set_description(_key_name, MetricKind::Counter, _unit, _description);
     }
 
     fn describe_gauge(&self, _key_name: KeyName, _unit: Option<Unit>, _description: SharedString) {
-        self.metadata.add_description(_key_name, MetricKind::Gauge, _unit, _description);
+        self.metadata.set_description(_key_name, MetricKind::Gauge, _unit, _description);
     }
 
     fn describe_histogram(
@@ -66,7 +66,7 @@ impl Recorder for OpenTelemetryRecorder {
         _unit: Option<Unit>,
         _description: SharedString,
     ) {
-        self.metadata.add_description(_key_name, MetricKind::Histogram, _unit, _description);
+        self.metadata.set_description(_key_name, MetricKind::Histogram, _unit, _description);
     }
 
     fn register_counter(&self, key: &Key, _metadata: &metrics::Metadata<'_>) -> Counter {
