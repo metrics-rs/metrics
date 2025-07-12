@@ -1,34 +1,29 @@
 //! An OpenTelemetry metrics exporter for `metrics`.
-mod description;
 mod instruments;
+mod metadata;
 mod storage;
 
-use crate::description::DescriptionTable;
+use crate::metadata::MetricMetadata;
 use crate::storage::OtelMetricStorage;
 use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
 use metrics_util::registry::Registry;
 use metrics_util::MetricKind;
 use opentelemetry::metrics::Meter;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 
 /// The OpenTelemetry recorder.
 pub struct OpenTelemetryRecorder {
     registry: Registry<Key, OtelMetricStorage>,
-    description_table: Arc<DescriptionTable>,
-    histogram_bounds: Arc<RwLock<HashMap<KeyName, Vec<f64>>>>,
+    metadata: MetricMetadata,
 }
 
 impl OpenTelemetryRecorder {
     /// Creates a new OpenTelemetry recorder with the given meter.
     pub fn new(meter: Meter) -> Self {
-        let description_table = Arc::new(DescriptionTable::default());
-        let histogram_bounds = Arc::new(RwLock::new(HashMap::new()));
-        let storage = OtelMetricStorage::new(meter, description_table.clone(), histogram_bounds.clone());
+        let metadata = MetricMetadata::new();
+        let storage = OtelMetricStorage::new(meter, metadata.clone());
         Self { 
             registry: Registry::new(storage), 
-            description_table,
-            histogram_bounds,
+            metadata,
         }
     }
 
@@ -37,8 +32,7 @@ impl OpenTelemetryRecorder {
         key: &KeyName,
         bounds: Vec<f64>,
     ) {
-        let mut bounds_map = self.histogram_bounds.write().unwrap();
-        bounds_map.insert(key.clone(), bounds);
+        self.metadata.set_histogram_bounds(key.clone(), bounds);
     }
     
     /// Gets a description entry for testing purposes.
@@ -47,8 +41,8 @@ impl OpenTelemetryRecorder {
         &self,
         key_name: KeyName,
         metric_kind: MetricKind,
-    ) -> Option<crate::description::DescriptionEntry> {
-        self.description_table.get_describe(key_name, metric_kind)
+    ) -> Option<crate::metadata::MetricDescription> {
+        self.metadata.get_description(&key_name, metric_kind)
     }
 }
 
@@ -59,11 +53,11 @@ impl Recorder for OpenTelemetryRecorder {
         _unit: Option<Unit>,
         _description: SharedString,
     ) {
-        self.description_table.add_describe(_key_name, MetricKind::Counter, _unit, _description);
+        self.metadata.add_description(_key_name, MetricKind::Counter, _unit, _description);
     }
 
     fn describe_gauge(&self, _key_name: KeyName, _unit: Option<Unit>, _description: SharedString) {
-        self.description_table.add_describe(_key_name, MetricKind::Gauge, _unit, _description);
+        self.metadata.add_description(_key_name, MetricKind::Gauge, _unit, _description);
     }
 
     fn describe_histogram(
@@ -72,7 +66,7 @@ impl Recorder for OpenTelemetryRecorder {
         _unit: Option<Unit>,
         _description: SharedString,
     ) {
-        self.description_table.add_describe(_key_name, MetricKind::Histogram, _unit, _description);
+        self.metadata.add_description(_key_name, MetricKind::Histogram, _unit, _description);
     }
 
     fn register_counter(&self, key: &Key, _metadata: &metrics::Metadata<'_>) -> Counter {

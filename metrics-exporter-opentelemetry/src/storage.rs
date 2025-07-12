@@ -1,26 +1,20 @@
-use crate::description::{DescriptionEntry, DescriptionTable};
 use crate::instruments::{OtelCounter, OtelGauge, OtelHistogram};
+use crate::metadata::{MetricDescription, MetricMetadata};
 use metrics::{Key, KeyName};
 use metrics_util::registry::Storage;
 use metrics_util::MetricKind;
 use opentelemetry::metrics::{AsyncInstrumentBuilder, HistogramBuilder, Meter};
 use opentelemetry::KeyValue;
-use std::collections::HashMap;
-use std::sync::{Arc, PoisonError, RwLock};
+use std::sync::Arc;
 
 pub struct OtelMetricStorage {
     meter: Meter,
-    description_table: Arc<DescriptionTable>,
-    histogram_bounds: Arc<RwLock<HashMap<KeyName, Vec<f64>>>>,
+    metadata: MetricMetadata,
 }
 
 impl OtelMetricStorage {
-    pub fn new(meter: Meter, description_table: Arc<DescriptionTable>, histogram_bounds: Arc<RwLock<HashMap<KeyName, Vec<f64>>>>) -> Self {
-        Self { 
-            meter, 
-            description_table,
-            histogram_bounds,
-        }
+    pub fn new(meter: Meter, metadata: MetricMetadata) -> Self {
+        Self { meter, metadata }
     }
 
     fn get_attributes(key: &Key) -> Vec<KeyValue> {
@@ -29,28 +23,27 @@ impl OtelMetricStorage {
             .collect()
     }
 
-    fn with_description_entry<'a, I, M>(
-        description_entry: &DescriptionEntry,
+    fn with_description<'a, I, M>(
+        description: &MetricDescription,
         builder: AsyncInstrumentBuilder<'a, I, M>,
     ) -> AsyncInstrumentBuilder<'a, I, M> {
-        // let builder = builder.with_description(self.description.to_string());
-        match description_entry.unit() {
+        match description.unit() {
             Some(unit) => builder
-                .with_description(description_entry.description().to_string())
+                .with_description(description.description().to_string())
                 .with_unit(unit.as_canonical_label()),
-            None => builder.with_description(description_entry.description().to_string()),
+            None => builder.with_description(description.description().to_string()),
         }
     }
-    fn with_description_entry_histogram<'a, T>(
-        description_entry: &DescriptionEntry,
+
+    fn with_description_histogram<'a, T>(
+        description: &MetricDescription,
         builder: HistogramBuilder<'a, T>,
     ) -> HistogramBuilder<'a, T> {
-        // let builder = builder.with_description(self.description.to_string());
-        match description_entry.unit() {
+        match description.unit() {
             Some(unit) => builder
-                .with_description(description_entry.description().to_string())
+                .with_description(description.description().to_string())
                 .with_unit(unit.as_canonical_label()),
-            None => builder.with_description(description_entry.description().to_string()),
+            None => builder.with_description(description.description().to_string()),
         }
     }
 }
@@ -62,11 +55,11 @@ impl Storage<Key> for OtelMetricStorage {
 
     fn counter(&self, key: &Key) -> Self::Counter {
         let builder = self.meter.u64_observable_counter(key.name().to_string());
-        let description = self
-            .description_table
-            .get_describe(KeyName::from(key.name().to_string()), MetricKind::Counter);
-        let builder = if let Some(description) = description {
-            Self::with_description_entry(&description, builder)
+        let key_name = KeyName::from(key.name().to_string());
+        let builder = if let Some(description) =
+            self.metadata.get_description(&key_name, MetricKind::Counter)
+        {
+            Self::with_description(&description, builder)
         } else {
             builder
         };
@@ -76,11 +69,11 @@ impl Storage<Key> for OtelMetricStorage {
 
     fn gauge(&self, key: &Key) -> Self::Gauge {
         let builder = self.meter.f64_observable_gauge(key.name().to_string());
-        let description = self
-            .description_table
-            .get_describe(KeyName::from(key.name().to_string()), MetricKind::Gauge);
-        let builder = if let Some(description) = description {
-            Self::with_description_entry(&description, builder)
+        let key_name = KeyName::from(key.name().to_string());
+        let builder = if let Some(description) =
+            self.metadata.get_description(&key_name, MetricKind::Gauge)
+        {
+            Self::with_description(&description, builder)
         } else {
             builder
         };
@@ -90,26 +83,23 @@ impl Storage<Key> for OtelMetricStorage {
 
     fn histogram(&self, key: &Key) -> Self::Histogram {
         let builder = self.meter.f64_histogram(key.name().to_string());
-        let description = self
-            .description_table
-            .get_describe(KeyName::from(key.name().to_string()), MetricKind::Histogram);
-        let builder = if let Some(description) = description {
-            Self::with_description_entry_histogram(&description, builder)
+        let key_name = KeyName::from(key.name().to_string());
+
+        let builder = if let Some(description) =
+            self.metadata.get_description(&key_name, MetricKind::Histogram)
+        {
+            Self::with_description_histogram(&description, builder)
         } else {
             builder
         };
-        
+
         // Apply histogram bounds if they exist
-        let key_name = KeyName::from(key.name().to_string());
-        let builder = {
-            let bounds_map = self.histogram_bounds.read().unwrap_or_else(PoisonError::into_inner);;
-            if let Some(bounds) = bounds_map.get(&key_name) {
-                builder.with_boundaries(bounds.clone())
-            } else {
-                builder
-            }
+        let builder = if let Some(bounds) = self.metadata.get_histogram_bounds(&key_name) {
+            builder.with_boundaries(bounds)
+        } else {
+            builder
         };
-        
+
         let attributes = Self::get_attributes(key);
         Arc::new(OtelHistogram::new(builder.build(), attributes))
     }
