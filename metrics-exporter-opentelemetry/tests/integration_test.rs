@@ -441,3 +441,74 @@ fn test_metrics_with_multiple_labels() {
         .any(|a| a.key == Key::from("path") && a.value == Value::from("/api/v1/users")));
     assert_eq!(point.value(), 5, "Counter value should be 5");
 }
+
+#[test]
+fn test_histogram_with_custom_bounds() {
+    // Given: OpenTelemetry recorder with custom histogram bounds
+    let exporter = InMemoryMetricExporter::default();
+    let reader =
+        PeriodicReader::builder(exporter.clone()).with_interval(Duration::from_millis(100)).build();
+    let provider = SdkMeterProvider::builder().with_reader(reader).build();
+    let meter = provider.meter("test_meter");
+    let recorder = OpenTelemetryRecorder::new(meter);
+
+    // When: Custom bounds are set for a histogram before it's created
+    recorder.set_histogram_bounds(
+        &metrics::KeyName::from("latency"),
+        vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+    );
+
+    // And: Histogram is registered and values are recorded
+    let key = metrics::Key::from_name("latency");
+    let metadata = metrics::Metadata::new("test", metrics::Level::INFO, Some("latency"));
+    let histogram = recorder.register_histogram(&key, &metadata);
+    histogram.record(0.03);
+    histogram.record(0.12);
+    histogram.record(0.75);
+    histogram.record(3.5);
+
+    provider.force_flush().unwrap();
+
+    // Then: Histogram should be recorded with values
+    let metrics = exporter.get_finished_metrics().unwrap();
+    let latency_metric = metrics
+        .last()
+        .unwrap()
+        .scope_metrics()
+        .flat_map(|sm| sm.metrics())
+        .find(|m| m.name() == "latency")
+        .expect("latency metric should exist");
+
+    let AggregatedMetrics::F64(metric_data) = latency_metric.data() else {
+        panic!("Histogram should be F64");
+    };
+    let MetricData::Histogram(hist_data) = metric_data else {
+        panic!("Should be Histogram type");
+    };
+
+    let point = hist_data.data_points().next().expect("Should have data point");
+
+    // Verify the histogram has recorded values
+    assert_eq!(point.count(), 4, "Should have 4 recordings");
+    assert_eq!(point.sum(), 0.03 + 0.12 + 0.75 + 3.5, "Sum should be correct");
+
+    // Check bucket boundaries are applied (9 boundaries create 10 buckets)
+    let boundaries: Vec<_> = point.bounds().collect();
+    assert_eq!(boundaries.len(), 9, "Should have 9 boundaries");
+    assert_eq!(boundaries, vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]);
+
+    // Check bucket counts
+    let counts: Vec<_> = point.bucket_counts().collect();
+    assert_eq!(counts.len(), 10, "Should have 10 buckets");
+    // Values: 0.03 (bucket 1), 0.12 (bucket 3), 0.75 (bucket 5), 3.5 (bucket 7)
+    assert_eq!(counts[0], 0, "Bucket [0, 0.01) should be empty");
+    assert_eq!(counts[1], 1, "Bucket [0.01, 0.05) should have 1 value (0.03)");
+    assert_eq!(counts[2], 0, "Bucket [0.05, 0.1) should be empty");
+    assert_eq!(counts[3], 1, "Bucket [0.1, 0.25) should have 1 value (0.12)");
+    assert_eq!(counts[4], 0, "Bucket [0.25, 0.5) should be empty");
+    assert_eq!(counts[5], 1, "Bucket [0.5, 1.0) should have 1 value (0.75)");
+    assert_eq!(counts[6], 0, "Bucket [1.0, 2.5) should be empty");
+    assert_eq!(counts[7], 1, "Bucket [2.5, 5.0) should have 1 value (3.5)");
+    assert_eq!(counts[8], 0, "Bucket [5.0, 10.0) should be empty");
+    assert_eq!(counts[9], 0, "Bucket [10.0, +∞) should be empty");
+}

@@ -5,16 +5,22 @@ use metrics_util::registry::Storage;
 use metrics_util::MetricKind;
 use opentelemetry::metrics::{AsyncInstrumentBuilder, HistogramBuilder, Meter};
 use opentelemetry::KeyValue;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, PoisonError, RwLock};
 
 pub struct OtelMetricStorage {
     meter: Meter,
     description_table: Arc<DescriptionTable>,
+    histogram_bounds: Arc<RwLock<HashMap<KeyName, Vec<f64>>>>,
 }
 
 impl OtelMetricStorage {
-    pub fn new(meter: Meter, description_table: Arc<DescriptionTable>) -> Self {
-        Self { meter, description_table }
+    pub fn new(meter: Meter, description_table: Arc<DescriptionTable>, histogram_bounds: Arc<RwLock<HashMap<KeyName, Vec<f64>>>>) -> Self {
+        Self { 
+            meter, 
+            description_table,
+            histogram_bounds,
+        }
     }
 
     fn get_attributes(key: &Key) -> Vec<KeyValue> {
@@ -92,6 +98,18 @@ impl Storage<Key> for OtelMetricStorage {
         } else {
             builder
         };
+        
+        // Apply histogram bounds if they exist
+        let key_name = KeyName::from(key.name().to_string());
+        let builder = {
+            let bounds_map = self.histogram_bounds.read().unwrap_or_else(PoisonError::into_inner);;
+            if let Some(bounds) = bounds_map.get(&key_name) {
+                builder.with_boundaries(bounds.clone())
+            } else {
+                builder
+            }
+        };
+        
         let attributes = Self::get_attributes(key);
         Arc::new(OtelHistogram::new(builder.build(), attributes))
     }

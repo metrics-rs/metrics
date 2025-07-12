@@ -9,22 +9,38 @@ use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, U
 use metrics_util::registry::Registry;
 use metrics_util::MetricKind;
 use opentelemetry::metrics::Meter;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 /// The OpenTelemetry recorder.
 pub struct OpenTelemetryRecorder {
     registry: Registry<Key, OtelMetricStorage>,
     description_table: Arc<DescriptionTable>,
+    histogram_bounds: Arc<RwLock<HashMap<KeyName, Vec<f64>>>>,
 }
 
 impl OpenTelemetryRecorder {
     /// Creates a new OpenTelemetry recorder with the given meter.
     pub fn new(meter: Meter) -> Self {
         let description_table = Arc::new(DescriptionTable::default());
-        let storage = OtelMetricStorage::new(meter, description_table.clone());
-        Self { registry: Registry::new(storage), description_table }
+        let histogram_bounds = Arc::new(RwLock::new(HashMap::new()));
+        let storage = OtelMetricStorage::new(meter, description_table.clone(), histogram_bounds.clone());
+        Self { 
+            registry: Registry::new(storage), 
+            description_table,
+            histogram_bounds,
+        }
     }
 
+    pub fn set_histogram_bounds(
+        &self,
+        key: &KeyName,
+        bounds: Vec<f64>,
+    ) {
+        let mut bounds_map = self.histogram_bounds.write().unwrap();
+        bounds_map.insert(key.clone(), bounds);
+    }
+    
     /// Gets a description entry for testing purposes.
     #[cfg(test)]
     pub fn get_description(
