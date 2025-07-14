@@ -65,7 +65,7 @@ As well, there are also some community-maintained exporters and other integratio
 * [`metrics-dashboard`][metrics-dashboard]: A dashboard for visualizing metrics from `metrics`.
 * [`actix-web-metrics`][actix-web-metrics]: `metrics` integration for actix-web.
 * [`metrics-rs-dashboard-actix`][metrics-rs-dashboard-actix]: Alternative dashboard for visualizing metrics from `metrics`
-* [`reqwest-metrics`][reqwest-metrics]: `metrics` integration for reqwest.
+* [`reqwest-metrics`][reqwest-metrics]: `metrics` integration for `reqwest`.
 
 Additionally, here are some learning resource(s) to help you get started:
 
