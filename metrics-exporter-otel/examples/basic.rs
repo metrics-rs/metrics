@@ -1,5 +1,5 @@
 use metrics::{counter, describe_counter, describe_histogram, gauge, histogram, Unit};
-use metrics_exporter_opentelemetry::OpenTelemetryRecorder;
+use metrics_exporter_otel::OpenTelemetryRecorder;
 use opentelemetry::metrics::MeterProvider;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
 use std::thread;

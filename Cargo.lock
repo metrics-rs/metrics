@@ -1157,7 +1157,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "metrics-exporter-opentelemetry"
+name = "metrics-exporter-otel"
 version = "0.1.0"
 dependencies = [
  "metrics",

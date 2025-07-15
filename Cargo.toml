@@ -4,7 +4,7 @@ members = [
   "metrics",
   "metrics-benchmark",
   "metrics-exporter-dogstatsd",
-  "metrics-exporter-opentelemetry",
+  "metrics-exporter-otel",
   "metrics-exporter-prometheus",
   "metrics-exporter-tcp",
   "metrics-observer",

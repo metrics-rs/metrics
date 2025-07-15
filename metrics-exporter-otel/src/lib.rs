@@ -17,7 +17,7 @@ use opentelemetry::metrics::Meter;
 ///
 /// ```rust,no_run
 /// use opentelemetry::metrics::MeterProvider;
-/// use metrics_exporter_opentelemetry::OpenTelemetryRecorder;
+/// use metrics_exporter_otel::OpenTelemetryRecorder;
 /// use opentelemetry_sdk::metrics::SdkMeterProvider;
 ///
 /// let provider = SdkMeterProvider::default();

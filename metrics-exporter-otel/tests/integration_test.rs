@@ -1,7 +1,7 @@
 use metrics::{
     counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, Recorder, Unit,
 };
-use metrics_exporter_opentelemetry::OpenTelemetryRecorder;
+use metrics_exporter_otel::OpenTelemetryRecorder;
 use opentelemetry::metrics::MeterProvider;
 use opentelemetry::{Key, Value};
 use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData};

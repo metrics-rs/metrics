@@ -1,12 +1,12 @@
-# metrics-exporter-opentelemetry
+# metrics-exporter-otel
 
 [![docs-badge][docs-badge]][docs] [![crates-badge][crates-badge]][crates] [![license-badge][license-badge]][license]
 
-[docs-badge]: https://docs.rs/metrics-exporter-opentelemetry/badge.svg
-[docs]: https://docs.rs/metrics-exporter-opentelemetry
-[crates-badge]: https://img.shields.io/crates/v/metrics-exporter-opentelemetry.svg
-[crates]: https://crates.io/crates/metrics-exporter-opentelemetry
-[license-badge]: https://img.shields.io/crates/l/metrics-exporter-opentelemetry.svg
+[docs-badge]: https://docs.rs/metrics-exporter-otel/badge.svg
+[docs]: https://docs.rs/metrics-exporter-otel
+[crates-badge]: https://img.shields.io/crates/v/metrics-exporter-otel.svg
+[crates]: https://crates.io/crates/metrics-exporter-otel
+[license-badge]: https://img.shields.io/crates/l/metrics-exporter-otel.svg
 [license]: #license
 
 A [`metrics`]-compatible exporter for sending metrics to OpenTelemetry collectors.
@@ -34,7 +34,7 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 metrics = "0.24"
-metrics-exporter-opentelemetry = "0.1"
+metrics-exporter-otel = "0.1"
 opentelemetry = "0.30"
 opentelemetry_sdk = "0.30"
 ```
@@ -42,7 +42,7 @@ opentelemetry_sdk = "0.30"
 Basic usage:
 
 ```rust
-use metrics_exporter_opentelemetry::OpenTelemetryRecorder;
+use metrics_exporter_otel::OpenTelemetryRecorder;
 use opentelemetry::metrics::MeterProvider;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
 

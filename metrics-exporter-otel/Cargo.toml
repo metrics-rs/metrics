@@ -1,5 +1,5 @@
 [package]
-name = "metrics-exporter-opentelemetry"
+name = "metrics-exporter-otel"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.75.0"
@@ -9,7 +9,7 @@ license = { workspace = true }
 authors = ["Metrics Contributors"]
 repository = { workspace = true }
 homepage = { workspace = true }
-documentation = "https://docs.rs/metrics-exporter-opentelemetry"
+documentation = "https://docs.rs/metrics-exporter-otel"
 readme = "README.md"
 
 categories = ["development-tools::debugging"]
