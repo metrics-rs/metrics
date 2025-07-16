@@ -6,6 +6,7 @@ mod instruments;
 mod metadata;
 mod storage;
 
+use std::sync::Arc;
 use crate::metadata::MetricMetadata;
 use crate::storage::OtelMetricStorage;
 use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
@@ -14,6 +15,8 @@ use metrics_util::MetricKind;
 use opentelemetry::metrics::Meter;
 
 /// A [`Recorder`] that exports metrics to OpenTelemetry.
+///
+/// Clone is shallow; Clones share the same underlying data.
 ///
 /// ```rust,no_run
 /// use opentelemetry::metrics::MeterProvider;
@@ -26,8 +29,9 @@ use opentelemetry::metrics::Meter;
 ///
 /// metrics::set_global_recorder(recorder).expect("failed to install recorder");
 /// ```
+#[derive(Clone)]
 pub struct OpenTelemetryRecorder {
-    registry: Registry<Key, OtelMetricStorage>,
+    registry: Arc<Registry<Key, OtelMetricStorage>>,
     metadata: MetricMetadata,
 }
 
@@ -36,7 +40,7 @@ impl OpenTelemetryRecorder {
     pub fn new(meter: Meter) -> Self {
         let metadata = MetricMetadata::new();
         let storage = OtelMetricStorage::new(meter, metadata.clone());
-        Self { registry: Registry::new(storage), metadata }
+        Self { registry: Arc::new(Registry::new(storage)), metadata }
     }
 
     /// Sets custom bucket boundaries for a histogram metric.
