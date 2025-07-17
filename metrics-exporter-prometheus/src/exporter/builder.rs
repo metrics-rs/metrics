@@ -49,6 +49,7 @@ pub struct PrometheusBuilder {
     recency_mask: MetricKindMask,
     global_labels: Option<IndexMap<String, String>>,
     enable_unit_suffix: bool,
+    enable_compat_counter_names: bool,
 }
 
 impl PrometheusBuilder {
@@ -82,6 +83,7 @@ impl PrometheusBuilder {
             recency_mask: MetricKindMask::NONE,
             global_labels: None,
             enable_unit_suffix: false,
+            enable_compat_counter_names: false,
         }
     }
 
@@ -293,6 +295,18 @@ impl PrometheusBuilder {
     #[must_use]
     pub fn set_enable_unit_suffix(mut self, enabled: bool) -> Self {
         self.enable_unit_suffix = enabled;
+        self
+    }
+
+    /// Sets whether counter names are suffixed with `_total`
+    ///
+    /// Setting this to true will make the formatted metrics compatible with
+    /// the [Prometheus Best Practices](https://prometheus.io/docs/practices/naming/).
+    ///
+    /// Defaults to false.
+    #[must_use]
+    pub fn set_enable_compat_metric_names(mut self, enabled: bool) -> Self {
+        self.enable_compat_counter_names = enabled;
         self
     }
 
@@ -539,6 +553,7 @@ impl PrometheusBuilder {
             descriptions: RwLock::new(HashMap::new()),
             global_labels: self.global_labels.unwrap_or_default(),
             enable_unit_suffix: self.enable_unit_suffix,
+            enable_compat_counter_names: self.enable_compat_counter_names,
         };
 
         PrometheusRecorder::from(inner)
@@ -608,6 +623,22 @@ mod tests {
         let expected_histogram = format!("{expected_gauge}{histogram_data}");
 
         assert_eq!(rendered, expected_histogram);
+    }
+
+    #[test]
+    fn test_render_compat_counter_names() {
+        let recorder =
+            PrometheusBuilder::new().set_enable_compat_metric_names(true).build_recorder();
+
+        let key = Key::from_name("basic_counter");
+        let counter1 = recorder.register_counter(&key, &METADATA);
+        counter1.increment(42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected_counter = "# TYPE basic_counter counter\nbasic_counter_total 42\n\n";
+
+        assert_eq!(rendered, expected_counter);
     }
 
     #[test]
