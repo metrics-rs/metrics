@@ -24,7 +24,7 @@ pub(crate) struct Inner {
     pub descriptions: RwLock<HashMap<String, (SharedString, Option<Unit>)>>,
     pub global_labels: IndexMap<String, String>,
     pub enable_unit_suffix: bool,
-    pub enable_compat_counter_names: bool,
+    pub counter_suffix: Option<&'static str>,
 }
 
 impl Inner {
@@ -129,7 +129,7 @@ impl Inner {
                 write_metric_line::<&str, u64>(
                     &mut output,
                     &name,
-                    Some("total").filter(|_| self.enable_compat_counter_names),
+                    self.counter_suffix,
                     &labels,
                     None,
                     value,
