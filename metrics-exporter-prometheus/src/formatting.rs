@@ -70,15 +70,16 @@ pub fn write_metric_line<T, T2>(
     T2: std::fmt::Display,
 {
     buffer.push_str(name);
-    if let Some(suffix) = suffix {
-        buffer.push('_');
-        buffer.push_str(suffix);
-    }
 
     match unit {
         Some(Unit::Count) | None => {}
         Some(Unit::Percent) => add_unit(buffer, "ratio"),
         Some(unit) => add_unit(buffer, unit.as_str()),
+    }
+
+    if let Some(suffix) = suffix {
+        buffer.push('_');
+        buffer.push_str(suffix);
     }
 
     if !labels.is_empty() || additional_label.is_some() {
