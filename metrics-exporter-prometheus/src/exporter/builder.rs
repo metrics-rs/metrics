@@ -48,6 +48,8 @@ pub struct PrometheusBuilder {
     upkeep_timeout: Duration,
     recency_mask: MetricKindMask,
     global_labels: Option<IndexMap<String, String>>,
+    enable_recommended_naming: bool,
+    /// TODO Remove this field in next version and merge with `enable_recommended_naming`
     enable_unit_suffix: bool,
 }
 
@@ -81,6 +83,7 @@ impl PrometheusBuilder {
             upkeep_timeout,
             recency_mask: MetricKindMask::NONE,
             global_labels: None,
+            enable_recommended_naming: false,
             enable_unit_suffix: false,
         }
     }
@@ -291,8 +294,24 @@ impl PrometheusBuilder {
     ///
     /// Defaults to false.
     #[must_use]
+    #[deprecated(
+        since = "0.18.0",
+        note = "users should prefer `with_recommended_naming` which automatically enables unit suffixes"
+    )]
     pub fn set_enable_unit_suffix(mut self, enabled: bool) -> Self {
         self.enable_unit_suffix = enabled;
+        self
+    }
+
+    /// Enables Prometheus naming best practices for metrics.
+    ///
+    /// When set to `true`, counter names are suffixed with `_total` and unit suffixes are appended to metric names,
+    /// following [Prometheus Best Practices](https://prometheus.io/docs/practices/naming/).
+    ///
+    /// Defaults to `false`.
+    #[must_use]
+    pub fn with_recommended_naming(mut self, enabled: bool) -> Self {
+        self.enable_recommended_naming = enabled;
         self
     }
 
@@ -538,7 +557,8 @@ impl PrometheusBuilder {
             ),
             descriptions: RwLock::new(HashMap::new()),
             global_labels: self.global_labels.unwrap_or_default(),
-            enable_unit_suffix: self.enable_unit_suffix,
+            enable_unit_suffix: self.enable_recommended_naming || self.enable_unit_suffix,
+            counter_suffix: self.enable_recommended_naming.then_some("total"),
         };
 
         PrometheusRecorder::from(inner)
@@ -558,7 +578,7 @@ mod tests {
 
     use quanta::Clock;
 
-    use metrics::{Key, KeyName, Label, Recorder};
+    use metrics::{Key, KeyName, Label, Recorder, Unit};
     use metrics_util::MetricKindMask;
 
     use super::{Matcher, PrometheusBuilder};
@@ -608,6 +628,43 @@ mod tests {
         let expected_histogram = format!("{expected_gauge}{histogram_data}");
 
         assert_eq!(rendered, expected_histogram);
+    }
+
+    #[test]
+    fn test_render_with_recommended_naming() {
+        // test 1 - no unit or description
+        let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
+
+        let key = Key::from_name("basic_counter");
+        let counter1 = recorder.register_counter(&key, &METADATA);
+        counter1.increment(42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected_counter = "# TYPE basic_counter counter\nbasic_counter_total 42\n\n";
+
+        assert_eq!(rendered, expected_counter);
+
+        // test 2 - with unit and description
+        // Note: we need to create a new recorder, as the render order is not deterministic
+        let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
+
+        let key_name = KeyName::from_const_str("counter_with_unit");
+        let key = Key::from_name(key_name.clone());
+        recorder.describe_counter(key_name, Some(Unit::Bytes), "A counter with a unit".into());
+        let counter2 = recorder.register_counter(&key, &METADATA);
+        counter2.increment(42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected_counter = concat!(
+            "# HELP counter_with_unit_bytes A counter with a unit\n",
+            "# TYPE counter_with_unit_bytes counter\n",
+            "counter_with_unit_bytes_total 42\n",
+            "\n",
+        );
+
+        assert_eq!(rendered, expected_counter);
     }
 
     #[test]

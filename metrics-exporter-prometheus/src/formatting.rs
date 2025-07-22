@@ -29,9 +29,13 @@ pub fn key_to_parts(
 /// Writes a help (description) line in the Prometheus [exposition format].
 ///
 /// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
-pub fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
+pub fn write_help_line(buffer: &mut String, name: &str, unit: Option<Unit>, desc: &str) {
     buffer.push_str("# HELP ");
     buffer.push_str(name);
+    if let Some(unit) = unit {
+        buffer.push('_');
+        buffer.push_str(unit.as_str());
+    }
     buffer.push(' ');
     let desc = sanitize_description(desc);
     buffer.push_str(&desc);
@@ -41,9 +45,13 @@ pub fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
 /// Writes a metric type line in the Prometheus [exposition format].
 ///
 /// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
-pub fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
+pub fn write_type_line(buffer: &mut String, name: &str, unit: Option<Unit>, metric_type: &str) {
     buffer.push_str("# TYPE ");
     buffer.push_str(name);
+    if let Some(unit) = unit {
+        buffer.push('_');
+        buffer.push_str(unit.as_str());
+    }
     buffer.push(' ');
     buffer.push_str(metric_type);
     buffer.push('\n');
@@ -70,15 +78,16 @@ pub fn write_metric_line<T, T2>(
     T2: std::fmt::Display,
 {
     buffer.push_str(name);
-    if let Some(suffix) = suffix {
-        buffer.push('_');
-        buffer.push_str(suffix);
-    }
 
     match unit {
         Some(Unit::Count) | None => {}
         Some(Unit::Percent) => add_unit(buffer, "ratio"),
         Some(unit) => add_unit(buffer, unit.as_str()),
+    }
+
+    if let Some(suffix) = suffix {
+        buffer.push('_');
+        buffer.push_str(suffix);
     }
 
     if !labels.is_empty() || additional_label.is_some() {

@@ -24,6 +24,7 @@ pub(crate) struct Inner {
     pub descriptions: RwLock<HashMap<String, (SharedString, Option<Unit>)>>,
     pub global_labels: IndexMap<String, String>,
     pub enable_unit_suffix: bool,
+    pub counter_suffix: Option<&'static str>,
 }
 
 impl Inner {
@@ -118,20 +119,21 @@ impl Inner {
 
         for (name, mut by_labels) in counters.drain() {
             let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
-                write_help_line(&mut output, name.as_str(), desc);
-                *unit
+                let unit = unit.filter(|_| self.enable_unit_suffix);
+                write_help_line(&mut output, name.as_str(), unit, desc);
+                unit
             });
 
-            write_type_line(&mut output, name.as_str(), "counter");
+            write_type_line(&mut output, name.as_str(), unit, "counter");
             for (labels, value) in by_labels.drain() {
                 write_metric_line::<&str, u64>(
                     &mut output,
                     &name,
-                    None,
+                    self.counter_suffix,
                     &labels,
                     None,
                     value,
-                    unit.filter(|_| self.enable_unit_suffix),
+                    unit,
                 );
             }
             output.push('\n');
@@ -139,11 +141,12 @@ impl Inner {
 
         for (name, mut by_labels) in gauges.drain() {
             let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
-                write_help_line(&mut output, name.as_str(), desc);
-                *unit
+                let unit = unit.filter(|_| self.enable_unit_suffix);
+                write_help_line(&mut output, name.as_str(), unit, desc);
+                unit
             });
 
-            write_type_line(&mut output, name.as_str(), "gauge");
+            write_type_line(&mut output, name.as_str(), unit, "gauge");
             for (labels, value) in by_labels.drain() {
                 write_metric_line::<&str, f64>(
                     &mut output,
@@ -152,7 +155,7 @@ impl Inner {
                     &labels,
                     None,
                     value,
-                    unit.filter(|_| self.enable_unit_suffix),
+                    unit,
                 );
             }
             output.push('\n');
@@ -160,12 +163,13 @@ impl Inner {
 
         for (name, mut by_labels) in distributions.drain() {
             let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
-                write_help_line(&mut output, name.as_str(), desc);
-                *unit
+                let unit = unit.filter(|_| self.enable_unit_suffix);
+                write_help_line(&mut output, name.as_str(), unit, desc);
+                unit
             });
 
             let distribution_type = self.distribution_builder.get_distribution_type(name.as_str());
-            write_type_line(&mut output, name.as_str(), distribution_type);
+            write_type_line(&mut output, name.as_str(), unit, distribution_type);
             for (labels, distribution) in by_labels.drain(..) {
                 let (sum, count) = match distribution {
                     Distribution::Summary(summary, quantiles, sum) => {
@@ -179,7 +183,7 @@ impl Inner {
                                 &labels,
                                 Some(("quantile", quantile.value())),
                                 value,
-                                unit.filter(|_| self.enable_unit_suffix),
+                                unit,
                             );
                         }
 
@@ -194,7 +198,7 @@ impl Inner {
                                 &labels,
                                 Some(("le", le)),
                                 count,
-                                unit.filter(|_| self.enable_unit_suffix),
+                                unit,
                             );
                         }
                         write_metric_line(
@@ -204,7 +208,7 @@ impl Inner {
                             &labels,
                             Some(("le", "+Inf")),
                             histogram.count(),
-                            unit.filter(|_| self.enable_unit_suffix),
+                            unit,
                         );
 
                         (histogram.sum(), histogram.count())
@@ -218,7 +222,7 @@ impl Inner {
                     &labels,
                     None,
                     sum,
-                    unit.filter(|_| self.enable_unit_suffix),
+                    unit,
                 );
                 write_metric_line::<&str, u64>(
                     &mut output,
@@ -227,7 +231,7 @@ impl Inner {
                     &labels,
                     None,
                     count,
-                    unit.filter(|_| self.enable_unit_suffix),
+                    unit,
                 );
             }
 
