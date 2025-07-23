@@ -631,40 +631,101 @@ mod tests {
     }
 
     #[test]
-    fn test_render_with_recommended_naming() {
-        // test 1 - no unit or description
+    fn test_render_recommended_naming_no_unit_or_description() {
         let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
 
         let key = Key::from_name("basic_counter");
-        let counter1 = recorder.register_counter(&key, &METADATA);
-        counter1.increment(42);
+        let counter = recorder.register_counter(&key, &METADATA);
+        counter.increment(42);
 
         let handle = recorder.handle();
         let rendered = handle.render();
-        let expected_counter = "# TYPE basic_counter counter\nbasic_counter_total 42\n\n";
+        let expected = "# TYPE basic_counter_total counter\nbasic_counter_total 42\n\n";
 
-        assert_eq!(rendered, expected_counter);
+        assert_eq!(rendered, expected);
+    }
 
-        // test 2 - with unit and description
+    #[test]
+    fn test_render_recommended_naming_with_unit_and_description() {
         // Note: we need to create a new recorder, as the render order is not deterministic
         let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
 
         let key_name = KeyName::from_const_str("counter_with_unit");
         let key = Key::from_name(key_name.clone());
         recorder.describe_counter(key_name, Some(Unit::Bytes), "A counter with a unit".into());
-        let counter2 = recorder.register_counter(&key, &METADATA);
-        counter2.increment(42);
+        let counter = recorder.register_counter(&key, &METADATA);
+        counter.increment(42);
 
         let handle = recorder.handle();
         let rendered = handle.render();
-        let expected_counter = concat!(
-            "# HELP counter_with_unit_bytes A counter with a unit\n",
-            "# TYPE counter_with_unit_bytes counter\n",
+        let expected: &'static str = concat!(
+            "# HELP counter_with_unit_bytes_total A counter with a unit\n",
+            "# TYPE counter_with_unit_bytes_total counter\n",
             "counter_with_unit_bytes_total 42\n",
             "\n",
         );
+        assert_eq!(rendered, expected);
+    }
 
-        assert_eq!(rendered, expected_counter);
+    #[test]
+    fn test_render_recommended_naming_manual_total_suffix_with_unit() {
+        let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
+        let key_name = KeyName::from_const_str("foo_total");
+        let key = Key::from_name(key_name.clone());
+        recorder.describe_counter(key_name, Some(Unit::Bytes), "Some help".into());
+        let counter = recorder.register_counter(&key, &METADATA);
+        counter.increment(42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# HELP foo_bytes_total Some help\n",
+            "# TYPE foo_bytes_total counter\n",
+            "foo_bytes_total 42\n",
+            "\n",
+        );
+        assert_eq!(rendered, expected);
+    }
+
+    #[test]
+    fn test_render_recommended_naming_manual_counter_suffixes() {
+        let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
+        let key_name = KeyName::from_const_str("foo_bytes_total");
+        let key = Key::from_name(key_name.clone());
+        recorder.describe_counter(key_name, Some(Unit::Bytes), "Some help".into());
+        let counter = recorder.register_counter(&key, &METADATA);
+        counter.increment(42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# HELP foo_bytes_total Some help\n",
+            "# TYPE foo_bytes_total counter\n",
+            "foo_bytes_total 42\n",
+            "\n",
+        );
+        assert_eq!(rendered, expected);
+    }
+
+    #[test]
+    fn test_render_recommended_naming_gauge_with_unit_in_name() {
+        let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
+
+        let key_name = KeyName::from_const_str("gauge_with_unit_bytes");
+        let key = Key::from_name(key_name.clone());
+        recorder.describe_gauge(key_name, Some(Unit::Bytes), "A gauge with a unit".into());
+        let gauge = recorder.register_gauge(&key, &METADATA);
+        gauge.set(42.0);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# HELP gauge_with_unit_bytes A gauge with a unit\n",
+            "# TYPE gauge_with_unit_bytes gauge\n",
+            "gauge_with_unit_bytes 42\n",
+            "\n",
+        );
+        assert_eq!(rendered, expected);
     }
 
     #[test]

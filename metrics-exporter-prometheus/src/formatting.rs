@@ -29,13 +29,15 @@ pub fn key_to_parts(
 /// Writes a help (description) line in the Prometheus [exposition format].
 ///
 /// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
-pub fn write_help_line(buffer: &mut String, name: &str, unit: Option<Unit>, desc: &str) {
+pub fn write_help_line(
+    buffer: &mut String,
+    name: &str,
+    unit: Option<Unit>,
+    suffix: Option<&'static str>,
+    desc: &str,
+) {
     buffer.push_str("# HELP ");
-    buffer.push_str(name);
-    if let Some(unit) = unit {
-        buffer.push('_');
-        buffer.push_str(unit.as_str());
-    }
+    add_metric_name(buffer, name, unit, suffix);
     buffer.push(' ');
     let desc = sanitize_description(desc);
     buffer.push_str(&desc);
@@ -45,13 +47,15 @@ pub fn write_help_line(buffer: &mut String, name: &str, unit: Option<Unit>, desc
 /// Writes a metric type line in the Prometheus [exposition format].
 ///
 /// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
-pub fn write_type_line(buffer: &mut String, name: &str, unit: Option<Unit>, metric_type: &str) {
+pub fn write_type_line(
+    buffer: &mut String,
+    name: &str,
+    unit: Option<Unit>,
+    suffix: Option<&'static str>,
+    metric_type: &str,
+) {
     buffer.push_str("# TYPE ");
-    buffer.push_str(name);
-    if let Some(unit) = unit {
-        buffer.push('_');
-        buffer.push_str(unit.as_str());
-    }
+    add_metric_name(buffer, name, unit, suffix);
     buffer.push(' ');
     buffer.push_str(metric_type);
     buffer.push('\n');
@@ -77,18 +81,7 @@ pub fn write_metric_line<T, T2>(
     T: std::fmt::Display,
     T2: std::fmt::Display,
 {
-    buffer.push_str(name);
-
-    match unit {
-        Some(Unit::Count) | None => {}
-        Some(Unit::Percent) => add_unit(buffer, "ratio"),
-        Some(unit) => add_unit(buffer, unit.as_str()),
-    }
-
-    if let Some(suffix) = suffix {
-        buffer.push('_');
-        buffer.push_str(suffix);
-    }
+    add_metric_name(buffer, name, unit, suffix);
 
     if !labels.is_empty() || additional_label.is_some() {
         buffer.push('{');
@@ -121,24 +114,58 @@ pub fn write_metric_line<T, T2>(
     buffer.push('\n');
 }
 
-fn add_unit(buffer: &mut String, unit: &str) {
-    const SUM_SUFFIX: &str = "_sum";
-    const COUNT_SUFFIX: &str = "_count";
-    const BUCKET_SUFFIX: &str = "_bucket";
+fn add_metric_name(
+    buffer: &mut String,
+    name: &str,
+    unit: Option<Unit>,
+    suffix: Option<&'static str>,
+) {
+    buffer.push_str(name);
+    if let Some(unit) = unit {
+        add_unit_if_missing(buffer, unit);
+    }
+    if let Some(suffix) = suffix {
+        add_suffix_if_missing(buffer, suffix);
+    }
+}
 
-    if buffer.ends_with(SUM_SUFFIX) {
-        let suffix_pos = buffer.len() - SUM_SUFFIX.len();
-        buffer.insert(suffix_pos, '_');
-        buffer.insert_str(suffix_pos + 1, unit);
-    } else if buffer.ends_with(COUNT_SUFFIX) {
-        let suffix_pos = buffer.len() - COUNT_SUFFIX.len();
-        buffer.insert(suffix_pos, '_');
-        buffer.insert_str(suffix_pos + 1, unit);
-    } else if buffer.ends_with(BUCKET_SUFFIX) {
-        let suffix_pos = buffer.len() - BUCKET_SUFFIX.len();
-        buffer.insert(suffix_pos, '_');
-        buffer.insert_str(suffix_pos + 1, unit);
-    } else {
+/// Adds a suffix to the metric name if it is not already in the name.
+fn add_suffix_if_missing(buffer: &mut String, suffix: &str) {
+    if !buffer.ends_with(suffix) {
+        buffer.push('_');
+        buffer.push_str(suffix);
+    }
+}
+
+/// Adds a unit to the metric name if it is not already in the name.
+/// If the metric ends with a known suffix, we try to insert the unit before the suffix.
+/// Otherwise, we append the unit to the end of the metric name.
+fn add_unit_if_missing(buffer: &mut String, unit: Unit) {
+    const KNOWN_SUFFIXES: [&str; 4] = ["_sum", "_count", "_bucket", "_total"];
+
+    let unit = match unit {
+        Unit::Count => {
+            // For count, we don't suffix the unit.
+            return;
+        }
+        Unit::Percent => "ratio",
+        unit => unit.as_str(),
+    };
+
+    let mut handled = false;
+    for suffix in KNOWN_SUFFIXES {
+        if buffer.ends_with(suffix) {
+            let suffix_pos = buffer.len() - suffix.len();
+            // Check if name before suffix already has the unit
+            if !&buffer[..suffix_pos].ends_with(unit) {
+                buffer.insert(suffix_pos, '_');
+                buffer.insert_str(suffix_pos + 1, unit);
+            }
+            handled = true;
+            break;
+        }
+    }
+    if !handled && !buffer.ends_with(unit) {
         buffer.push('_');
         buffer.push_str(unit);
     }
