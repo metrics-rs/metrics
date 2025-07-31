@@ -105,7 +105,12 @@ impl PrometheusBuilder {
         self
     }
 
-    /// Same as `with_http_listener`, but allows to bring your own configured tcp listener.
+    /// Configures the exporter to expose an HTTP listener using an existing TCP listener.
+    ///
+    /// This allows for customizing the underlying TCP socket, or binding to an ephemeral
+    /// port and capturing the port before passing off the listener.
+    ///
+    /// See [`with_http_listener`] for more details.
     #[cfg(feature = "http-listener")]
     #[cfg_attr(docsrs, doc(cfg(feature = "http-listener")))]
     #[must_use]
