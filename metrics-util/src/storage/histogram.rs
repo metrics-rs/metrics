@@ -81,14 +81,6 @@ impl Histogram {
             }
         }
 
-        // Add each bucket to the next bucket to satisfy the "less than or equal to"
-        // behavior of the buckets.
-        if bucketed.len() >= 2 {
-            for idx in 0..(bucketed.len() - 1) {
-                bucketed[idx + 1] += bucketed[idx];
-            }
-        }
-
         // Merge our temporary buckets to our main buckets.
         for (idx, local) in bucketed.iter().enumerate() {
             self.buckets[idx] += local;
@@ -122,9 +114,11 @@ mod tests {
         let (_, first) = result[0];
         assert_eq!(first, 3);
         let (_, second) = result[1];
-        assert_eq!(second, 4);
+        assert_eq!(second, 1);
         let (_, third) = result[2];
-        assert_eq!(third, 9);
+        assert_eq!(third, 5);
+
+        assert_eq!(result.iter().map(|i| i.1).sum::<u64>(), values.len() as u64);
 
         assert_eq!(histogram.count(), values.len() as u64 + 1);
         assert_eq!(histogram.sum(), 581.0);
