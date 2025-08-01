@@ -30,7 +30,7 @@ impl OtelMetricStorage {
         match description.unit() {
             Some(unit) => builder
                 .with_description(description.description().to_string())
-                .with_unit(unit.as_str()),
+                .with_unit(unit.as_ucum_label()),
             None => builder.with_description(description.description().to_string()),
         }
     }
@@ -42,7 +42,7 @@ impl OtelMetricStorage {
         match description.unit() {
             Some(unit) => builder
                 .with_description(description.description().to_string())
-                .with_unit(unit.as_str()),
+                .with_unit(unit.as_ucum_label()),
             None => builder.with_description(description.description().to_string()),
         }
     }
