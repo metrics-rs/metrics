@@ -14,6 +14,7 @@
 //!   quantiles/buckets
 //! - ability to control bucket configuration on a per-metric basis
 //! - configurable global labels (applied to all metrics, overridden by metric's own labels if present)
+//! - protobuf format support with automatic content negotiation
 //!
 //! ## Behavior
 //!
@@ -81,11 +82,16 @@
 //!
 //! ## Features
 //!
-//! Two main feature flags control which modes that exporter can run in:
+//! Three main feature flags control the capabilities of the exporter:
 //! - **`http-listener`**: allows running the exporter as a scrape endpoint (_enabled by default_)
 //! - **`push-gateway`**: allows running the exporter in push gateway mode (_enabled by default_)
+//! - **`protobuf`**: enables Prometheus protobuf format support with automatic content negotiation
 //!
-//! Neither of these flags are required to create, or install, only a recorder.  However, in order to create or build an
+//! For the HTTP listener mode, the exporter automatically detects the requested format based on the `Accept` header:
+//! - Text format (default): `text/plain`
+//! - Protobuf format: `application/vnd.google.protobuf` or `application/x-protobuf`
+//!
+//! Neither of the mode flags are required to create, or install, only a recorder.  However, in order to create or build an
 //! exporter, at least one of these feature flags must be enabled.  Builder methods that require certain feature flags
 //! will be documented as such.
 //!
@@ -125,6 +131,8 @@ pub use self::exporter::builder::PrometheusBuilder;
 pub use self::exporter::ExporterFuture;
 
 pub mod formatting;
+#[cfg(feature = "protobuf")]
+pub mod protobuf;
 mod recorder;
 
 mod registry;

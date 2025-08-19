@@ -1,6 +1,8 @@
 use std::net::SocketAddr;
 
 use http_body_util::Full;
+#[cfg(feature = "protobuf")]
+use hyper::header::ACCEPT;
 use hyper::{
     body::{Bytes, Incoming},
     header::{HeaderValue, CONTENT_TYPE},
@@ -129,23 +131,67 @@ impl HttpListeningExporter {
         handle: PrometheusHandle,
         req: Request<Incoming>,
     ) -> Result<Response<Full<Bytes>>, hyper::Error> {
-        if is_allowed {
-            let mut response = Response::new(match req.uri().path() {
-                "/health" => "OK".into(),
-                _ => tokio::task::spawn_blocking(move || handle.render()).await.unwrap().into(),
-            });
-            response.headers_mut().append(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
-            Ok(response)
-        } else {
-            // This unwrap should not fail because we don't use any function that
-            // can assign an Err to it's inner such as `Builder::header``. A unit test
-            // will have to suffice to detect if this fails to hold true.
-            Ok(Response::builder()
+        if !is_allowed {
+            return Ok(Response::builder()
                 .status(StatusCode::FORBIDDEN)
                 .body(Full::<Bytes>::default())
-                .unwrap())
+                .unwrap());
         }
+
+        if req.uri().path() == "/health" {
+            let mut response = Response::new("OK".into());
+            response.headers_mut().append(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+            return Ok(response);
+        }
+
+        // Check content negotiation for metrics endpoint
+        let response_format = Self::negotiate_content_type(&req);
+        let (body, content_type) = match response_format {
+            #[cfg(feature = "protobuf")]
+            ResponseFormat::Protobuf => {
+                let data =
+                    tokio::task::spawn_blocking(move || handle.render_protobuf()).await.unwrap();
+                (data.into(), crate::protobuf::PROTOBUF_CONTENT_TYPE)
+            }
+            ResponseFormat::Text => {
+                let data = tokio::task::spawn_blocking(move || handle.render()).await.unwrap();
+                (data.into(), "text/plain")
+            }
+        };
+
+        let mut response = Response::new(body);
+        response.headers_mut().append(CONTENT_TYPE, HeaderValue::from_static(content_type));
+        Ok(response)
     }
+
+    fn negotiate_content_type(req: &Request<Incoming>) -> ResponseFormat {
+        #[cfg(feature = "protobuf")]
+        {
+            let accept_header =
+                req.headers().get(ACCEPT).and_then(|value| value.to_str().ok()).unwrap_or("");
+
+            for mime_type in mime::MimeIter::new(accept_header).flatten() {
+                if mime_type.type_() == "application"
+                    && (mime_type.subtype() == "vnd.google.protobuf"
+                        || mime_type.subtype() == "x-protobuf")
+                {
+                    return ResponseFormat::Protobuf;
+                }
+            }
+        }
+
+        #[cfg(not(feature = "protobuf"))]
+        let _ = req;
+
+        ResponseFormat::Text
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ResponseFormat {
+    Text,
+    #[cfg(feature = "protobuf")]
+    Protobuf,
 }
 
 /// Creates an `ExporterFuture` implementing a http listener that serves prometheus metrics.
