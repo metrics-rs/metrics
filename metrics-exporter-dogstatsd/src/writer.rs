@@ -644,7 +644,7 @@ mod tests {
             (
                 Key::from("test_counter"),
                 666,
-                Some(345678),
+                Some(345_678),
                 None,
                 &[],
                 "test_counter:666|c|T345678\n",
@@ -660,7 +660,7 @@ mod tests {
             (
                 Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
                 777,
-                Some(234567),
+                Some(234_567),
                 None,
                 &[],
                 "test_counter:777|c|#foo:bar,baz:quux|T234567\n",
@@ -668,7 +668,7 @@ mod tests {
             (
                 Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
                 777,
-                Some(234567),
+                Some(234_567),
                 Some("server1"),
                 &[],
                 "server1.test_counter:777|c|#foo:bar,baz:quux|T234567\n",
@@ -676,7 +676,7 @@ mod tests {
             (
                 Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
                 777,
-                Some(234567),
+                Some(234_567),
                 None,
                 &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
                 "test_counter:777|c|#foo:bar,baz:quux,gfoo:bar,gbaz:quux|T234567\n",
@@ -684,7 +684,7 @@ mod tests {
             (
                 Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
                 777,
-                Some(234567),
+                Some(234_567),
                 Some("server1"),
                 &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
                 "server1.test_counter:777|c|#foo:bar,baz:quux,gfoo:bar,gbaz:quux|T234567\n",
@@ -709,7 +709,7 @@ mod tests {
             (
                 Key::from("test_gauge"),
                 1967.0,
-                Some(345678),
+                Some(345_678),
                 None,
                 &[],
                 "test_gauge:1967.0|g|T345678\n",
@@ -725,7 +725,7 @@ mod tests {
             (
                 Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
                 3.13232,
-                Some(234567),
+                Some(234_567),
                 None,
                 &[],
                 "test_gauge:3.13232|g|#foo:bar,baz:quux|T234567\n",
@@ -733,7 +733,7 @@ mod tests {
             (
                 Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
                 3.13232,
-                Some(234567),
+                Some(234_567),
                 Some("server1"),
                 &[],
                 "server1.test_gauge:3.13232|g|#foo:bar,baz:quux|T234567\n",
@@ -741,7 +741,7 @@ mod tests {
             (
                 Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
                 3.13232,
-                Some(234567),
+                Some(234_567),
                 None,
                 &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
                 "test_gauge:3.13232|g|#foo:bar,baz:quux,gfoo:bar,gbaz:quux|T234567\n",
@@ -749,7 +749,7 @@ mod tests {
             (
                 Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
                 3.13232,
-                Some(234567),
+                Some(234_567),
                 Some("server1"),
                 &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
                 "server1.test_gauge:3.13232|g|#foo:bar,baz:quux,gfoo:bar,gbaz:quux|T234567\n",
