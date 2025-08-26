@@ -325,6 +325,21 @@ impl PrometheusHandle {
         self.inner.render()
     }
 
+    /// Takes a snapshot of the metrics held by the recorder and generates a payload conforming to
+    /// the Prometheus protobuf format.
+    #[cfg(feature = "protobuf")]
+    pub fn render_protobuf(&self) -> Vec<u8> {
+        let snapshot = self.inner.get_recent_metrics();
+        let descriptions = self.inner.descriptions.read().unwrap_or_else(PoisonError::into_inner);
+
+        crate::protobuf::render_protobuf(
+            &snapshot,
+            &descriptions,
+            &self.inner.global_labels,
+            self.inner.counter_suffix,
+        )
+    }
+
     /// Performs upkeeping operations to ensure metrics held by recorder are up-to-date and do not
     /// grow unboundedly.
     pub fn run_upkeep(&self) {
