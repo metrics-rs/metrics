@@ -124,6 +124,9 @@ pub use self::common::{BuildError, Matcher};
 mod distribution;
 pub use distribution::{Distribution, DistributionBuilder};
 
+mod native_histogram;
+pub use native_histogram::{NativeHistogram, NativeHistogramConfig};
+
 mod exporter;
 pub use self::exporter::builder::PrometheusBuilder;
 #[cfg(any(feature = "http-listener", feature = "push-gateway"))]

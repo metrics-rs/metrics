@@ -5,6 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use quanta::Instant;
 
 use crate::common::Matcher;
+use crate::native_histogram::{NativeHistogram, NativeHistogramConfig};
 
 use metrics_util::{
     storage::{Histogram, Summary},
@@ -32,6 +33,11 @@ pub enum Distribution {
     /// requests were faster than 200ms, and 99% of requests were faster than
     /// 1000ms, etc.
     Summary(RollingSummary, Arc<Vec<Quantile>>, f64),
+    /// A Prometheus native histogram.
+    ///
+    /// Uses exponential buckets to efficiently represent histogram data without
+    /// requiring predefined bucket boundaries.
+    NativeHistogram(NativeHistogram),
 }
 
 impl Distribution {
@@ -54,6 +60,12 @@ impl Distribution {
         Distribution::Summary(RollingSummary::new(bucket_count, bucket_duration), quantiles, 0.0)
     }
 
+    /// Creates a native histogram distribution.
+    pub fn new_native_histogram(config: NativeHistogramConfig) -> Distribution {
+        let hist = NativeHistogram::new(config);
+        Distribution::NativeHistogram(hist)
+    }
+
     /// Records the given `samples` in the current distribution.
     pub fn record_samples(&mut self, samples: &[(f64, Instant)]) {
         match self {
@@ -64,6 +76,11 @@ impl Distribution {
                 for (sample, ts) in samples {
                     hist.add(*sample, *ts);
                     *sum += *sample;
+                }
+            }
+            Distribution::NativeHistogram(hist) => {
+                for (sample, _ts) in samples {
+                    hist.observe(*sample);
                 }
             }
         }
@@ -78,6 +95,7 @@ pub struct DistributionBuilder {
     bucket_duration: Option<Duration>,
     bucket_count: Option<NonZeroU32>,
     bucket_overrides: Option<Vec<(Matcher, Vec<f64>)>>,
+    native_histogram_overrides: Option<Vec<(Matcher, NativeHistogramConfig)>>,
 }
 
 impl DistributionBuilder {
@@ -88,6 +106,7 @@ impl DistributionBuilder {
         buckets: Option<Vec<f64>>,
         bucket_count: Option<NonZeroU32>,
         bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
+        native_histogram_overrides: Option<HashMap<Matcher, NativeHistogramConfig>>,
     ) -> DistributionBuilder {
         DistributionBuilder {
             quantiles: Arc::new(quantiles),
@@ -99,11 +118,26 @@ impl DistributionBuilder {
                 matchers.sort_by(|a, b| a.0.cmp(&b.0));
                 matchers
             }),
+            native_histogram_overrides: native_histogram_overrides.map(|entries| {
+                let mut matchers = entries.into_iter().collect::<Vec<_>>();
+                matchers.sort_by(|a, b| a.0.cmp(&b.0));
+                matchers
+            }),
         }
     }
 
     /// Returns a distribution for the given metric key.
     pub fn get_distribution(&self, name: &str) -> Distribution {
+        // Check for native histogram overrides first (highest priority)
+        if let Some(ref overrides) = self.native_histogram_overrides {
+            for (matcher, config) in overrides {
+                if matcher.matches(name) {
+                    return Distribution::new_native_histogram(config.clone());
+                }
+            }
+        }
+
+        // Check for histogram bucket overrides
         if let Some(ref overrides) = self.bucket_overrides {
             for (matcher, buckets) in overrides {
                 if matcher.matches(name) {
@@ -112,10 +146,12 @@ impl DistributionBuilder {
             }
         }
 
+        // Check for global histogram buckets
         if let Some(ref buckets) = self.buckets {
             return Distribution::new_histogram(buckets);
         }
 
+        // Default to summary
         let b_duration = self.bucket_duration.map_or(DEFAULT_SUMMARY_BUCKET_DURATION, |d| d);
         let b_count = self.bucket_count.map_or(DEFAULT_SUMMARY_BUCKET_COUNT, |c| c);
 
@@ -124,6 +160,16 @@ impl DistributionBuilder {
 
     /// Returns the distribution type for the given metric key.
     pub fn get_distribution_type(&self, name: &str) -> &'static str {
+        // Check for native histogram overrides first (highest priority)
+        if let Some(ref overrides) = self.native_histogram_overrides {
+            for (matcher, _) in overrides {
+                if matcher.matches(name) {
+                    return "native_histogram";
+                }
+            }
+        }
+
+        // Check for regular histogram buckets
         if self.buckets.is_some() {
             return "histogram";
         }

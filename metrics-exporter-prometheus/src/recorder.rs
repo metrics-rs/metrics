@@ -164,13 +164,19 @@ impl Inner {
         }
 
         for (name, mut by_labels) in distributions.drain() {
+            let distribution_type = self.distribution_builder.get_distribution_type(name.as_str());
+
+            // Skip native histograms in text format - they're only supported in protobuf format
+            if distribution_type == "native_histogram" {
+                continue;
+            }
+
             let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
                 let unit = unit.filter(|_| self.enable_unit_suffix);
                 write_help_line(&mut output, name.as_str(), unit, None, desc);
                 unit
             });
 
-            let distribution_type = self.distribution_builder.get_distribution_type(name.as_str());
             write_type_line(&mut output, name.as_str(), unit, None, distribution_type);
             for (labels, distribution) in by_labels.drain(..) {
                 let (sum, count) = match distribution {
@@ -214,6 +220,11 @@ impl Inner {
                         );
 
                         (histogram.sum(), histogram.count())
+                    }
+                    Distribution::NativeHistogram(_) => {
+                        // Native histograms are not supported in text format
+                        // This branch should not be reached due to the continue above
+                        continue;
                     }
                 };
 
