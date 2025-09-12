@@ -8,10 +8,10 @@ use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, Share
 use metrics_util::registry::{Recency, Registry};
 use quanta::Instant;
 
-use crate::common::Snapshot;
+use crate::common::{LabelSet, Snapshot};
 use crate::distribution::{Distribution, DistributionBuilder};
 use crate::formatting::{
-    key_to_parts, sanitize_metric_name, write_help_line, write_metric_line, write_type_line,
+    sanitize_metric_name, write_help_line, write_metric_line, write_type_line,
 };
 use crate::registry::GenerationalAtomicStorage;
 
@@ -19,7 +19,7 @@ use crate::registry::GenerationalAtomicStorage;
 pub(crate) struct Inner {
     pub registry: Registry<Key, GenerationalAtomicStorage>,
     pub recency: Recency<Key>,
-    pub distributions: RwLock<HashMap<String, IndexMap<Vec<String>, Distribution>>>,
+    pub distributions: RwLock<HashMap<String, IndexMap<LabelSet, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, (SharedString, Option<Unit>)>>,
     pub global_labels: IndexMap<String, String>,
@@ -37,7 +37,8 @@ impl Inner {
                 continue;
             }
 
-            let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
+            let name = sanitize_metric_name(key.name());
+            let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
             let value = counter.get_inner().load(Ordering::Acquire);
             let entry =
                 counters.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0);
@@ -52,7 +53,8 @@ impl Inner {
                 continue;
             }
 
-            let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
+            let name = sanitize_metric_name(key.name());
+            let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
             let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
             let entry =
                 gauges.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0.0);
@@ -69,7 +71,8 @@ impl Inner {
                 // Since we store aggregated distributions directly, when we're told that a metric
                 // is not recent enough and should be/was deleted from the registry, we also need to
                 // delete it on our side as well.
-                let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
+                let name = sanitize_metric_name(key.name());
+                let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
                 let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
                 let delete_by_name = if let Some(by_name) = wg.get_mut(&name) {
                     by_name.swap_remove(&labels);
@@ -98,7 +101,8 @@ impl Inner {
     fn drain_histograms_to_distributions(&self) {
         let histogram_handles = self.registry.get_histogram_handles();
         for (key, histogram) in histogram_handles {
-            let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
+            let name = sanitize_metric_name(key.name());
+            let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
 
             let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
             let entry = wg
@@ -332,12 +336,7 @@ impl PrometheusHandle {
         let snapshot = self.inner.get_recent_metrics();
         let descriptions = self.inner.descriptions.read().unwrap_or_else(PoisonError::into_inner);
 
-        crate::protobuf::render_protobuf(
-            &snapshot,
-            &descriptions,
-            &self.inner.global_labels,
-            self.inner.counter_suffix,
-        )
+        crate::protobuf::render_protobuf(snapshot, &descriptions, self.inner.counter_suffix)
     }
 
     /// Performs upkeeping operations to ensure metrics held by recorder are up-to-date and do not
