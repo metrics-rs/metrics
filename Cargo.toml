@@ -35,7 +35,7 @@ hashbrown = { version = "0.16", default-features = false, features = ["default-h
 hdrhistogram = { version = "7.2", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1.1", default-features = false, features = ["server", "client"] }
-hyper-rustls = { version = "0.27", default-features = false, features = ["aws-lc-rs", "http1", "rustls-native-certs"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "rustls-native-certs"] }
 hyper-util = { version = "0.1", default-features = false, features = ["tokio", "service", "client", "client-legacy", "http1"] }
 indexmap = { version = "2.6", default-features = false, features = ["std"] }
 ipnet = { version = "2", default-features = false, features = ["std"] }
@@ -67,6 +67,7 @@ radix_trie = { version = "0.2", default-features = false }
 rand = { version = "0.9", default-features = false, features = [ "thread_rng" ] }
 rand_xoshiro = { version = "0.7", default-features = false }
 ratatui = { version = "0.29", default-features = false }
+rustls = { version = "0.23", default-features = false }
 sketches-ddsketch = { version = "0.3", default-features = false }
 thiserror = { version = "2", default-features = false }
 tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "rt-multi-thread"] }
