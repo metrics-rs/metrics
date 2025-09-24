@@ -1,11 +1,10 @@
 //! Protobuf serialization support for Prometheus metrics.
 
-use indexmap::IndexMap;
 use metrics::Unit;
 use prost::Message;
 use std::collections::HashMap;
 
-use crate::common::Snapshot;
+use crate::common::{LabelSet, Snapshot};
 use crate::distribution::Distribution;
 use crate::formatting::sanitize_metric_name;
 
@@ -26,28 +25,27 @@ pub(crate) const PROTOBUF_CONTENT_TYPE: &str =
 /// length header.
 #[allow(clippy::too_many_lines)]
 pub(crate) fn render_protobuf(
-    snapshot: &Snapshot,
+    snapshot: Snapshot,
     descriptions: &HashMap<String, (metrics::SharedString, Option<Unit>)>,
-    global_labels: &IndexMap<String, String>,
     counter_suffix: Option<&'static str>,
 ) -> Vec<u8> {
     let mut output = Vec::new();
 
     // Process counters
-    for (name, by_labels) in &snapshot.counters {
-        let sanitized_name = sanitize_metric_name(name);
+    for (name, by_labels) in snapshot.counters {
+        let sanitized_name = sanitize_metric_name(&name);
         let help =
             descriptions.get(name.as_str()).map(|(desc, _)| desc.to_string()).unwrap_or_default();
 
         let mut metrics = Vec::new();
         for (labels, value) in by_labels {
-            let label_pairs = parse_labels(labels, global_labels);
+            let label_pairs = label_set_to_protobuf(labels);
 
             metrics.push(pb::Metric {
                 label: label_pairs,
                 counter: Some(pb::Counter {
                     #[allow(clippy::cast_precision_loss)]
-                    value: Some(*value as f64),
+                    value: Some(value as f64),
 
                     ..Default::default()
                 }),
@@ -68,18 +66,18 @@ pub(crate) fn render_protobuf(
     }
 
     // Process gauges
-    for (name, by_labels) in &snapshot.gauges {
-        let sanitized_name = sanitize_metric_name(name);
+    for (name, by_labels) in snapshot.gauges {
+        let sanitized_name = sanitize_metric_name(&name);
         let help =
             descriptions.get(name.as_str()).map(|(desc, _)| desc.to_string()).unwrap_or_default();
 
         let mut metrics = Vec::new();
         for (labels, value) in by_labels {
-            let label_pairs = parse_labels(labels, global_labels);
+            let label_pairs = label_set_to_protobuf(labels);
 
             metrics.push(pb::Metric {
                 label: label_pairs,
-                gauge: Some(pb::Gauge { value: Some(*value) }),
+                gauge: Some(pb::Gauge { value: Some(value) }),
 
                 ..Default::default()
             });
@@ -97,18 +95,20 @@ pub(crate) fn render_protobuf(
     }
 
     // Process distributions (histograms and summaries)
-    for (name, by_labels) in &snapshot.distributions {
-        let sanitized_name = sanitize_metric_name(name);
+    for (name, by_labels) in snapshot.distributions {
+        let sanitized_name = sanitize_metric_name(&name);
         let help =
             descriptions.get(name.as_str()).map(|(desc, _)| desc.to_string()).unwrap_or_default();
 
         let mut metrics = Vec::new();
+        let mut metric_type = None;
         for (labels, distribution) in by_labels {
-            let label_pairs = parse_labels(labels, global_labels);
+            let label_pairs = label_set_to_protobuf(labels);
 
             let metric = match distribution {
                 Distribution::Summary(summary, quantiles, sum) => {
                     use quanta::Instant;
+                    metric_type = Some(pb::MetricType::Summary);
                     let snapshot = summary.snapshot(Instant::now());
                     let quantile_values: Vec<pb::Quantile> = quantiles
                         .iter()
@@ -122,7 +122,7 @@ pub(crate) fn render_protobuf(
                         label: label_pairs,
                         summary: Some(pb::Summary {
                             sample_count: Some(summary.count() as u64),
-                            sample_sum: Some(*sum),
+                            sample_sum: Some(sum),
                             quantile: quantile_values,
 
                             created_timestamp: None,
@@ -132,6 +132,7 @@ pub(crate) fn render_protobuf(
                     }
                 }
                 Distribution::Histogram(histogram) => {
+                    metric_type = Some(pb::MetricType::Histogram);
                     let mut buckets = Vec::new();
                     for (le, count) in histogram.buckets() {
                         buckets.push(pb::Bucket {
@@ -167,10 +168,9 @@ pub(crate) fn render_protobuf(
             metrics.push(metric);
         }
 
-        let metric_type = match by_labels.values().next() {
-            Some(Distribution::Summary(_, _, _)) => pb::MetricType::Summary,
-            Some(Distribution::Histogram(_)) => pb::MetricType::Histogram,
-            None => continue, // Skip empty metric families
+        let Some(metric_type) = metric_type else {
+            // Skip empty metric families
+            continue;
         };
 
         let metric_family = pb::MetricFamily {
@@ -187,29 +187,11 @@ pub(crate) fn render_protobuf(
     output
 }
 
-fn parse_labels(labels: &[String], global_labels: &IndexMap<String, String>) -> Vec<pb::LabelPair> {
+fn label_set_to_protobuf(labels: LabelSet) -> Vec<pb::LabelPair> {
     let mut label_pairs = Vec::new();
 
-    // Add global labels first
-    for (key, value) in global_labels {
-        label_pairs.push(pb::LabelPair { name: Some(key.clone()), value: Some(value.clone()) });
-    }
-
-    // Add metric-specific labels
-    for label_str in labels {
-        if let Some(eq_pos) = label_str.find('=') {
-            let key = &label_str[..eq_pos];
-            let value = &label_str[eq_pos + 1..];
-            let value = value.trim_matches('"');
-
-            // Skip if this label key already exists from global labels
-            if !global_labels.contains_key(key) {
-                label_pairs.push(pb::LabelPair {
-                    name: Some(key.to_string()),
-                    value: Some(value.to_string()),
-                });
-            }
-        }
+    for (key, value) in labels.labels {
+        label_pairs.push(pb::LabelPair { name: Some(key), value: Some(value) });
     }
 
     label_pairs
@@ -235,16 +217,18 @@ mod tests {
     fn test_render_protobuf_counters() {
         let mut counters = HashMap::new();
         let mut counter_labels = HashMap::new();
-        counter_labels.insert(vec!["method=\"GET\"".to_string()], 42u64);
+        let labels = LabelSet::from_key_and_global(
+            &metrics::Key::from_parts("", vec![metrics::Label::new("method", "GET")]),
+            &IndexMap::new(),
+        );
+        counter_labels.insert(labels, 42u64);
         counters.insert("http_requests".to_string(), counter_labels);
 
         let snapshot = Snapshot { counters, gauges: HashMap::new(), distributions: HashMap::new() };
 
         let descriptions = HashMap::new();
-        let global_labels = IndexMap::new();
 
-        let protobuf_data =
-            render_protobuf(&snapshot, &descriptions, &global_labels, Some("total"));
+        let protobuf_data = render_protobuf(snapshot, &descriptions, Some("total"));
 
         assert!(!protobuf_data.is_empty(), "Protobuf data should not be empty");
 
@@ -264,7 +248,11 @@ mod tests {
     fn test_render_protobuf_gauges() {
         let mut gauges = HashMap::new();
         let mut gauge_labels = HashMap::new();
-        gauge_labels.insert(vec!["instance=\"localhost\"".to_string()], 0.75f64);
+        let labels = LabelSet::from_key_and_global(
+            &metrics::Key::from_parts("", vec![metrics::Label::new("instance", "localhost")]),
+            &IndexMap::new(),
+        );
+        gauge_labels.insert(labels, 0.75f64);
         gauges.insert("cpu_usage".to_string(), gauge_labels);
 
         let snapshot = Snapshot { counters: HashMap::new(), gauges, distributions: HashMap::new() };
@@ -274,9 +262,8 @@ mod tests {
             "cpu_usage".to_string(),
             (SharedString::const_str("CPU usage percentage"), None),
         );
-        let global_labels = IndexMap::new();
 
-        let protobuf_data = render_protobuf(&snapshot, &descriptions, &global_labels, None);
+        let protobuf_data = render_protobuf(snapshot, &descriptions, None);
 
         assert!(!protobuf_data.is_empty(), "Protobuf data should not be empty");
 
