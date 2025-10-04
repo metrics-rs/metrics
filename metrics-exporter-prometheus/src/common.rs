@@ -80,9 +80,42 @@ pub enum BuildError {
     ZeroBucketDuration,
 }
 
+/// Represents a set of labels as structured key-value pairs
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LabelSet {
+    pub labels: Vec<(String, String)>,
+}
+
+impl LabelSet {
+    pub fn from_key_and_global(
+        key: &metrics::Key,
+        global_labels: &IndexMap<String, String>,
+    ) -> Self {
+        let mut labels = global_labels.clone();
+        key.labels().for_each(|label| {
+            labels.insert(label.key().to_string(), label.value().to_string());
+        });
+        Self { labels: labels.into_iter().collect() }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.labels.is_empty()
+    }
+
+    pub fn to_strings(&self) -> impl Iterator<Item = String> + '_ {
+        self.labels.iter().map(|(k, v)| {
+            format!(
+                "{}=\"{}\"",
+                crate::formatting::sanitize_label_key(k),
+                crate::formatting::sanitize_label_value(v)
+            )
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct Snapshot {
-    pub counters: HashMap<String, HashMap<Vec<String>, u64>>,
-    pub gauges: HashMap<String, HashMap<Vec<String>, f64>>,
-    pub distributions: HashMap<String, IndexMap<Vec<String>, Distribution>>,
+    pub counters: HashMap<String, HashMap<LabelSet, u64>>,
+    pub gauges: HashMap<String, HashMap<LabelSet, f64>>,
+    pub distributions: HashMap<String, IndexMap<LabelSet, Distribution>>,
 }

@@ -1,30 +1,8 @@
 //! Helpers for rendering metrics in the Prometheus exposition format.
 
-use indexmap::IndexMap;
-use metrics::{Key, Unit};
+use metrics::Unit;
 
-/// Breaks a key into the name and label components, with optional default labels.
-///
-/// If any of the default labels are not already present, they will be added to the overall list of labels.
-///
-/// Both the metric name, and labels, are sanitized. See [`sanitize_metric_name`], [`sanitize_label_key`],
-/// and [`sanitize_label_value`] for more information.
-pub fn key_to_parts(
-    key: &Key,
-    default_labels: Option<&IndexMap<String, String>>,
-) -> (String, Vec<String>) {
-    let name = sanitize_metric_name(key.name());
-    let mut values = default_labels.cloned().unwrap_or_default();
-    key.labels().for_each(|label| {
-        values.insert(label.key().to_string(), label.value().to_string());
-    });
-    let labels = values
-        .iter()
-        .map(|(k, v)| format!("{}=\"{}\"", sanitize_label_key(k), sanitize_label_value(v)))
-        .collect();
-
-    (name, labels)
-}
+use crate::common::LabelSet;
 
 /// Writes a help (description) line in the Prometheus [exposition format].
 ///
@@ -73,7 +51,7 @@ pub fn write_metric_line<T, T2>(
     buffer: &mut String,
     name: &str,
     suffix: Option<&'static str>,
-    labels: &[String],
+    labels: &LabelSet,
     additional_label: Option<(&'static str, T)>,
     value: T2,
     unit: Option<Unit>,
@@ -87,13 +65,13 @@ pub fn write_metric_line<T, T2>(
         buffer.push('{');
 
         let mut first = true;
-        for label in labels {
+        for label in labels.to_strings() {
             if first {
                 first = false;
             } else {
                 buffer.push(',');
             }
-            buffer.push_str(label);
+            buffer.push_str(&label);
         }
 
         if let Some((name, value)) = additional_label {
