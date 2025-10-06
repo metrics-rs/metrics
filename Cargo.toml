@@ -13,6 +13,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
+rust-version = "1.71.1" # metrics-observer has a higher MSRV
 license = "MIT"
 repository = "https://github.com/metrics-rs/metrics"
 homepage = "https://github.com/metrics-rs/metrics"

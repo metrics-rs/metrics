@@ -204,7 +204,7 @@ pub fn sanitize_description(value: &str) -> String {
 fn sanitize_label_value_or_description(value: &str, is_desc: bool) -> String {
     // All Unicode characters are valid, but backslashes, double quotes, and line feeds must be
     // escaped.
-    let mut sanitized = String::with_capacity(value.as_bytes().len());
+    let mut sanitized = String::with_capacity(value.len());
 
     let mut previous_backslash = false;
     for c in value.chars() {

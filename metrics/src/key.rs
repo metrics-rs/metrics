@@ -132,7 +132,7 @@ impl Key {
     }
 
     /// Labels of this key, if they exist.
-    pub fn labels(&self) -> Iter<Label> {
+    pub fn labels(&self) -> Iter<'_, Label> {
         self.labels.iter()
     }
 

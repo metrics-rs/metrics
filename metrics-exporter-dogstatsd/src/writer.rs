@@ -519,15 +519,16 @@ impl PayloadWriter {
     }
 }
 
+#[allow(clippy::doc_link_with_quotes)]
 /// Iterator over all payloads written by a `PayloadWriter`.
 ///
-/// The source payload buffer is immediately drained of consumed data during the creation of this iterator (as known as
+/// The source payload buffer is immediately drained of consumed data during the creation of this iterator (also known as
 /// ["pre-pooping our pants"][everyone_poops]). This ensures that the end state - the payload buffer contains only
 /// preserved bytes (like length prefixes) - is established immediately.
 ///
 /// [everyone_poops]: https://faultlore.com/blah/everyone-poops/
 pub struct Payloads<'a> {
-    payloads_buf: Vec<u8>,
+    buf: Vec<u8>,
     start: usize,
     offsets: Drain<'a, usize>,
 }
@@ -539,7 +540,7 @@ impl<'a> Payloads<'a> {
         // for the next write operation.
         let drain_size = offsets.last().copied().unwrap_or(0);
         Self {
-            payloads_buf: payload_buf.drain(0..drain_size).collect(),
+            buf: payload_buf.drain(0..drain_size).collect(),
             start: 0,
             offsets: offsets.drain(..),
         }
@@ -556,7 +557,7 @@ impl<'a> Payloads<'a> {
     pub fn next_payload(&mut self) -> Option<&[u8]> {
         let offset = self.offsets.next()?;
 
-        let offset_buf = &self.payloads_buf[self.start..offset];
+        let offset_buf = &self.buf[self.start..offset];
         self.start = offset;
 
         Some(offset_buf)
