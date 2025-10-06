@@ -2,7 +2,7 @@
 name = "metrics-exporter-tcp"
 version = "0.11.1"
 edition = "2018"
-rust-version = "1.71.1"
+rust-version = { workspace = true }
 
 description = "A metrics-compatible exporter that outputs metrics to clients over TCP."
 license = { workspace = true }
