@@ -2,7 +2,7 @@
 name = "metrics-tracing-context"
 version = "0.18.1"
 edition = "2018"
-rust-version = "1.71.1"
+rust-version = { workspace = true }
 
 description = "A crate to use tracing context as metrics labels."
 license = { workspace = true }

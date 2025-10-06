@@ -2,7 +2,7 @@
 name = "metrics-util"
 version = "0.20.0"
 edition = "2018"
-rust-version = "1.71.1"
+rust-version = { workspace = true }
 
 description = "Helper types/functions used by the metrics ecosystem."
 license = { workspace = true }

@@ -86,8 +86,6 @@ impl Inner {
                 if delete_by_name {
                     wg.remove(&name);
                 }
-
-                continue;
             }
         }
 
