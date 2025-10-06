@@ -13,7 +13,7 @@ use metrics_util::{
 
 const DEFAULT_SUMMARY_BUCKET_COUNT: NonZeroU32 = match NonZeroU32::new(3) {
     Some(v) => v,
-    None => [][0],
+    None => unreachable!(),
 };
 const DEFAULT_SUMMARY_BUCKET_DURATION: Duration = Duration::from_secs(20);
 
@@ -123,7 +123,7 @@ impl DistributionBuilder {
     }
 
     /// Returns the distribution type for the given metric key.
-    pub fn get_distribution_type(&self, name: &str) -> &str {
+    pub fn get_distribution_type(&self, name: &str) -> &'static str {
         if self.buckets.is_some() {
             return "histogram";
         }

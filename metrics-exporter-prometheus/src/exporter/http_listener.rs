@@ -122,7 +122,7 @@ impl HttpListeningExporter {
                 HyperHttpBuilder::new().serve_connection(TokioIo::new(stream), service).await
             {
                 warn!(error = ?err, "Error serving connection.");
-            };
+            }
         });
     }
 

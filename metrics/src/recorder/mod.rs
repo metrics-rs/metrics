@@ -203,7 +203,7 @@ where
 ///
 /// If a global recorder is set, it will be restored once the guard is dropped.
 #[must_use]
-pub fn set_default_local_recorder(recorder: &dyn Recorder) -> LocalRecorderGuard {
+pub fn set_default_local_recorder(recorder: &dyn Recorder) -> LocalRecorderGuard<'_> {
     LocalRecorderGuard::new(recorder)
 }
 

@@ -357,7 +357,7 @@ fn run_transport(
     state: Arc<State>,
     buffer_size: Option<usize>,
 ) {
-    let buffer_limit = buffer_size.unwrap_or(std::usize::MAX);
+    let buffer_limit = buffer_size.unwrap_or(usize::MAX);
     let mut events = Events::with_capacity(1024);
     let mut clients = HashMap::new();
     let mut clients_to_remove = Vec::new();
