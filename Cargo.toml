@@ -57,9 +57,9 @@ predicates-core = { version = "1.0.6", default-features = false }
 predicates-tree = { version = "1.0.9", default-features = false }
 pretty_env_logger = { version = "0.5", default-features = false }
 proptest = { version = "1", default-features = false, features = ["std"] }
-prost = { version = "0.13", default-features = false, features = ["derive"] }
-prost-build = { version = "0.13", default-features = false }
-prost-types = { version = "0.13", default-features = false }
+prost = { version = "0.14", default-features = false, features = ["derive"] }
+prost-build = { version = "0.14", default-features = false }
+prost-types = { version = "0.14", default-features = false }
 quanta = { version = "0.12", default-features = false }
 quickcheck = { version = "1", default-features = false }
 quickcheck_macros = { version = "1", default-features = false }
