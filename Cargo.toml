@@ -52,7 +52,7 @@ once_cell = { version = "1", default-features = false, features = ["std"] }
 ordered-float = { version = "4.2", default-features = false }
 parking_lot = { version = "0.12", default-features = false }
 portable-atomic = { version = "1", default-features = false }
-predicates = { version = "3.1.0", default-features = false }
+predicates = { version = "3.1.3", default-features = false }
 predicates-core = { version = "1.0.6", default-features = false }
 predicates-tree = { version = "1.0.9", default-features = false }
 pretty_env_logger = { version = "0.5", default-features = false }
