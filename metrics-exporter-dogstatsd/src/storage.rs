@@ -184,7 +184,7 @@ pub(crate) enum Values<'a> {
     Sampled(Drain<'a>),
 }
 
-impl<'a> Iterator for Values<'a> {
+impl Iterator for Values<'_> {
     type Item = f64;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -195,7 +195,7 @@ impl<'a> Iterator for Values<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for Values<'a> {
+impl ExactSizeIterator for Values<'_> {
     fn len(&self) -> usize {
         match self {
             Values::Raw(values) => values.len(),

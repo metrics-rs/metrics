@@ -61,7 +61,7 @@ impl PrometheusBuilder {
         #[cfg(feature = "http-listener")]
         let exporter_config = ExporterConfig::HttpListener {
             destination: super::ListenDestination::Tcp(SocketAddr::new(
-                IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+                IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                 9000,
             )),
         };

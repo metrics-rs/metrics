@@ -100,7 +100,7 @@ impl Generator {
         Generator {
             t0: None,
             gauge: 0,
-            hist: HdrHistogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap(),
+            hist: HdrHistogram::<u64>::new_with_bounds(1, u64::MAX, 3).unwrap(),
             done,
             rate_counter,
         }
@@ -243,7 +243,7 @@ fn main() {
     let producers = matches.opt_str("producers").unwrap_or_else(|| "1".to_owned()).parse().unwrap();
     let mode = matches
         .opt_str("mode")
-        .map(|s| if s.to_ascii_lowercase() == "fast" { "fast" } else { "slow" })
+        .map(|s| if s.eq_ignore_ascii_case("fast") { "fast" } else { "slow" })
         .unwrap_or_else(|| "slow")
         .to_owned();
 
@@ -286,7 +286,7 @@ fn main() {
     let mut total = 0;
     let mut t0 = Instant::now();
 
-    let mut upkeep_hist = HdrHistogram::<u64>::new_with_bounds(1, u64::max_value(), 3).unwrap();
+    let mut upkeep_hist = HdrHistogram::<u64>::new_with_bounds(1, u64::MAX, 3).unwrap();
     for _ in 0..seconds {
         let t1 = Instant::now();
 
