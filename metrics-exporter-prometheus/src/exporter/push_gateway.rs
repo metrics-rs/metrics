@@ -4,6 +4,7 @@ use http_body_util::{BodyExt, Collected, Full};
 use hyper::body::Bytes;
 use hyper::{header::HeaderValue, Method, Request, Uri};
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
+use rustls::crypto::CryptoProvider;
 use tracing::error;
 
 use super::ExporterFuture;
@@ -20,8 +21,10 @@ pub(super) fn new_push_gateway(
 ) -> ExporterFuture {
     let http_method = if use_http_post_method { Method::POST } else { Method::PUT };
     Box::pin(async move {
+        let provider = CryptoProvider::get_default()
+            .expect("no process-level CryptoProvider available -- call rustls' CryptoProvider::install_default() before this point");
         let https = hyper_rustls::HttpsConnectorBuilder::new()
-            .with_native_roots()
+            .with_provider_and_native_roots(provider.clone())
             .expect("no native root CA certificates found")
             .https_or_http()
             .enable_http1()
@@ -79,7 +82,7 @@ pub(super) fn new_push_gateway(
     })
 }
 
-#[cfg(feature = "push-gateway")]
+#[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
 fn basic_auth(username: &str, password: Option<&str>) -> HeaderValue {
     use base64::prelude::BASE64_STANDARD;
     use base64::write::EncoderWriter;

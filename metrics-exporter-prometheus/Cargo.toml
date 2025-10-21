@@ -20,9 +20,16 @@ default = ["http-listener", "push-gateway"]
 async-runtime = ["tokio", "hyper-util/tokio"]
 http-listener = ["async-runtime", "ipnet", "tracing", "_hyper-server"]
 uds-listener = ["http-listener"]
-push-gateway = ["async-runtime", "tracing", "_hyper-client"]
+push-gateway = ["_push-gateway-common", "hyper-rustls/aws-lc-rs"]
+push-gateway-no-tls-provider = ["_push-gateway-common"]
 protobuf = ["mime", "prost", "prost-types", "prost-build"]
 _hyper-server = ["http-body-util", "hyper/server", "hyper-util/server-auto"]
+_push-gateway-common = [
+     "async-runtime",
+     "rustls",
+     "tracing",
+     "_hyper-client",
+]
 _hyper-client = [
     "http-body-util",
     "hyper/client",
@@ -34,9 +41,11 @@ _hyper-client = [
 
 [dependencies]
 base64 = { workspace = true }
-http-body-util = { workspace = true, optional = true }
+quanta = { workspace = true }
+thiserror = { workspace = true }
 
 # Optional
+http-body-util = { workspace = true, optional = true }
 hyper = { workspace = true, optional = true }
 hyper-rustls = { workspace = true, optional = true }
 hyper-util = { workspace = true, optional = true }
@@ -48,8 +57,7 @@ metrics-util = { version = "^0.20", path = "../metrics-util", default-features =
     "registry",
     "storage",
 ] }
-quanta = { workspace = true }
-thiserror = { workspace = true }
+rustls = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 

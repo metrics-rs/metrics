@@ -1,19 +1,31 @@
 #[cfg(feature = "http-listener")]
 use http_listener::HttpListeningError;
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[cfg(any(
+    feature = "http-listener",
+    feature = "push-gateway",
+    feature = "push-gateway-no-tls-provider"
+))]
 use std::future::Future;
 #[cfg(feature = "http-listener")]
 use std::net::SocketAddr;
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[cfg(any(
+    feature = "http-listener",
+    feature = "push-gateway",
+    feature = "push-gateway-no-tls-provider"
+))]
 use std::pin::Pin;
-#[cfg(feature = "push-gateway")]
+#[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
 use std::time::Duration;
 
-#[cfg(feature = "push-gateway")]
+#[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
 use hyper::Uri;
 
 /// Error types possible from an exporter
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[cfg(any(
+    feature = "http-listener",
+    feature = "push-gateway",
+    feature = "push-gateway-no-tls-provider"
+))]
 #[derive(Debug)]
 pub enum ExporterError {
     #[cfg(feature = "http-listener")]
@@ -21,7 +33,11 @@ pub enum ExporterError {
     PushGateway(()),
 }
 /// Convenience type for Future implementing an exporter.
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[cfg(any(
+    feature = "http-listener",
+    feature = "push-gateway",
+    feature = "push-gateway-no-tls-provider"
+))]
 pub type ExporterFuture = Pin<Box<dyn Future<Output = Result<(), ExporterError>> + Send + 'static>>;
 
 #[cfg(feature = "http-listener")]
@@ -40,7 +56,7 @@ enum ExporterConfig {
 
     // Run a push gateway task sending to the given `endpoint` after `interval` time has elapsed,
     // infinitely.
-    #[cfg(feature = "push-gateway")]
+    #[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
     PushGateway {
         endpoint: Uri,
         interval: Duration,
@@ -54,12 +70,19 @@ enum ExporterConfig {
 }
 
 impl ExporterConfig {
-    #[cfg_attr(not(any(feature = "http-listener", feature = "push-gateway")), allow(dead_code))]
+    #[cfg_attr(
+        not(any(
+            feature = "http-listener",
+            feature = "push-gateway",
+            feature = "push-gateway-no-tls-provider"
+        )),
+        allow(dead_code)
+    )]
     fn as_type_str(&self) -> &'static str {
         match self {
             #[cfg(feature = "http-listener")]
             Self::HttpListener { .. } => "http-listener",
-            #[cfg(feature = "push-gateway")]
+            #[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
             Self::PushGateway { .. } => "push-gateway",
             Self::Unconfigured => "unconfigured,",
         }
@@ -69,7 +92,7 @@ impl ExporterConfig {
 #[cfg(feature = "http-listener")]
 mod http_listener;
 
-#[cfg(feature = "push-gateway")]
+#[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
 mod push_gateway;
 
 pub(crate) mod builder;
