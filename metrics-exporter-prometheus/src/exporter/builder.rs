@@ -1,15 +1,19 @@
 use std::collections::HashMap;
-#[cfg(feature = "push-gateway")]
+#[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
 use std::convert::TryFrom;
 #[cfg(feature = "http-listener")]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::num::NonZeroU32;
 use std::sync::RwLock;
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[cfg(any(
+    feature = "http-listener",
+    feature = "push-gateway",
+    feature = "push-gateway-no-tls-provider"
+))]
 use std::thread;
 use std::time::Duration;
 
-#[cfg(feature = "push-gateway")]
+#[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
 use hyper::Uri;
 use indexmap::IndexMap;
 #[cfg(feature = "http-listener")]
@@ -30,13 +34,24 @@ use crate::registry::AtomicStorage;
 use crate::{common::BuildError, PrometheusHandle};
 
 use super::ExporterConfig;
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[cfg(any(
+    feature = "http-listener",
+    feature = "push-gateway",
+    feature = "push-gateway-no-tls-provider"
+))]
 use super::ExporterFuture;
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
 #[derive(Debug)]
 pub struct PrometheusBuilder {
-    #[cfg_attr(not(any(feature = "http-listener", feature = "push-gateway")), allow(dead_code))]
+    #[cfg_attr(
+        not(any(
+            feature = "http-listener",
+            feature = "push-gateway",
+            feature = "push-gateway-no-tls-provider"
+        )),
+        allow(dead_code)
+    )]
     exporter_config: ExporterConfig,
     #[cfg(feature = "http-listener")]
     allowed_addresses: Option<Vec<IpNet>>,
@@ -123,8 +138,11 @@ impl PrometheusBuilder {
     /// If the given endpoint cannot be parsed into a valid URI, an error variant will be returned describing the error.
     ///
     /// [push gateway]: https://prometheus.io/docs/instrumenting/pushing/
-    #[cfg(feature = "push-gateway")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "push-gateway")))]
+    #[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider")))
+    )]
     pub fn with_push_gateway<T>(
         mut self,
         endpoint: T,
@@ -422,8 +440,19 @@ impl PrometheusBuilder {
     ///
     /// If there is an error while either building the recorder and exporter, or installing the recorder and exporter,
     /// an error variant will be returned describing the error.
-    #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-    #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
+    #[cfg(any(
+        feature = "http-listener",
+        feature = "push-gateway",
+        feature = "push-gateway-no-tls-provider"
+    ))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(any(
+            feature = "http-listener",
+            feature = "push-gateway",
+            feature = "push-gateway-no-tls-provider"
+        )))
+    )]
     pub fn install(self) -> Result<(), BuildError> {
         use tokio::runtime;
 
@@ -499,8 +528,19 @@ impl PrometheusBuilder {
     /// If there is an error while building the recorder and exporter, an error variant will be returned describing the
     /// error.
     #[warn(clippy::too_many_lines)]
-    #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-    #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
+    #[cfg(any(
+        feature = "http-listener",
+        feature = "push-gateway",
+        feature = "push-gateway-no-tls-provider"
+    ))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(any(
+            feature = "http-listener",
+            feature = "push-gateway",
+            feature = "push-gateway-no-tls-provider"
+        )))
+    )]
     #[cfg_attr(not(feature = "http-listener"), allow(unused_mut))]
     pub fn build(mut self) -> Result<(PrometheusRecorder, ExporterFuture), BuildError> {
         #[cfg(feature = "http-listener")]
@@ -539,7 +579,7 @@ impl PrometheusBuilder {
                     }
                 },
 
-                #[cfg(feature = "push-gateway")]
+                #[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
                 ExporterConfig::PushGateway {
                     endpoint,
                     interval,

@@ -129,8 +129,19 @@ pub use native_histogram::{NativeHistogram, NativeHistogramConfig};
 
 mod exporter;
 pub use self::exporter::builder::PrometheusBuilder;
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
+#[cfg(any(
+    feature = "http-listener",
+    feature = "push-gateway",
+    feature = "push-gateway-no-tls-provider"
+))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(
+        feature = "http-listener",
+        feature = "push-gateway",
+        feature = "push-gateway-no-tls-provider"
+    )))
+)]
 pub use self::exporter::ExporterFuture;
 
 pub mod formatting;
