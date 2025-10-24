@@ -163,6 +163,53 @@ pub(crate) fn render_protobuf(
                         ..Default::default()
                     }
                 }
+                Distribution::NativeHistogram(native_hist) => {
+                    // Convert our native histogram into Prometheus native histogram format
+                    let positive_buckets = native_hist.positive_buckets();
+                    let negative_buckets = native_hist.negative_buckets();
+
+                    // Get the current schema being used by the histogram
+                    let schema = native_hist.schema();
+
+                    // Convert positive buckets to spans and deltas (matches Go makeBuckets function)
+                    let (positive_spans, positive_deltas) = make_buckets(&positive_buckets);
+                    let (negative_spans, negative_deltas) = make_buckets(&negative_buckets);
+
+                    // Match Go Write() method output exactly
+                    let mut histogram = pb::Histogram {
+                        sample_count: Some(native_hist.count()),
+                        sample_sum: Some(native_hist.sum()),
+
+                        // Native histogram fields from Go implementation
+                        zero_threshold: Some(native_hist.config().zero_threshold()),
+                        schema: Some(schema),
+                        zero_count: Some(native_hist.zero_count()),
+
+                        positive_span: positive_spans,
+                        positive_delta: positive_deltas,
+
+                        negative_span: negative_spans,
+                        negative_delta: negative_deltas,
+
+                        ..Default::default()
+                    };
+
+                    // Add a no-op span if histogram is empty (matches Go implementation)
+                    if histogram.zero_threshold == Some(0.0)
+                        && histogram.zero_count == Some(0)
+                        && histogram.positive_span.is_empty()
+                        && histogram.negative_span.is_empty()
+                    {
+                        histogram.positive_span =
+                            vec![pb::BucketSpan { offset: Some(0), length: Some(0) }];
+                    }
+
+                    pb::Metric {
+                        label: label_pairs,
+                        histogram: Some(histogram),
+                        ..Default::default()
+                    }
+                }
             };
 
             metrics.push(metric);
@@ -204,6 +251,57 @@ fn add_suffix_to_name(name: &str, suffix: Option<&'static str>) -> String {
     }
 }
 
+/// Convert a `BTreeMap` of bucket indices to counts into Prometheus native histogram
+/// spans and deltas format. This follows the Go `makeBucketsFromMap` function.
+fn make_buckets(buckets: &std::collections::BTreeMap<i32, u64>) -> (Vec<pb::BucketSpan>, Vec<i64>) {
+    if buckets.is_empty() {
+        return (vec![], vec![]);
+    }
+
+    // Get sorted bucket indices (similar to Go's sorting)
+    let mut indices: Vec<i32> = buckets.keys().copied().collect();
+    indices.sort_unstable();
+
+    let mut spans = Vec::new();
+    let mut deltas = Vec::new();
+    let mut prev_count = 0i64;
+    let mut next_i = 0i32;
+
+    for (n, &i) in indices.iter().enumerate() {
+        #[allow(clippy::cast_possible_wrap)]
+        let count = buckets[&i] as i64;
+
+        // Multiple spans with only small gaps in between are probably
+        // encoded more efficiently as one larger span with a few empty buckets.
+        // Following Go: gaps of one or two buckets should not create a new span.
+        let i_delta = i - next_i;
+
+        if n == 0 || i_delta > 2 {
+            // Create a new span - either first bucket or gap > 2
+            spans.push(pb::BucketSpan { offset: Some(i_delta), length: Some(0) });
+        } else {
+            // Small gap (or no gap) - insert empty buckets as needed
+            for _ in 0..i_delta {
+                if let Some(last_span) = spans.last_mut() {
+                    *last_span.length.as_mut().unwrap() += 1;
+                }
+                deltas.push(-prev_count);
+                prev_count = 0;
+            }
+        }
+
+        // Add the current bucket
+        if let Some(last_span) = spans.last_mut() {
+            *last_span.length.as_mut().unwrap() += 1;
+        }
+        deltas.push(count - prev_count);
+        prev_count = count;
+        next_i = i + 1;
+    }
+
+    (spans, deltas)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,7 +339,8 @@ mod tests {
 
         let metric = &metric_family.metric[0];
         assert!(metric.counter.is_some());
-        assert_eq!(metric.counter.as_ref().unwrap().value.unwrap(), 42.0);
+        let counter_value = metric.counter.as_ref().unwrap().value.unwrap();
+        assert!((counter_value - 42.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -276,7 +375,8 @@ mod tests {
 
         let metric = &metric_family.metric[0];
         assert!(metric.gauge.is_some());
-        assert_eq!(metric.gauge.as_ref().unwrap().value.unwrap(), 0.75);
+        let gauge_value = metric.gauge.as_ref().unwrap().value.unwrap();
+        assert!((gauge_value - 0.75).abs() < f64::EPSILON);
     }
 
     #[test]

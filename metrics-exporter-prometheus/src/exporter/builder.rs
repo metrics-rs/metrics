@@ -28,6 +28,7 @@ use metrics_util::{
 
 use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;
+use crate::native_histogram::NativeHistogramConfig;
 use crate::recorder::{Inner, PrometheusRecorder};
 use crate::registry::AtomicStorage;
 use crate::{common::BuildError, PrometheusHandle};
@@ -59,6 +60,7 @@ pub struct PrometheusBuilder {
     bucket_count: Option<NonZeroU32>,
     buckets: Option<Vec<f64>>,
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
+    native_histogram_overrides: Option<HashMap<Matcher, NativeHistogramConfig>>,
     idle_timeout: Option<Duration>,
     upkeep_timeout: Duration,
     recency_mask: MetricKindMask,
@@ -94,6 +96,7 @@ impl PrometheusBuilder {
             bucket_count: None,
             buckets: None,
             bucket_overrides: None,
+            native_histogram_overrides: None,
             idle_timeout: None,
             upkeep_timeout,
             recency_mask: MetricKindMask::NONE,
@@ -363,6 +366,26 @@ impl PrometheusBuilder {
         Ok(self)
     }
 
+    /// Sets native histogram configuration for a specific pattern.
+    ///
+    /// The match pattern can be a full match (equality), prefix match, or suffix match.  The matchers are applied in
+    /// that order if two or more matchers would apply to a single metric.  That is to say, if a full match and a prefix
+    /// match applied to a metric, the full match would win, and if a prefix match and a suffix match applied to a
+    /// metric, the prefix match would win.
+    ///
+    /// Native histograms use exponential buckets and take precedence over regular histograms and summaries.
+    /// They are only supported in the protobuf format.
+    #[must_use]
+    pub fn set_native_histogram_for_metric(
+        mut self,
+        matcher: Matcher,
+        config: NativeHistogramConfig,
+    ) -> Self {
+        let overrides = self.native_histogram_overrides.get_or_insert_with(HashMap::new);
+        overrides.insert(matcher.sanitized(), config);
+        self
+    }
+
     /// Sets the idle timeout for metrics.
     ///
     /// If a metric hasn't been updated within this timeout, it will be removed from the registry and in turn removed
@@ -594,6 +617,7 @@ impl PrometheusBuilder {
                 self.buckets,
                 self.bucket_count,
                 self.bucket_overrides,
+                self.native_histogram_overrides,
             ),
             descriptions: RwLock::new(HashMap::new()),
             global_labels: self.global_labels.unwrap_or_default(),
