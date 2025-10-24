@@ -65,7 +65,6 @@ approx = { workspace = true }
 criterion = { workspace = true }
 crossbeam-queue = { workspace = true }
 getopts = { workspace = true }
-hdrhistogram = { workspace = true }
 mockall = { workspace = true }
 ndarray = { workspace = true }
 ndarray-stats = { workspace = true }
