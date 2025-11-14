@@ -188,9 +188,9 @@ where
 /// Sets the recorder as the default for the current thread for the duration of the lifetime of the returned
 /// [`LocalRecorderGuard`].
 ///
-/// This function is suitable for capturing metrics in asynchronous code, in particular when using a single-threaded
+/// This function is suitable for capturing metrics in asynchronous code, particularly when using a single-threaded
 /// runtime. Any metrics registered prior to the returned guard will remain attached to the recorder that was present at
-/// the time of registration, and so this cannot be used to intercept existing metrics.
+/// the time of registration, so this cannot be used to intercept existing metrics.
 ///
 /// Additionally, local recorders can be used in a nested fashion. When setting a new default local recorder, the
 /// previous default local recorder will be captured if one was set, and will be restored when the returned guard drops.
