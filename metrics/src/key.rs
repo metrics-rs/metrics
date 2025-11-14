@@ -23,6 +23,11 @@ impl KeyName {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// Consumes this [`KeyName`], returning the inner [`SharedString`].
+    pub fn into_inner(self) -> SharedString {
+        self.0
+    }
 }
 
 impl<T> From<T> for KeyName
@@ -37,6 +42,12 @@ where
 impl Borrow<str> for KeyName {
     fn borrow(&self) -> &str {
         self.0.borrow()
+    }
+}
+
+impl From<KeyName> for std::borrow::Cow<'static, str> {
+    fn from(name: KeyName) -> Self {
+        name.0.into()
     }
 }
 
@@ -129,6 +140,11 @@ impl Key {
     /// Name of this key.
     pub fn name(&self) -> &str {
         self.name.0.as_ref()
+    }
+
+    /// Name of this key as a [`KeyName`]
+    pub fn name_shared(&self) -> KeyName {
+        self.name.clone()
     }
 
     /// Labels of this key, if they exist.
