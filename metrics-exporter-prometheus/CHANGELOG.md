@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Added `with_recommended_naming` to `PrometheusBuilder`, which when set to `true` will use the recommended naming
+  convention for Prometheus metrics: suffixing counters with `_total` and ensuring unit suffixes are present. Users
+  should prefer this going forward, and `set_enable_unit_suffix` is deprecated and will be removed in a future release
+  in favor of `with_recommended_naming`. ([#596](https://github.com/metrics-rs/metrics/pull/596))
+- Added support for emitting metrics in the Protocol Buffers-based scrape format. The exporter automatically detects
+  which format to render responses in based on the presence/value of the `Accept` header in requests. Additionally, a
+  new method, `PrometheusHandle::render_protobuf`, has been added to render metrics in this format, similar to
+  `PrometheusHandle::render`. ([#602](https://github.com/metrics-rs/metrics/pull/602))
+- Added `LabelSet`, which provides a wrapper around label key/value pairs to ensure consistent sanitization.
+  ([#605](https://github.com/metrics-rs/metrics/pull/605))
+- Added anew feature flag, `push-gateway-no-tls-provider`, to allow enabling push gateway support without including a
+  default TLS provider via `rustls`. Users enabling this flag must install a default TLS provider for `rustls` via
+  [`rustls::crypto::CryptoProvider::install_default`](https://docs.rs/rustls/latest/rustls/crypto/struct.CryptoProvider.html#method.install_default).
+  ([#607](https://github.com/metrics-rs/metrics/pull/607))
+- Added experimental support for native histograms. Users can enable native histograms using the existing matcher
+  approach by calling `PrometheusBuilder::set_native_histogram_for_metric`. Native histograms are only rendered when the
+  Protocol Buffers-based scrape format is in use. ([#610](https://github.com/metrics-rs/metrics/pull/610))
+
+### Fixed
+
+- Fixed a bug where the `_total` suffix for counters was not being appended to the HELP or TYPE lines for counters.
+  ([#597](https://github.com/metrics-rs/metrics/pull/597))
+
 ## [0.17.2] - 2025-06-20
 
 ### Changed

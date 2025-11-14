@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Fixed an atomicity violation in `AtomicSamplingReservoir::consume`.
+  ([#606](https://github.com/metrics-rs/metrics/pull/606))
+
 ## [0.20.0] - 2025-06-20
 
 ### Changed

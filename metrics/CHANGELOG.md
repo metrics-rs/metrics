@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Updated `From` implementation for `metrics::Cow<'a, T>` to allow properly converting `metrics::Cow<'a, str>` to
+  `std::borrow::Cow<'a, str>`. ([#635](https://github.com/metrics-rs/metrics/pull/635))
+
 ## [0.24.2] - 2025-04-20
 
 ### Changed
