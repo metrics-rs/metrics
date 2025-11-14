@@ -76,6 +76,10 @@ tracing-subscriber = { workspace = true, features = ["fmt"] }
 prost-build = { workspace = true, optional = true }
 
 [[example]]
+name = "native_histograms"
+required-features = ["http-listener"]
+
+[[example]]
 name = "prometheus_push_gateway"
 required-features = ["push-gateway"]
 
