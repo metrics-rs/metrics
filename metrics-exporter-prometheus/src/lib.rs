@@ -119,7 +119,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
 mod common;
-pub use self::common::{BuildError, Matcher};
+pub use self::common::{BuildError, LabelSet, Matcher};
 
 mod distribution;
 pub use distribution::{Distribution, DistributionBuilder};

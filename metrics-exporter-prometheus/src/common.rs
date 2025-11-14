@@ -83,10 +83,11 @@ pub enum BuildError {
 /// Represents a set of labels as structured key-value pairs
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LabelSet {
-    pub labels: Vec<(String, String)>,
+    labels: Vec<(String, String)>,
 }
 
 impl LabelSet {
+    /// Creates a new `LabelSet` from the given key and a set of global labels.
     pub fn from_key_and_global(
         key: &metrics::Key,
         global_labels: &IndexMap<String, String>,
@@ -98,10 +99,12 @@ impl LabelSet {
         Self { labels: labels.into_iter().collect() }
     }
 
+    /// Returns `true` if the label set is empty.
     pub fn is_empty(&self) -> bool {
         self.labels.is_empty()
     }
 
+    /// Returns an iterator that yields the labels in a sanitized and concatenated format.
     pub fn to_strings(&self) -> impl Iterator<Item = String> + '_ {
         self.labels.iter().map(|(k, v)| {
             format!(
