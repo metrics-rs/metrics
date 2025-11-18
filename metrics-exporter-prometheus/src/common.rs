@@ -83,7 +83,7 @@ pub enum BuildError {
 /// Represents a set of labels as structured key-value pairs
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LabelSet {
-    labels: Vec<(String, String)>,
+    pub(crate) labels: Vec<(String, String)>,
 }
 
 impl LabelSet {
