@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.18.0] - 2025-11-28
+
 ### Added
 
 - Added `with_recommended_naming` to `PrometheusBuilder`, which when set to `true` will use the recommended naming
