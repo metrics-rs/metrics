@@ -1200,7 +1200,7 @@ dependencies = [
 
 [[package]]
 name = "metrics-util"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "ahash",
  "aho-corasick",
