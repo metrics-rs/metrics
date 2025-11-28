@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added experimental support for native histograms. Users can enable native histograms using the existing matcher
   approach by calling `PrometheusBuilder::set_native_histogram_for_metric`. Native histograms are only rendered when the
   Protocol Buffers-based scrape format is in use. ([#610](https://github.com/metrics-rs/metrics/pull/610))
+- Added a new method (`render_to_write`) to `PrometheusHandle` that allows writing directly to a `Write` implementation.
+  ([#641](https://github.com/metrics-rs/metrics/pull/641))
+
+### Changed
+
+- Slightly updated the logic for rendering Prometheus outputs to be more incremental where possible to allow `render_to_write`
+  to be roughly constant memory usage regardless of the overall number of metrics being rendered.
+  ([#641](https://github.com/metrics-rs/metrics/pull/641))
 
 ### Fixed
 
