@@ -164,6 +164,7 @@ pub(crate) fn render_protobuf(
                     }
                 }
                 Distribution::NativeHistogram(native_hist) => {
+                    metric_type = Some(pb::MetricType::Histogram);
                     // Convert our native histogram into Prometheus native histogram format
                     let positive_buckets = native_hist.positive_buckets();
                     let negative_buckets = native_hist.negative_buckets();
