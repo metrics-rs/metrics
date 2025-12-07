@@ -77,7 +77,7 @@ prost-build = { workspace = true, optional = true }
 
 [[example]]
 name = "native_histograms"
-required-features = ["http-listener"]
+required-features = ["http-listener", "protobuf"]
 
 [[example]]
 name = "prometheus_push_gateway"
