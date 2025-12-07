@@ -1123,7 +1123,7 @@ dependencies = [
 
 [[package]]
 name = "metrics-exporter-prometheus"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "base64",
  "http-body-util",
