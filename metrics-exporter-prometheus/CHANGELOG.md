@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Fixed a bug where native histograms were incorrectly skipped when serialized the Protocol Buffers
+  payload. ([#649](https://github.com/metrics-rs/metrics/pull/649))
+
 ## [0.18.0] - 2025-11-28
 
 ### Added
