@@ -46,7 +46,6 @@ name = "bucket-crusher"
 required-features = ["storage"]
 
 [dependencies]
-ahash = { workspace = true, optional = true }
 aho-corasick = { workspace = true, features = ["std"], optional = true }
 crossbeam-epoch = { workspace = true, features = ["alloc", "std"], optional = true }
 crossbeam-utils = { workspace = true, optional = true }
