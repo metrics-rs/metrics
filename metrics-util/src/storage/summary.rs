@@ -145,6 +145,11 @@ impl Summary {
         self.sketch.count()
     }
 
+    /// Returns the sum of values seen, or None if empty
+    pub fn sum(&self) -> Option<f64> {
+        self.sketch.sum()
+    }
+
     /// Gets the estimized size of this summary, in bytes.
     ///
     /// In practice, this value should be very close to the actual size, but will not be entirely
