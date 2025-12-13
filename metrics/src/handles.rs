@@ -89,7 +89,7 @@ impl Counter {
     ///
     /// Suitable when a handle must be provided that does nothing i.e. a no-op recorder or a layer
     /// that disables specific metrics, and so on.
-    pub fn noop() -> Self {
+    pub const fn noop() -> Self {
         Self { inner: None }
     }
 
@@ -118,7 +118,7 @@ impl Gauge {
     ///
     /// Suitable when a handle must be provided that does nothing i.e. a no-op recorder or a layer
     /// that disables specific metrics, and so on.
-    pub fn noop() -> Self {
+    pub const fn noop() -> Self {
         Self { inner: None }
     }
 
@@ -154,7 +154,7 @@ impl Histogram {
     ///
     /// Suitable when a handle must be provided that does nothing i.e. a no-op recorder or a layer
     /// that disables specific metrics, and so on.
-    pub fn noop() -> Self {
+    pub const fn noop() -> Self {
         Self { inner: None }
     }
 
