@@ -25,6 +25,25 @@ pub trait Storage<K> {
     fn histogram(&self, key: &K) -> Self::Histogram;
 }
 
+impl<K, T: Storage<K>> Storage<K> for Arc<T> {
+    type Counter = T::Counter;
+    type Gauge = T::Gauge;
+    type Histogram = T::Histogram;
+
+    #[inline(always)]
+    fn gauge(&self, key: &K) -> Self::Gauge {
+        Storage::gauge(&**self, key)
+    }
+    #[inline(always)]
+    fn counter(&self, key: &K) -> Self::Counter {
+        Storage::counter(&**self, key)
+    }
+    #[inline(always)]
+    fn histogram(&self, key: &K) -> Self::Histogram {
+        Storage::histogram(&**self, key)
+    }
+}
+
 /// Atomic metric storage.
 ///
 /// Utilizes atomics for storing the value(s) of a given metric.  Shared access to the actual atomic
