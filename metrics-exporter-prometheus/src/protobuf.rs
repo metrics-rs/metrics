@@ -3,6 +3,7 @@
 use metrics::Unit;
 use prost::Message;
 use std::collections::HashMap;
+use std::io::Write;
 
 use crate::common::{LabelSet, Snapshot};
 use crate::distribution::Distribution;
@@ -30,6 +31,24 @@ pub(crate) fn render_protobuf(
     counter_suffix: Option<&'static str>,
 ) -> Vec<u8> {
     let mut output = Vec::new();
+    render_protobuf_to_write(&mut output, snapshot, descriptions, counter_suffix)
+        .expect("writing to an in-memory buffer should not fail");
+    output
+}
+
+/// Renders a snapshot of metrics into protobuf format using length-delimited encoding.
+///
+/// This function takes a snapshot of metrics and converts them into the Prometheus
+/// protobuf wire format, where each `MetricFamily` message is prefixed with a varint
+/// length header.
+#[allow(clippy::too_many_lines)]
+pub(crate) fn render_protobuf_to_write<W: Write>(
+    writer: &mut W,
+    snapshot: Snapshot,
+    descriptions: &HashMap<String, (metrics::SharedString, Option<Unit>)>,
+    counter_suffix: Option<&'static str>,
+) -> std::io::Result<()> {
+    let mut buffer = Vec::new();
 
     // Process counters
     for (name, by_labels) in snapshot.counters {
@@ -62,7 +81,9 @@ pub(crate) fn render_protobuf(
             unit: None,
         };
 
-        metric_family.encode_length_delimited(&mut output).unwrap();
+        buffer.clear();
+        metric_family.encode_length_delimited(&mut buffer).unwrap();
+        writer.write_all(&buffer)?;
     }
 
     // Process gauges
@@ -91,7 +112,9 @@ pub(crate) fn render_protobuf(
             unit: None,
         };
 
-        metric_family.encode_length_delimited(&mut output).unwrap();
+        buffer.clear();
+        metric_family.encode_length_delimited(&mut buffer).unwrap();
+        writer.write_all(&buffer)?;
     }
 
     // Process distributions (histograms and summaries)
@@ -229,10 +252,12 @@ pub(crate) fn render_protobuf(
             unit: None,
         };
 
-        metric_family.encode_length_delimited(&mut output).unwrap();
+        buffer.clear();
+        metric_family.encode_length_delimited(&mut buffer).unwrap();
+        writer.write_all(&buffer)?;
     }
 
-    output
+    Ok(())
 }
 
 fn label_set_to_protobuf(labels: LabelSet) -> Vec<pb::LabelPair> {
