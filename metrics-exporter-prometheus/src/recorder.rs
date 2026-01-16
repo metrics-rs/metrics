@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::io;
+#[cfg(feature = "protobuf")]
+use std::io::Write;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::{PoisonError, RwLock};
@@ -388,6 +390,25 @@ impl PrometheusHandle {
         let descriptions = self.inner.descriptions.read().unwrap_or_else(PoisonError::into_inner);
 
         crate::protobuf::render_protobuf(snapshot, &descriptions, self.inner.counter_suffix)
+    }
+
+    /// Takes a snapshot of the metrics held by the recorder and writes a payload conforming to
+    /// the Prometheus protobuf format into the provided writer.
+    ///
+    /// # Errors
+    ///
+    /// Writing to the provided output fails.
+    #[cfg(feature = "protobuf")]
+    pub fn render_protobuf_to_write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        let snapshot = self.inner.get_recent_metrics();
+        let descriptions = self.inner.descriptions.read().unwrap_or_else(PoisonError::into_inner);
+
+        crate::protobuf::render_protobuf_to_write(
+            writer,
+            snapshot,
+            &descriptions,
+            self.inner.counter_suffix,
+        )
     }
 
     /// Performs upkeeping operations to ensure metrics held by recorder are up-to-date and do not
