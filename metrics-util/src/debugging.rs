@@ -272,7 +272,7 @@ mod tests {
                             ),
                             None,
                             None,
-                            DebugValue::Gauge(OrderedFloat(456.0 as f64))
+                            DebugValue::Gauge(OrderedFloat(456.0))
                         ),
                         (
                             CompositeKey::new(
@@ -284,7 +284,7 @@ mod tests {
                             ),
                             None,
                             None,
-                            DebugValue::Gauge(OrderedFloat(654.0 as f64))
+                            DebugValue::Gauge(OrderedFloat(654.0))
                         ),
                         (
                             CompositeKey::new(

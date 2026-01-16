@@ -1,8 +1,8 @@
 [package]
 name = "metrics-util"
-version = "0.20.0"
+version = "0.20.1"
 edition = "2018"
-rust-version = "1.71.1"
+rust-version = { workspace = true }
 
 description = "Helper types/functions used by the metrics ecosystem."
 license = { workspace = true }
@@ -65,7 +65,6 @@ approx = { workspace = true }
 criterion = { workspace = true }
 crossbeam-queue = { workspace = true }
 getopts = { workspace = true }
-hdrhistogram = { workspace = true }
 mockall = { workspace = true }
 ndarray = { workspace = true }
 ndarray-stats = { workspace = true }

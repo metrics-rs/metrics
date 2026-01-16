@@ -519,15 +519,16 @@ impl PayloadWriter {
     }
 }
 
+#[allow(clippy::doc_link_with_quotes)]
 /// Iterator over all payloads written by a `PayloadWriter`.
 ///
-/// The source payload buffer is immediately drained of consumed data during the creation of this iterator (as known as
+/// The source payload buffer is immediately drained of consumed data during the creation of this iterator (also known as
 /// ["pre-pooping our pants"][everyone_poops]). This ensures that the end state - the payload buffer contains only
 /// preserved bytes (like length prefixes) - is established immediately.
 ///
 /// [everyone_poops]: https://faultlore.com/blah/everyone-poops/
 pub struct Payloads<'a> {
-    payloads_buf: Vec<u8>,
+    buf: Vec<u8>,
     start: usize,
     offsets: Drain<'a, usize>,
 }
@@ -539,7 +540,7 @@ impl<'a> Payloads<'a> {
         // for the next write operation.
         let drain_size = offsets.last().copied().unwrap_or(0);
         Self {
-            payloads_buf: payload_buf.drain(0..drain_size).collect(),
+            buf: payload_buf.drain(0..drain_size).collect(),
             start: 0,
             offsets: offsets.drain(..),
         }
@@ -556,7 +557,7 @@ impl<'a> Payloads<'a> {
     pub fn next_payload(&mut self) -> Option<&[u8]> {
         let offset = self.offsets.next()?;
 
-        let offset_buf = &self.payloads_buf[self.start..offset];
+        let offset_buf = &self.buf[self.start..offset];
         self.start = offset;
 
         Some(offset_buf)
@@ -644,7 +645,7 @@ mod tests {
             (
                 Key::from("test_counter"),
                 666,
-                Some(345678),
+                Some(345_678),
                 None,
                 &[],
                 "test_counter:666|c|T345678\n",
@@ -660,7 +661,7 @@ mod tests {
             (
                 Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
                 777,
-                Some(234567),
+                Some(234_567),
                 None,
                 &[],
                 "test_counter:777|c|#foo:bar,baz:quux|T234567\n",
@@ -668,7 +669,7 @@ mod tests {
             (
                 Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
                 777,
-                Some(234567),
+                Some(234_567),
                 Some("server1"),
                 &[],
                 "server1.test_counter:777|c|#foo:bar,baz:quux|T234567\n",
@@ -676,7 +677,7 @@ mod tests {
             (
                 Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
                 777,
-                Some(234567),
+                Some(234_567),
                 None,
                 &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
                 "test_counter:777|c|#foo:bar,baz:quux,gfoo:bar,gbaz:quux|T234567\n",
@@ -684,7 +685,7 @@ mod tests {
             (
                 Key::from_parts("test_counter", &[("foo", "bar"), ("baz", "quux")]),
                 777,
-                Some(234567),
+                Some(234_567),
                 Some("server1"),
                 &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
                 "server1.test_counter:777|c|#foo:bar,baz:quux,gfoo:bar,gbaz:quux|T234567\n",
@@ -709,7 +710,7 @@ mod tests {
             (
                 Key::from("test_gauge"),
                 1967.0,
-                Some(345678),
+                Some(345_678),
                 None,
                 &[],
                 "test_gauge:1967.0|g|T345678\n",
@@ -725,7 +726,7 @@ mod tests {
             (
                 Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
                 3.13232,
-                Some(234567),
+                Some(234_567),
                 None,
                 &[],
                 "test_gauge:3.13232|g|#foo:bar,baz:quux|T234567\n",
@@ -733,7 +734,7 @@ mod tests {
             (
                 Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
                 3.13232,
-                Some(234567),
+                Some(234_567),
                 Some("server1"),
                 &[],
                 "server1.test_gauge:3.13232|g|#foo:bar,baz:quux|T234567\n",
@@ -741,7 +742,7 @@ mod tests {
             (
                 Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
                 3.13232,
-                Some(234567),
+                Some(234_567),
                 None,
                 &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
                 "test_gauge:3.13232|g|#foo:bar,baz:quux,gfoo:bar,gbaz:quux|T234567\n",
@@ -749,7 +750,7 @@ mod tests {
             (
                 Key::from_parts("test_gauge", &[("foo", "bar"), ("baz", "quux")]),
                 3.13232,
-                Some(234567),
+                Some(234_567),
                 Some("server1"),
                 &[Label::new("gfoo", "bar"), Label::new("gbaz", "quux")][..],
                 "server1.test_gauge:3.13232|g|#foo:bar,baz:quux,gfoo:bar,gbaz:quux|T234567\n",

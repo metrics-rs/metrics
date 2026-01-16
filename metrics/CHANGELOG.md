@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.24.3] - 2025-11-28
+
+### Added
+- Two new methods (`KeyName::into_inner` and `Key::name_shared`), as well as a `From` implementation to convert
+  `KeyName` to `std::borrow::Cow<'static, str>`, to allow for more ergonomically working with `KeyName` values.
+  ([#640](https://github.com/metrics-rs/metrics/pull/640))
+
+### Changed
+
+- Updated `From` implementation for `metrics::Cow<'a, T>` to allow properly converting `metrics::Cow<'a, str>` to
+  `std::borrow::Cow<'a, str>`. ([#635](https://github.com/metrics-rs/metrics/pull/635))
+
 ## [0.24.2] - 2025-04-20
 
 ### Changed

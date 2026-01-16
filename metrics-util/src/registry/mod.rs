@@ -208,6 +208,12 @@ where
             shard_write.retain(|k, h| f(k, h));
         }
     }
+
+    #[inline(always)]
+    /// Accesses reference to the underlying storage
+    pub fn storage(&self) -> &S {
+        &self.storage
+    }
 }
 
 impl<K, S> Registry<K, S>

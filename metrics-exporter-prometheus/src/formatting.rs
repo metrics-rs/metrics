@@ -1,37 +1,21 @@
 //! Helpers for rendering metrics in the Prometheus exposition format.
 
-use indexmap::IndexMap;
-use metrics::{Key, Unit};
+use metrics::Unit;
 
-/// Breaks a key into the name and label components, with optional default labels.
-///
-/// If any of the default labels are not already present, they will be added to the overall list of labels.
-///
-/// Both the metric name, and labels, are sanitized. See [`sanitize_metric_name`], [`sanitize_label_key`],
-/// and [`sanitize_label_value`] for more information.
-pub fn key_to_parts(
-    key: &Key,
-    default_labels: Option<&IndexMap<String, String>>,
-) -> (String, Vec<String>) {
-    let name = sanitize_metric_name(key.name());
-    let mut values = default_labels.cloned().unwrap_or_default();
-    key.labels().for_each(|label| {
-        values.insert(label.key().to_string(), label.value().to_string());
-    });
-    let labels = values
-        .iter()
-        .map(|(k, v)| format!("{}=\"{}\"", sanitize_label_key(k), sanitize_label_value(v)))
-        .collect();
-
-    (name, labels)
-}
+use crate::common::LabelSet;
 
 /// Writes a help (description) line in the Prometheus [exposition format].
 ///
 /// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
-pub fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
+pub fn write_help_line(
+    buffer: &mut String,
+    name: &str,
+    unit: Option<Unit>,
+    suffix: Option<&'static str>,
+    desc: &str,
+) {
     buffer.push_str("# HELP ");
-    buffer.push_str(name);
+    add_metric_name(buffer, name, unit, suffix);
     buffer.push(' ');
     let desc = sanitize_description(desc);
     buffer.push_str(&desc);
@@ -41,9 +25,15 @@ pub fn write_help_line(buffer: &mut String, name: &str, desc: &str) {
 /// Writes a metric type line in the Prometheus [exposition format].
 ///
 /// [exposition format]: https://github.com/prometheus/docs/blob/main/content/docs/instrumenting/exposition_formats.md#text-format-details
-pub fn write_type_line(buffer: &mut String, name: &str, metric_type: &str) {
+pub fn write_type_line(
+    buffer: &mut String,
+    name: &str,
+    unit: Option<Unit>,
+    suffix: Option<&'static str>,
+    metric_type: &str,
+) {
     buffer.push_str("# TYPE ");
-    buffer.push_str(name);
+    add_metric_name(buffer, name, unit, suffix);
     buffer.push(' ');
     buffer.push_str(metric_type);
     buffer.push('\n');
@@ -61,7 +51,7 @@ pub fn write_metric_line<T, T2>(
     buffer: &mut String,
     name: &str,
     suffix: Option<&'static str>,
-    labels: &[String],
+    labels: &LabelSet,
     additional_label: Option<(&'static str, T)>,
     value: T2,
     unit: Option<Unit>,
@@ -69,29 +59,19 @@ pub fn write_metric_line<T, T2>(
     T: std::fmt::Display,
     T2: std::fmt::Display,
 {
-    buffer.push_str(name);
-    if let Some(suffix) = suffix {
-        buffer.push('_');
-        buffer.push_str(suffix);
-    }
-
-    match unit {
-        Some(Unit::Count) | None => {}
-        Some(Unit::Percent) => add_unit(buffer, "ratio"),
-        Some(unit) => add_unit(buffer, unit.as_str()),
-    }
+    add_metric_name(buffer, name, unit, suffix);
 
     if !labels.is_empty() || additional_label.is_some() {
         buffer.push('{');
 
         let mut first = true;
-        for label in labels {
+        for label in labels.to_strings() {
             if first {
                 first = false;
             } else {
                 buffer.push(',');
             }
-            buffer.push_str(label);
+            buffer.push_str(&label);
         }
 
         if let Some((name, value)) = additional_label {
@@ -112,24 +92,58 @@ pub fn write_metric_line<T, T2>(
     buffer.push('\n');
 }
 
-fn add_unit(buffer: &mut String, unit: &str) {
-    const SUM_SUFFIX: &str = "_sum";
-    const COUNT_SUFFIX: &str = "_count";
-    const BUCKET_SUFFIX: &str = "_bucket";
+fn add_metric_name(
+    buffer: &mut String,
+    name: &str,
+    unit: Option<Unit>,
+    suffix: Option<&'static str>,
+) {
+    buffer.push_str(name);
+    if let Some(unit) = unit {
+        add_unit_if_missing(buffer, unit);
+    }
+    if let Some(suffix) = suffix {
+        add_suffix_if_missing(buffer, suffix);
+    }
+}
 
-    if buffer.ends_with(SUM_SUFFIX) {
-        let suffix_pos = buffer.len() - SUM_SUFFIX.len();
-        buffer.insert(suffix_pos, '_');
-        buffer.insert_str(suffix_pos + 1, unit);
-    } else if buffer.ends_with(COUNT_SUFFIX) {
-        let suffix_pos = buffer.len() - COUNT_SUFFIX.len();
-        buffer.insert(suffix_pos, '_');
-        buffer.insert_str(suffix_pos + 1, unit);
-    } else if buffer.ends_with(BUCKET_SUFFIX) {
-        let suffix_pos = buffer.len() - BUCKET_SUFFIX.len();
-        buffer.insert(suffix_pos, '_');
-        buffer.insert_str(suffix_pos + 1, unit);
-    } else {
+/// Adds a suffix to the metric name if it is not already in the name.
+fn add_suffix_if_missing(buffer: &mut String, suffix: &str) {
+    if !buffer.ends_with(suffix) {
+        buffer.push('_');
+        buffer.push_str(suffix);
+    }
+}
+
+/// Adds a unit to the metric name if it is not already in the name.
+/// If the metric ends with a known suffix, we try to insert the unit before the suffix.
+/// Otherwise, we append the unit to the end of the metric name.
+fn add_unit_if_missing(buffer: &mut String, unit: Unit) {
+    const KNOWN_SUFFIXES: [&str; 4] = ["_sum", "_count", "_bucket", "_total"];
+
+    let unit = match unit {
+        Unit::Count => {
+            // For count, we don't suffix the unit.
+            return;
+        }
+        Unit::Percent => "ratio",
+        unit => unit.as_str(),
+    };
+
+    let mut handled = false;
+    for suffix in KNOWN_SUFFIXES {
+        if buffer.ends_with(suffix) {
+            let suffix_pos = buffer.len() - suffix.len();
+            // Check if name before suffix already has the unit
+            if !&buffer[..suffix_pos].ends_with(unit) {
+                buffer.insert(suffix_pos, '_');
+                buffer.insert_str(suffix_pos + 1, unit);
+            }
+            handled = true;
+            break;
+        }
+    }
+    if !handled && !buffer.ends_with(unit) {
         buffer.push('_');
         buffer.push_str(unit);
     }
@@ -190,7 +204,7 @@ pub fn sanitize_description(value: &str) -> String {
 fn sanitize_label_value_or_description(value: &str, is_desc: bool) -> String {
     // All Unicode characters are valid, but backslashes, double quotes, and line feeds must be
     // escaped.
-    let mut sanitized = String::with_capacity(value.as_bytes().len());
+    let mut sanitized = String::with_capacity(value.len());
 
     let mut previous_backslash = false;
     for c in value.chars() {

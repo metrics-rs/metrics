@@ -3,7 +3,7 @@ name = "metrics-benchmark"
 version = "0.1.1-alpha.5"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 edition = "2018"
-rust-version = "1.71.1"
+rust-version = { workspace = true }
 publish = false
 
 [dependencies]

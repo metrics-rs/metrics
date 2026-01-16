@@ -102,7 +102,7 @@ impl ClientState {
 
                     return result;
                 }
-            };
+            }
         }
     }
 }
@@ -174,7 +174,7 @@ impl Forwarder {
             if u32::try_from(payloads.len()).is_err() {
                 error!(num_payloads = payloads.len(), "Too many payloads to send.");
                 continue;
-            };
+            }
 
             let splay_duration = next_flush.saturating_duration_since(Instant::now());
             debug!(

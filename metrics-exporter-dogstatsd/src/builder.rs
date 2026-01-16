@@ -435,7 +435,7 @@ mod tests {
             DogStatsDBuilder::default().with_aggregation_mode(AggregationMode::Aggressive);
         assert_eq!(builder.get_flush_interval(), DEFAULT_FLUSH_INTERVAL_AGGRESSIVE);
 
-        let custom_flush_interval = Duration::from_millis(123456789);
+        let custom_flush_interval = Duration::from_millis(123_456_789);
         let builder = DogStatsDBuilder::default().with_flush_interval(custom_flush_interval);
         assert_eq!(builder.get_flush_interval(), custom_flush_interval);
     }
@@ -461,9 +461,7 @@ mod tests {
         assert_eq!(
             builder.unwrap_err(),
             BuildError::InvalidConfiguration {
-                reason: format!(
-                    "maximum payload length (65528 bytes) exceeds UDP datagram maximum length (65527 bytes)"
-                )
+                reason: "maximum payload length (65528 bytes) exceeds UDP datagram maximum length (65527 bytes)".to_string()
             }
         );
     }
@@ -522,9 +520,7 @@ mod tests {
             assert_eq!(
                 builder.unwrap_err(),
                 BuildError::InvalidConfiguration {
-                    reason: format!(
-                        "maximum payload length (4294967296 bytes) exceeds theoretical upper bound (4294967295 bytes)"
-                    )
+                    reason: "maximum payload length (4294967296 bytes) exceeds theoretical upper bound (4294967295 bytes)".to_string()
                 }
             );
         }

@@ -78,8 +78,8 @@ enum Kind {
 ///
 /// Up until this point, it might not be clear why we didn't just use `beef`. In truth, our design
 /// is fundamentally based on `beef`. Crucially, however, `beef` did not/still does not support
-/// `const` construction for generic slices.  Remember how we mentioned labels? The labels of a
-/// metric `are `[Label]` under-the-hood, and so without a way to construct them in a `const`
+/// `const` construction for generic slices. Remember how we mentioned labels? The labels of a
+/// metric are `[Label]` under-the-hood, and so without a way to construct them in a `const`
 /// fashion, our previous work to allow entirely static keys would not be possible.
 ///
 /// Thus, we forked `beef` and copied into directly into `metrics` so that we could write a
@@ -324,7 +324,7 @@ impl<'a> From<std::borrow::Cow<'a, str>> for Cow<'a, str> {
     }
 }
 
-impl<'a, T: Cowable> From<Cow<'a, T>> for std::borrow::Cow<'a, T> {
+impl<'a, T: Cowable + ?Sized> From<Cow<'a, T>> for std::borrow::Cow<'a, T> {
     #[inline]
     fn from(value: Cow<'a, T>) -> Self {
         match value.metadata.kind() {

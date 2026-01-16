@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::{PoisonError, RwLock};
@@ -8,10 +9,10 @@ use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, Share
 use metrics_util::registry::{Recency, Registry};
 use quanta::Instant;
 
-use crate::common::Snapshot;
+use crate::common::{LabelSet, Snapshot};
 use crate::distribution::{Distribution, DistributionBuilder};
 use crate::formatting::{
-    key_to_parts, sanitize_metric_name, write_help_line, write_metric_line, write_type_line,
+    sanitize_metric_name, write_help_line, write_metric_line, write_type_line,
 };
 use crate::registry::GenerationalAtomicStorage;
 
@@ -19,11 +20,12 @@ use crate::registry::GenerationalAtomicStorage;
 pub(crate) struct Inner {
     pub registry: Registry<Key, GenerationalAtomicStorage>,
     pub recency: Recency<Key>,
-    pub distributions: RwLock<HashMap<String, IndexMap<Vec<String>, Distribution>>>,
+    pub distributions: RwLock<HashMap<String, IndexMap<LabelSet, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
     pub descriptions: RwLock<HashMap<String, (SharedString, Option<Unit>)>>,
     pub global_labels: IndexMap<String, String>,
     pub enable_unit_suffix: bool,
+    pub counter_suffix: Option<&'static str>,
 }
 
 impl Inner {
@@ -36,7 +38,8 @@ impl Inner {
                 continue;
             }
 
-            let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
+            let name = sanitize_metric_name(key.name());
+            let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
             let value = counter.get_inner().load(Ordering::Acquire);
             let entry =
                 counters.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0);
@@ -51,7 +54,8 @@ impl Inner {
                 continue;
             }
 
-            let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
+            let name = sanitize_metric_name(key.name());
+            let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
             let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
             let entry =
                 gauges.entry(name).or_insert_with(HashMap::new).entry(labels).or_insert(0.0);
@@ -68,7 +72,8 @@ impl Inner {
                 // Since we store aggregated distributions directly, when we're told that a metric
                 // is not recent enough and should be/was deleted from the registry, we also need to
                 // delete it on our side as well.
-                let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
+                let name = sanitize_metric_name(key.name());
+                let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
                 let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
                 let delete_by_name = if let Some(by_name) = wg.get_mut(&name) {
                     by_name.swap_remove(&labels);
@@ -82,8 +87,6 @@ impl Inner {
                 if delete_by_name {
                     wg.remove(&name);
                 }
-
-                continue;
             }
         }
 
@@ -97,7 +100,8 @@ impl Inner {
     fn drain_histograms_to_distributions(&self) {
         let histogram_handles = self.registry.get_histogram_handles();
         for (key, histogram) in histogram_handles {
-            let (name, labels) = key_to_parts(&key, Some(&self.global_labels));
+            let name = sanitize_metric_name(key.name());
+            let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
 
             let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
             let entry = wg
@@ -110,62 +114,92 @@ impl Inner {
         }
     }
 
-    fn render(&self) -> String {
+    fn render_to_write(&self, output: &mut impl io::Write) -> io::Result<()> {
         let Snapshot { mut counters, mut distributions, mut gauges } = self.get_recent_metrics();
 
-        let mut output = String::new();
+        let mut intermediate = String::new();
         let descriptions = self.descriptions.read().unwrap_or_else(PoisonError::into_inner);
 
         for (name, mut by_labels) in counters.drain() {
             let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
-                write_help_line(&mut output, name.as_str(), desc);
-                *unit
+                let unit = unit.filter(|_| self.enable_unit_suffix);
+                write_help_line(&mut intermediate, name.as_str(), unit, self.counter_suffix, desc);
+                unit
             });
 
-            write_type_line(&mut output, name.as_str(), "counter");
+            write_type_line(&mut intermediate, name.as_str(), unit, self.counter_suffix, "counter");
+
+            // A chunk is emitted here, just in case there are a large number of sets below.
+            output.write_all(intermediate.as_bytes())?;
+            intermediate.clear();
+
             for (labels, value) in by_labels.drain() {
                 write_metric_line::<&str, u64>(
-                    &mut output,
+                    &mut intermediate,
                     &name,
-                    None,
+                    self.counter_suffix,
                     &labels,
                     None,
                     value,
-                    unit.filter(|_| self.enable_unit_suffix),
+                    unit,
                 );
+                // Each set gets its own write invocation.
+                output.write_all(intermediate.as_bytes())?;
+                intermediate.clear();
             }
-            output.push('\n');
+            output.write_all(b"\n")?;
         }
 
         for (name, mut by_labels) in gauges.drain() {
             let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
-                write_help_line(&mut output, name.as_str(), desc);
-                *unit
+                let unit = unit.filter(|_| self.enable_unit_suffix);
+                write_help_line(&mut intermediate, name.as_str(), unit, None, desc);
+                unit
             });
 
-            write_type_line(&mut output, name.as_str(), "gauge");
+            write_type_line(&mut intermediate, name.as_str(), unit, None, "gauge");
+
+            // A chunk is emitted here, just in case there are a large number of sets below.
+            output.write_all(intermediate.as_bytes())?;
+            intermediate.clear();
+
             for (labels, value) in by_labels.drain() {
                 write_metric_line::<&str, f64>(
-                    &mut output,
+                    &mut intermediate,
                     &name,
                     None,
                     &labels,
                     None,
                     value,
-                    unit.filter(|_| self.enable_unit_suffix),
+                    unit,
                 );
+                // Each set gets its own write invocation.
+                output.write_all(intermediate.as_bytes())?;
+                intermediate.clear();
             }
-            output.push('\n');
+            output.write_all(b"\n")?;
         }
 
         for (name, mut by_labels) in distributions.drain() {
+            let distribution_type = self.distribution_builder.get_distribution_type(name.as_str());
+
+            // Skip native histograms in text format - they're only supported in protobuf format
+            if distribution_type == "native_histogram" {
+                continue;
+            }
+
             let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
-                write_help_line(&mut output, name.as_str(), desc);
-                *unit
+                let unit = unit.filter(|_| self.enable_unit_suffix);
+                write_help_line(&mut intermediate, name.as_str(), unit, None, desc);
+                unit
             });
 
-            let distribution_type = self.distribution_builder.get_distribution_type(name.as_str());
-            write_type_line(&mut output, name.as_str(), distribution_type);
+            write_type_line(&mut intermediate, name.as_str(), unit, None, distribution_type);
+
+            // A chunk is emitted here, just in case there are a large number of sets below.
+            output.write_all(intermediate.as_bytes())?;
+            intermediate.clear();
+
             for (labels, distribution) in by_labels.drain(..) {
                 let (sum, count) = match distribution {
                     Distribution::Summary(summary, quantiles, sum) => {
@@ -173,13 +207,13 @@ impl Inner {
                         for quantile in quantiles.iter() {
                             let value = snapshot.quantile(quantile.value()).unwrap_or(0.0);
                             write_metric_line(
-                                &mut output,
+                                &mut intermediate,
                                 &name,
                                 None,
                                 &labels,
                                 Some(("quantile", quantile.value())),
                                 value,
-                                unit.filter(|_| self.enable_unit_suffix),
+                                unit,
                             );
                         }
 
@@ -188,53 +222,62 @@ impl Inner {
                     Distribution::Histogram(histogram) => {
                         for (le, count) in histogram.buckets() {
                             write_metric_line(
-                                &mut output,
+                                &mut intermediate,
                                 &name,
                                 Some("bucket"),
                                 &labels,
                                 Some(("le", le)),
                                 count,
-                                unit.filter(|_| self.enable_unit_suffix),
+                                unit,
                             );
                         }
                         write_metric_line(
-                            &mut output,
+                            &mut intermediate,
                             &name,
                             Some("bucket"),
                             &labels,
                             Some(("le", "+Inf")),
                             histogram.count(),
-                            unit.filter(|_| self.enable_unit_suffix),
+                            unit,
                         );
 
                         (histogram.sum(), histogram.count())
                     }
+                    Distribution::NativeHistogram(_) => {
+                        // Native histograms are not supported in text format
+                        // This branch should not be reached due to the continue above
+                        continue;
+                    }
                 };
 
                 write_metric_line::<&str, f64>(
-                    &mut output,
+                    &mut intermediate,
                     &name,
                     Some("sum"),
                     &labels,
                     None,
                     sum,
-                    unit.filter(|_| self.enable_unit_suffix),
+                    unit,
                 );
                 write_metric_line::<&str, u64>(
-                    &mut output,
+                    &mut intermediate,
                     &name,
                     Some("count"),
                     &labels,
                     None,
                     count,
-                    unit.filter(|_| self.enable_unit_suffix),
+                    unit,
                 );
+
+                // Each set gets its own write invocation.
+                output.write_all(intermediate.as_bytes())?;
+                intermediate.clear();
             }
 
-            output.push('\n');
+            output.write_all(b"\n")?;
         }
 
-        output
+        Ok(())
     }
 
     fn run_upkeep(&self) {
@@ -317,8 +360,34 @@ pub struct PrometheusHandle {
 impl PrometheusHandle {
     /// Takes a snapshot of the metrics held by the recorder and generates a payload conforming to
     /// the Prometheus exposition format.
+    #[allow(clippy::missing_panics_doc)]
     pub fn render(&self) -> String {
-        self.inner.render()
+        let mut buf = Vec::new();
+        // UNWRAP: writing to a Vec<u8> does not fail.
+        self.inner.render_to_write(&mut buf).unwrap();
+        // UNWRAP: Prometheus exposition format is always UTF-8.
+        String::from_utf8(buf).unwrap()
+    }
+
+    /// Takes a snapshot of the metrics held by the recorder and generates a payload conforming to
+    /// the Prometheus exposition format, incrementally. Use this function to emit metrics as a
+    /// stream without buffering the entire metrics export.
+    ///
+    /// # Errors
+    ///
+    /// Writing to the provided output fails.
+    pub fn render_to_write(&self, output: &mut impl io::Write) -> io::Result<()> {
+        self.inner.render_to_write(output)
+    }
+
+    /// Takes a snapshot of the metrics held by the recorder and generates a payload conforming to
+    /// the Prometheus protobuf format.
+    #[cfg(feature = "protobuf")]
+    pub fn render_protobuf(&self) -> Vec<u8> {
+        let snapshot = self.inner.get_recent_metrics();
+        let descriptions = self.inner.descriptions.read().unwrap_or_else(PoisonError::into_inner);
+
+        crate::protobuf::render_protobuf(snapshot, &descriptions, self.inner.counter_suffix)
     }
 
     /// Performs upkeeping operations to ensure metrics held by recorder are up-to-date and do not

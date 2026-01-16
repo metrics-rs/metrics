@@ -6,7 +6,7 @@ use std::{
     sync::{
         atomic::{
             AtomicBool, AtomicUsize,
-            Ordering::{Acquire, Relaxed, Release},
+            Ordering::{AcqRel, Acquire, Relaxed, Release},
         },
         Mutex,
     },
@@ -176,9 +176,8 @@ impl AtomicSamplingReservoir {
     {
         let _guard = self.swap.lock().unwrap();
 
-        // Swap the active reservoir.
-        let use_primary = self.use_primary.load(Acquire);
-        self.use_primary.store(!use_primary, Release);
+        // Swap the active reservoir atomically.
+        let use_primary = self.use_primary.fetch_xor(true, AcqRel);
 
         // Consume the previous reservoir.
         let drain = if use_primary { self.primary.drain() } else { self.secondary.drain() };

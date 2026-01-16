@@ -1,15 +1,19 @@
 use std::collections::HashMap;
-#[cfg(feature = "push-gateway")]
+#[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
 use std::convert::TryFrom;
 #[cfg(feature = "http-listener")]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::num::NonZeroU32;
 use std::sync::RwLock;
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[cfg(any(
+    feature = "http-listener",
+    feature = "push-gateway",
+    feature = "push-gateway-no-tls-provider"
+))]
 use std::thread;
 use std::time::Duration;
 
-#[cfg(feature = "push-gateway")]
+#[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
 use hyper::Uri;
 use indexmap::IndexMap;
 #[cfg(feature = "http-listener")]
@@ -24,18 +28,30 @@ use metrics_util::{
 
 use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;
+use crate::native_histogram::NativeHistogramConfig;
 use crate::recorder::{Inner, PrometheusRecorder};
 use crate::registry::AtomicStorage;
 use crate::{common::BuildError, PrometheusHandle};
 
 use super::ExporterConfig;
-#[cfg(any(feature = "http-listener", feature = "push-gateway"))]
+#[cfg(any(
+    feature = "http-listener",
+    feature = "push-gateway",
+    feature = "push-gateway-no-tls-provider"
+))]
 use super::ExporterFuture;
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
 #[derive(Debug)]
 pub struct PrometheusBuilder {
-    #[cfg_attr(not(any(feature = "http-listener", feature = "push-gateway")), allow(dead_code))]
+    #[cfg_attr(
+        not(any(
+            feature = "http-listener",
+            feature = "push-gateway",
+            feature = "push-gateway-no-tls-provider"
+        )),
+        allow(dead_code)
+    )]
     exporter_config: ExporterConfig,
     #[cfg(feature = "http-listener")]
     allowed_addresses: Option<Vec<IpNet>>,
@@ -44,10 +60,13 @@ pub struct PrometheusBuilder {
     bucket_count: Option<NonZeroU32>,
     buckets: Option<Vec<f64>>,
     bucket_overrides: Option<HashMap<Matcher, Vec<f64>>>,
+    native_histogram_overrides: Option<HashMap<Matcher, NativeHistogramConfig>>,
     idle_timeout: Option<Duration>,
     upkeep_timeout: Duration,
     recency_mask: MetricKindMask,
     global_labels: Option<IndexMap<String, String>>,
+    enable_recommended_naming: bool,
+    /// TODO Remove this field in next version and merge with `enable_recommended_naming`
     enable_unit_suffix: bool,
 }
 
@@ -59,7 +78,7 @@ impl PrometheusBuilder {
         #[cfg(feature = "http-listener")]
         let exporter_config = ExporterConfig::HttpListener {
             destination: super::ListenDestination::Tcp(SocketAddr::new(
-                IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+                IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                 9000,
             )),
         };
@@ -77,10 +96,12 @@ impl PrometheusBuilder {
             bucket_count: None,
             buckets: None,
             bucket_overrides: None,
+            native_histogram_overrides: None,
             idle_timeout: None,
             upkeep_timeout,
             recency_mask: MetricKindMask::NONE,
             global_labels: None,
+            enable_recommended_naming: false,
             enable_unit_suffix: false,
         }
     }
@@ -117,8 +138,11 @@ impl PrometheusBuilder {
     /// If the given endpoint cannot be parsed into a valid URI, an error variant will be returned describing the error.
     ///
     /// [push gateway]: https://prometheus.io/docs/instrumenting/pushing/
-    #[cfg(feature = "push-gateway")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "push-gateway")))]
+    #[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider")))
+    )]
     pub fn with_push_gateway<T>(
         mut self,
         endpoint: T,
@@ -291,8 +315,24 @@ impl PrometheusBuilder {
     ///
     /// Defaults to false.
     #[must_use]
+    #[deprecated(
+        since = "0.18.0",
+        note = "users should prefer `with_recommended_naming` which automatically enables unit suffixes"
+    )]
     pub fn set_enable_unit_suffix(mut self, enabled: bool) -> Self {
         self.enable_unit_suffix = enabled;
+        self
+    }
+
+    /// Enables Prometheus naming best practices for metrics.
+    ///
+    /// When set to `true`, counter names are suffixed with `_total` and unit suffixes are appended to metric names,
+    /// following [Prometheus Best Practices](https://prometheus.io/docs/practices/naming/).
+    ///
+    /// Defaults to `false`.
+    #[must_use]
+    pub fn with_recommended_naming(mut self, enabled: bool) -> Self {
+        self.enable_recommended_naming = enabled;
         self
     }
 
@@ -324,6 +364,26 @@ impl PrometheusBuilder {
         let buckets = self.bucket_overrides.get_or_insert_with(HashMap::new);
         buckets.insert(matcher.sanitized(), values.to_vec());
         Ok(self)
+    }
+
+    /// Sets native histogram configuration for a specific pattern.
+    ///
+    /// The match pattern can be a full match (equality), prefix match, or suffix match.  The matchers are applied in
+    /// that order if two or more matchers would apply to a single metric.  That is to say, if a full match and a prefix
+    /// match applied to a metric, the full match would win, and if a prefix match and a suffix match applied to a
+    /// metric, the prefix match would win.
+    ///
+    /// Native histograms use exponential buckets and take precedence over regular histograms and summaries.
+    /// They are only supported in the protobuf format.
+    #[must_use]
+    pub fn set_native_histogram_for_metric(
+        mut self,
+        matcher: Matcher,
+        config: NativeHistogramConfig,
+    ) -> Self {
+        let overrides = self.native_histogram_overrides.get_or_insert_with(HashMap::new);
+        overrides.insert(matcher.sanitized(), config);
+        self
     }
 
     /// Sets the idle timeout for metrics.
@@ -380,8 +440,19 @@ impl PrometheusBuilder {
     ///
     /// If there is an error while either building the recorder and exporter, or installing the recorder and exporter,
     /// an error variant will be returned describing the error.
-    #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-    #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
+    #[cfg(any(
+        feature = "http-listener",
+        feature = "push-gateway",
+        feature = "push-gateway-no-tls-provider"
+    ))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(any(
+            feature = "http-listener",
+            feature = "push-gateway",
+            feature = "push-gateway-no-tls-provider"
+        )))
+    )]
     pub fn install(self) -> Result<(), BuildError> {
         use tokio::runtime;
 
@@ -457,8 +528,19 @@ impl PrometheusBuilder {
     /// If there is an error while building the recorder and exporter, an error variant will be returned describing the
     /// error.
     #[warn(clippy::too_many_lines)]
-    #[cfg(any(feature = "http-listener", feature = "push-gateway"))]
-    #[cfg_attr(docsrs, doc(cfg(any(feature = "http-listener", feature = "push-gateway"))))]
+    #[cfg(any(
+        feature = "http-listener",
+        feature = "push-gateway",
+        feature = "push-gateway-no-tls-provider"
+    ))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(any(
+            feature = "http-listener",
+            feature = "push-gateway",
+            feature = "push-gateway-no-tls-provider"
+        )))
+    )]
     #[cfg_attr(not(feature = "http-listener"), allow(unused_mut))]
     pub fn build(mut self) -> Result<(PrometheusRecorder, ExporterFuture), BuildError> {
         #[cfg(feature = "http-listener")]
@@ -497,7 +579,7 @@ impl PrometheusBuilder {
                     }
                 },
 
-                #[cfg(feature = "push-gateway")]
+                #[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
                 ExporterConfig::PushGateway {
                     endpoint,
                     interval,
@@ -535,10 +617,12 @@ impl PrometheusBuilder {
                 self.buckets,
                 self.bucket_count,
                 self.bucket_overrides,
+                self.native_histogram_overrides,
             ),
             descriptions: RwLock::new(HashMap::new()),
             global_labels: self.global_labels.unwrap_or_default(),
-            enable_unit_suffix: self.enable_unit_suffix,
+            enable_unit_suffix: self.enable_recommended_naming || self.enable_unit_suffix,
+            counter_suffix: self.enable_recommended_naming.then_some("total"),
         };
 
         PrometheusRecorder::from(inner)
@@ -558,7 +642,7 @@ mod tests {
 
     use quanta::Clock;
 
-    use metrics::{Key, KeyName, Label, Recorder};
+    use metrics::{Key, KeyName, Label, Recorder, Unit};
     use metrics_util::MetricKindMask;
 
     use super::{Matcher, PrometheusBuilder};
@@ -608,6 +692,104 @@ mod tests {
         let expected_histogram = format!("{expected_gauge}{histogram_data}");
 
         assert_eq!(rendered, expected_histogram);
+    }
+
+    #[test]
+    fn test_render_recommended_naming_no_unit_or_description() {
+        let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
+
+        let key = Key::from_name("basic_counter");
+        let counter = recorder.register_counter(&key, &METADATA);
+        counter.increment(42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = "# TYPE basic_counter_total counter\nbasic_counter_total 42\n\n";
+
+        assert_eq!(rendered, expected);
+    }
+
+    #[test]
+    fn test_render_recommended_naming_with_unit_and_description() {
+        // Note: we need to create a new recorder, as the render order is not deterministic
+        let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
+
+        let key_name = KeyName::from_const_str("counter_with_unit");
+        let key = Key::from_name(key_name.clone());
+        recorder.describe_counter(key_name, Some(Unit::Bytes), "A counter with a unit".into());
+        let counter = recorder.register_counter(&key, &METADATA);
+        counter.increment(42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected: &'static str = concat!(
+            "# HELP counter_with_unit_bytes_total A counter with a unit\n",
+            "# TYPE counter_with_unit_bytes_total counter\n",
+            "counter_with_unit_bytes_total 42\n",
+            "\n",
+        );
+        assert_eq!(rendered, expected);
+    }
+
+    #[test]
+    fn test_render_recommended_naming_manual_total_suffix_with_unit() {
+        let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
+        let key_name = KeyName::from_const_str("foo_total");
+        let key = Key::from_name(key_name.clone());
+        recorder.describe_counter(key_name, Some(Unit::Bytes), "Some help".into());
+        let counter = recorder.register_counter(&key, &METADATA);
+        counter.increment(42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# HELP foo_bytes_total Some help\n",
+            "# TYPE foo_bytes_total counter\n",
+            "foo_bytes_total 42\n",
+            "\n",
+        );
+        assert_eq!(rendered, expected);
+    }
+
+    #[test]
+    fn test_render_recommended_naming_manual_counter_suffixes() {
+        let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
+        let key_name = KeyName::from_const_str("foo_bytes_total");
+        let key = Key::from_name(key_name.clone());
+        recorder.describe_counter(key_name, Some(Unit::Bytes), "Some help".into());
+        let counter = recorder.register_counter(&key, &METADATA);
+        counter.increment(42);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# HELP foo_bytes_total Some help\n",
+            "# TYPE foo_bytes_total counter\n",
+            "foo_bytes_total 42\n",
+            "\n",
+        );
+        assert_eq!(rendered, expected);
+    }
+
+    #[test]
+    fn test_render_recommended_naming_gauge_with_unit_in_name() {
+        let recorder = PrometheusBuilder::new().with_recommended_naming(true).build_recorder();
+
+        let key_name = KeyName::from_const_str("gauge_with_unit_bytes");
+        let key = Key::from_name(key_name.clone());
+        recorder.describe_gauge(key_name, Some(Unit::Bytes), "A gauge with a unit".into());
+        let gauge = recorder.register_gauge(&key, &METADATA);
+        gauge.set(42.0);
+
+        let handle = recorder.handle();
+        let rendered = handle.render();
+        let expected = concat!(
+            "# HELP gauge_with_unit_bytes A gauge with a unit\n",
+            "# TYPE gauge_with_unit_bytes gauge\n",
+            "gauge_with_unit_bytes 42\n",
+            "\n",
+        );
+        assert_eq!(rendered, expected);
     }
 
     #[test]
