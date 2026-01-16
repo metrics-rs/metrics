@@ -182,31 +182,31 @@ impl Unit {
     pub fn as_ucum_label(&self) -> &'static str {
         match self {
             // dimensionless
-            Unit::Count            => "1",
-            Unit::Percent          => "%",
+            Unit::Count => "1",
+            Unit::Percent => "%",
 
             // time
-            Unit::Seconds          => "s",
-            Unit::Milliseconds     => "ms",
-            Unit::Microseconds     => "us",
-            Unit::Nanoseconds      => "ns",
+            Unit::Seconds => "s",
+            Unit::Milliseconds => "ms",
+            Unit::Microseconds => "us",
+            Unit::Nanoseconds => "ns",
 
             // storage (binary prefixes)
-            Unit::Tebibytes        => "TiBy",
-            Unit::Gibibytes        => "GiBy",
-            Unit::Mebibytes        => "MiBy",
-            Unit::Kibibytes        => "KiBy",
-            Unit::Bytes            => "By",
+            Unit::Tebibytes => "TiBy",
+            Unit::Gibibytes => "GiBy",
+            Unit::Mebibytes => "MiBy",
+            Unit::Kibibytes => "KiBy",
+            Unit::Bytes => "By",
 
             // network throughput
             Unit::TerabitsPerSecond => "Tbit/s",
             Unit::GigabitsPerSecond => "Gbit/s",
             Unit::MegabitsPerSecond => "Mbit/s",
             Unit::KilobitsPerSecond => "kbit/s",
-            Unit::BitsPerSecond     => "bit/s",
+            Unit::BitsPerSecond => "bit/s",
 
             // event rate
-            Unit::CountPerSecond    => "1/s",
+            Unit::CountPerSecond => "1/s",
         }
     }
 

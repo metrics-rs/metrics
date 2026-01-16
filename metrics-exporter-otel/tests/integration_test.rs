@@ -1,5 +1,5 @@
 use metrics::{
-    counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, Recorder, Unit,
+    counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram, Unit,
 };
 use metrics_exporter_otel::OpenTelemetryRecorder;
 use opentelemetry::metrics::MeterProvider;
@@ -17,7 +17,7 @@ fn test_counter_increments_correctly() {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let meter = provider.meter("test_meter");
     let recorder = OpenTelemetryRecorder::new(meter);
-    let _ = metrics::set_global_recorder(recorder);
+    let _local_recorder_guard = metrics::set_default_local_recorder(&recorder);
 
     // When: Counter is incremented with different labels
     describe_counter!("requests_total", Unit::Count, "Total number of requests");
@@ -71,7 +71,7 @@ fn test_counter_accumulates_increments() {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let meter = provider.meter("test_meter");
     let recorder = OpenTelemetryRecorder::new(meter);
-    let _ = metrics::set_global_recorder(recorder);
+    let _local_recorder_guard = metrics::set_default_local_recorder(&recorder);
 
     counter!("events_total").increment(5);
     provider.force_flush().unwrap();
@@ -129,7 +129,7 @@ fn test_gauge_sets_value_correctly() {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let meter = provider.meter("test_meter");
     let recorder = OpenTelemetryRecorder::new(meter);
-    let _ = metrics::set_global_recorder(recorder);
+    let _local_recorder_guard = metrics::set_default_local_recorder(&recorder);
 
     // When: Gauge values are set with different labels
     describe_gauge!("cpu_usage", Unit::Percent, "Current CPU usage");
@@ -183,7 +183,7 @@ fn test_gauge_updates_value() {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let meter = provider.meter("test_meter");
     let recorder = OpenTelemetryRecorder::new(meter);
-    let _ = metrics::set_global_recorder(recorder);
+    let _local_recorder_guard = metrics::set_default_local_recorder(&recorder);
 
     gauge!("memory_usage").set(1024.0);
     provider.force_flush().unwrap();
@@ -222,7 +222,7 @@ fn test_histogram_records_values() {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let meter = provider.meter("test_meter");
     let recorder = OpenTelemetryRecorder::new(meter);
-    let _ = metrics::set_global_recorder(recorder);
+    let _local_recorder_guard = metrics::set_default_local_recorder(&recorder);
 
     // When: Histogram values are recorded
     describe_histogram!("response_time", Unit::Seconds, "Response time distribution");
@@ -281,7 +281,7 @@ fn test_metrics_without_descriptions() {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let meter = provider.meter("test_meter");
     let recorder = OpenTelemetryRecorder::new(meter);
-    let _ = metrics::set_global_recorder(recorder);
+    let _local_recorder_guard = metrics::set_default_local_recorder(&recorder);
 
     // When: Metrics are used without descriptions
     counter!("events").increment(10);
@@ -310,37 +310,16 @@ fn test_metric_descriptions_are_stored() {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let meter = provider.meter("test_meter");
     let recorder = OpenTelemetryRecorder::new(meter);
+    let _local_recorder_guard = metrics::set_default_local_recorder(&recorder);
 
-    // When: Metrics are described directly on the recorder
-    recorder.describe_counter(
-        "test.counter".into(),
-        Some(Unit::Count),
-        "Test counter description".into(),
-    );
-    recorder.describe_gauge(
-        "test.gauge".into(),
-        Some(Unit::Bytes),
-        "Test gauge description".into(),
-    );
-    recorder.describe_histogram(
-        "test.histogram".into(),
-        Some(Unit::Milliseconds),
-        "Test histogram description".into(),
-    );
+    // When: Metrics are described and used
+    describe_counter!("test.counter", Unit::Count, "Test counter description");
+    describe_gauge!("test.gauge", Unit::Bytes, "Test gauge description");
+    describe_histogram!("test.histogram", Unit::Milliseconds, "Test histogram description");
 
-    // And: Metrics are registered and used
-    let key = metrics::Key::from_name("test.counter");
-    let metadata = metrics::Metadata::new("test", metrics::Level::INFO, Some("test.counter"));
-    let counter = recorder.register_counter(&key, &metadata);
-    counter.increment(1);
-
-    let key = metrics::Key::from_name("test.gauge");
-    let gauge = recorder.register_gauge(&key, &metadata);
-    gauge.set(42.0);
-
-    let key = metrics::Key::from_name("test.histogram");
-    let histogram = recorder.register_histogram(&key, &metadata);
-    histogram.record(0.5);
+    counter!("test.counter").increment(1);
+    gauge!("test.gauge").set(42.0);
+    histogram!("test.histogram").record(0.5);
 
     provider.force_flush().unwrap();
 
@@ -361,7 +340,7 @@ fn test_metric_descriptions_are_stored() {
         "Test counter description",
         "Counter should have correct description"
     );
-    assert_eq!(counter_metric.unit(), "", "Counter should have unit '' for Count");
+    assert_eq!(counter_metric.unit(), "1", "Counter should have unit '1' for Count");
 
     // Check gauge description and unit
     let gauge_metric = all_metrics
@@ -373,7 +352,7 @@ fn test_metric_descriptions_are_stored() {
         "Test gauge description",
         "Gauge should have correct description"
     );
-    assert_eq!(gauge_metric.unit(), "B", "Gauge should have unit 'B' for Bytes");
+    assert_eq!(gauge_metric.unit(), "By", "Gauge should have unit 'By' for Bytes");
 
     // Check histogram description and unit
     let histogram_metric = all_metrics
@@ -397,19 +376,11 @@ fn test_metrics_with_multiple_labels() {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let meter = provider.meter("test_meter");
     let recorder = OpenTelemetryRecorder::new(meter);
+    let _local_recorder_guard = metrics::set_default_local_recorder(&recorder);
 
-    // When: Metrics are registered with multiple labels
-    let key = metrics::Key::from_parts(
-        "http_requests",
-        vec![
-            metrics::Label::new("method", "GET"),
-            metrics::Label::new("status", "200"),
-            metrics::Label::new("path", "/api/v1/users"),
-        ],
-    );
-    let metadata = metrics::Metadata::new("test", metrics::Level::INFO, Some("http_requests"));
-    let counter = recorder.register_counter(&key, &metadata);
-    counter.increment(5);
+    // When: Metrics are recorded with multiple labels
+    counter!("http_requests", "method" => "GET", "status" => "200", "path" => "/api/v1/users")
+        .increment(5);
 
     provider.force_flush().unwrap();
 
@@ -451,6 +422,7 @@ fn test_histogram_with_custom_bounds() {
     let provider = SdkMeterProvider::builder().with_reader(reader).build();
     let meter = provider.meter("test_meter");
     let recorder = OpenTelemetryRecorder::new(meter);
+    let _local_recorder_guard = metrics::set_default_local_recorder(&recorder);
 
     // When: Custom bounds are set for a histogram before it's created
     recorder.set_histogram_bounds(
@@ -458,14 +430,11 @@ fn test_histogram_with_custom_bounds() {
         vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
     );
 
-    // And: Histogram is registered and values are recorded
-    let key = metrics::Key::from_name("latency");
-    let metadata = metrics::Metadata::new("test", metrics::Level::INFO, Some("latency"));
-    let histogram = recorder.register_histogram(&key, &metadata);
-    histogram.record(0.03);
-    histogram.record(0.12);
-    histogram.record(0.75);
-    histogram.record(3.5);
+    // And: Histogram values are recorded
+    histogram!("latency").record(0.03);
+    histogram!("latency").record(0.12);
+    histogram!("latency").record(0.75);
+    histogram!("latency").record(3.5);
 
     provider.force_flush().unwrap();
 
@@ -510,5 +479,5 @@ fn test_histogram_with_custom_bounds() {
     assert_eq!(counts[6], 0, "Bucket [1.0, 2.5) should be empty");
     assert_eq!(counts[7], 1, "Bucket [2.5, 5.0) should have 1 value (3.5)");
     assert_eq!(counts[8], 0, "Bucket [5.0, 10.0) should be empty");
-    assert_eq!(counts[9], 0, "Bucket [10.0, +∞) should be empty");
+    assert_eq!(counts[9], 0, "Bucket [10.0, +inf) should be empty");
 }
