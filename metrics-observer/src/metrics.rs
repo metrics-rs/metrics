@@ -166,116 +166,141 @@ impl Runner {
                             Err(e) => eprintln!("read error: {:?}", e),
                         };
 
-                        let message = match ProstMessage::decode_length_delimited(&mut buf) {
-                            Err(e) => {
-                                eprintln!("decode error: {:?}", e);
-                                continue;
+                        loop {
+                            let needed = match prost::decode_length_delimiter(&buf[..]) {
+                                Err(e) => {
+                                    // According to decode_length_delimiter doc:
+                                    // If the supplied buffer contains fewer than 10 bytes, then an error indicates that more input is required to decode the full delimiter.
+                                    // If the supplied buffer contains 10 bytes or more, then the buffer contains an invalid delimiter, and typically the buffer should be considered corrupt.
+                                    if buf.len() >= 10 {
+                                        eprintln!("decode error in size: {:?}", e);
+                                    }
+                                    break;
+                                }
+                                Ok(usize) => prost::length_delimiter_len(usize) + usize,
+                            };
+                            if buf.len() < needed {
+                                break;
                             }
-                            Ok(v) => v,
-                        };
+                            let packet = buf.split_to(needed);
+                            let message = match ProstMessage::decode_length_delimited(&packet[..]) {
+                                Err(e) => {
+                                    eprintln!("decode error: {:?}", e);
+                                    break;
+                                }
+                                Ok(v) => v,
+                            };
 
-                        let event = match message.event {
-                            Some(e) => e,
-                            None => continue,
-                        };
+                            let event = match message.event {
+                                Some(e) => e,
+                                None => continue,
+                            };
 
-                        match event {
-                            Event::Metadata(metadata) => {
-                                let metric_type = MetricType::try_from(metadata.metric_type)
-                                    .expect("unknown metric type over wire");
-                                let metric_kind = match metric_type {
-                                    MetricType::Counter => MetricKind::Counter,
-                                    MetricType::Gauge => MetricKind::Gauge,
-                                    MetricType::Histogram => MetricKind::Histogram,
-                                };
-                                let key = (metric_kind, metadata.name);
-                                let mut mmap = self
-                                    .metadata
-                                    .write()
-                                    .expect("failed to get metadata write lock");
-                                let entry = mmap.entry(key).or_insert((None, None));
-                                let (uentry, dentry) = entry;
-                                *uentry = metadata
-                                    .unit
-                                    .map(|u| match u {
-                                        proto::metadata::Unit::UnitValue(u) => u,
-                                    })
-                                    .and_then(|s| Unit::from_string(s.as_str()));
-                                *dentry = metadata.description.map(|d| match d {
-                                    proto::metadata::Description::DescriptionValue(ds) => ds,
-                                });
-                            }
-                            Event::Metric(metric) => {
-                                let mut labels_raw = metric.labels.into_iter().collect::<Vec<_>>();
-                                labels_raw.sort_by(|a, b| a.0.cmp(&b.0));
-                                let labels = labels_raw
-                                    .into_iter()
-                                    .map(|(k, v)| Label::new(k, v))
-                                    .collect::<Vec<_>>();
-                                let key_data: Key = (metric.name, labels).into();
+                            match event {
+                                Event::Metadata(metadata) => {
+                                    let metric_type = MetricType::try_from(metadata.metric_type)
+                                        .expect("unknown metric type over wire");
+                                    let metric_kind = match metric_type {
+                                        MetricType::Counter => MetricKind::Counter,
+                                        MetricType::Gauge => MetricKind::Gauge,
+                                        MetricType::Histogram => MetricKind::Histogram,
+                                    };
+                                    let key = (metric_kind, metadata.name);
+                                    let mut mmap = self
+                                        .metadata
+                                        .write()
+                                        .expect("failed to get metadata write lock");
+                                    let entry = mmap.entry(key).or_insert((None, None));
+                                    let (uentry, dentry) = entry;
+                                    *uentry = metadata
+                                        .unit
+                                        .map(|u| match u {
+                                            proto::metadata::Unit::UnitValue(u) => u,
+                                        })
+                                        .and_then(|s| Unit::from_string(s.as_str()));
+                                    *dentry = metadata.description.map(|d| match d {
+                                        proto::metadata::Description::DescriptionValue(ds) => ds,
+                                    });
+                                }
+                                Event::Metric(metric) => {
+                                    let mut labels_raw =
+                                        metric.labels.into_iter().collect::<Vec<_>>();
+                                    labels_raw.sort_by(|a, b| a.0.cmp(&b.0));
+                                    let labels = labels_raw
+                                        .into_iter()
+                                        .map(|(k, v)| Label::new(k, v))
+                                        .collect::<Vec<_>>();
+                                    let key_data: Key = (metric.name, labels).into();
 
-                                match metric.operation.expect("no metric operation") {
-                                    Operation::IncrementCounter(value) => {
-                                        let key = CompositeKey::new(MetricKind::Counter, key_data);
-                                        let mut metrics = self.metrics.write().unwrap();
-                                        let counter = metrics
-                                            .entry(key)
-                                            .or_insert_with(|| MetricData::Counter(0));
-                                        if let MetricData::Counter(inner) = counter {
-                                            *inner += value;
+                                    match metric.operation.expect("no metric operation") {
+                                        Operation::IncrementCounter(value) => {
+                                            let key =
+                                                CompositeKey::new(MetricKind::Counter, key_data);
+                                            let mut metrics = self.metrics.write().unwrap();
+                                            let counter = metrics
+                                                .entry(key)
+                                                .or_insert_with(|| MetricData::Counter(0));
+                                            if let MetricData::Counter(inner) = counter {
+                                                *inner += value;
+                                            }
                                         }
-                                    }
-                                    Operation::SetCounter(value) => {
-                                        let key = CompositeKey::new(MetricKind::Counter, key_data);
-                                        let mut metrics = self.metrics.write().unwrap();
-                                        let counter = metrics
-                                            .entry(key)
-                                            .or_insert_with(|| MetricData::Counter(0));
-                                        if let MetricData::Counter(inner) = counter {
-                                            *inner = value;
+                                        Operation::SetCounter(value) => {
+                                            let key =
+                                                CompositeKey::new(MetricKind::Counter, key_data);
+                                            let mut metrics = self.metrics.write().unwrap();
+                                            let counter = metrics
+                                                .entry(key)
+                                                .or_insert_with(|| MetricData::Counter(0));
+                                            if let MetricData::Counter(inner) = counter {
+                                                *inner = value;
+                                            }
                                         }
-                                    }
-                                    Operation::IncrementGauge(value) => {
-                                        let key = CompositeKey::new(MetricKind::Gauge, key_data);
-                                        let mut metrics = self.metrics.write().unwrap();
-                                        let gauge = metrics
-                                            .entry(key)
-                                            .or_insert_with(|| MetricData::Gauge(0.0));
-                                        if let MetricData::Gauge(inner) = gauge {
-                                            *inner += value;
+                                        Operation::IncrementGauge(value) => {
+                                            let key =
+                                                CompositeKey::new(MetricKind::Gauge, key_data);
+                                            let mut metrics = self.metrics.write().unwrap();
+                                            let gauge = metrics
+                                                .entry(key)
+                                                .or_insert_with(|| MetricData::Gauge(0.0));
+                                            if let MetricData::Gauge(inner) = gauge {
+                                                *inner += value;
+                                            }
                                         }
-                                    }
-                                    Operation::DecrementGauge(value) => {
-                                        let key = CompositeKey::new(MetricKind::Gauge, key_data);
-                                        let mut metrics = self.metrics.write().unwrap();
-                                        let gauge = metrics
-                                            .entry(key)
-                                            .or_insert_with(|| MetricData::Gauge(0.0));
-                                        if let MetricData::Gauge(inner) = gauge {
-                                            *inner -= value;
+                                        Operation::DecrementGauge(value) => {
+                                            let key =
+                                                CompositeKey::new(MetricKind::Gauge, key_data);
+                                            let mut metrics = self.metrics.write().unwrap();
+                                            let gauge = metrics
+                                                .entry(key)
+                                                .or_insert_with(|| MetricData::Gauge(0.0));
+                                            if let MetricData::Gauge(inner) = gauge {
+                                                *inner -= value;
+                                            }
                                         }
-                                    }
-                                    Operation::SetGauge(value) => {
-                                        let key = CompositeKey::new(MetricKind::Gauge, key_data);
-                                        let mut metrics = self.metrics.write().unwrap();
-                                        let gauge = metrics
-                                            .entry(key)
-                                            .or_insert_with(|| MetricData::Gauge(0.0));
-                                        if let MetricData::Gauge(inner) = gauge {
-                                            *inner = value;
+                                        Operation::SetGauge(value) => {
+                                            let key =
+                                                CompositeKey::new(MetricKind::Gauge, key_data);
+                                            let mut metrics = self.metrics.write().unwrap();
+                                            let gauge = metrics
+                                                .entry(key)
+                                                .or_insert_with(|| MetricData::Gauge(0.0));
+                                            if let MetricData::Gauge(inner) = gauge {
+                                                *inner = value;
+                                            }
                                         }
-                                    }
-                                    Operation::RecordHistogram(value) => {
-                                        let key =
-                                            CompositeKey::new(MetricKind::Histogram, key_data);
-                                        let mut metrics = self.metrics.write().unwrap();
-                                        let histogram = metrics.entry(key).or_insert_with(|| {
-                                            let summary = Summary::with_defaults();
-                                            MetricData::Histogram(summary)
-                                        });
+                                        Operation::RecordHistogram(value) => {
+                                            let key =
+                                                CompositeKey::new(MetricKind::Histogram, key_data);
+                                            let mut metrics = self.metrics.write().unwrap();
+                                            let histogram =
+                                                metrics.entry(key).or_insert_with(|| {
+                                                    let summary = Summary::with_defaults();
+                                                    MetricData::Histogram(summary)
+                                                });
 
-                                        if let MetricData::Histogram(inner) = histogram {
-                                            inner.add(value);
+                                            if let MetricData::Histogram(inner) = histogram {
+                                                inner.add(value);
+                                            }
                                         }
                                     }
                                 }
