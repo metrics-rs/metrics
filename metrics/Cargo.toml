@@ -23,7 +23,7 @@ name = "macros"
 harness = false
 
 [dependencies]
-ahash = { workspace = true }
+rapidhash = { workspace = true }
 
 [target.'cfg(target_pointer_width = "32")'.dependencies]
 portable-atomic = { version = "1", default-features = false, features = [

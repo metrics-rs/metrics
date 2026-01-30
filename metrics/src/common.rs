@@ -1,6 +1,6 @@
 use std::hash::Hasher;
 
-use ahash::AHasher;
+use rapidhash::fast::RapidHasher;
 
 use crate::cow::Cow;
 
@@ -19,12 +19,25 @@ pub type SharedString = Cow<'static, str>;
 
 /// Key-specific hashing algorithm.
 ///
-/// Currently uses AHash - <https://github.com/tkaitchuck/aHash>
+/// Currently uses rapidhash - <https://github.com/hoxxep/rapidhash>
 ///
 /// For any use-case within a `metrics`-owned or adjacent crate, where hashing of a key is required,
 /// this is the hasher that will be used.
-#[derive(Debug, Default)]
-pub struct KeyHasher(AHasher);
+pub struct KeyHasher(RapidHasher<'static>);
+
+impl std::fmt::Debug for KeyHasher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyHasher").finish_non_exhaustive()
+    }
+}
+
+impl Default for KeyHasher {
+    fn default() -> Self {
+        // The seed should be randomized on application start if DoS resistance is required, but
+        // ahash was also previously using fixed seeds by default.
+        KeyHasher(RapidHasher::default_const())
+    }
+}
 
 impl Hasher for KeyHasher {
     fn finish(&self) -> u64 {
