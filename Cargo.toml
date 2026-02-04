@@ -29,6 +29,7 @@ crossbeam-channel = { version = "0.5", default-features = false }
 crossbeam-epoch = { version = "0.9", default-features = false }
 crossbeam-queue = { version = "0.3", default-features = false, features = ["std"] }
 crossbeam-utils = { version = "0.8", default-features = false }
+evmap = { version = "11", defualt-features = false }
 getopts = { version = "0.2", default-features = false }
 hashbrown = { version = "0.16", default-features = false, features = ["default-hasher", "raw-entry"] }
 hdrhistogram = { version = "7.2", default-features = false }

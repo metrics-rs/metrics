@@ -1,13 +1,12 @@
 //! Protobuf serialization support for Prometheus metrics.
 
-use metrics::Unit;
 use prost::Message;
-use std::collections::HashMap;
 use std::io::Write;
 
 use crate::common::{LabelSet, Snapshot};
 use crate::distribution::Distribution;
 use crate::formatting::sanitize_metric_name;
+use crate::recorder::DescriptionReadHandle;
 
 // Include the generated protobuf code
 mod pb {
@@ -27,11 +26,11 @@ pub(crate) const PROTOBUF_CONTENT_TYPE: &str =
 #[allow(clippy::too_many_lines)]
 pub(crate) fn render_protobuf(
     snapshot: Snapshot,
-    descriptions: &HashMap<String, (metrics::SharedString, Option<Unit>)>,
+    descriptions_rd: &DescriptionReadHandle,
     counter_suffix: Option<&'static str>,
 ) -> Vec<u8> {
     let mut output = Vec::new();
-    render_protobuf_to_write(&mut output, snapshot, descriptions, counter_suffix)
+    render_protobuf_to_write(&mut output, snapshot, descriptions_rd, counter_suffix)
         .expect("writing to an in-memory buffer should not fail");
     output
 }
@@ -45,7 +44,7 @@ pub(crate) fn render_protobuf(
 pub(crate) fn render_protobuf_to_write<W: Write>(
     writer: &mut W,
     snapshot: Snapshot,
-    descriptions: &HashMap<String, (metrics::SharedString, Option<Unit>)>,
+    descriptions_rd: &DescriptionReadHandle,
     counter_suffix: Option<&'static str>,
 ) -> std::io::Result<()> {
     let mut buffer = Vec::new();
@@ -53,8 +52,13 @@ pub(crate) fn render_protobuf_to_write<W: Write>(
     // Process counters
     for (name, by_labels) in snapshot.counters {
         let sanitized_name = sanitize_metric_name(&name);
-        let help =
-            descriptions.get(name.as_str()).map(|(desc, _)| desc.to_string()).unwrap_or_default();
+        let help = descriptions_rd
+            .get_one(name.as_str())
+            .map(|entry| {
+                let (desc, _) = &*entry;
+                desc.to_string()
+            })
+            .unwrap_or_default();
 
         let mut metrics = Vec::new();
         for (labels, value) in by_labels {
@@ -89,8 +93,13 @@ pub(crate) fn render_protobuf_to_write<W: Write>(
     // Process gauges
     for (name, by_labels) in snapshot.gauges {
         let sanitized_name = sanitize_metric_name(&name);
-        let help =
-            descriptions.get(name.as_str()).map(|(desc, _)| desc.to_string()).unwrap_or_default();
+        let help = descriptions_rd
+            .get_one(name.as_str())
+            .map(|entry| {
+                let (desc, _) = &*entry;
+                desc.to_string()
+            })
+            .unwrap_or_default();
 
         let mut metrics = Vec::new();
         for (labels, value) in by_labels {
@@ -120,8 +129,13 @@ pub(crate) fn render_protobuf_to_write<W: Write>(
     // Process distributions (histograms and summaries)
     for (name, by_labels) in snapshot.distributions {
         let sanitized_name = sanitize_metric_name(&name);
-        let help =
-            descriptions.get(name.as_str()).map(|(desc, _)| desc.to_string()).unwrap_or_default();
+        let help = descriptions_rd
+            .get_one(name.as_str())
+            .map(|entry| {
+                let (desc, _) = &*entry;
+                desc.to_string()
+            })
+            .unwrap_or_default();
 
         let mut metrics = Vec::new();
         let mut metric_type = None;
@@ -332,6 +346,7 @@ fn make_buckets(buckets: &std::collections::BTreeMap<i32, u64>) -> (Vec<pb::Buck
 mod tests {
     use super::*;
     use crate::common::Snapshot;
+    use crate::recorder::new_description_handles;
     use indexmap::IndexMap;
     use metrics::SharedString;
     use prost::Message;
@@ -350,9 +365,10 @@ mod tests {
 
         let snapshot = Snapshot { counters, gauges: HashMap::new(), distributions: HashMap::new() };
 
-        let descriptions = HashMap::new();
+        let (mut descriptions_wr, descriptions_rd) = new_description_handles();
+        descriptions_wr.publish();
 
-        let protobuf_data = render_protobuf(snapshot, &descriptions, Some("total"));
+        let protobuf_data = render_protobuf(snapshot, &descriptions_rd, Some("total"));
 
         assert!(!protobuf_data.is_empty(), "Protobuf data should not be empty");
 
@@ -382,13 +398,14 @@ mod tests {
 
         let snapshot = Snapshot { counters: HashMap::new(), gauges, distributions: HashMap::new() };
 
-        let mut descriptions = HashMap::new();
-        descriptions.insert(
+        let (mut descriptions_wr, descriptions_rd) = new_description_handles();
+        descriptions_wr.update(
             "cpu_usage".to_string(),
             (SharedString::const_str("CPU usage percentage"), None),
         );
+        descriptions_wr.publish();
 
-        let protobuf_data = render_protobuf(snapshot, &descriptions, None);
+        let protobuf_data = render_protobuf(snapshot, &descriptions_rd, None);
 
         assert!(!protobuf_data.is_empty(), "Protobuf data should not be empty");
 

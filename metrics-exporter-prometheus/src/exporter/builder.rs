@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 #[cfg(feature = "http-listener")]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::num::NonZeroU32;
-use std::sync::RwLock;
+use std::sync::{Mutex, RwLock};
 #[cfg(any(
     feature = "http-listener",
     feature = "push-gateway",
@@ -29,7 +29,7 @@ use metrics_util::{
 use crate::common::Matcher;
 use crate::distribution::DistributionBuilder;
 use crate::native_histogram::NativeHistogramConfig;
-use crate::recorder::{Inner, PrometheusRecorder};
+use crate::recorder::{new_description_handles, Inner, PrometheusRecorder};
 use crate::registry::AtomicStorage;
 use crate::{common::BuildError, PrometheusHandle};
 
@@ -607,6 +607,8 @@ impl PrometheusBuilder {
     }
 
     pub(crate) fn build_with_clock(self, clock: Clock) -> PrometheusRecorder {
+        let (descriptions_wr, descriptions_rd) = new_description_handles();
+
         let inner = Inner {
             registry: Registry::new(GenerationalStorage::new(AtomicStorage)),
             recency: Recency::new(clock, self.recency_mask, self.idle_timeout),
@@ -619,7 +621,8 @@ impl PrometheusBuilder {
                 self.bucket_overrides,
                 self.native_histogram_overrides,
             ),
-            descriptions: RwLock::new(HashMap::new()),
+            descriptions_rd: Mutex::new(descriptions_rd),
+            descriptions_wr: Mutex::new(descriptions_wr),
             global_labels: self.global_labels.unwrap_or_default(),
             enable_unit_suffix: self.enable_recommended_naming || self.enable_unit_suffix,
             counter_suffix: self.enable_recommended_naming.then_some("total"),
