@@ -88,7 +88,7 @@ pub fn write_metric_line<T, T2>(
         buffer.push('}');
     }
 
-    let _ = write!(buffer, " {value}\n");
+    let _ = writeln!(buffer, " {value}");
 }
 
 fn add_metric_name(
