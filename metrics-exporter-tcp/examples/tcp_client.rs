@@ -25,9 +25,27 @@ fn main() {
             Err(e) => eprintln!("read error: {:?}", e),
         };
 
-        match proto::Event::decode_length_delimited(&mut buf) {
-            Err(e) => eprintln!("decode error: {:?}", e),
-            Ok(msg) => println!("event: {:?}", msg),
+        loop {
+            let needed = match prost::decode_length_delimiter(&buf[..]) {
+                Err(e) => {
+                    // According to decode_length_delimiter doc:
+                    // If the supplied buffer contains fewer than 10 bytes, then an error indicates that more input is required to decode the full delimiter.
+                    // If the supplied buffer contains 10 bytes or more, then the buffer contains an invalid delimiter, and typically the buffer should be considered corrupt.
+                    if buf.len() >= 10 {
+                        eprintln!("decode error in size: {:?}", e);
+                    }
+                    break;
+                }
+                Ok(usize) => prost::length_delimiter_len(usize) + usize,
+            };
+            if buf.len() < needed {
+                break;
+            }
+            let packet = buf.split_to(needed);
+            match proto::Event::decode_length_delimited(&packet[..]) {
+                Err(e) => eprintln!("decode error: {:?}", e),
+                Ok(msg) => println!("event: {:?}", msg),
+            }
         }
     }
 }
