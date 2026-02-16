@@ -4,7 +4,7 @@ use std::io;
 use std::io::Write;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::sync::{PoisonError, RwLock};
+use std::sync::{Mutex, PoisonError, RwLock};
 
 use indexmap::IndexMap;
 use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
@@ -18,13 +18,36 @@ use crate::formatting::{
 };
 use crate::registry::GenerationalAtomicStorage;
 
+pub(crate) type DescriptionReadHandle =
+    evmap::handles::ReadHandle<String, (SharedString, Option<Unit>)>;
+pub(crate) type DescriptionWriteHandle =
+    evmap::handles::WriteHandle<String, (SharedString, Option<Unit>)>;
+
+/// Create new evmap handles for metric descriptions.
+///
+/// # Safety
+///
+/// This uses `evmap::new_assert_stable` because `SharedString` and `Unit` do not implement
+/// `StableHashEq`. The stored description values are still deterministic with respect to `Hash`
+/// and `Eq`:
+/// - `SharedString` is a `Cow<'static, str>` and hashes/compares by string contents.
+/// - `Unit` is a fixed enum and hashes/compares by its discriminant.
+/// - The key is a sanitized metric name (`String`), which is also deterministic.
+pub(crate) fn new_description_handles() -> (DescriptionWriteHandle, DescriptionReadHandle) {
+    // SAFETY: description key/value hashing and equality are deterministic.
+    let (mut write_handle, read_handle) = unsafe { evmap::new_assert_stable() };
+    write_handle.publish();
+    (write_handle, read_handle)
+}
+
 #[derive(Debug)]
 pub(crate) struct Inner {
     pub registry: Registry<Key, GenerationalAtomicStorage>,
     pub recency: Recency<Key>,
     pub distributions: RwLock<HashMap<String, IndexMap<LabelSet, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
-    pub descriptions: RwLock<HashMap<String, (SharedString, Option<Unit>)>>,
+    pub(crate) descriptions_rd: Mutex<DescriptionReadHandle>,
+    pub(crate) descriptions_wr: Mutex<DescriptionWriteHandle>,
     pub global_labels: IndexMap<String, String>,
     pub enable_unit_suffix: bool,
     pub counter_suffix: Option<&'static str>,
@@ -120,10 +143,12 @@ impl Inner {
         let Snapshot { mut counters, mut distributions, mut gauges } = self.get_recent_metrics();
 
         let mut intermediate = String::new();
-        let descriptions = self.descriptions.read().unwrap_or_else(PoisonError::into_inner);
+        self.commit_outstanding_description_writes();
+        let descriptions = self.read_handle();
 
         for (name, mut by_labels) in counters.drain() {
-            let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
+            let unit = descriptions.get_one(name.as_str()).and_then(|entry| {
+                let (desc, unit) = &*entry;
                 let unit = unit.filter(|_| self.enable_unit_suffix);
                 write_help_line(&mut intermediate, name.as_str(), unit, self.counter_suffix, desc);
                 unit
@@ -153,7 +178,8 @@ impl Inner {
         }
 
         for (name, mut by_labels) in gauges.drain() {
-            let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
+            let unit = descriptions.get_one(name.as_str()).and_then(|entry| {
+                let (desc, unit) = &*entry;
                 let unit = unit.filter(|_| self.enable_unit_suffix);
                 write_help_line(&mut intermediate, name.as_str(), unit, None, desc);
                 unit
@@ -190,7 +216,8 @@ impl Inner {
                 continue;
             }
 
-            let unit = descriptions.get(name.as_str()).and_then(|(desc, unit)| {
+            let unit = descriptions.get_one(name.as_str()).and_then(|entry| {
+                let (desc, unit) = &*entry;
                 let unit = unit.filter(|_| self.enable_unit_suffix);
                 write_help_line(&mut intermediate, name.as_str(), unit, None, desc);
                 unit
@@ -284,6 +311,17 @@ impl Inner {
 
     fn run_upkeep(&self) {
         self.drain_histograms_to_distributions();
+        self.commit_outstanding_description_writes();
+    }
+
+    fn commit_outstanding_description_writes(&self) {
+        // Flush all outstanding writes to the descriptions table
+        let mut descriptions = self.descriptions_wr.lock().unwrap_or_else(PoisonError::into_inner);
+        descriptions.publish();
+    }
+
+    pub(crate) fn read_handle(&self) -> DescriptionReadHandle {
+        self.descriptions_rd.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 }
 
@@ -311,8 +349,14 @@ impl PrometheusRecorder {
     ) {
         let sanitized = sanitize_metric_name(key_name.as_str());
         let mut descriptions =
-            self.inner.descriptions.write().unwrap_or_else(PoisonError::into_inner);
-        descriptions.entry(sanitized).or_insert((description, unit));
+            self.inner.descriptions_wr.lock().unwrap_or_else(PoisonError::into_inner);
+        let already_present = descriptions.contains_key(&sanitized);
+
+        if already_present {
+            return;
+        }
+
+        descriptions.update(sanitized, (description, unit));
     }
 }
 
@@ -387,7 +431,8 @@ impl PrometheusHandle {
     #[cfg(feature = "protobuf")]
     pub fn render_protobuf(&self) -> Vec<u8> {
         let snapshot = self.inner.get_recent_metrics();
-        let descriptions = self.inner.descriptions.read().unwrap_or_else(PoisonError::into_inner);
+        self.inner.commit_outstanding_description_writes();
+        let descriptions = self.inner.read_handle();
 
         crate::protobuf::render_protobuf(snapshot, &descriptions, self.inner.counter_suffix)
     }
@@ -401,7 +446,8 @@ impl PrometheusHandle {
     #[cfg(feature = "protobuf")]
     pub fn render_protobuf_to_write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         let snapshot = self.inner.get_recent_metrics();
-        let descriptions = self.inner.descriptions.read().unwrap_or_else(PoisonError::into_inner);
+        self.inner.commit_outstanding_description_writes();
+        let descriptions = self.inner.read_handle();
 
         crate::protobuf::render_protobuf_to_write(
             writer,

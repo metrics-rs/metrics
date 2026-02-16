@@ -43,6 +43,7 @@ _hyper-client = [
 base64 = { workspace = true }
 quanta = { workspace = true }
 thiserror = { workspace = true }
+evmap = { workspace = true }
 
 # Optional
 http-body-util = { workspace = true, optional = true }
