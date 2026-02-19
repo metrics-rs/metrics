@@ -1,10 +1,7 @@
 use std::{
     slice::Iter,
     sync::{
-        atomic::{
-            AtomicBool, AtomicU64,
-            Ordering::{AcqRel, Acquire, Relaxed, Release},
-        },
+        atomic::{AtomicU64, Ordering::Relaxed},
         Arc,
     },
 };
@@ -18,72 +15,79 @@ use metrics_util::{
     },
 };
 
+use crate::util::CachePadded;
+
 pub(crate) struct AtomicCounter {
-    is_absolute: AtomicBool,
-    last: AtomicU64,
-    current: AtomicU64,
-    updates: AtomicU64,
+    //is_absolute: AtomicBool,
+    //last: AtomicU64,
+    current: CachePadded<AtomicU64>,
+    //updates: AtomicU64,
 }
 
 impl AtomicCounter {
     /// Creates a new `AtomicCounter`.
     fn new() -> Self {
         Self {
-            is_absolute: AtomicBool::new(false),
-            last: AtomicU64::new(0),
-            current: AtomicU64::new(0),
-            updates: AtomicU64::new(0),
+            //is_absolute: AtomicBool::new(false),
+            //last: AtomicU64::new(0),
+            current: CachePadded::new(AtomicU64::new(0)),
+            //updates: AtomicU64::new(0),
         }
     }
 
     /// Flushes the current counter value, returning the delta of the counter value, and the number of updates, since
     /// the last flush.
     pub fn flush(&self) -> (u64, u64) {
-        let current = self.current.load(Acquire);
-        let last = self.last.swap(current, AcqRel);
-        let delta = current.wrapping_sub(last);
-        let updates = self.updates.swap(0, AcqRel);
+        //let current = self.current.load(Acquire);
+        //let last = self.last.swap(current, AcqRel);
+        //let delta = current.wrapping_sub(last);
+        //let updates = self.updates.swap(0, AcqRel);
 
-        (delta, updates)
+        //(delta, updates)
+        let delta = self.current.swap(0, Relaxed);
+        (delta, if delta > 0 { 1 } else { 0 })
     }
 }
 
 impl CounterFn for AtomicCounter {
     fn increment(&self, value: u64) {
-        self.is_absolute.store(false, Release);
+        //self.is_absolute.store(false, Release);
         self.current.fetch_add(value, Relaxed);
-        self.updates.fetch_add(1, Relaxed);
+        //self.updates.fetch_add(1, Relaxed);
     }
 
-    fn absolute(&self, value: u64) {
+    fn absolute(&self, _value: u64) {
         // Ensure the counter is in absolute mode, and if it wasn't already, reset `last` to `value` to give ourselves a
         // consistent starting point when flushing. This ensures that we only start flushing deltas once we've gotten
         // two consecutive absolute values, since otherwise we might be calculating a delta between a `last` of 0 and a
         // very large `current` value.
-        if !self.is_absolute.swap(true, Release) {
-            self.last.store(value, Release);
-        }
+        //if !self.is_absolute.swap(true, Release) {
+        //    self.last.store(value, Release);
+        //}
 
-        self.current.store(value, Release);
-        self.updates.fetch_add(1, Relaxed);
+        //self.current.store(value, Release);
+        //self.updates.fetch_add(1, Relaxed);
     }
 }
 
 pub(crate) struct AtomicGauge {
-    inner: AtomicU64,
-    updates: AtomicU64,
+    inner: CachePadded<AtomicU64>,
+    updates: CachePadded<AtomicU64>,
 }
 
 impl AtomicGauge {
     /// Creates a new `AtomicGauge`.
     fn new() -> Self {
-        Self { inner: AtomicU64::new(0.0f64.to_bits()), updates: AtomicU64::new(0) }
+        Self {
+            inner: CachePadded::new(AtomicU64::new(0.0f64.to_bits())),
+            updates: CachePadded::new(AtomicU64::new(0)),
+        }
     }
 
     /// Flushes the current gauge value and the number of updates since the last flush.
     pub fn flush(&self) -> (f64, u64) {
-        let current = f64::from_bits(self.inner.load(Acquire));
-        let updates = self.updates.swap(0, AcqRel);
+        let current = f64::from_bits(self.inner.load(Relaxed));
+        let updates = self.updates.swap(0, Relaxed);
 
         (current, updates)
     }
@@ -92,7 +96,7 @@ impl AtomicGauge {
 impl GaugeFn for AtomicGauge {
     fn increment(&self, value: f64) {
         self.inner
-            .fetch_update(AcqRel, Relaxed, |current| {
+            .fetch_update(Relaxed, Relaxed, |current| {
                 let new = f64::from_bits(current) + value;
                 Some(f64::to_bits(new))
             })
@@ -102,7 +106,7 @@ impl GaugeFn for AtomicGauge {
 
     fn decrement(&self, value: f64) {
         self.inner
-            .fetch_update(AcqRel, Relaxed, |current| {
+            .fetch_update(Relaxed, Relaxed, |current| {
                 let new = f64::from_bits(current) - value;
                 Some(f64::to_bits(new))
             })
@@ -111,21 +115,21 @@ impl GaugeFn for AtomicGauge {
     }
 
     fn set(&self, value: f64) {
-        self.inner.store(value.to_bits(), Release);
+        self.inner.store(value.to_bits(), Relaxed);
         self.updates.fetch_add(1, Relaxed);
     }
 }
 
 pub(crate) enum AtomicHistogram {
     Raw(AtomicBucket<f64>),
-    Sampled(AtomicSamplingReservoir),
+    Sampled(CachePadded<AtomicSamplingReservoir>),
 }
 
 impl AtomicHistogram {
     /// Creates a new `AtomicHistogram` based on the given sampling configuration.
     fn new(sampling: bool, reservoir_size: usize) -> Self {
         if sampling {
-            AtomicHistogram::Sampled(AtomicSamplingReservoir::new(reservoir_size))
+            AtomicHistogram::Sampled(CachePadded::new(AtomicSamplingReservoir::new(reservoir_size)))
         } else {
             AtomicHistogram::Raw(AtomicBucket::new())
         }
