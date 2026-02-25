@@ -702,3 +702,109 @@ fn clone_shared<T: Cowable + ?Sized>(
 
     (ptr, *metadata)
 }
+
+/// These implementations should be identical to Deref, but enable dereferencing in a `const`
+/// environment for `Key` hashing.
+pub(crate) mod const_cow {
+    use super::*;
+    use crate::Label;
+    use std::ptr::slice_from_raw_parts;
+
+    impl Cow<'static, str> {
+        pub(crate) const fn as_const_str(&self) -> &str {
+            let borrowed_ptr =
+                slice_from_raw_parts(self.ptr.as_ptr(), self.metadata.len()) as *const str;
+
+            // SAFETY: We only ever hold a pointer to a borrowed value of at least the lifetime of
+            // `Self`, or an owned value which we have ownership of (albeit indirectly when using
+            // `Arc<T>`), so our pointer is always valid and live for dereferencing.
+            //
+            // self.ptr is also `NonNull<T>`, and so borrowed_ptr is guaranteed to not be null.
+            unsafe { &*borrowed_ptr }
+        }
+    }
+
+    impl Cow<'static, [Label]> {
+        pub(crate) const fn as_const_slice(&self) -> &[Label] {
+            let borrowed_ptr =
+                slice_from_raw_parts(self.ptr.as_ptr(), self.metadata.len()) as *const [Label];
+
+            // SAFETY: We only ever hold a pointer to a borrowed value of at least the lifetime of
+            // `Self`, or an owned value which we have ownership of (albeit indirectly when using
+            // `Arc<T>`), so our pointer is always valid and live for dereferencing.
+            //
+            // self.ptr is also `NonNull<T>`, and so borrowed_ptr is guaranteed to not be null.
+            unsafe { &*borrowed_ptr }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::sync::Arc;
+
+        #[test]
+        fn test_as_const_str() {
+            // Borrowed
+            let cow = Cow::const_str("hello");
+            assert_eq!(cow.as_const_str(), "hello");
+
+            // Owned
+            let cow: Cow<'static, str> = Cow::from_owned(String::from("hello"));
+            assert_eq!(cow.as_const_str(), "hello");
+
+            // Shared
+            let arc: Arc<str> = Arc::from("hello");
+            let cow: Cow<'static, str> = Cow::from_shared(arc);
+            assert_eq!(cow.as_const_str(), "hello");
+        }
+
+        #[test]
+        fn test_as_const_slice() {
+            // Borrowed
+            {
+                static LABELS: [Label; 2] = [
+                    Label::from_static_parts("key1", "value1"),
+                    Label::from_static_parts("key2", "value2"),
+                ];
+                let cow = Cow::const_slice(&LABELS);
+                let slice = cow.as_const_slice();
+                assert_eq!(slice.len(), 2);
+                assert_eq!(slice[0].key(), "key1");
+                assert_eq!(slice[0].value(), "value1");
+                assert_eq!(slice[1].key(), "key2");
+                assert_eq!(slice[1].value(), "value2");
+            }
+
+            // Owned
+            {
+                let labels = vec![
+                    Label::from_static_parts("key1", "value1"),
+                    Label::from_static_parts("key2", "value2"),
+                ];
+                let cow: Cow<'static, [Label]> = Cow::from_owned(labels);
+                let slice = cow.as_const_slice();
+                assert_eq!(slice.len(), 2);
+                assert_eq!(slice[0].key(), "key1");
+                assert_eq!(slice[0].value(), "value1");
+                assert_eq!(slice[1].key(), "key2");
+                assert_eq!(slice[1].value(), "value2");
+            }
+
+            // Shared
+            {
+                let labels: Arc<[Label]> = Arc::from([
+                    Label::from_static_parts("key1", "value1"),
+                    Label::from_static_parts("key2", "value2"),
+                ]);
+                let cow: Cow<'static, [Label]> = Cow::from_shared(labels);
+                let slice = cow.as_const_slice();
+                assert_eq!(slice.len(), 2);
+                assert_eq!(slice[0].key(), "key1");
+                assert_eq!(slice[0].value(), "value1");
+                assert_eq!(slice[1].key(), "key2");
+                assert_eq!(slice[1].value(), "value2");
+            }
+        }
+    }
+}

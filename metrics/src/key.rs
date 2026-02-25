@@ -1,10 +1,10 @@
-use crate::{atomics::AtomicU64, cow::Cow, IntoLabels, KeyHasher, Label, SharedString};
+use crate::{cow::Cow, IntoLabels, Label, SharedString};
+use rapidhash::v3::{rapidhash_v3_nano_inline, RapidSecrets};
 use std::{
     borrow::Borrow,
     cmp, fmt,
     hash::{Hash, Hasher},
     slice::Iter,
-    sync::atomic::{AtomicBool, Ordering},
 };
 
 const NO_LABELS: [Label; 0] = [];
@@ -20,8 +20,8 @@ impl KeyName {
     }
 
     /// Gets a reference to the string used for this name.
-    pub fn as_str(&self) -> &str {
-        &self.0
+    pub const fn as_str(&self) -> &str {
+        self.0.as_const_str()
     }
 
     /// Consumes this [`KeyName`], returning the inner [`SharedString`].
@@ -67,12 +67,11 @@ impl From<KeyName> for std::borrow::Cow<'static, str> {
 /// generated.  We personally allow this Clippy lint in places where we store the key, such as
 /// helper types in the `metrics-util` crate, and you may need to do the same if you're using it in
 /// such a way as well.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Key {
     name: KeyName,
     labels: Cow<'static, [Label]>,
-    hashed: AtomicBool,
-    hash: AtomicU64,
+    hash: u64,
 }
 
 impl Key {
@@ -104,12 +103,7 @@ impl Key {
     where
         N: Into<KeyName>,
     {
-        Self {
-            name: name.into(),
-            labels: Cow::const_slice(labels),
-            hashed: AtomicBool::new(false),
-            hash: AtomicU64::new(0),
-        }
+        Self::builder(name.into(), Cow::const_slice(labels))
     }
 
     /// Creates a [`Key`] from a static name.
@@ -123,18 +117,12 @@ impl Key {
     ///
     /// This function is `const`, so it can be used in a static context.
     pub const fn from_static_parts(name: &'static str, labels: &'static [Label]) -> Self {
-        Self {
-            name: KeyName::from_const_str(name),
-            labels: Cow::const_slice(labels),
-            hashed: AtomicBool::new(false),
-            hash: AtomicU64::new(0),
-        }
+        Self::builder(KeyName::from_const_str(name), Cow::const_slice(labels))
     }
 
-    fn builder(name: KeyName, labels: Cow<'static, [Label]>) -> Self {
+    const fn builder(name: KeyName, labels: Cow<'static, [Label]>) -> Self {
         let hash = generate_key_hash(&name, &labels);
-
-        Self { name, labels, hashed: AtomicBool::new(true), hash: AtomicU64::new(hash) }
+        Self { name, labels, hash }
     }
 
     /// Name of this key.
@@ -171,69 +159,71 @@ impl Key {
     }
 
     /// Gets the hash value for this key.
-    pub fn get_hash(&self) -> u64 {
-        if self.hashed.load(Ordering::Acquire) {
-            self.hash.load(Ordering::Acquire)
-        } else {
-            let hash = generate_key_hash(&self.name, &self.labels);
-            self.hash.store(hash, Ordering::Release);
-            self.hashed.store(true, Ordering::Release);
-            hash
-        }
+    #[inline]
+    pub const fn get_hash(&self) -> u64 {
+        self.hash
     }
 }
 
-fn generate_key_hash(name: &KeyName, labels: &Cow<'static, [Label]>) -> u64 {
-    let mut hasher = KeyHasher::default();
-    key_hasher_impl(&mut hasher, name, labels);
-    hasher.finish()
+/// Generate a hash value for a `Key`.
+#[inline]
+const fn generate_key_hash(name: &KeyName, labels: &Cow<'static, [Label]>) -> u64 {
+    // Here we explicitly use a static seed. We believe HashDoS should not be a concern here, as
+    // the primary use case is static metric keys coming from the application code itself. Users
+    // could allow untrusted input to form a metric key, but it's not a use case we are designing
+    // for. If this ever changes, using const_random!(u64) could be a clean solution to randomize
+    // the seed at _build_ time.
+    // github issue: https://github.com/metrics-rs/metrics/pull/651#issuecomment-3744517372
+    // const_random: https://crates.io/crates/const-random
+    const SECRETS: RapidSecrets = RapidSecrets::seed_cpp(0);
+
+    // The name uses an independent seed to avoid simple substitution errors (where a user swaps a
+    // label with the key name for example). We use `seed_cpp` to ensure the secrets arrays are the
+    // same const array so the compiler can optimise the loading of secrets as the same immediates.
+    let mut hash = hash_bytes(name.0.as_const_str().as_bytes(), &SECRETS);
+
+    // Label order should _not_ change the resulting hash. The use of addition here is a hack,
+    // this is both faster than sorting the labels and feasible in `const`. We use an ADD chain
+    // as opposed to an XOR chain to avoid duplicate labels cancelling out.
+    let mut i = 0;
+    let labels = labels.as_const_slice();
+    while i < labels.len() {
+        let label_hash = hash_label(&labels[i]);
+        hash = hash.wrapping_add(label_hash);
+        i += 1;
+    }
+
+    hash
 }
 
-fn key_hasher_impl<H: Hasher>(state: &mut H, name: &KeyName, labels: &Cow<'static, [Label]>) {
-    name.0.hash(state);
-    labels.len().hash(state);
-    match labels.len() {
-        0 => {}
-        1 => labels[0].hash(state),
-        2 => {
-            if labels[0] < labels[1] {
-                labels[0].hash(state);
-                labels[1].hash(state);
-            } else {
-                labels[1].hash(state);
-                labels[0].hash(state);
-            }
-        }
-        n if n < 8 => {
-            let mut labels_sort_map: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
-            labels_sort_map[..n].sort_by_key(|i| labels[*i as usize].key());
-            for i in 0..n {
-                labels[labels_sort_map[i] as usize].hash(state)
-            }
-        }
-        n => {
-            let mut labels_sort_map: Vec<usize> = (0..n).collect();
-            labels_sort_map.sort_by_key(|i| labels[*i].key());
-            for i in 0..n {
-                labels[labels_sort_map[i]].hash(state)
-            }
-        }
-    }
+/// The underlying hash function used for keys and labels.
+#[inline(always)]
+const fn hash_bytes(slice: &[u8], secrets: &RapidSecrets) -> u64 {
+    // We expect keys and labels to typically be <48 bytes, and so we choose rapidhash nano. We
+    // skip the AVALANCHE mix step for a slightly lower-quality hash, as speed is preferably over
+    // the highest hash "quality".
+    rapidhash_v3_nano_inline::<false, false>(slice, secrets)
 }
 
-impl Clone for Key {
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            labels: self.labels.clone(),
-            hashed: AtomicBool::new(self.hashed.load(Ordering::Acquire)),
-            hash: AtomicU64::new(self.hash.load(Ordering::Acquire)),
-        }
-    }
+/// Hash a label, taking care to hash keys and values with independent seeds.
+#[inline(always)]
+const fn hash_label(label: &Label) -> u64 {
+    // hash the key and value with independent seeds to avoid substitution errors, but use
+    // seed_cpp to ensure the secrets arrays are the same const array
+    const KEY: RapidSecrets = RapidSecrets::seed_cpp(1);
+    const VALUE: RapidSecrets = RapidSecrets::seed_cpp(2);
+
+    let key = hash_bytes(label.0.as_const_str().as_bytes(), &KEY);
+    let value = hash_bytes(label.0.as_const_str().as_bytes(), &VALUE);
+
+    key ^ value
 }
 
 impl PartialEq for Key {
     fn eq(&self, other: &Self) -> bool {
+        if self.hash != other.hash {
+            return false;
+        }
         if self.name != other.name {
             return false;
         }
@@ -336,8 +326,12 @@ impl Ord for Key {
 }
 
 impl Hash for Key {
+    #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        key_hasher_impl(state, &self.name, &self.labels);
+        // Write the pre-computed hash directly. This is designed to work with `KeyHasher`,
+        // a no-op hasher that simply returns the u64 written to it. For other hashers,
+        // this will re-hash the pre-computed value.
+        state.write_u64(self.hash)
     }
 }
 
