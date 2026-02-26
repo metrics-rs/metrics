@@ -63,7 +63,7 @@ prost-types = { version = "0.14", default-features = false }
 quanta = { version = "0.12", default-features = false }
 quickcheck = { version = "1", default-features = false }
 quickcheck_macros = { version = "1", default-features = false }
-radix_trie = { version = "0.2", default-features = false }
+radix_trie = { version = "0.3", default-features = false }
 rand = { version = "0.9", default-features = false, features = [ "thread_rng" ] }
 rand_xoshiro = { version = "0.7", default-features = false }
 rapidhash = { version = "4.1.1", default-features = false }
