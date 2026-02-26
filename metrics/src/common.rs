@@ -19,18 +19,23 @@ pub type SharedString = Cow<'static, str>;
 
 /// Key-specific hashing algorithm.
 ///
+/// Deprecated in favor of a no-hash based implementation in `metrics-util::common::KeyHasher`.
+///
 /// Currently uses rapidhash - <https://github.com/hoxxep/rapidhash>
 ///
-/// For any use-case within a `metrics`-owned or adjacent crate, where hashing of a key is required,
-/// this is the hasher that will be used.
+/// For any use-case within a `metrics`-owned or adjacent crate, where hashing of a
+/// [`Key`][crate::Key] is required, this is the hasher that will be used.
+#[deprecated(since = "0.24.4", note = "Use `metrics-util::common::KeyHasher` instead.")]
 pub struct KeyHasher(RapidHasher<'static>);
 
+#[allow(deprecated)]
 impl std::fmt::Debug for KeyHasher {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KeyHasher").finish_non_exhaustive()
     }
 }
 
+#[allow(deprecated)]
 impl Default for KeyHasher {
     fn default() -> Self {
         // The seed should be randomized on application start if DoS resistance is required, but
@@ -39,6 +44,7 @@ impl Default for KeyHasher {
     }
 }
 
+#[allow(deprecated)]
 impl Hasher for KeyHasher {
     fn finish(&self) -> u64 {
         self.0.finish()
