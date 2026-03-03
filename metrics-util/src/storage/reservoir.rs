@@ -33,6 +33,7 @@ fn fastrand(upper: usize) -> usize {
 struct Reservoir {
     values: Box<[AtomicU64]>,
     count: AtomicUsize,
+    unsampled_sum: AtomicU64,
 }
 
 impl Reservoir {
@@ -42,7 +43,11 @@ impl Reservoir {
             values.push(AtomicU64::new(0));
         }
 
-        Self { values: values.into_boxed_slice(), count: AtomicUsize::new(0) }
+        Self {
+            values: values.into_boxed_slice(),
+            count: AtomicUsize::new(0),
+            unsampled_sum: AtomicU64::new(0.0f64.to_bits()),
+        }
     }
 
     fn push(&self, value: f64) {
@@ -55,12 +60,22 @@ impl Reservoir {
                 self.values[maybe_idx].store(value.to_bits(), Relaxed);
             }
         }
+
+        loop {
+            let result = self.unsampled_sum.fetch_update(Relaxed, Relaxed, |curr| {
+                Some((f64::from_bits(curr) + value).to_bits())
+            });
+            if result.is_ok() {
+                break;
+            }
+        }
     }
 
     fn drain(&self) -> Drain<'_> {
         let unsampled_len = self.count.load(Relaxed);
         let len = if unsampled_len > self.values.len() { self.values.len() } else { unsampled_len };
-        Drain { reservoir: self, unsampled_len, len, idx: 0 }
+        let unsampled_sum = f64::from_bits(self.unsampled_sum.load(Relaxed));
+        Drain { reservoir: self, unsampled_len, len, idx: 0, unsampled_sum }
     }
 }
 
@@ -70,6 +85,7 @@ pub struct Drain<'a> {
     unsampled_len: usize,
     len: usize,
     idx: usize,
+    unsampled_sum: f64,
 }
 
 impl<'a> Drain<'a> {
@@ -94,6 +110,12 @@ impl<'a> Drain<'a> {
         } else {
             self.len as f64 / self.unsampled_len as f64
         }
+    }
+
+    /// Returns the sum of all samples pushed into the reservoir,
+    /// including those that were dropped by the sampling algorithm.
+    pub fn unsampled_sum(&self) -> f64 {
+        self.unsampled_sum
     }
 }
 
@@ -120,6 +142,7 @@ impl ExactSizeIterator for Drain<'_> {
 impl<'a> Drop for Drain<'a> {
     fn drop(&mut self) {
         self.reservoir.count.store(0, Release);
+        self.reservoir.unsampled_sum.store(0.0f64.to_bits(), Release);
     }
 }
 
