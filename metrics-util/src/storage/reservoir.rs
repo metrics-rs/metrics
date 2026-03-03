@@ -214,3 +214,78 @@ impl AtomicSamplingReservoir {
         f(drain);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_under_capacity_no_overflow() {
+        let reservoir = AtomicSamplingReservoir::new(64);
+
+        for i in 0..10 {
+            reservoir.push(i as f64);
+        }
+
+        reservoir.consume(|drain| {
+            assert_eq!(drain.unsampled_len(), 10);
+            assert_eq!(drain.unsampled_sum(), 45.0);
+            assert_eq!(drain.sample_rate(), 1.0);
+
+            let collected: Vec<f64> = drain.collect();
+            assert_eq!(collected.len(), 10);
+        });
+    }
+
+    #[test]
+    fn test_overflow_unsampled_len_and_sum_are_true_values() {
+        let reservoir = AtomicSamplingReservoir::new(16);
+
+        for i in 0..1000 {
+            reservoir.push(i as f64);
+        }
+
+        reservoir.consume(|drain| {
+            assert_eq!(drain.unsampled_len(), 1000);
+            assert_eq!(drain.unsampled_sum(), 499500.0);
+            assert!(drain.sample_rate() < 1.0);
+
+            let collected: Vec<f64> = drain.collect();
+            assert_eq!(collected.len(), 16);
+
+            let sampled_sum: f64 = collected.iter().sum();
+            assert!(sampled_sum < 499500.0);
+        });
+    }
+
+    #[test]
+    fn test_reset_after_drain() {
+        let reservoir = AtomicSamplingReservoir::new(64);
+
+        for i in 0..100 {
+            reservoir.push(i as f64);
+        }
+
+        reservoir.consume(|_drain| {
+        });
+
+        for i in 0..50 {
+            reservoir.push(i as f64);
+        }
+
+        reservoir.consume(|drain| {
+            assert_eq!(drain.unsampled_len(), 50);
+            assert_eq!(drain.unsampled_sum(), 1225.0);
+        });
+    }
+
+    #[test]
+    fn test_empty_reservoir() {
+        let reservoir = AtomicSamplingReservoir::new(64);
+
+        reservoir.consume(|drain| {
+            assert_eq!(drain.unsampled_len(), 0);
+            assert_eq!(drain.unsampled_sum(), 0.0);
+        });
+    }
+}
