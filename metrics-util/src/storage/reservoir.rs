@@ -73,6 +73,12 @@ pub struct Drain<'a> {
 }
 
 impl<'a> Drain<'a> {
+    /// Returns the total number of samples pushed into the reservoir,
+    /// including those that were dropped by the sampling algorithm.
+    pub fn unsampled_len(&self) -> usize {
+        self.unsampled_len
+    }
+
     /// Returns the sample rate of the reservoir that produced this iterator.
     ///
     /// The sample rate is the ratio of the number of samples pushed into the reservoir to the number of samples held in
