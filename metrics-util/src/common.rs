@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
-use metrics::{Key, KeyHasher};
+use metrics::Key;
+use rapidhash::fast::RapidHasher;
 
 /// A type that can hash itself.
 ///
@@ -22,6 +23,7 @@ pub trait Hashable: Hash {
     type Hasher: Hasher + Default;
 
     /// Generate the hash of this object.
+    #[inline]
     fn hashable(&self) -> u64 {
         let mut hasher = Self::Hasher::default();
         self.hash(&mut hasher);
@@ -32,8 +34,43 @@ pub trait Hashable: Hash {
 impl Hashable for Key {
     type Hasher = KeyHasher;
 
+    #[inline]
     fn hashable(&self) -> u64 {
         self.get_hash()
+    }
+}
+
+/// A no-op hasher for pre-hashed [`Key`][metrics::Key] types.
+///
+/// This hasher is designed for use with [`Key`][metrics::Key], which pre-computes its hash at
+/// construction time. When `Key::hash()` is called, it writes the pre-computed hash via
+/// `write_u64()`, and `finish()` simply returns that value.
+///
+/// This ensures that `HashMap<Key, V, BuildHasherDefault<KeyHasher>>` lookups work correctly
+/// when using raw_entry APIs with pre-computed hashes.
+///
+/// # Panics
+///
+/// Panics if `finish()` is called without first calling `write_u64()`, or if any write method
+/// other than `write_u64()` is called. This hasher is specifically for pre-hashed keys only.
+#[derive(Debug, Default)]
+pub struct KeyHasher {
+    hash: Option<u64>,
+}
+
+impl Hasher for KeyHasher {
+    #[inline(always)]
+    fn finish(&self) -> u64 {
+        self.hash.expect("KeyHasher::finish() called without write_u64(); KeyHasher is only for pre-hashed Key types")
+    }
+
+    fn write(&mut self, _bytes: &[u8]) {
+        panic!("KeyHasher::write() called; KeyHasher only supports write_u64() for pre-hashed Key types");
+    }
+
+    #[inline(always)]
+    fn write_u64(&mut self, i: u64) {
+        self.hash = Some(i);
     }
 }
 
@@ -47,10 +84,10 @@ impl Hashable for Key {
 pub struct DefaultHashable<H: Hash>(pub H);
 
 impl<H: Hash> Hashable for DefaultHashable<H> {
-    type Hasher = KeyHasher;
+    type Hasher = RapidHasher<'static>;
 
     fn hashable(&self) -> u64 {
-        let mut hasher = KeyHasher::default();
+        let mut hasher = RapidHasher::default();
         self.hash(&mut hasher);
         hasher.finish()
     }

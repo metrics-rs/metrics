@@ -46,14 +46,14 @@ fn registry_benchmark(c: &mut Criterion) {
     group.bench_function("const key overhead (basic)", |b| {
         b.iter(|| {
             static KEY_NAME: &str = "simple_key";
-            Key::from_static_name(KEY_NAME)
+            const { Key::from_static_name(KEY_NAME) } // this gets evaluated at runtime unless wrapped in const
         })
     });
     group.bench_function("const key data overhead (labels)", |b| {
         b.iter(|| {
             static KEY_NAME: &str = "simple_key";
             static LABELS: [Label; 1] = [Label::from_static_parts("type", "http")];
-            Key::from_static_parts(KEY_NAME, &LABELS)
+            const { Key::from_static_parts(KEY_NAME, &LABELS) }
         })
     });
     group.bench_function("owned key overhead (basic)", |b| b.iter(|| Key::from_name("simple_key")));

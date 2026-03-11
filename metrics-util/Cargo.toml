@@ -46,13 +46,13 @@ name = "bucket-crusher"
 required-features = ["storage"]
 
 [dependencies]
-ahash = { workspace = true, optional = true }
 aho-corasick = { workspace = true, features = ["std"], optional = true }
 crossbeam-epoch = { workspace = true, features = ["alloc", "std"], optional = true }
 crossbeam-utils = { workspace = true, optional = true }
 hashbrown = { workspace = true, optional = true }
 indexmap = { workspace = true, optional = true }
 metrics = { version = "^0.24", path = "../metrics" }
+rapidhash = { workspace = true }
 ordered-float = { workspace = true, optional = true }
 quanta = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }

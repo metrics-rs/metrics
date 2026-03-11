@@ -8,7 +8,7 @@ use std::{
 };
 
 use hashbrown::{hash_map::RawEntryMut, HashMap};
-use metrics::{Key, KeyHasher};
+use metrics::Key;
 pub use storage::{AtomicStorage, Storage};
 
 #[cfg(feature = "recency")]
@@ -20,6 +20,7 @@ pub use recency::{
     Generation, Generational, GenerationalAtomicStorage, GenerationalStorage, Recency,
 };
 
+use crate::common::KeyHasher;
 use crate::Hashable;
 
 type RegistryHasher = KeyHasher;
@@ -207,6 +208,12 @@ where
             let mut shard_write = subshard.write().unwrap_or_else(PoisonError::into_inner);
             shard_write.retain(|k, h| f(k, h));
         }
+    }
+
+    #[inline(always)]
+    /// Accesses reference to the underlying storage
+    pub fn storage(&self) -> &S {
+        &self.storage
     }
 }
 
