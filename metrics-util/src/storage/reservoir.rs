@@ -266,8 +266,7 @@ mod tests {
             reservoir.push(i as f64);
         }
 
-        reservoir.consume(|_drain| {
-        });
+        reservoir.consume(|_drain| {});
 
         for i in 0..50 {
             reservoir.push(i as f64);
