@@ -5,7 +5,7 @@ edition = "2018"
 rust-version = { workspace = true }
 
 description = "A metrics-compatible exporter for sending metrics to Prometheus."
-license = { workspace = true }
+license = "MIT AND Apache-2.0"
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 repository = { workspace = true }
 homepage = { workspace = true }
