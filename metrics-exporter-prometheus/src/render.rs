@@ -51,7 +51,7 @@ pub struct Quantile {
 #[expect(missing_docs)]
 pub struct Summary {
     pub sample_count: u64,
-    pub sample_sume: f64,
+    pub sample_sum: f64,
     pub quantiles: Vec<Quantile>,
 }
 
@@ -98,19 +98,47 @@ pub(crate) fn render_snapshot_and_descriptions(
     descriptions_rd: &DescriptionReadHandle,
     counter_suffix: Option<&'static str>,
 ) -> RenderedMetrics {
-    let counters = snapshot.counters.into_iter().map(|(name, by_labels)| {
-        render_metric(&name, by_labels, descriptions_rd, counter_suffix, MetricValue::Counter)
-    });
+    let counters = snapshot
+        .counters
+        .into_iter()
+        .map(|(name, by_labels)| render_counter(&name, by_labels, descriptions_rd, counter_suffix));
 
-    let gauges = snapshot.gauges.into_iter().map(|(name, by_labels)| {
-        render_metric(&name, by_labels, descriptions_rd, None, MetricValue::Gauge)
-    });
+    let gauges = snapshot
+        .gauges
+        .into_iter()
+        .map(|(name, by_labels)| render_gauge(&name, by_labels, descriptions_rd));
 
-    let distributions = snapshot.distributions.into_iter().map(|(name, by_labels)| {
-        render_metric(&name, by_labels, descriptions_rd, None, render_distribution)
-    });
+    let distributions = snapshot
+        .distributions
+        .into_iter()
+        .map(|(name, by_labels)| render_distribution(&name, by_labels, descriptions_rd));
 
     counters.chain(gauges).chain(distributions).collect()
+}
+
+pub(crate) fn render_counter(
+    name: &str,
+    by_labels: std::collections::HashMap<LabelSet, u64>,
+    descriptions_rd: &DescriptionReadHandle,
+    counter_suffix: Option<&'static str>,
+) -> MetricFamily {
+    render_metric(name, by_labels, descriptions_rd, counter_suffix, MetricValue::Counter)
+}
+
+pub(crate) fn render_gauge(
+    name: &str,
+    by_labels: std::collections::HashMap<LabelSet, f64>,
+    descriptions_rd: &DescriptionReadHandle,
+) -> MetricFamily {
+    render_metric(name, by_labels, descriptions_rd, None, MetricValue::Gauge)
+}
+
+pub(crate) fn render_distribution(
+    name: &str,
+    by_labels: indexmap::IndexMap<LabelSet, crate::Distribution>,
+    descriptions_rd: &DescriptionReadHandle,
+) -> MetricFamily {
+    render_metric(name, by_labels, descriptions_rd, None, render_distribution_value)
 }
 
 fn get_help(name: &str, descriptions_rd: &DescriptionReadHandle) -> Option<String> {
@@ -132,15 +160,17 @@ fn render_metric<T>(
     counter_suffix: Option<&'static str>,
     mut render_value: impl FnMut(T) -> MetricValue,
 ) -> MetricFamily {
-    let help = get_help(name, descriptions_rd);
-    let metrics: Vec<_> = by_labels
-        .into_iter()
-        .map(|(labels, value)| Metric { labels: get_labels(labels), value: render_value(value) })
-        .collect();
-    let name = sanitize_metric_name(name);
-    let is_counter = matches!(metrics.first(), Some(Metric { value: MetricValue::Counter(_), .. }));
-    let name = if is_counter { add_suffix_to_name(name, counter_suffix) } else { name };
-    MetricFamily { name, help, metrics }
+    MetricFamily {
+        name: add_suffix_to_name(sanitize_metric_name(name), counter_suffix),
+        help: get_help(name, descriptions_rd),
+        metrics: by_labels
+            .into_iter()
+            .map(|(labels, value)| Metric {
+                labels: get_labels(labels),
+                value: render_value(value),
+            })
+            .collect(),
+    }
 }
 
 fn add_suffix_to_name(name: String, suffix: Option<&'static str>) -> String {
@@ -151,7 +181,7 @@ fn add_suffix_to_name(name: String, suffix: Option<&'static str>) -> String {
 }
 
 #[expect(clippy::needless_pass_by_value, reason = "matches FnMut signature")]
-fn render_distribution(distribution: crate::Distribution) -> MetricValue {
+fn render_distribution_value(distribution: crate::Distribution) -> MetricValue {
     match &distribution {
         crate::Distribution::Summary(summary, quantiles, sum) => {
             render_summary(summary, quantiles, *sum)
@@ -169,7 +199,7 @@ fn render_summary(
     let snapshot = summary.snapshot(quanta::Instant::now());
     MetricValue::Summary(Summary {
         sample_count: summary.count() as u64,
-        sample_sume: sum,
+        sample_sum: sum,
         quantiles: quantiles
             .iter()
             .map(|q| Quantile {
@@ -267,4 +297,19 @@ fn make_buckets(buckets: std::collections::BTreeMap<i32, u64>) -> (Vec<BucketSpa
     }
 
     (spans, deltas)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_suffix_to_name() {
+        assert_eq!(add_suffix_to_name("requests".to_owned(), Some("total")), "requests_total");
+        assert_eq!(
+            add_suffix_to_name("requests_total".to_owned(), Some("total")),
+            "requests_total"
+        );
+        assert_eq!(add_suffix_to_name("requests".to_owned(), None), "requests");
+    }
 }

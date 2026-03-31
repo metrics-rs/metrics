@@ -3,9 +3,7 @@
 use prost::Message;
 use std::io::Write;
 
-use crate::common::{LabelSet, Snapshot};
-use crate::distribution::Distribution;
-use crate::formatting::sanitize_metric_name;
+use crate::common::Snapshot;
 use crate::recorder::DescriptionReadHandle;
 
 // Include the generated protobuf code
@@ -51,40 +49,9 @@ pub(crate) fn render_protobuf_to_write<W: Write>(
 
     // Process counters
     for (name, by_labels) in snapshot.counters {
-        let sanitized_name = sanitize_metric_name(&name);
-        let help = descriptions_rd
-            .get_one(name.as_str())
-            .map(|entry| {
-                let (desc, _) = &*entry;
-                desc.to_string()
-            })
-            .unwrap_or_default();
-
-        let mut metrics = Vec::new();
-        for (labels, value) in by_labels {
-            let label_pairs = label_set_to_protobuf(labels);
-
-            metrics.push(pb::Metric {
-                label: label_pairs,
-                counter: Some(pb::Counter {
-                    #[allow(clippy::cast_precision_loss)]
-                    value: Some(value as f64),
-
-                    ..Default::default()
-                }),
-
-                ..Default::default()
-            });
-        }
-
-        let metric_family = pb::MetricFamily {
-            name: Some(add_suffix_to_name(&sanitized_name, counter_suffix)),
-            help: if help.is_empty() { None } else { Some(help) },
-            r#type: Some(pb::MetricType::Counter as i32),
-            metric: metrics,
-            unit: None,
-        };
-
+        let metric_family =
+            crate::render::render_counter(&name, by_labels, descriptions_rd, counter_suffix)
+                .into_protobuf();
         buffer.clear();
         metric_family.encode_length_delimited(&mut buffer).unwrap();
         writer.write_all(&buffer)?;
@@ -92,35 +59,8 @@ pub(crate) fn render_protobuf_to_write<W: Write>(
 
     // Process gauges
     for (name, by_labels) in snapshot.gauges {
-        let sanitized_name = sanitize_metric_name(&name);
-        let help = descriptions_rd
-            .get_one(name.as_str())
-            .map(|entry| {
-                let (desc, _) = &*entry;
-                desc.to_string()
-            })
-            .unwrap_or_default();
-
-        let mut metrics = Vec::new();
-        for (labels, value) in by_labels {
-            let label_pairs = label_set_to_protobuf(labels);
-
-            metrics.push(pb::Metric {
-                label: label_pairs,
-                gauge: Some(pb::Gauge { value: Some(value) }),
-
-                ..Default::default()
-            });
-        }
-
-        let metric_family = pb::MetricFamily {
-            name: Some(sanitized_name),
-            help: if help.is_empty() { None } else { Some(help) },
-            r#type: Some(pb::MetricType::Gauge as i32),
-            metric: metrics,
-            unit: None,
-        };
-
+        let metric_family =
+            crate::render::render_gauge(&name, by_labels, descriptions_rd).into_protobuf();
         buffer.clear();
         metric_family.encode_length_delimited(&mut buffer).unwrap();
         writer.write_all(&buffer)?;
@@ -128,144 +68,8 @@ pub(crate) fn render_protobuf_to_write<W: Write>(
 
     // Process distributions (histograms and summaries)
     for (name, by_labels) in snapshot.distributions {
-        let sanitized_name = sanitize_metric_name(&name);
-        let help = descriptions_rd
-            .get_one(name.as_str())
-            .map(|entry| {
-                let (desc, _) = &*entry;
-                desc.to_string()
-            })
-            .unwrap_or_default();
-
-        let mut metrics = Vec::new();
-        let mut metric_type = None;
-        for (labels, distribution) in by_labels {
-            let label_pairs = label_set_to_protobuf(labels);
-
-            let metric = match distribution {
-                Distribution::Summary(summary, quantiles, sum) => {
-                    use quanta::Instant;
-                    metric_type = Some(pb::MetricType::Summary);
-                    let snapshot = summary.snapshot(Instant::now());
-                    let quantile_values: Vec<pb::Quantile> = quantiles
-                        .iter()
-                        .map(|q| pb::Quantile {
-                            quantile: Some(q.value()),
-                            value: Some(snapshot.quantile(q.value()).unwrap_or(0.0)),
-                        })
-                        .collect();
-
-                    pb::Metric {
-                        label: label_pairs,
-                        summary: Some(pb::Summary {
-                            sample_count: Some(summary.count() as u64),
-                            sample_sum: Some(sum),
-                            quantile: quantile_values,
-
-                            created_timestamp: None,
-                        }),
-
-                        ..Default::default()
-                    }
-                }
-                Distribution::Histogram(histogram) => {
-                    metric_type = Some(pb::MetricType::Histogram);
-                    let mut buckets = Vec::new();
-                    for (le, count) in histogram.buckets() {
-                        buckets.push(pb::Bucket {
-                            cumulative_count: Some(count),
-                            upper_bound: Some(le),
-
-                            ..Default::default()
-                        });
-                    }
-                    // Add +Inf bucket
-                    buckets.push(pb::Bucket {
-                        cumulative_count: Some(histogram.count()),
-                        upper_bound: Some(f64::INFINITY),
-
-                        ..Default::default()
-                    });
-
-                    pb::Metric {
-                        label: label_pairs,
-                        histogram: Some(pb::Histogram {
-                            sample_count: Some(histogram.count()),
-                            sample_sum: Some(histogram.sum()),
-                            bucket: buckets,
-
-                            ..Default::default()
-                        }),
-
-                        ..Default::default()
-                    }
-                }
-                Distribution::NativeHistogram(native_hist) => {
-                    metric_type = Some(pb::MetricType::Histogram);
-                    // Convert our native histogram into Prometheus native histogram format
-                    let positive_buckets = native_hist.positive_buckets();
-                    let negative_buckets = native_hist.negative_buckets();
-
-                    // Get the current schema being used by the histogram
-                    let schema = native_hist.schema();
-
-                    // Convert positive buckets to spans and deltas (matches Go makeBuckets function)
-                    let (positive_spans, positive_deltas) = make_buckets(&positive_buckets);
-                    let (negative_spans, negative_deltas) = make_buckets(&negative_buckets);
-
-                    // Match Go Write() method output exactly
-                    let mut histogram = pb::Histogram {
-                        sample_count: Some(native_hist.count()),
-                        sample_sum: Some(native_hist.sum()),
-
-                        // Native histogram fields from Go implementation
-                        zero_threshold: Some(native_hist.config().zero_threshold()),
-                        schema: Some(schema),
-                        zero_count: Some(native_hist.zero_count()),
-
-                        positive_span: positive_spans,
-                        positive_delta: positive_deltas,
-
-                        negative_span: negative_spans,
-                        negative_delta: negative_deltas,
-
-                        ..Default::default()
-                    };
-
-                    // Add a no-op span if histogram is empty (matches Go implementation)
-                    if histogram.zero_threshold == Some(0.0)
-                        && histogram.zero_count == Some(0)
-                        && histogram.positive_span.is_empty()
-                        && histogram.negative_span.is_empty()
-                    {
-                        histogram.positive_span =
-                            vec![pb::BucketSpan { offset: Some(0), length: Some(0) }];
-                    }
-
-                    pb::Metric {
-                        label: label_pairs,
-                        histogram: Some(histogram),
-                        ..Default::default()
-                    }
-                }
-            };
-
-            metrics.push(metric);
-        }
-
-        let Some(metric_type) = metric_type else {
-            // Skip empty metric families
-            continue;
-        };
-
-        let metric_family = pb::MetricFamily {
-            name: Some(sanitized_name),
-            help: if help.is_empty() { None } else { Some(help) },
-            r#type: Some(metric_type as i32),
-            metric: metrics,
-            unit: None,
-        };
-
+        let metric_family =
+            crate::render::render_distribution(&name, by_labels, descriptions_rd).into_protobuf();
         buffer.clear();
         metric_family.encode_length_delimited(&mut buffer).unwrap();
         writer.write_all(&buffer)?;
@@ -274,72 +78,150 @@ pub(crate) fn render_protobuf_to_write<W: Write>(
     Ok(())
 }
 
-fn label_set_to_protobuf(labels: LabelSet) -> Vec<pb::LabelPair> {
-    let mut label_pairs = Vec::new();
-
-    for (key, value) in labels.labels {
-        label_pairs.push(pb::LabelPair { name: Some(key), value: Some(value) });
-    }
-
-    label_pairs
-}
-
-fn add_suffix_to_name(name: &str, suffix: Option<&'static str>) -> String {
-    match suffix {
-        Some(suffix) if !name.ends_with(suffix) => format!("{name}_{suffix}"),
-        _ => name.to_string(),
+impl crate::render::MetricFamily {
+    fn into_protobuf(self) -> pb::MetricFamily {
+        let metric_type = self.metrics.first().map(|m| m.protobuf_metric_type() as i32);
+        pb::MetricFamily {
+            name: Some(self.name),
+            help: self.help,
+            r#type: metric_type,
+            metric: self.metrics.into_iter().map(crate::render::Metric::into_protobuf).collect(),
+            unit: None,
+        }
     }
 }
 
-/// Convert a `BTreeMap` of bucket indices to counts into Prometheus native histogram
-/// spans and deltas format. This follows the Go `makeBucketsFromMap` function.
-fn make_buckets(buckets: &std::collections::BTreeMap<i32, u64>) -> (Vec<pb::BucketSpan>, Vec<i64>) {
-    if buckets.is_empty() {
-        return (vec![], vec![]);
+impl crate::render::Metric {
+    const fn protobuf_metric_type(&self) -> pb::MetricType {
+        use crate::render::MetricValue::{
+            ClassicHistogram, Counter, Gauge, NativeHistogram, Summary,
+        };
+        match self.value {
+            Counter(_) => pb::MetricType::Counter,
+            Gauge(_) => pb::MetricType::Gauge,
+            Summary(_) => pb::MetricType::Summary,
+            ClassicHistogram(_) | NativeHistogram(_) => pb::MetricType::Histogram,
+        }
     }
 
-    // Get sorted bucket indices (similar to Go's sorting)
-    let mut indices: Vec<i32> = buckets.keys().copied().collect();
-    indices.sort_unstable();
+    fn into_protobuf(self) -> pb::Metric {
+        let mut metric = pb::Metric {
+            label: self
+                .labels
+                .into_iter()
+                .map(|crate::render::LabelPair { label, value }| pb::LabelPair {
+                    name: Some(label),
+                    value: Some(value),
+                })
+                .collect(),
+            ..Default::default()
+        };
 
-    let mut spans = Vec::new();
-    let mut deltas = Vec::new();
-    let mut prev_count = 0i64;
-    let mut next_i = 0i32;
+        match self.value.into_protobuf() {
+            ProtobufMetricValue::Counter(counter) => metric.counter = Some(counter),
+            ProtobufMetricValue::Gauge(gauge) => metric.gauge = Some(gauge),
+            ProtobufMetricValue::Summary(summary) => metric.summary = Some(summary),
+            ProtobufMetricValue::Histogram(histogram) => metric.histogram = Some(histogram),
+        }
 
-    for (n, &i) in indices.iter().enumerate() {
-        #[allow(clippy::cast_possible_wrap)]
-        let count = buckets[&i] as i64;
+        metric
+    }
+}
 
-        // Multiple spans with only small gaps in between are probably
-        // encoded more efficiently as one larger span with a few empty buckets.
-        // Following Go: gaps of one or two buckets should not create a new span.
-        let i_delta = i - next_i;
-
-        if n == 0 || i_delta > 2 {
-            // Create a new span - either first bucket or gap > 2
-            spans.push(pb::BucketSpan { offset: Some(i_delta), length: Some(0) });
-        } else {
-            // Small gap (or no gap) - insert empty buckets as needed
-            for _ in 0..i_delta {
-                if let Some(last_span) = spans.last_mut() {
-                    *last_span.length.as_mut().unwrap() += 1;
-                }
-                deltas.push(-prev_count);
-                prev_count = 0;
+impl crate::render::MetricValue {
+    fn into_protobuf(self) -> ProtobufMetricValue {
+        use crate::render::MetricValue::{
+            ClassicHistogram, Counter, Gauge, NativeHistogram, Summary,
+        };
+        match self {
+            Counter(value) => ProtobufMetricValue::Counter(pb::Counter {
+                #[expect(clippy::cast_precision_loss)]
+                value: Some(value as f64),
+                ..Default::default()
+            }),
+            Gauge(value) => ProtobufMetricValue::Gauge(pb::Gauge { value: Some(value) }),
+            Summary(summary) => ProtobufMetricValue::Summary(summary.into_protobuf()),
+            ClassicHistogram(histogram) => {
+                ProtobufMetricValue::Histogram(histogram.into_protobuf())
+            }
+            NativeHistogram(native_histogram) => {
+                ProtobufMetricValue::Histogram(native_histogram.into_protobuf())
             }
         }
-
-        // Add the current bucket
-        if let Some(last_span) = spans.last_mut() {
-            *last_span.length.as_mut().unwrap() += 1;
-        }
-        deltas.push(count - prev_count);
-        prev_count = count;
-        next_i = i + 1;
     }
+}
 
-    (spans, deltas)
+impl crate::render::Summary {
+    fn into_protobuf(self) -> pb::Summary {
+        pb::Summary {
+            sample_count: Some(self.sample_count),
+            sample_sum: Some(self.sample_sum),
+            quantile: self
+                .quantiles
+                .into_iter()
+                .map(|q| pb::Quantile { quantile: Some(q.quantile), value: Some(q.value) })
+                .collect(),
+            created_timestamp: None,
+        }
+    }
+}
+
+impl crate::render::ClassicHistogram {
+    fn into_protobuf(self) -> pb::Histogram {
+        pb::Histogram {
+            sample_count: Some(self.sample_count),
+            sample_sum: Some(self.sample_sum),
+            bucket: self
+                .buckets
+                .into_iter()
+                .map(|crate::render::Bucket { cumulative_count, upper_bound }| pb::Bucket {
+                    cumulative_count: Some(cumulative_count),
+                    upper_bound: Some(upper_bound),
+                    ..Default::default()
+                })
+                .collect(),
+            ..Default::default()
+        }
+    }
+}
+
+impl crate::render::NativeHistogram {
+    fn into_protobuf(self) -> pb::Histogram {
+        pb::Histogram {
+            sample_count: Some(self.sample_count),
+            sample_sum: Some(self.sample_sum),
+            zero_threshold: Some(self.zero_threshold),
+            schema: Some(self.schema),
+            zero_count: Some(self.zero_count),
+            positive_span: self
+                .positive_spans
+                .into_iter()
+                .map(|crate::render::BucketSpan { offset, length }| pb::BucketSpan {
+                    offset: Some(offset),
+                    length: Some(length),
+                })
+                .collect(),
+            positive_delta: self.positive_deltas,
+            negative_span: self
+                .negative_spans
+                .into_iter()
+                .map(|crate::render::BucketSpan { offset, length }| pb::BucketSpan {
+                    offset: Some(offset),
+                    length: Some(length),
+                })
+                .collect(),
+            negative_delta: self.negative_deltas,
+            ..Default::default()
+        }
+    }
+}
+
+#[expect(clippy::large_enum_variant, reason = "enum is inlined into intermediate callsites")]
+enum ProtobufMetricValue {
+    Counter(pb::Counter),
+    Gauge(pb::Gauge),
+    Summary(pb::Summary),
+    Histogram(pb::Histogram),
 }
 
 #[cfg(test)]
@@ -347,6 +229,7 @@ mod tests {
     use super::*;
     use crate::common::Snapshot;
     use crate::recorder::new_description_handles;
+    use crate::LabelSet;
     use indexmap::IndexMap;
     use metrics::SharedString;
     use prost::Message;
@@ -420,12 +303,5 @@ mod tests {
         assert!(metric.gauge.is_some());
         let gauge_value = metric.gauge.as_ref().unwrap().value.unwrap();
         assert!((gauge_value - 0.75).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    fn test_add_suffix_to_name() {
-        assert_eq!(add_suffix_to_name("requests", Some("total")), "requests_total");
-        assert_eq!(add_suffix_to_name("requests_total", Some("total")), "requests_total");
-        assert_eq!(add_suffix_to_name("requests", None), "requests");
     }
 }
