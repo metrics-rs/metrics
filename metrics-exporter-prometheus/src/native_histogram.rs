@@ -908,43 +908,36 @@ impl NativeHistogram {
     }
 
     /// Returns the total count of observations.
-    #[cfg(any(feature = "protobuf", test))]
     pub(crate) fn count(&self) -> u64 {
         self.count.load(Ordering::Relaxed)
     }
 
     /// Returns the sum of all observations.
-    #[cfg(any(feature = "protobuf", test))]
     pub(crate) fn sum(&self) -> f64 {
         f64::from_bits(self.sum.load(Ordering::Relaxed))
     }
 
     /// Returns the count of zero observations.
-    #[cfg(any(feature = "protobuf", test))]
     pub(crate) fn zero_count(&self) -> u64 {
         self.zero_count.load(Ordering::Relaxed)
     }
 
     /// Returns a snapshot of the positive buckets.
-    #[cfg(any(feature = "protobuf", test))]
     pub(crate) fn positive_buckets(&self) -> std::collections::BTreeMap<i32, u64> {
         self.positive_buckets.read().unwrap().clone()
     }
 
     /// Returns a snapshot of the negative buckets.
-    #[cfg(any(feature = "protobuf", test))]
     pub(crate) fn negative_buckets(&self) -> std::collections::BTreeMap<i32, u64> {
         self.negative_buckets.read().unwrap().clone()
     }
 
     /// Returns the configuration used by this histogram.
-    #[cfg(feature = "protobuf")]
     pub(crate) fn config(&self) -> &NativeHistogramConfig {
         &self.config
     }
 
     /// Returns the current schema being used.
-    #[cfg(any(feature = "protobuf", test))]
     pub(crate) fn schema(&self) -> i32 {
         self.schema.load(Ordering::Relaxed)
     }
