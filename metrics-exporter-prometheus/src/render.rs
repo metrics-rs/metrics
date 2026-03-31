@@ -1,95 +1,152 @@
-//! Render metrics into structured objects instead of serializing as text or protobuf.
+//! Format-agnostic structured representation of a Prometheus metrics snapshot.
+//!
+//! The types in this module mirror the Prometheus data model (metric families,
+//! individual metrics with labels, and typed values) without being tied to a
+//! specific wire format. They serve as an intermediate representation that can
+//! be converted into protobuf, text exposition, or consumed directly by
+//! application code via [`PrometheusHandle::render_snapshot_and_descriptions`].
+//!
+//! [`PrometheusHandle::render_snapshot_and_descriptions`]: crate::PrometheusHandle::render_snapshot_and_descriptions
 
 use crate::common::Snapshot;
 use crate::formatting::sanitize_metric_name;
 use crate::recorder::DescriptionReadHandle;
 use crate::LabelSet;
 
-#[expect(missing_docs)]
+/// A rendered snapshot of all metric families.
 pub type RenderedMetrics = Vec<MetricFamily>;
 
+/// A single label key-value pair attached to a metric sample.
 #[derive(Debug)]
-#[expect(missing_docs)]
 pub struct LabelPair {
+    /// The label name (e.g. `"method"`).
     pub label: String,
+    /// The label value (e.g. `"GET"`).
     pub value: String,
 }
 
+/// A named group of metrics that share the same metric name, help text, and
+/// value type — corresponding to a single Prometheus `MetricFamily`.
 #[derive(Debug)]
-#[expect(missing_docs)]
 pub struct MetricFamily {
+    /// The sanitized metric name, including any applicable suffix (e.g.
+    /// `"http_requests_total"`).
     pub name: String,
+    /// The `HELP` description, if one was registered.
     pub help: Option<String>,
+    /// The individual time-series samples within this family, each
+    /// distinguished by its label set.
     pub metrics: Vec<Metric>,
 }
 
+/// A single time-series sample: a set of labels and a typed value.
 #[derive(Debug)]
-#[expect(missing_docs)]
 pub struct Metric {
+    /// Labels that identify this particular time series.
     pub labels: Vec<LabelPair>,
+    /// The typed metric value.
     pub value: MetricValue,
 }
 
+/// The typed payload of a metric sample.
 #[derive(Debug)]
-#[expect(missing_docs)]
 pub enum MetricValue {
+    /// A monotonically increasing counter, stored as a raw `u64` count.
     Counter(u64),
+    /// A gauge that can go up and down.
     Gauge(f64),
+    /// A client-side computed summary with pre-calculated quantiles.
     Summary(Summary),
+    /// A classic Prometheus histogram with fixed upper-bound buckets.
     ClassicHistogram(ClassicHistogram),
+    /// A Prometheus native (exponential) histogram with sparse bucket spans.
     NativeHistogram(NativeHistogram),
 }
 
+/// A single quantile measurement within a [`Summary`].
 #[derive(Debug)]
-#[expect(missing_docs)]
 pub struct Quantile {
+    /// The quantile rank in `[0.0, 1.0]` (e.g. `0.99` for the 99th percentile).
     pub quantile: f64,
+    /// The observed value at this quantile.
     pub value: f64,
 }
 
+/// A Prometheus summary: pre-computed quantiles plus total count and sum.
 #[derive(Debug)]
-#[expect(missing_docs)]
 pub struct Summary {
+    /// Total number of observations.
     pub sample_count: u64,
+    /// Sum of all observed values.
     pub sample_sum: f64,
+    /// Pre-computed quantile values.
     pub quantiles: Vec<Quantile>,
 }
 
+/// A single bucket in a classic histogram.
 #[derive(Debug)]
-#[expect(missing_docs)]
 pub struct Bucket {
+    /// Cumulative count of observations that fall at or below [`upper_bound`](Self::upper_bound).
     pub cumulative_count: u64,
+    /// The inclusive upper bound of this bucket. The final bucket uses
+    /// [`f64::INFINITY`] to represent the `+Inf` boundary.
     pub upper_bound: f64,
 }
 
+/// A classic (fixed-bucket) Prometheus histogram.
 #[derive(Debug)]
-#[expect(missing_docs)]
 pub struct ClassicHistogram {
+    /// Total number of observations.
     pub sample_count: u64,
+    /// Sum of all observed values.
     pub sample_sum: f64,
+    /// The histogram buckets, including the `+Inf` sentinel.
     pub buckets: Vec<Bucket>,
 }
 
+/// A contiguous run of populated buckets in a native histogram, encoded as an
+/// offset from the previous span's end and a length.
+///
+/// See the [Prometheus native histogram design doc][nhd] for details.
+///
+/// [nhd]: https://docs.google.com/document/d/1cLNv3aufPZb3fNfaJgdCRBnkiEEMBufqCMm1Yj7LSEI
 #[derive(Debug)]
-#[expect(missing_docs)]
 pub struct BucketSpan {
+    /// Signed offset from the expected next bucket index to the start of this
+    /// span.
     pub offset: i32,
+    /// Number of consecutive populated buckets in this span.
     pub length: u32,
 }
 
+/// A Prometheus native (exponential) histogram.
+///
+/// Native histograms use a logarithmic bucket scheme defined by a `schema`
+/// exponent, with sparse encoding via [`BucketSpan`]s and delta-encoded counts.
 #[derive(Debug)]
-#[expect(missing_docs)]
 pub struct NativeHistogram {
+    /// Total number of observations.
     pub sample_count: u64,
+    /// Sum of all observed values.
     pub sample_sum: f64,
+    /// Observations with an absolute value at or below this threshold are
+    /// counted in [`zero_count`](Self::zero_count) instead of a regular bucket.
     pub zero_threshold: f64,
+    /// The exponential schema controlling bucket boundaries (e.g. `3` for
+    /// `2^(2^-3)` growth factor). Lower values produce wider buckets.
     pub schema: i32,
+    /// Count of observations within the zero bucket.
     pub zero_count: u64,
 
+    /// Spans describing contiguous runs of positive-value buckets.
     pub positive_spans: Vec<BucketSpan>,
+    /// Delta-encoded counts for positive-value buckets (one per bucket across
+    /// all positive spans).
     pub positive_deltas: Vec<i64>,
 
+    /// Spans describing contiguous runs of negative-value buckets.
     pub negative_spans: Vec<BucketSpan>,
+    /// Delta-encoded counts for negative-value buckets.
     pub negative_deltas: Vec<i64>,
 }
 
@@ -264,7 +321,7 @@ fn make_buckets(buckets: std::collections::BTreeMap<i32, u64>) -> (Vec<BucketSpa
     let mut first = true;
 
     for (i, count) in buckets {
-        #[allow(clippy::cast_possible_wrap)]
+        #[expect(clippy::cast_possible_wrap)]
         let count = count as i64;
 
         // Multiple spans with only small gaps in between are probably

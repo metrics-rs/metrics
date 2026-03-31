@@ -122,6 +122,7 @@ impl Inner {
     }
 
     fn render_snapshot_and_descriptions(&self) -> crate::render::RenderedMetrics {
+        self.commit_outstanding_description_writes();
         crate::render::render_snapshot_and_descriptions(
             self.get_recent_metrics(),
             &self.read_handle(),
