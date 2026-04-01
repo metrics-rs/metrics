@@ -18,6 +18,7 @@ pub type RenderedMetrics = Vec<MetricFamily>;
 
 /// A single label key-value pair attached to a metric sample.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct LabelPair {
     /// The label name (e.g. `"method"`).
     pub label: String,
@@ -28,6 +29,7 @@ pub struct LabelPair {
 /// A named group of metrics that share the same metric name, help text, and
 /// value type — corresponding to a single Prometheus `MetricFamily`.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct MetricFamily {
     /// The sanitized metric name, including any applicable suffix (e.g.
     /// `"http_requests_total"`).
@@ -41,6 +43,7 @@ pub struct MetricFamily {
 
 /// A single time-series sample: a set of labels and a typed value.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct Metric {
     /// Labels that identify this particular time series.
     pub labels: Vec<LabelPair>,
@@ -50,6 +53,7 @@ pub struct Metric {
 
 /// The typed payload of a metric sample.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum MetricValue {
     /// A monotonically increasing counter, stored as a raw `u64` count.
     Counter(u64),
@@ -65,6 +69,7 @@ pub enum MetricValue {
 
 /// A single quantile measurement within a [`Summary`].
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct Quantile {
     /// The quantile rank in `[0.0, 1.0]` (e.g. `0.99` for the 99th percentile).
     pub quantile: f64,
@@ -74,6 +79,7 @@ pub struct Quantile {
 
 /// A Prometheus summary: pre-computed quantiles plus total count and sum.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct Summary {
     /// Total number of observations.
     pub sample_count: u64,
@@ -85,6 +91,7 @@ pub struct Summary {
 
 /// A single bucket in a classic histogram.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct Bucket {
     /// Cumulative count of observations that fall at or below [`upper_bound`](Self::upper_bound).
     pub cumulative_count: u64,
@@ -95,6 +102,7 @@ pub struct Bucket {
 
 /// A classic (fixed-bucket) Prometheus histogram.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct ClassicHistogram {
     /// Total number of observations.
     pub sample_count: u64,
@@ -111,6 +119,7 @@ pub struct ClassicHistogram {
 ///
 /// [nhd]: https://docs.google.com/document/d/1cLNv3aufPZb3fNfaJgdCRBnkiEEMBufqCMm1Yj7LSEI
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct BucketSpan {
     /// Signed offset from the expected next bucket index to the start of this
     /// span.
@@ -124,6 +133,7 @@ pub struct BucketSpan {
 /// Native histograms use a logarithmic bucket scheme defined by a `schema`
 /// exponent, with sparse encoding via [`BucketSpan`]s and delta-encoded counts.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct NativeHistogram {
     /// Total number of observations.
     pub sample_count: u64,

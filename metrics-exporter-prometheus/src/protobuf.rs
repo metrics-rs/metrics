@@ -21,7 +21,6 @@ pub(crate) const PROTOBUF_CONTENT_TYPE: &str =
 /// This function takes a snapshot of metrics and converts them into the Prometheus
 /// protobuf wire format, where each `MetricFamily` message is prefixed with a varint
 /// length header.
-#[allow(clippy::too_many_lines)]
 pub(crate) fn render_protobuf(
     snapshot: Snapshot,
     descriptions_rd: &DescriptionReadHandle,
@@ -38,7 +37,6 @@ pub(crate) fn render_protobuf(
 /// This function takes a snapshot of metrics and converts them into the Prometheus
 /// protobuf wire format, where each `MetricFamily` message is prefixed with a varint
 /// length header.
-#[allow(clippy::too_many_lines)]
 pub(crate) fn render_protobuf_to_write<W: Write>(
     writer: &mut W,
     snapshot: Snapshot,
