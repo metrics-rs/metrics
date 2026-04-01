@@ -151,4 +151,6 @@ mod recorder;
 
 mod registry;
 
+pub mod render;
+
 pub use self::recorder::{PrometheusHandle, PrometheusRecorder};
