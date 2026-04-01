@@ -125,7 +125,7 @@ impl Inner {
         self.commit_outstanding_description_writes();
         crate::render::render_snapshot_and_descriptions(
             self.get_recent_metrics(),
-            &self.read_handle(),
+            self.read_handle(),
             self.counter_suffix,
         )
     }
@@ -445,11 +445,7 @@ impl PrometheusHandle {
     /// the Prometheus protobuf format.
     #[cfg(feature = "protobuf")]
     pub fn render_protobuf(&self) -> Vec<u8> {
-        let snapshot = self.inner.get_recent_metrics();
-        self.inner.commit_outstanding_description_writes();
-        let descriptions = self.inner.read_handle();
-
-        crate::protobuf::render_protobuf(snapshot, &descriptions, self.inner.counter_suffix)
+        crate::protobuf::render_protobuf(self.inner.render_snapshot_and_descriptions())
     }
 
     /// Takes a snapshot of the metrics held by the recorder and writes a payload conforming to
@@ -460,15 +456,9 @@ impl PrometheusHandle {
     /// Writing to the provided output fails.
     #[cfg(feature = "protobuf")]
     pub fn render_protobuf_to_write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        let snapshot = self.inner.get_recent_metrics();
-        self.inner.commit_outstanding_description_writes();
-        let descriptions = self.inner.read_handle();
-
         crate::protobuf::render_protobuf_to_write(
             writer,
-            snapshot,
-            &descriptions,
-            self.inner.counter_suffix,
+            self.inner.render_snapshot_and_descriptions(),
         )
     }
 

@@ -8,13 +8,75 @@
 //!
 //! [`PrometheusHandle::render_snapshot_and_descriptions`]: crate::PrometheusHandle::render_snapshot_and_descriptions
 
+use std::collections::hash_map::IntoIter as HashMapIntoIter;
+use std::collections::HashMap;
+
+use indexmap::IndexMap;
+
 use crate::common::Snapshot;
 use crate::formatting::sanitize_metric_name;
 use crate::recorder::DescriptionReadHandle;
 use crate::LabelSet;
 
-/// A rendered snapshot of all metric families.
-pub type RenderedMetrics = Vec<MetricFamily>;
+/// An iterator over [`MetricFamily`] values produced from a metrics snapshot.
+///
+/// Created by [`render_snapshot_and_descriptions`]. Yields counter families
+/// first, then gauge families, then distribution families. Implements
+/// [`ExactSizeIterator`] so callers can pre-allocate or make layout decisions
+/// before consuming.
+pub struct RenderedMetrics {
+    counters: HashMapIntoIter<String, HashMap<LabelSet, u64>>,
+    gauges: HashMapIntoIter<String, HashMap<LabelSet, f64>>,
+    distributions: HashMapIntoIter<String, IndexMap<LabelSet, crate::Distribution>>,
+    descriptions_rd: DescriptionReadHandle,
+    counter_suffix: Option<&'static str>,
+}
+
+impl Iterator for RenderedMetrics {
+    type Item = MetricFamily;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((name, by_labels)) = self.counters.next() {
+            return Some(render_counter(
+                &name,
+                by_labels,
+                &self.descriptions_rd,
+                self.counter_suffix,
+            ));
+        }
+        if let Some((name, by_labels)) = self.gauges.next() {
+            return Some(render_gauge(&name, by_labels, &self.descriptions_rd));
+        }
+        if let Some((name, by_labels)) = self.distributions.next() {
+            return Some(render_distribution(&name, by_labels, &self.descriptions_rd));
+        }
+        None
+    }
+
+    fn fold<B, F: FnMut(B, Self::Item) -> B>(self, init: B, mut f: F) -> B {
+        let mut acc = init;
+        for (name, by_labels) in self.counters {
+            acc = f(
+                acc,
+                render_counter(&name, by_labels, &self.descriptions_rd, self.counter_suffix),
+            );
+        }
+        for (name, by_labels) in self.gauges {
+            acc = f(acc, render_gauge(&name, by_labels, &self.descriptions_rd));
+        }
+        for (name, by_labels) in self.distributions {
+            acc = f(acc, render_distribution(&name, by_labels, &self.descriptions_rd));
+        }
+        acc
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.counters.len() + self.gauges.len() + self.distributions.len();
+        (len, Some(len))
+    }
+}
+
+impl ExactSizeIterator for RenderedMetrics {}
 
 /// A single label key-value pair attached to a metric sample.
 #[derive(Debug)]
@@ -162,28 +224,19 @@ pub struct NativeHistogram {
 
 pub(crate) fn render_snapshot_and_descriptions(
     snapshot: Snapshot,
-    descriptions_rd: &DescriptionReadHandle,
+    descriptions_rd: DescriptionReadHandle,
     counter_suffix: Option<&'static str>,
 ) -> RenderedMetrics {
-    let counters = snapshot
-        .counters
-        .into_iter()
-        .map(|(name, by_labels)| render_counter(&name, by_labels, descriptions_rd, counter_suffix));
-
-    let gauges = snapshot
-        .gauges
-        .into_iter()
-        .map(|(name, by_labels)| render_gauge(&name, by_labels, descriptions_rd));
-
-    let distributions = snapshot
-        .distributions
-        .into_iter()
-        .map(|(name, by_labels)| render_distribution(&name, by_labels, descriptions_rd));
-
-    counters.chain(gauges).chain(distributions).collect()
+    RenderedMetrics {
+        counters: snapshot.counters.into_iter(),
+        gauges: snapshot.gauges.into_iter(),
+        distributions: snapshot.distributions.into_iter(),
+        descriptions_rd,
+        counter_suffix,
+    }
 }
 
-pub(crate) fn render_counter(
+fn render_counter(
     name: &str,
     by_labels: std::collections::HashMap<LabelSet, u64>,
     descriptions_rd: &DescriptionReadHandle,
@@ -192,7 +245,7 @@ pub(crate) fn render_counter(
     render_metric(name, by_labels, descriptions_rd, counter_suffix, MetricValue::Counter)
 }
 
-pub(crate) fn render_gauge(
+fn render_gauge(
     name: &str,
     by_labels: std::collections::HashMap<LabelSet, f64>,
     descriptions_rd: &DescriptionReadHandle,
@@ -200,7 +253,7 @@ pub(crate) fn render_gauge(
     render_metric(name, by_labels, descriptions_rd, None, MetricValue::Gauge)
 }
 
-pub(crate) fn render_distribution(
+fn render_distribution(
     name: &str,
     by_labels: indexmap::IndexMap<LabelSet, crate::Distribution>,
     descriptions_rd: &DescriptionReadHandle,

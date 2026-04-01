@@ -3,9 +3,6 @@
 use prost::Message;
 use std::io::Write;
 
-use crate::common::Snapshot;
-use crate::recorder::DescriptionReadHandle;
-
 // Include the generated protobuf code
 mod pb {
     #![allow(missing_docs, clippy::trivially_copy_pass_by_ref, clippy::doc_markdown)]
@@ -21,13 +18,9 @@ pub(crate) const PROTOBUF_CONTENT_TYPE: &str =
 /// This function takes a snapshot of metrics and converts them into the Prometheus
 /// protobuf wire format, where each `MetricFamily` message is prefixed with a varint
 /// length header.
-pub(crate) fn render_protobuf(
-    snapshot: Snapshot,
-    descriptions_rd: &DescriptionReadHandle,
-    counter_suffix: Option<&'static str>,
-) -> Vec<u8> {
+pub(crate) fn render_protobuf(rendered_metrics: crate::render::RenderedMetrics) -> Vec<u8> {
     let mut output = Vec::new();
-    render_protobuf_to_write(&mut output, snapshot, descriptions_rd, counter_suffix)
+    render_protobuf_to_write(&mut output, rendered_metrics)
         .expect("writing to an in-memory buffer should not fail");
     output
 }
@@ -39,35 +32,12 @@ pub(crate) fn render_protobuf(
 /// length header.
 pub(crate) fn render_protobuf_to_write<W: Write>(
     writer: &mut W,
-    snapshot: Snapshot,
-    descriptions_rd: &DescriptionReadHandle,
-    counter_suffix: Option<&'static str>,
+    rendered_metrics: crate::render::RenderedMetrics,
 ) -> std::io::Result<()> {
     let mut buffer = Vec::new();
 
-    // Process counters
-    for (name, by_labels) in snapshot.counters {
-        let metric_family =
-            crate::render::render_counter(&name, by_labels, descriptions_rd, counter_suffix)
-                .into_protobuf();
-        buffer.clear();
-        metric_family.encode_length_delimited(&mut buffer).unwrap();
-        writer.write_all(&buffer)?;
-    }
-
-    // Process gauges
-    for (name, by_labels) in snapshot.gauges {
-        let metric_family =
-            crate::render::render_gauge(&name, by_labels, descriptions_rd).into_protobuf();
-        buffer.clear();
-        metric_family.encode_length_delimited(&mut buffer).unwrap();
-        writer.write_all(&buffer)?;
-    }
-
-    // Process distributions (histograms and summaries)
-    for (name, by_labels) in snapshot.distributions {
-        let metric_family =
-            crate::render::render_distribution(&name, by_labels, descriptions_rd).into_protobuf();
+    for metric_family in rendered_metrics {
+        let metric_family = metric_family.into_protobuf();
         buffer.clear();
         metric_family.encode_length_delimited(&mut buffer).unwrap();
         writer.write_all(&buffer)?;
@@ -249,7 +219,12 @@ mod tests {
         let (mut descriptions_wr, descriptions_rd) = new_description_handles();
         descriptions_wr.publish();
 
-        let protobuf_data = render_protobuf(snapshot, &descriptions_rd, Some("total"));
+        let rendered_metrics = crate::render::render_snapshot_and_descriptions(
+            snapshot,
+            descriptions_rd,
+            Some("total"),
+        );
+        let protobuf_data = render_protobuf(rendered_metrics);
 
         assert!(!protobuf_data.is_empty(), "Protobuf data should not be empty");
 
@@ -286,7 +261,9 @@ mod tests {
         );
         descriptions_wr.publish();
 
-        let protobuf_data = render_protobuf(snapshot, &descriptions_rd, None);
+        let rendered_metrics =
+            crate::render::render_snapshot_and_descriptions(snapshot, descriptions_rd, None);
+        let protobuf_data = render_protobuf(rendered_metrics);
 
         assert!(!protobuf_data.is_empty(), "Protobuf data should not be empty");
 
