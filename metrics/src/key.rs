@@ -28,6 +28,15 @@ impl KeyName {
     pub fn into_inner(self) -> SharedString {
         self.0
     }
+
+    /// Returns a version of this name that is cheap to clone for long-lived retention.
+    ///
+    /// *NOTE:* This will allocate if this `KeyName` was created from a non-`'static`
+    /// string, however, the returned `KeyName` will not require allocation when cloned
+    /// or `to_retained` is invoked again.
+    pub fn to_retained(&self) -> Self {
+        KeyName(self.0.to_retained())
+    }
 }
 
 impl<T> From<T> for KeyName
@@ -143,6 +152,15 @@ impl Key {
     /// Consumes this [`Key`], returning the name parts and any labels.
     pub fn into_parts(self) -> (KeyName, Vec<Label>) {
         (self.name, self.labels.into_owned())
+    }
+
+    /// Returns a version of this key that is cheap to clone for long-lived retention.
+    ///
+    /// *NOTE:* This will allocate if this `Key` was created from non-`'static`
+    /// parts, however, the returned `Key` will not require allocation when cloned
+    /// or `to_retained` is invoked again.
+    pub fn to_retained(&self) -> Self {
+        Self { name: self.name.to_retained(), labels: self.labels.to_retained(), hash: self.hash }
     }
 
     /// Clones this [`Key`], and expands the existing set of labels.
@@ -590,5 +608,19 @@ mod tests {
 
         drop(shared);
         assert_eq!(shared_weak.strong_count(), 0);
+    }
+
+    #[test]
+    fn test_key_to_retained_preserves_equality_and_hash() {
+        let key = Key::from_parts(
+            String::from("retained"),
+            vec![Label::new(String::from("service"), String::from("api"))],
+        );
+
+        let retained = key.to_retained();
+
+        assert_eq!(key, retained);
+        assert_eq!(key.get_hash(), retained.get_hash());
+        assert_eq!(retained, retained.clone());
     }
 }

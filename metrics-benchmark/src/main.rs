@@ -69,15 +69,18 @@ impl Recorder for BenchmarkingRecorder {
     fn describe_histogram(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
 
     fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
-        self.registry.get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
+        let key = key.to_retained();
+        self.registry.get_or_create_counter(&key, |c| Counter::from_arc(c.clone()))
     }
 
     fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
-        self.registry.get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
+        let key = key.to_retained();
+        self.registry.get_or_create_gauge(&key, |g| Gauge::from_arc(g.clone()))
     }
 
     fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
-        self.registry.get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
+        let key = key.to_retained();
+        self.registry.get_or_create_histogram(&key, |h| Histogram::from_arc(h.clone()))
     }
 }
 

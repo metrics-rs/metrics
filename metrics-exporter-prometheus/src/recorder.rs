@@ -380,15 +380,18 @@ impl Recorder for PrometheusRecorder {
     }
 
     fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
-        self.inner.registry.get_or_create_counter(key, |c| c.clone().into())
+        let key = key.to_retained();
+        self.inner.registry.get_or_create_counter(&key, |c| c.clone().into())
     }
 
     fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
-        self.inner.registry.get_or_create_gauge(key, |c| c.clone().into())
+        let key = key.to_retained();
+        self.inner.registry.get_or_create_gauge(&key, |c| c.clone().into())
     }
 
     fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
-        self.inner.registry.get_or_create_histogram(key, |c| c.clone().into())
+        let key = key.to_retained();
+        self.inner.registry.get_or_create_histogram(&key, |c| c.clone().into())
     }
 }
 
