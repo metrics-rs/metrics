@@ -205,6 +205,18 @@ where
     }
 }
 
+impl<T> Cow<'static, [T]>
+where
+    T: Clone,
+{
+    pub(crate) fn to_retained(&self) -> Self {
+        match self.metadata.kind() {
+            Kind::Borrowed | Kind::Shared => self.clone(),
+            Kind::Owned => Cow::from_shared(Arc::<[T]>::from(self.deref())),
+        }
+    }
+}
+
 impl<'a> Cow<'a, str> {
     pub const fn const_str(val: &'a str) -> Self {
         // SAFETY: We can never create a null pointer by casting a reference to a pointer.
@@ -212,6 +224,15 @@ impl<'a> Cow<'a, str> {
         let metadata = Metadata::borrowed(val.len());
 
         Self { ptr, metadata, _lifetime: PhantomData }
+    }
+}
+
+impl Cow<'static, str> {
+    pub(crate) fn to_retained(&self) -> Self {
+        match self.metadata.kind() {
+            Kind::Borrowed | Kind::Shared => self.clone(),
+            Kind::Owned => Cow::from_shared(Arc::<str>::from(self.deref())),
+        }
     }
 }
 
@@ -805,6 +826,37 @@ pub(crate) mod const_cow {
                 assert_eq!(slice[1].key(), "key2");
                 assert_eq!(slice[1].value(), "value2");
             }
+        }
+
+        #[test]
+        fn test_to_retained_str() {
+            let borrowed = Cow::const_str("hello").to_retained();
+            assert!(matches!(borrowed.metadata.kind(), Kind::Borrowed));
+
+            let owned: Cow<'static, str> = Cow::from_owned(String::from("hello"));
+            let retained = owned.to_retained();
+            assert!(matches!(retained.metadata.kind(), Kind::Shared));
+
+            let shared = Cow::from_shared(Arc::<str>::from("hello")).to_retained();
+            assert!(matches!(shared.metadata.kind(), Kind::Shared));
+        }
+
+        #[test]
+        fn test_to_retained_slice() {
+            static LABELS: [Label; 2] = [
+                Label::from_static_parts("key1", "value1"),
+                Label::from_static_parts("key2", "value2"),
+            ];
+
+            let borrowed = Cow::const_slice(&LABELS).to_retained();
+            assert!(matches!(borrowed.metadata.kind(), Kind::Borrowed));
+
+            let owned: Cow<'static, [Label]> = Cow::from_owned(LABELS.to_vec());
+            let retained = owned.to_retained();
+            assert!(matches!(retained.metadata.kind(), Kind::Shared));
+
+            let shared = Cow::from_shared(Arc::<[Label]>::from(&LABELS[..])).to_retained();
+            assert!(matches!(shared.metadata.kind(), Kind::Shared));
         }
     }
 }

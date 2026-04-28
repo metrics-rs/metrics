@@ -193,24 +193,27 @@ impl Recorder for DebuggingRecorder {
     }
 
     fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
+        let key = key.to_retained();
         let ckey = CompositeKey::new(MetricKind::Counter, key.clone());
         self.track_metric(ckey);
 
-        self.inner.registry.get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
+        self.inner.registry.get_or_create_counter(&key, |c| Counter::from_arc(c.clone()))
     }
 
     fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
+        let key = key.to_retained();
         let ckey = CompositeKey::new(MetricKind::Gauge, key.clone());
         self.track_metric(ckey);
 
-        self.inner.registry.get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
+        self.inner.registry.get_or_create_gauge(&key, |g| Gauge::from_arc(g.clone()))
     }
 
     fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
+        let key = key.to_retained();
         let ckey = CompositeKey::new(MetricKind::Histogram, key.clone());
         self.track_metric(ckey);
 
-        self.inner.registry.get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
+        self.inner.registry.get_or_create_histogram(&key, |h| Histogram::from_arc(h.clone()))
     }
 }
 
