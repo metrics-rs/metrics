@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.20.2] - 2026-04-28
+
 ### Added
 
 - New `metrics_util::common::KeyHasher`, replacing the now-deprecated `metrics::KeyHasher`.
