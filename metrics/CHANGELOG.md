@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- New `Key::to_retained()` and `KeyName::to_retained()` methods that return a version of the key/name
+  cheap to clone for long-lived retention (allocating only when necessary).
+  ([#688](https://github.com/metrics-rs/metrics/pull/688))
+- `Counter::noop()`, `Gauge::noop()`, and `Histogram::noop()` are now `const fn`.
+  ([#654](https://github.com/metrics-rs/metrics/pull/654))
+- `KeyName::as_str` and `Key::get_hash` are now `const fn`. `Key` now derives `Clone`.
+  ([#669](https://github.com/metrics-rs/metrics/pull/669))
+
+### Changed
+
+- Internal key hasher swapped from `ahash` to `rapidhash` for faster, allocation-free hashing.
+  ([#651](https://github.com/metrics-rs/metrics/pull/651),
+  [#669](https://github.com/metrics-rs/metrics/pull/669))
+- `Key` hash is now computed eagerly at construction time, removing internal atomics from the struct.
+  ([#669](https://github.com/metrics-rs/metrics/pull/669))
+
+### Deprecated
+
+- `metrics::KeyHasher` is deprecated; use `metrics_util::common::KeyHasher` instead.
+  ([#669](https://github.com/metrics-rs/metrics/pull/669))
+
 ## [0.24.3] - 2025-11-28
 
 ### Added
