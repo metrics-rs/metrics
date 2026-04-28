@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.24.4] - 2026-04-28
+
 ### Added
 
 - New `Key::to_retained()` and `KeyName::to_retained()` methods that return a version of the key/name
