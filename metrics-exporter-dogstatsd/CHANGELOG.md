@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- `DogStatsDRecorder` uses `Key::to_retained()` for more efficient long-lived key storage.
+  ([#688](https://github.com/metrics-rs/metrics/pull/688))
+
 ## [0.9.6] - 2025-07-07
 
 ### Fixed
