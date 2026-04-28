@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.18.2] - 2026-04-28
+
 ### Added
 
 - New `PrometheusHandle::render_protobuf_to_write` method to render the Protocol Buffers payload
