@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.11.2] - 2026-04-28
+
 ### Fixed
 
 - All packets in the TCP receive buffer are now decoded per read; previously, queued packets after the
