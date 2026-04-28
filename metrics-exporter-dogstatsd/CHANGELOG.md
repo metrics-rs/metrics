@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.7] - 2026-04-28
+
 ### Changed
 
 - `DogStatsDRecorder` uses `Key::to_retained()` for more efficient long-lived key storage.
