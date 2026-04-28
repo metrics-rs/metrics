@@ -5,6 +5,7 @@ use metrics_util::registry::Storage;
 use metrics_util::MetricKind;
 use opentelemetry::metrics::{AsyncInstrumentBuilder, HistogramBuilder, Meter};
 use opentelemetry::KeyValue;
+use std::borrow::Cow;
 use std::sync::Arc;
 
 pub struct OtelMetricStorage {
@@ -19,7 +20,12 @@ impl OtelMetricStorage {
 
     fn get_attributes(key: &Key) -> Vec<KeyValue> {
         key.labels()
-            .map(|label| KeyValue::new(label.key().to_string(), label.value().to_string()))
+            .map(|label| {
+                let (key, value) = label.clone().into_parts();
+                let key: Cow<'static, str> = key.into();
+                let label: Cow<'static, str> = value.into();
+                KeyValue::new(key, label)
+            })
             .collect()
     }
 
@@ -28,10 +34,10 @@ impl OtelMetricStorage {
         builder: AsyncInstrumentBuilder<'a, I, M>,
     ) -> AsyncInstrumentBuilder<'a, I, M> {
         match description.unit() {
-            Some(unit) => builder
-                .with_description(description.description().to_string())
-                .with_unit(unit.as_ucum_label()),
-            None => builder.with_description(description.description().to_string()),
+            Some(unit) => {
+                builder.with_description(description.description()).with_unit(unit.as_ucum_label())
+            }
+            None => builder.with_description(description.description()),
         }
     }
 
@@ -40,10 +46,10 @@ impl OtelMetricStorage {
         builder: HistogramBuilder<'a, T>,
     ) -> HistogramBuilder<'a, T> {
         match description.unit() {
-            Some(unit) => builder
-                .with_description(description.description().to_string())
-                .with_unit(unit.as_ucum_label()),
-            None => builder.with_description(description.description().to_string()),
+            Some(unit) => {
+                builder.with_description(description.description()).with_unit(unit.as_ucum_label())
+            }
+            None => builder.with_description(description.description()),
         }
     }
 }
@@ -54,8 +60,9 @@ impl Storage<Key> for OtelMetricStorage {
     type Histogram = Arc<OtelHistogram>;
 
     fn counter(&self, key: &Key) -> Self::Counter {
-        let builder = self.meter.u64_observable_counter(key.name().to_string());
-        let key_name = KeyName::from(key.name().to_string());
+        let key_name = key.name_shared().clone().into_inner();
+        let builder = self.meter.u64_observable_counter(key_name.clone());
+        let key_name = KeyName::from(key_name);
         let builder = if let Some(description) =
             self.metadata.get_description(&key_name, MetricKind::Counter)
         {
@@ -68,8 +75,9 @@ impl Storage<Key> for OtelMetricStorage {
     }
 
     fn gauge(&self, key: &Key) -> Self::Gauge {
-        let builder = self.meter.f64_observable_gauge(key.name().to_string());
-        let key_name = KeyName::from(key.name().to_string());
+        let key_name = key.name_shared().clone().into_inner();
+        let builder = self.meter.f64_observable_gauge(key_name.clone());
+        let key_name = KeyName::from(key_name);
         let builder = if let Some(description) =
             self.metadata.get_description(&key_name, MetricKind::Gauge)
         {
@@ -82,8 +90,9 @@ impl Storage<Key> for OtelMetricStorage {
     }
 
     fn histogram(&self, key: &Key) -> Self::Histogram {
-        let builder = self.meter.f64_histogram(key.name().to_string());
-        let key_name = KeyName::from(key.name().to_string());
+        let key_name = key.name_shared().clone().into_inner();
+        let builder = self.meter.f64_histogram(key_name.clone());
+        let key_name = KeyName::from(key_name);
 
         let builder = if let Some(description) =
             self.metadata.get_description(&key_name, MetricKind::Histogram)
