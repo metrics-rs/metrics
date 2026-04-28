@@ -225,14 +225,14 @@ const fn hash_bytes(slice: &[u8], secrets: &RapidSecrets) -> u64 {
 
 /// Hash a label, taking care to hash keys and values with independent seeds.
 #[inline(always)]
-const fn hash_label(label: &Label) -> u64 {
+const fn hash_label(Label(key, value): &Label) -> u64 {
     // hash the key and value with independent seeds to avoid substitution errors, but use
     // seed_cpp to ensure the secrets arrays are the same const array
     const KEY: RapidSecrets = RapidSecrets::seed_cpp(1);
     const VALUE: RapidSecrets = RapidSecrets::seed_cpp(2);
 
-    let key = hash_bytes(label.0.as_const_str().as_bytes(), &KEY);
-    let value = hash_bytes(label.0.as_const_str().as_bytes(), &VALUE);
+    let key = hash_bytes(key.as_const_str().as_bytes(), &KEY);
+    let value = hash_bytes(value.as_const_str().as_bytes(), &VALUE);
 
     key ^ value
 }
