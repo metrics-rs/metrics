@@ -8,9 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
-### Changed
+### Fixed
 
-- Update `metrics-util` to `0.20`.
+- All packets in the TCP receive buffer are now decoded per read (shared decoder fix).
+  ([#660](https://github.com/metrics-rs/metrics/pull/660))
 
 ## [0.5.0] - 2025-04-20
 
