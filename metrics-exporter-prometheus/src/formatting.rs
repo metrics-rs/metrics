@@ -1,5 +1,7 @@
 //! Helpers for rendering metrics in the Prometheus exposition format.
 
+use std::fmt::Write;
+
 use metrics::Unit;
 
 use crate::common::LabelSet;
@@ -59,6 +61,8 @@ pub fn write_metric_line<T, T2>(
     T: std::fmt::Display,
     T2: std::fmt::Display,
 {
+    buffer.reserve(name.len() + 128);
+
     add_metric_name(buffer, name, unit, suffix);
 
     if !labels.is_empty() || additional_label.is_some() {
@@ -78,18 +82,13 @@ pub fn write_metric_line<T, T2>(
             if !first {
                 buffer.push(',');
             }
-            buffer.push_str(name);
-            buffer.push_str("=\"");
-            buffer.push_str(value.to_string().as_str());
-            buffer.push('"');
+            let _ = write!(buffer, "{name}=\"{value}\"");
         }
 
         buffer.push('}');
     }
 
-    buffer.push(' ');
-    buffer.push_str(value.to_string().as_str());
-    buffer.push('\n');
+    let _ = writeln!(buffer, " {value}");
 }
 
 fn add_metric_name(

@@ -1,6 +1,6 @@
 use std::hash::Hasher;
 
-use ahash::AHasher;
+use rapidhash::fast::RapidHasher;
 
 use crate::cow::Cow;
 
@@ -19,13 +19,32 @@ pub type SharedString = Cow<'static, str>;
 
 /// Key-specific hashing algorithm.
 ///
-/// Currently uses AHash - <https://github.com/tkaitchuck/aHash>
+/// Deprecated in favor of a no-hash based implementation in `metrics-util::common::KeyHasher`.
 ///
-/// For any use-case within a `metrics`-owned or adjacent crate, where hashing of a key is required,
-/// this is the hasher that will be used.
-#[derive(Debug, Default)]
-pub struct KeyHasher(AHasher);
+/// Currently uses rapidhash - <https://github.com/hoxxep/rapidhash>
+///
+/// For any use-case within a `metrics`-owned or adjacent crate, where hashing of a
+/// [`Key`][crate::Key] is required, this is the hasher that will be used.
+#[deprecated(since = "0.24.4", note = "Use `metrics-util::common::KeyHasher` instead.")]
+pub struct KeyHasher(RapidHasher<'static>);
 
+#[allow(deprecated)]
+impl std::fmt::Debug for KeyHasher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyHasher").finish_non_exhaustive()
+    }
+}
+
+#[allow(deprecated)]
+impl Default for KeyHasher {
+    fn default() -> Self {
+        // The seed should be randomized on application start if DoS resistance is required, but
+        // ahash was also previously using fixed seeds by default.
+        KeyHasher(RapidHasher::default_const())
+    }
+}
+
+#[allow(deprecated)]
 impl Hasher for KeyHasher {
     fn finish(&self) -> u64 {
         self.0.finish()
@@ -62,7 +81,7 @@ impl GaugeValue {
 ///
 /// While metrics do not necessarily need to be tied to a particular unit to be recorded, some
 /// downstream systems natively support defining units and so they can be specified during registration.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum Unit {
     /// Count.
     Count,

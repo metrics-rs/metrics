@@ -8,7 +8,7 @@ use std::{
 };
 
 use hashbrown::{hash_map::RawEntryMut, HashMap};
-use metrics::{Key, KeyHasher};
+use metrics::Key;
 pub use storage::{AtomicStorage, Storage};
 
 #[cfg(feature = "recency")]
@@ -20,6 +20,7 @@ pub use recency::{
     Generation, Generational, GenerationalAtomicStorage, GenerationalStorage, Recency,
 };
 
+use crate::common::KeyHasher;
 use crate::Hashable;
 
 type RegistryHasher = KeyHasher;
