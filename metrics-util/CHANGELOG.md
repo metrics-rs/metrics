@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- New `metrics_util::common::KeyHasher`, replacing the now-deprecated `metrics::KeyHasher`.
+  ([#669](https://github.com/metrics-rs/metrics/pull/669))
+- `Drain::count()` and `Drain::sum()` methods to expose true-value counts/sums on reservoir-sampled
+  storage. ([#681](https://github.com/metrics-rs/metrics/pull/681))
+- Blanket `Storage<K>` implementation for `Arc<T> where T: Storage<K>`.
+  ([#657](https://github.com/metrics-rs/metrics/pull/657))
+- `Summary::sum()` method to retrieve the running sum of recorded values.
+  ([#650](https://github.com/metrics-rs/metrics/pull/650))
+
+### Changed
+
+- `DebuggingRecorder` uses `Key::to_retained()` for more efficient long-lived key storage.
+  ([#688](https://github.com/metrics-rs/metrics/pull/688))
+
 ## [0.20.1] - 2025-11-28
 
 ### Fixed
