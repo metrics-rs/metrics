@@ -5,7 +5,7 @@ macro_rules! metadata_var {
         static METADATA: $crate::Metadata<'static> = $crate::Metadata::new(
             $target,
             $level,
-            ::core::option::Option::Some(::std::module_path!()),
+            ::core::option::Option::Some(::core::module_path!()),
         );
         &METADATA
     }};
@@ -115,11 +115,93 @@ macro_rules! counter {
         $crate::counter!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
     (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
+        $crate::counter!(target: ::core::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
     };
     ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+        $crate::counter!(target: ::core::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
+}
+
+/// Registers a counter. with provided description
+///
+/// This is macro useful if you only need to register macro once
+///
+/// ## Example
+///
+/// ```rust
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
+/// # use metrics::create_counter;
+/// # fn main() {
+/// // A basic counter:
+/// let counter = create_counter!(target: ::core::module_path!(), level: metrics::Level::INFO, "some_metric_name");
+/// counter.increment(1);
+///
+/// // A basic counter with labels
+/// let counter = create_counter!(target: ::core::module_path!(), level: metrics::Level::INFO, "some_metric_name", {"label1" => "value2" });
+/// counter.increment(1);
+///
+/// // A counter with description!
+/// let counter = create_counter!(target: ::core::module_path!(), level: metrics::Level::INFO, "some_metric_name", describe: "my super counter");
+/// counter.increment(1);
+///
+/// // A counter with description and fancy label!
+/// let counter = create_counter!(
+///     "some_metric_name",
+///     describe: "my super counter",
+///     unit: metrics::Unit::Bytes,
+///     {
+///     "label1" => "value1",
+///     "label2" => "value2"
+///     }
+/// );
+/// counter.increment(1);
+/// # }
+/// ```
+#[macro_export]
+macro_rules! create_counter {
+    (target: $target:expr, level: $level:expr, $name:expr $(,describe: $description:expr$(, unit: $unit:expr)?)?
+     $(, { $($label_key:expr $(=> $label_value:expr)? $(,)? )* } )? $(,)?
+     ) => {{
+        $(
+            $crate::describe_counter!(
+                $name,
+                $( $unit, )?
+                $description
+            );
+        )?
+
+        $crate::counter!(target: $target, level: $level, $name $($(, $label_key $(=> $label_value)?)*)?)
+    }};
+    (level: $level:expr, $name:expr $(,describe: $description:expr$(, unit: $unit:expr)?)?
+     $(, { $($label_key:expr $(=> $label_value:expr)? $(,)? )* } )? $(,)?
+     ) => {{
+        $crate::create_counter!(
+            target: ::core::module_path!(),
+            level: $level,
+            $name $(,describe: $description$(, unit:$unit)?)?
+            $(, { $($label_key $( => $label_value)? )* } )?)
+    }};
+    (target: $target:expr, $name:expr $(,describe: $description:expr$(, unit: $unit:expr)?)?
+     $(, { $($label_key:expr $(=> $label_value:expr)? $(,)? )* } )? $(,)?
+     ) => {{
+        $crate::create_counter!(
+            target: $target,
+            level: $crate::Level::INFO,
+            $name $(,describe: $description$(, unit:$unit)?)?
+            $(, { $($label_key $( => $label_value)? )* } )?)
+    }};
+    ($name:expr $(,describe: $description:expr$(, unit: $unit:expr)?)?
+     $(, { $($label_key:expr $(=> $label_value:expr)? $(,)? )* } )? $(,)?
+     ) => {{
+        $crate::create_counter!(
+            target: ::core::module_path!(),
+            level: $crate::Level::INFO,
+            $name $(,describe: $description$(, unit:$unit)?)?
+            $(, { $($label_key $( => $label_value)? )* } )?)
+    }}
 }
 
 /// Registers a gauge.
@@ -182,10 +264,10 @@ macro_rules! gauge {
         $crate::gauge!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
     (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::gauge!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
+        $crate::gauge!(target: ::core::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
     };
     ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::gauge!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+        $crate::gauge!(target: ::core::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
 }
 
@@ -246,10 +328,10 @@ macro_rules! histogram {
         $crate::histogram!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
     (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::histogram!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
+        $crate::histogram!(target: ::core::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
     };
     ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::histogram!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+        $crate::histogram!(target: ::core::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
     };
 }
 
