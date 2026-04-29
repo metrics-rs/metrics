@@ -1,6 +1,6 @@
 [package]
 name = "metrics"
-version = "0.24.4"
+version = "0.24.5"
 edition = "2018"
 rust-version = { workspace = true }
 

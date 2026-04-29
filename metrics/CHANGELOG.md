@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.24.5] - 2026-04-29
+
 ### Fixed
 
 - Fixed a regression introduced in 0.24.4 where `hash_label` hashed the label key
