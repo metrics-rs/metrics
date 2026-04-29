@@ -136,7 +136,7 @@ Single crate:
 ```
 Released as `<crate>@v<ver>`.
 
-Thanks for your contribution! :heart:!
+Thanks for your contribution! :heart:
 ```
 
 Multi-crate (Oxford-comma):
@@ -144,7 +144,7 @@ Multi-crate (Oxford-comma):
 ```
 Released as `<crate-1>@v<ver>`, `<crate-2>@v<ver>`, and `<crate-3>@v<ver>`.
 
-Thanks for your contribution! :heart:!
+Thanks for your contribution! :heart:
 ```
 
 #### Special cases
@@ -237,7 +237,7 @@ this one (per the schedule from Phase 2).
 gh pr comment <NUMBER> --body "$(cat <<'EOF'
 Released as `<crate>@v<ver>`.
 
-Thanks for your contribution! :heart:!
+Thanks for your contribution! :heart:
 EOF
 )"
 ```
