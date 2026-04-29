@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Fixed a regression introduced in 0.24.4 where `hash_label` hashed the label key
+  twice instead of hashing the key and value with independent seeds, which could
+  cause label sets with identical names but different values to collide.
+  ([#690](https://github.com/metrics-rs/metrics/pull/690))
+
 ## [0.24.4] - 2026-04-28
 
 ### Added
