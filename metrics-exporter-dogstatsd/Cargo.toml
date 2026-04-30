@@ -19,7 +19,7 @@ keywords = ["metrics", "telemetry", "dogstatsd", "Datadog"]
 bytes = { version = "1", default-features = false }
 ryu = { version = "1", default-features = false }
 itoa = { version = "1", default-features = false }
-metrics = { version = "^0.24", path = "../metrics" }
+metrics = { version = "^0.24.5", path = "../metrics" }
 metrics-util = { version = "^0.20", path = "../metrics-util" }
 thiserror = { workspace = true }
 tracing = { workspace = true }
