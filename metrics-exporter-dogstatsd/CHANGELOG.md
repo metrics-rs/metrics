@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Tightened the `metrics` dependency constraint to `^0.24.5` to avoid build failures when an older
+  `metrics 0.24.x` is locked. ([#692](https://github.com/metrics-rs/metrics/issues/692))
+
 ## [0.9.7] - 2026-04-28
 
 ### Changed
