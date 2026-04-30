@@ -56,6 +56,61 @@ macro_rules! key_var {
     }
 }
 
+/// Internal helper used by [`counter!`], [`gauge!`], and [`histogram!`] to parse the named
+/// parameters (`target:` and `level:`) in arbitrary order and emit the registration call.
+///
+/// The accumulator (between the leading register-method ident and the `;`) carries the current
+/// value of every supported named parameter. Each named-parameter arm consumes one `name: value,`
+/// from the input, replaces the corresponding accumulator slot, and recurses. The terminator arm
+/// matches the metric name and any trailing labels.
+///
+/// To add a new named parameter, add a new slot to the accumulator (in every arm and in each
+/// public wrapper's initial call), and add one new consume-arm.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __register_metric {
+    // `target:` — replace the accumulator's `target` slot.
+    (
+        $register:ident,
+        target = $_old:expr,
+        level = $level:expr;
+        target: $target:expr, $($rest:tt)*
+    ) => {
+        $crate::__register_metric!(
+            $register,
+            target = $target,
+            level = $level;
+            $($rest)*
+        )
+    };
+    // `level:` — replace the accumulator's `level` slot.
+    (
+        $register:ident,
+        target = $target:expr,
+        level = $_old:expr;
+        level: $level:expr, $($rest:tt)*
+    ) => {
+        $crate::__register_metric!(
+            $register,
+            target = $target,
+            level = $level;
+            $($rest)*
+        )
+    };
+    // Terminator — emit the registration call.
+    (
+        $register:ident,
+        target = $target:expr,
+        level = $level:expr;
+        $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?
+    ) => {{
+        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
+        let metadata = $crate::metadata_var!($target, $level);
+
+        $crate::with_recorder(|recorder| recorder.$register(&metric_key, metadata))
+    }};
+}
+
 /// Registers a counter.
 ///
 /// Counters represent a single monotonic value, which means the value can only be incremented, not
@@ -68,13 +123,16 @@ macro_rules! key_var {
 /// which includes using macros such as `format!` directly at the callsite. String literals are
 /// preferred for performance where possible.
 ///
+/// The named parameters `target:` and `level:` are optional and may appear in any order before the
+/// metric name.
+///
 /// # Example
 /// ```
 /// # #![no_implicit_prelude]
 /// # use ::std::convert::From;
 /// # use ::std::format;
 /// # use ::std::string::String;
-/// # use metrics::counter;
+/// # use metrics::{counter, Level};
 /// # fn main() {
 /// // A basic counter:
 /// let counter = counter!("some_metric_name");
@@ -95,6 +153,10 @@ macro_rules! key_var {
 /// let labels = [("dynamic_key", format!("{}!", dynamic_val))];
 /// let counter = counter!("some_metric_name", &labels);
 ///
+/// // The `target:` and `level:` named parameters may appear in any order:
+/// let counter = counter!(level: Level::DEBUG, target: "rendering", "some_metric_name");
+/// counter.increment(1);
+///
 /// // As mentioned in the documentation, metric names also can be owned strings, including ones
 /// // generated at the callsite via things like `format!`:
 /// let name = String::from("some_owned_metric_name");
@@ -105,20 +167,13 @@ macro_rules! key_var {
 /// ```
 #[macro_export]
 macro_rules! counter {
-    (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
-        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
-        let metadata = $crate::metadata_var!($target, $level);
-
-        $crate::with_recorder(|recorder| recorder.register_counter(&metric_key, metadata))
-    }};
-    (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+    ($($input:tt)*) => {
+        $crate::__register_metric!(
+            register_counter,
+            target = ::std::module_path!(),
+            level = $crate::Level::INFO;
+            $($input)*
+        )
     };
 }
 
@@ -172,20 +227,13 @@ macro_rules! counter {
 /// ```
 #[macro_export]
 macro_rules! gauge {
-    (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
-        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
-        let metadata = $crate::metadata_var!($target, $level);
-
-        $crate::with_recorder(|recorder| recorder.register_gauge(&metric_key, metadata))
-    }};
-    (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::gauge!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::gauge!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::gauge!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+    ($($input:tt)*) => {
+        $crate::__register_metric!(
+            register_gauge,
+            target = ::std::module_path!(),
+            level = $crate::Level::INFO;
+            $($input)*
+        )
     };
 }
 
@@ -236,20 +284,13 @@ macro_rules! gauge {
 /// ```
 #[macro_export]
 macro_rules! histogram {
-    (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
-        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
-        let metadata = $crate::metadata_var!($target, $level);
-
-        $crate::with_recorder(|recorder| recorder.register_histogram(&metric_key, metadata))
-    }};
-    (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::histogram!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::histogram!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::histogram!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+    ($($input:tt)*) => {
+        $crate::__register_metric!(
+            register_histogram,
+            target = ::std::module_path!(),
+            level = $crate::Level::INFO;
+            $($input)*
+        )
     };
 }
 

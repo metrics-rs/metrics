@@ -4,4 +4,5 @@ pub fn macros() {
     t.pass("tests/macros/01_basic.rs");
     t.pass("tests/macros/02_trailing_comma.rs");
     t.pass("tests/macros/03_mod_aliasing.rs");
+    t.pass("tests/macros/04_named_args.rs");
 }
