@@ -1169,7 +1169,7 @@ dependencies = [
 
 [[package]]
 name = "metrics-exporter-prometheus"
-version = "0.18.2"
+version = "0.18.3"
 dependencies = [
  "base64",
  "evmap",
