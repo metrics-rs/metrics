@@ -279,6 +279,213 @@ macro_rules! create_counter {
     }}
 }
 
+#[doc(hidden)]
+#[macro_export]
+///Internal macro to register metric description when provided by metric creation macro
+macro_rules! __describe_metric {
+    // Do nothing if metric description is not set
+    ($method:ident, __internal_metric_description_none__, $($rest:tt)*) => {{}};
+    // Found description only
+    ($method:ident, $description:expr, __internal_metric_unit_none__, $name:expr) => {{
+        $crate::with_recorder(|recorder| {
+            recorder.$method(
+                ::core::convert::Into::into($name),
+                ::core::option::Option::None,
+                ::core::convert::Into::into($description),
+            );
+        });
+    }};
+    // Found description + unit
+    ($method:ident, $description:expr, $unit:expr, $name:expr) => {{
+        $crate::with_recorder(|recorder| {
+            recorder.$method(
+                ::core::convert::Into::into($name),
+                ::core::option::Option::Some($unit),
+                ::core::convert::Into::into($description),
+            );
+        });
+    }};
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __register_metric {
+    // `target:` — replace the accumulator's `target` slot.
+    (
+        $describe:ident,
+        $register:ident,
+        describe = $description:tt,
+        unit = $unit:tt,
+        target = $_old:expr,
+        level = $level:expr;
+        target: $target:expr,
+        $($rest:tt)*
+    ) => {
+        $crate::__register_metric!(
+            $describe,
+            $register,
+            describe = $description,
+            unit = $unit,
+            target = $target,
+            level = $level;
+            $($rest)*
+        )
+    };
+    // `level:` — replace the accumulator's `level` slot.
+    (
+        $describe:ident,
+        $register:ident,
+        describe = $description:tt,
+        unit = $unit:tt,
+        target = $target:expr,
+        level = $_old:expr;
+        level: $level:expr,
+        $($rest:tt)*
+    ) => {
+        $crate::__register_metric!(
+            $describe,
+            $register,
+            describe = $description,
+            unit = $unit,
+            target = $target,
+            level = $level;
+            $($rest)*
+        )
+    };
+    // `describe:` — replace the accumulator's `describe` slot.
+    (
+        $describe:ident,
+        $register:ident,
+        describe = $old:tt,
+        unit = $unit:tt,
+        target = $target:expr,
+        level = $level:expr;
+        describe: $description:expr,
+        $($rest:tt)*
+    ) => {
+        $crate::__register_metric!(
+            $describe,
+            $register,
+            describe = $description,
+            unit = $unit,
+            target = $target,
+            level = $level;
+            $($rest)*
+        )
+    };
+    // `unit:` — replace the accumulator's `unit` slot.
+    (
+        $describe:ident,
+        $register:ident,
+        describe = $description:tt,
+        unit = $old:tt,
+        target = $target:expr,
+        level = $level:expr;
+        unit: $unit:expr,
+        $($rest:tt)*
+    ) => {
+        $crate::__register_metric!(
+            $describe,
+            $register,
+            describe = $description,
+            unit = $unit,
+            target = $target,
+            level = $level;
+            $($rest)*
+        )
+    };
+    // Terminator — emit the registration call.
+    (
+        $describe:ident,
+        $register:ident,
+        describe = $description:tt,
+        unit = $unit:tt,
+        target = $target:expr,
+        level = $level:expr;
+        $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?
+    ) => {{
+        $crate::__describe_metric!(describe_counter, $description, $unit, $name);
+
+        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
+        let metadata = $crate::metadata_var!($target, $level);
+
+        $crate::with_recorder(|recorder| recorder.$register(&metric_key, metadata))
+    }};
+}
+
+/// Registers a counter with provided description
+///
+///## Usage
+///
+/// ```rust
+/// # #![no_implicit_prelude]
+/// # use ::std::convert::From;
+/// # use ::std::format;
+/// # use ::std::string::String;
+/// # use metrics::create_counter2 as create_counter;
+/// # fn main() {
+/// // A basic counter:
+/// let counter = create_counter!("some_metric_name");
+/// counter.increment(1);
+///
+/// // A basic counter with labels
+/// let counter = create_counter!("some_metric_name", "label1" => "value2" );
+/// counter.increment(1);
+///
+/// // A counter with description!
+/// let counter = create_counter!(describe: "my super counter", "some_metric_name");
+/// counter.increment(1);
+///
+/// // A counter with description and unit!
+/// let counter = create_counter!(describe: "my super counter", unit: metrics::Unit::Bytes, "some_metric_name");
+/// counter.increment(1);
+///
+/// // A custom level counter with description and unit!
+/// let counter = create_counter!(
+///     describe: "my super counter",
+///     unit: metrics::Unit::Bytes,
+///     level: metrics::Level::INFO,
+///     "some_metric_name",
+/// );
+/// counter.increment(1);
+///
+/// // A custom target counter with description and unit!
+/// let counter = create_counter!(
+///     describe: "my super counter",
+///     unit: metrics::Unit::Bytes,
+///     target: "custom_target",
+///     "some_metric_name",
+/// );
+/// counter.increment(1);
+///
+/// // A counter with description and fancy label, even target module!
+/// let counter = create_counter!(
+///     describe: "my super counter",
+///     unit: metrics::Unit::Bytes,
+///     target: ::core::module_path!(),
+///     level: metrics::Level::INFO,
+///     "some_metric_name",
+///     "label1" => "value1",
+///     "label2" => "value2"
+/// );
+/// counter.increment(1);
+/// # }
+/// ```
+#[macro_export]
+macro_rules! create_counter2 {
+    ($($input:tt)*) => {
+        $crate::__register_metric!(
+            describe_counter,
+            register_counter,
+            describe = __internal_metric_description_none__,
+            unit = __internal_metric_unit_none__,
+            target = ::core::module_path!(),
+            level = $crate::Level::INFO;
+            $($input)*
+        )
+    };
+}
+
 /// Registers a gauge.
 ///
 /// Gauges represent a single value that can go up or down over time, and always starts out with an
