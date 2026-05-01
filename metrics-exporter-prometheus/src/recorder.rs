@@ -121,6 +121,15 @@ impl Inner {
         Snapshot { counters, gauges, distributions }
     }
 
+    fn render_snapshot_and_descriptions(&self) -> crate::render::RenderedMetrics {
+        self.commit_outstanding_description_writes();
+        crate::render::render_snapshot_and_descriptions(
+            self.get_recent_metrics(),
+            self.read_handle(),
+            self.counter_suffix,
+        )
+    }
+
     /// Drains histogram samples into distribution.
     fn drain_histograms_to_distributions(&self) {
         let histogram_handles = self.registry.get_histogram_handles();
@@ -407,6 +416,12 @@ pub struct PrometheusHandle {
 }
 
 impl PrometheusHandle {
+    /// Takes a snapshot of the metrics held by the recorder, along with their
+    /// descriptions, and returns a structured representation of that data.
+    pub fn render_snapshot_and_descriptions(&self) -> crate::render::RenderedMetrics {
+        self.inner.render_snapshot_and_descriptions()
+    }
+
     /// Takes a snapshot of the metrics held by the recorder and generates a payload conforming to
     /// the Prometheus exposition format.
     #[allow(clippy::missing_panics_doc)]
@@ -433,11 +448,7 @@ impl PrometheusHandle {
     /// the Prometheus protobuf format.
     #[cfg(feature = "protobuf")]
     pub fn render_protobuf(&self) -> Vec<u8> {
-        let snapshot = self.inner.get_recent_metrics();
-        self.inner.commit_outstanding_description_writes();
-        let descriptions = self.inner.read_handle();
-
-        crate::protobuf::render_protobuf(snapshot, &descriptions, self.inner.counter_suffix)
+        crate::protobuf::render_protobuf(self.inner.render_snapshot_and_descriptions())
     }
 
     /// Takes a snapshot of the metrics held by the recorder and writes a payload conforming to
@@ -448,15 +459,9 @@ impl PrometheusHandle {
     /// Writing to the provided output fails.
     #[cfg(feature = "protobuf")]
     pub fn render_protobuf_to_write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        let snapshot = self.inner.get_recent_metrics();
-        self.inner.commit_outstanding_description_writes();
-        let descriptions = self.inner.read_handle();
-
         crate::protobuf::render_protobuf_to_write(
             writer,
-            snapshot,
-            &descriptions,
-            self.inner.counter_suffix,
+            self.inner.render_snapshot_and_descriptions(),
         )
     }
 
