@@ -74,7 +74,7 @@ macro_rules! key_var {
 ///
 /// `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
 /// `level:` - Specifies counter level. Defaults to `INFO`.
-/// `describe:` - Specifies counter description to register for counter. If specified `$name` has to be Copy-able.
+/// `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
 /// `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
 ///
 /// # Example
@@ -367,7 +367,7 @@ macro_rules! create_counter {
 ///
 /// `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
 /// `level:` - Specifies counter level. Defaults to `INFO`.
-/// `describe:` - Specifies counter description to register for counter. If specified `$name` has to be Copy-able.
+/// `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
 /// `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
 ///
 /// # Example
@@ -450,7 +450,7 @@ macro_rules! gauge {
 ///
 /// `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
 /// `level:` - Specifies counter level. Defaults to `INFO`.
-/// `describe:` - Specifies counter description to register for counter. If specified `$name` has to be Copy-able.
+/// `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
 /// `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
 ///
 /// # Example
