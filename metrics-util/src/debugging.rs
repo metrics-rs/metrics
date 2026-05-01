@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
     kind::MetricKind,
-    registry::{AtomicStorage, Registry},
+    registry::{AtomicStorage, RetainedKeyRegistry},
     CompositeKey,
 };
 
@@ -70,7 +70,7 @@ pub enum DebugValue {
 
 #[derive(Debug)]
 struct Inner {
-    registry: Registry<Key, AtomicStorage>,
+    registry: RetainedKeyRegistry<AtomicStorage>,
     seen: Mutex<IndexMap<CompositeKey, ()>>,
     metadata: Mutex<IndexMap<CompositeKeyName, (Option<Unit>, SharedString)>>,
 }
@@ -78,7 +78,7 @@ struct Inner {
 impl Inner {
     fn new() -> Self {
         Self {
-            registry: Registry::atomic(),
+            registry: RetainedKeyRegistry::atomic(),
             seen: Mutex::new(IndexMap::new()),
             metadata: Mutex::new(IndexMap::new()),
         }
@@ -193,27 +193,24 @@ impl Recorder for DebuggingRecorder {
     }
 
     fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
-        let key = key.to_retained();
-        let ckey = CompositeKey::new(MetricKind::Counter, key.clone());
+        let ckey = CompositeKey::new(MetricKind::Counter, key.to_retained());
         self.track_metric(ckey);
 
-        self.inner.registry.get_or_create_counter(&key, |c| Counter::from_arc(c.clone()))
+        self.inner.registry.get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
     }
 
     fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
-        let key = key.to_retained();
-        let ckey = CompositeKey::new(MetricKind::Gauge, key.clone());
+        let ckey = CompositeKey::new(MetricKind::Gauge, key.to_retained());
         self.track_metric(ckey);
 
-        self.inner.registry.get_or_create_gauge(&key, |g| Gauge::from_arc(g.clone()))
+        self.inner.registry.get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
     }
 
     fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
-        let key = key.to_retained();
-        let ckey = CompositeKey::new(MetricKind::Histogram, key.clone());
+        let ckey = CompositeKey::new(MetricKind::Histogram, key.to_retained());
         self.track_metric(ckey);
 
-        self.inner.registry.get_or_create_histogram(&key, |h| Histogram::from_arc(h.clone()))
+        self.inner.registry.get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
     }
 }
 

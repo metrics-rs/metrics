@@ -22,7 +22,7 @@ use quanta::Clock;
 
 use metrics_util::{
     parse_quantiles,
-    registry::{GenerationalStorage, Recency, Registry},
+    registry::{GenerationalStorage, Recency, RetainedKeyRegistry},
     MetricKindMask, Quantile,
 };
 
@@ -610,7 +610,7 @@ impl PrometheusBuilder {
         let (descriptions_wr, descriptions_rd) = new_description_handles();
 
         let inner = Inner {
-            registry: Registry::new(GenerationalStorage::new(AtomicStorage)),
+            registry: RetainedKeyRegistry::new(GenerationalStorage::new(AtomicStorage)),
             recency: Recency::new(clock, self.recency_mask, self.idle_timeout),
             distributions: RwLock::new(HashMap::new()),
             distribution_builder: DistributionBuilder::new(
