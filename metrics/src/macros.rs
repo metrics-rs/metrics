@@ -5,7 +5,7 @@ macro_rules! metadata_var {
         static METADATA: $crate::Metadata<'static> = $crate::Metadata::new(
             $target,
             $level,
-            ::core::option::Option::Some(::std::module_path!()),
+            ::core::option::Option::Some(::core::module_path!()),
         );
         &METADATA
     }};
@@ -68,6 +68,36 @@ macro_rules! key_var {
 /// which includes using macros such as `format!` directly at the callsite. String literals are
 /// preferred for performance where possible.
 ///
+/// # Usage
+///
+/// `[opt: value,] <$name,> [$labels,]`
+///
+/// Only `$name` is required to initialize metrics.
+///
+/// All `opt`s MUST be specified before `$name` while `$labels` parameter block always go after `$name`
+///
+/// Following is brief explanation of parameters
+///
+/// ## Required parameters
+///
+/// - `$name` - Name of the metric. Can be expression that results in `String` or `&'static str`
+///
+/// ## Optional Parameters
+///
+/// Following parameters can be provided in any order
+///
+/// - `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
+/// - `level:` - Specifies counter level. Defaults to `INFO`.
+/// - `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
+/// - `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+///
+/// ## Labels
+///
+/// Labels can be passed as _one_ of following:
+/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be expression that results in `&'static str` or `String`
+/// - Static reference to collection of **Label**
+/// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html)
+///
 /// # Example
 /// ```
 /// # #![no_implicit_prelude]
@@ -100,26 +130,171 @@ macro_rules! key_var {
 /// let name = String::from("some_owned_metric_name");
 /// let counter = counter!(name);
 ///
-/// let counter = counter!(format!("{}_via_format", "name"));
+/// let gauge = counter!(format!("{}_via_format", "name"));
+///
+/// //Full counter customization example
+/// let counter = counter!(
+///     describe: "super counter",
+///     unit: metrics::Unit::Bytes,
+///     target: ::core::module_path!(),
+///     level: metrics::Level::INFO,
+///     "super_counter",
+///     "label1" => "value1",
+///     "label2" => "value2"
+/// );
 /// # }
 /// ```
 #[macro_export]
 macro_rules! counter {
-    (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
+    ($($input:tt)*) => {
+        $crate::__register_metric!(
+            describe_counter,
+            register_counter,
+            describe = __internal_metric_description_none__,
+            unit = __internal_metric_unit_none__,
+            target = ::core::module_path!(),
+            level = $crate::Level::INFO;
+            $($input)*
+        )
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+///Internal macro to register metric description when provided by metric creation macro
+macro_rules! __describe_metric {
+    // Do nothing if metric description is not set
+    ($method:ident, __internal_metric_description_none__, __internal_metric_unit_none__, $($rest:tt)*) => {{}};
+    // Show compilation error if `unit` only specified
+    ($method:ident, __internal_metric_description_none__, $unit:expr, $($rest:tt)*) => {{
+        compile_error!("'unit:' requires to specify parameter 'describe:'");
+    }};
+    // Found description only
+    ($method:ident, $description:expr, __internal_metric_unit_none__, $name:expr) => {{
+        $crate::with_recorder(|recorder| {
+            recorder.$method(
+                ::core::convert::Into::into($name),
+                ::core::option::Option::None,
+                ::core::convert::Into::into($description),
+            );
+        });
+    }};
+    // Found description + unit
+    ($method:ident, $description:expr, $unit:expr, $name:expr) => {{
+        $crate::with_recorder(|recorder| {
+            recorder.$method(
+                ::core::convert::Into::into($name),
+                ::core::option::Option::Some($unit),
+                ::core::convert::Into::into($description),
+            );
+        });
+    }};
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __register_metric {
+    // `target:` — replace the accumulator's `target` slot.
+    (
+        $describe:ident,
+        $register:ident,
+        describe = $description:tt,
+        unit = $unit:tt,
+        target = $_old:expr,
+        level = $level:expr;
+        target: $target:expr,
+        $($rest:tt)*
+    ) => {
+        $crate::__register_metric!(
+            $describe,
+            $register,
+            describe = $description,
+            unit = $unit,
+            target = $target,
+            level = $level;
+            $($rest)*
+        )
+    };
+    // `level:` — replace the accumulator's `level` slot.
+    (
+        $describe:ident,
+        $register:ident,
+        describe = $description:tt,
+        unit = $unit:tt,
+        target = $target:expr,
+        level = $_old:expr;
+        level: $level:expr,
+        $($rest:tt)*
+    ) => {
+        $crate::__register_metric!(
+            $describe,
+            $register,
+            describe = $description,
+            unit = $unit,
+            target = $target,
+            level = $level;
+            $($rest)*
+        )
+    };
+    // `describe:` — replace the accumulator's `describe` slot.
+    (
+        $describe:ident,
+        $register:ident,
+        describe = $old:tt,
+        unit = $unit:tt,
+        target = $target:expr,
+        level = $level:expr;
+        describe: $description:expr,
+        $($rest:tt)*
+    ) => {
+        $crate::__register_metric!(
+            $describe,
+            $register,
+            describe = $description,
+            unit = $unit,
+            target = $target,
+            level = $level;
+            $($rest)*
+        )
+    };
+    // `unit:` — replace the accumulator's `unit` slot.
+    (
+        $describe:ident,
+        $register:ident,
+        describe = $description:tt,
+        unit = $old:tt,
+        target = $target:expr,
+        level = $level:expr;
+        unit: $unit:expr,
+        $($rest:tt)*
+    ) => {
+        $crate::__register_metric!(
+            $describe,
+            $register,
+            describe = $description,
+            unit = $unit,
+            target = $target,
+            level = $level;
+            $($rest)*
+        )
+    };
+    // Terminator — emit the registration call.
+    (
+        $describe:ident,
+        $register:ident,
+        describe = $description:tt,
+        unit = $unit:tt,
+        target = $target:expr,
+        level = $level:expr;
+        $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?
+    ) => {{
+        $crate::__describe_metric!(describe_counter, $description, $unit, $name);
+
         let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
         let metadata = $crate::metadata_var!($target, $level);
 
-        $crate::with_recorder(|recorder| recorder.register_counter(&metric_key, metadata))
+        $crate::with_recorder(|recorder| recorder.$register(&metric_key, metadata))
     }};
-    (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::counter!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
-    };
 }
 
 /// Registers a gauge.
@@ -133,6 +308,36 @@ macro_rules! counter {
 /// Metric names are shown below using string literals, but they can also be owned `String` values,
 /// which includes using macros such as `format!` directly at the callsite. String literals are
 /// preferred for performance where possible.
+///
+/// # Usage
+///
+/// `[opt: value,] <$name,> [$labels,]`
+///
+/// Only `$name` is required to initialize metrics.
+///
+/// All `opt`s MUST be specified before `$name` while `$labels` parameter block always go after `$name`
+///
+/// Following is brief explanation of parameters
+///
+/// ## Required parameters
+///
+/// - `$name` - Name of the metric. Can be expression that results in `String` or `&'static str`
+///
+/// ## Optional Parameters
+///
+/// Following parameters can be provided in any order
+///
+/// - `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
+/// - `level:` - Specifies counter level. Defaults to `INFO`.
+/// - `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
+/// - `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+///
+/// ## Labels
+///
+/// Labels can be passed as _one_ of following:
+/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be expression that results in `&'static str` or `String`
+/// - Static reference to collection of **Label**
+/// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html)
 ///
 /// # Example
 /// ```
@@ -168,24 +373,30 @@ macro_rules! counter {
 /// let gauge = gauge!(name);
 ///
 /// let gauge = gauge!(format!("{}_via_format", "name"));
+/// //Full gauge customization example
+/// let gauge = gauge!(
+///     describe: "super gauge",
+///     unit: metrics::Unit::Bytes,
+///     target: ::core::module_path!(),
+///     level: metrics::Level::INFO,
+///     "super_gauge",
+///     "label1" => "value1",
+///     "label2" => "value2"
+/// );
 /// # }
 /// ```
 #[macro_export]
 macro_rules! gauge {
-    (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
-        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
-        let metadata = $crate::metadata_var!($target, $level);
-
-        $crate::with_recorder(|recorder| recorder.register_gauge(&metric_key, metadata))
-    }};
-    (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::gauge!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::gauge!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::gauge!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+    ($($input:tt)*) => {
+        $crate::__register_metric!(
+            describe_gauge,
+            register_gauge,
+            describe = __internal_metric_description_none__,
+            unit = __internal_metric_unit_none__,
+            target = ::core::module_path!(),
+            level = $crate::Level::INFO;
+            $($input)*
+        )
     };
 }
 
@@ -200,6 +411,36 @@ macro_rules! gauge {
 /// Metric names are shown below using string literals, but they can also be owned `String` values,
 /// which includes using macros such as `format!` directly at the callsite. String literals are
 /// preferred for performance where possible.
+///
+/// # Usage
+///
+/// `[opt: value,] <$name,> [$labels,]`
+///
+/// Only `$name` is required to initialize metrics.
+///
+/// All `opt`s MUST be specified before `$name` while `$labels` parameter block always go after `$name`
+///
+/// Following is brief explanation of parameters
+///
+/// ## Required parameters
+///
+/// - `$name` - Name of the metric. Can be expression that results in `String` or `&'static str`
+///
+/// ## Optional Parameters
+///
+/// Following parameters can be provided in any order
+///
+/// - `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
+/// - `level:` - Specifies counter level. Defaults to `INFO`.
+/// - `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
+/// - `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+///
+/// ## Labels
+///
+/// Labels can be passed as _one_ of following:
+/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be expression that results in `&'static str` or `String`
+/// - Static reference to collection of **Label**
+/// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html)
 ///
 /// # Example
 /// ```
@@ -232,24 +473,30 @@ macro_rules! gauge {
 /// let histogram = histogram!(name);
 ///
 /// let histogram = histogram!(format!("{}_via_format", "name"));
+/// //Full histogram customization example
+/// let histogram = histogram!(
+///     describe: "super counter",
+///     unit: metrics::Unit::Bytes,
+///     target: ::core::module_path!(),
+///     level: metrics::Level::INFO,
+///     "super_counter",
+///     "label1" => "value1",
+///     "label2" => "value2"
+/// );
 /// # }
 /// ```
 #[macro_export]
 macro_rules! histogram {
-    (target: $target:expr, level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {{
-        let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
-        let metadata = $crate::metadata_var!($target, $level);
-
-        $crate::with_recorder(|recorder| recorder.register_histogram(&metric_key, metadata))
-    }};
-    (target: $target:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::histogram!(target: $target, level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    (level: $level:expr, $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::histogram!(target: ::std::module_path!(), level: $level, $name $(, $label_key $(=> $label_value)?)*)
-    };
-    ($name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?) => {
-        $crate::histogram!(target: ::std::module_path!(), level: $crate::Level::INFO, $name $(, $label_key $(=> $label_value)?)*)
+    ($($input:tt)*) => {
+        $crate::__register_metric!(
+            describe_histogram,
+            register_histogram,
+            describe = __internal_metric_description_none__,
+            unit = __internal_metric_unit_none__,
+            target = ::core::module_path!(),
+            level = $crate::Level::INFO;
+            $($input)*
+        )
     };
 }
 
