@@ -70,9 +70,7 @@ macro_rules! key_var {
 ///
 /// # Usage
 ///
-/// ```
-/// [opt: value] <$name> [$labels]
-/// ```
+/// `[opt: value,] <$name,> [$labels,]`
 ///
 /// Only `$name` is required to initialize metrics.
 ///
@@ -386,9 +384,7 @@ macro_rules! create_counter {
 ///
 /// # Usage
 ///
-/// ```
-/// [opt: value] <$name> [$labels]
-/// ```
+/// `[opt: value,] <$name,> [$labels,]`
 ///
 /// Only `$name` is required to initialize metrics.
 ///
@@ -492,9 +488,7 @@ macro_rules! gauge {
 ///
 /// # Usage
 ///
-/// ```
-/// [opt: value] <$name> [$labels]
-/// ```
+/// `[opt: value,] <$name,> [$labels,]`
 ///
 /// Only `$name` is required to initialize metrics.
 ///
