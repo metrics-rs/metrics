@@ -297,79 +297,6 @@ macro_rules! __register_metric {
     }};
 }
 
-/// Registers a counter with provided description
-///
-///## Usage
-///
-/// ```rust
-/// # #![no_implicit_prelude]
-/// # use ::std::convert::From;
-/// # use ::std::format;
-/// # use ::std::string::String;
-/// # use metrics::create_counter as create_counter;
-/// # fn main() {
-/// // A basic counter:
-/// let counter = create_counter!("some_metric_name");
-/// counter.increment(1);
-///
-/// // A basic counter with labels
-/// let counter = create_counter!("some_metric_name", "label1" => "value2" );
-/// counter.increment(1);
-///
-/// // A counter with description!
-/// let counter = create_counter!(describe: "my super counter", "some_metric_name");
-/// counter.increment(1);
-///
-/// // A counter with description and unit!
-/// let counter = create_counter!(describe: "my super counter", unit: metrics::Unit::Bytes, "some_metric_name");
-/// counter.increment(1);
-///
-/// // A custom level counter with description and unit!
-/// let counter = create_counter!(
-///     describe: "my super counter",
-///     unit: metrics::Unit::Bytes,
-///     level: metrics::Level::INFO,
-///     "some_metric_name",
-/// );
-/// counter.increment(1);
-///
-/// // A custom target counter with description and unit!
-/// let counter = create_counter!(
-///     describe: "my super counter",
-///     unit: metrics::Unit::Bytes,
-///     target: "custom_target",
-///     "some_metric_name",
-/// );
-/// counter.increment(1);
-///
-/// // A counter with description and fancy label, even target module!
-/// let counter = create_counter!(
-///     describe: "my super counter",
-///     unit: metrics::Unit::Bytes,
-///     target: ::core::module_path!(),
-///     level: metrics::Level::INFO,
-///     "some_metric_name",
-///     "label1" => "value1",
-///     "label2" => "value2"
-/// );
-/// counter.increment(1);
-/// # }
-/// ```
-#[macro_export]
-macro_rules! create_counter {
-    ($($input:tt)*) => {
-        $crate::__register_metric!(
-            describe_counter,
-            register_counter,
-            describe = __internal_metric_description_none__,
-            unit = __internal_metric_unit_none__,
-            target = ::core::module_path!(),
-            level = $crate::Level::INFO;
-            $($input)*
-        )
-    };
-}
-
 /// Registers a gauge.
 ///
 /// Gauges represent a single value that can go up or down over time, and always starts out with an
@@ -446,9 +373,8 @@ macro_rules! create_counter {
 /// let gauge = gauge!(name);
 ///
 /// let gauge = gauge!(format!("{}_via_format", "name"));
-///
 /// //Full gauge customization example
-/// let counter = gauge!(
+/// let gauge = gauge!(
 ///     describe: "super gauge",
 ///     unit: metrics::Unit::Bytes,
 ///     target: ::core::module_path!(),
@@ -548,7 +474,7 @@ macro_rules! gauge {
 ///
 /// let histogram = histogram!(format!("{}_via_format", "name"));
 /// //Full histogram customization example
-/// let counter = histogram!(
+/// let histogram = histogram!(
 ///     describe: "super counter",
 ///     unit: metrics::Unit::Bytes,
 ///     target: ::core::module_path!(),
