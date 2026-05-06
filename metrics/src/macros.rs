@@ -68,14 +68,37 @@ macro_rules! key_var {
 /// which includes using macros such as `format!` directly at the callsite. String literals are
 /// preferred for performance where possible.
 ///
+/// # Usage
+///
+/// ```
+/// [opt: value] <$name> [$labels]
+/// ```
+///
+/// Only `$name` is required to initialize metrics.
+///
+/// All `opt`s MUST be specified before `$name` while `$labels` parameter block always go after `$name`
+///
+/// Following is brief explanation of parameters
+///
+/// ## Required parameters
+///
+/// - `$name` - Name of the metric. Can be expression that results in `String` or `&'static str`
+///
 /// ## Optional Parameters
 ///
 /// Following parameters can be provided in any order
 ///
-/// `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
-/// `level:` - Specifies counter level. Defaults to `INFO`.
-/// `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
-/// `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+/// - `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
+/// - `level:` - Specifies counter level. Defaults to `INFO`.
+/// - `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
+/// - `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+///
+/// ## Labels
+///
+/// Labels can be passed as _one_ of following:
+/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be expression that results in `&'static str` or `String`
+/// - Static reference to collection of **Label**
+/// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html)
 ///
 /// # Example
 /// ```
@@ -361,14 +384,37 @@ macro_rules! create_counter {
 /// which includes using macros such as `format!` directly at the callsite. String literals are
 /// preferred for performance where possible.
 ///
+/// # Usage
+///
+/// ```
+/// [opt: value] <$name> [$labels]
+/// ```
+///
+/// Only `$name` is required to initialize metrics.
+///
+/// All `opt`s MUST be specified before `$name` while `$labels` parameter block always go after `$name`
+///
+/// Following is brief explanation of parameters
+///
+/// ## Required parameters
+///
+/// - `$name` - Name of the metric. Can be expression that results in `String` or `&'static str`
+///
 /// ## Optional Parameters
 ///
 /// Following parameters can be provided in any order
 ///
-/// `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
-/// `level:` - Specifies counter level. Defaults to `INFO`.
-/// `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
-/// `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+/// - `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
+/// - `level:` - Specifies counter level. Defaults to `INFO`.
+/// - `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
+/// - `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+///
+/// ## Labels
+///
+/// Labels can be passed as _one_ of following:
+/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be expression that results in `&'static str` or `String`
+/// - Static reference to collection of **Label**
+/// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html)
 ///
 /// # Example
 /// ```
@@ -444,14 +490,37 @@ macro_rules! gauge {
 /// which includes using macros such as `format!` directly at the callsite. String literals are
 /// preferred for performance where possible.
 ///
+/// # Usage
+///
+/// ```
+/// [opt: value] <$name> [$labels]
+/// ```
+///
+/// Only `$name` is required to initialize metrics.
+///
+/// All `opt`s MUST be specified before `$name` while `$labels` parameter block always go after `$name`
+///
+/// Following is brief explanation of parameters
+///
+/// ## Required parameters
+///
+/// - `$name` - Name of the metric. Can be expression that results in `String` or `&'static str`
+///
 /// ## Optional Parameters
 ///
 /// Following parameters can be provided in any order
 ///
-/// `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
-/// `level:` - Specifies counter level. Defaults to `INFO`.
-/// `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
-/// `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+/// - `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
+/// - `level:` - Specifies counter level. Defaults to `INFO`.
+/// - `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
+/// - `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+///
+/// ## Labels
+///
+/// Labels can be passed as _one_ of following:
+/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be expression that results in `&'static str` or `String`
+/// - Static reference to collection of **Label**
+/// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html)
 ///
 /// # Example
 /// ```
