@@ -80,21 +80,21 @@ macro_rules! key_var {
 ///
 /// ## Required parameters
 ///
-/// - `$name` - Name of the metric. Can be expression that results in `String` or `&'static str`
+/// - `$name` - Name of the metric. Must be a string literal or an expression that results in `String` or `&'static str`.
 ///
 /// ## Optional Parameters
 ///
-/// Following parameters can be provided in any order
+/// The following parameters can be provided in any order:
 ///
-/// - `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
-/// - `level:` - Specifies counter level. Defaults to `INFO`.
-/// - `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
-/// - `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+/// - `target:` - Module path of the counter. Defaults to `::core::module_path!()`.
+/// - `level:` - Verbosity level of the counter. Defaults to `INFO`.
+/// - `describe:` - Description of the counter. If specified, `$name` will be used twice.
+/// - `unit:` - Unit of measurement of the counter. Description must be provided in order to specify units.
 ///
 /// ## Labels
 ///
 /// Labels can be passed as _one_ of following:
-/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be expression that results in `&'static str` or `String`
+/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be a string literal or an expression that results in `String` or `&'static str`.
 /// - Static reference to collection of **Label**
 /// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html)
 ///
@@ -130,9 +130,9 @@ macro_rules! key_var {
 /// let name = String::from("some_owned_metric_name");
 /// let counter = counter!(name);
 ///
-/// let gauge = counter!(format!("{}_via_format", "name"));
+/// let counter = counter!(format!("{}_via_format", "name"));
 ///
-/// //Full counter customization example
+/// // Full counter customization example
 /// let counter = counter!(
 ///     describe: "super counter",
 ///     unit: metrics::Unit::Bytes,
@@ -321,21 +321,21 @@ macro_rules! __register_metric {
 ///
 /// ## Required parameters
 ///
-/// - `$name` - Name of the metric. Can be expression that results in `String` or `&'static str`
+/// - `$name` - Name of the metric. Must be a string literal or an expression that results in `String` or `&'static str`.
 ///
 /// ## Optional Parameters
 ///
-/// Following parameters can be provided in any order
+/// The following parameters can be provided in any order:
 ///
-/// - `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
-/// - `level:` - Specifies counter level. Defaults to `INFO`.
-/// - `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
-/// - `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+/// - `target:` - Module path of the counter. Defaults to `::core::module_path!()`.
+/// - `level:` - Verbosity level of the counter. Defaults to `INFO`.
+/// - `describe:` - Description of the counter. If specified, `$name` will be used twice.
+/// - `unit:` - Unit of measurement of the counter. Description must be provided in order to specify units.
 ///
 /// ## Labels
 ///
 /// Labels can be passed as _one_ of following:
-/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be expression that results in `&'static str` or `String`
+/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be a string literal or an expression that results in `String` or `&'static str`.
 /// - Static reference to collection of **Label**
 /// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html)
 ///
@@ -373,7 +373,7 @@ macro_rules! __register_metric {
 /// let gauge = gauge!(name);
 ///
 /// let gauge = gauge!(format!("{}_via_format", "name"));
-/// //Full gauge customization example
+/// // Full gauge customization example
 /// let gauge = gauge!(
 ///     describe: "super gauge",
 ///     unit: metrics::Unit::Bytes,
@@ -424,21 +424,21 @@ macro_rules! gauge {
 ///
 /// ## Required parameters
 ///
-/// - `$name` - Name of the metric. Can be expression that results in `String` or `&'static str`
+/// - `$name` - Name of the metric. Must be a string literal or an expression that results in `String` or `&'static str`.
 ///
 /// ## Optional Parameters
 ///
-/// Following parameters can be provided in any order
+/// The following parameters can be provided in any order:
 ///
-/// - `target:` - Specifies counter target. Defaults to `::core::module_path!()`.
-/// - `level:` - Specifies counter level. Defaults to `INFO`.
-/// - `describe:` - Specifies counter description to register for counter. If specified `$name` will be used twice.
-/// - `unit:` - Specifies counter unit to register for counter if `describe:` is specified.
+/// - `target:` - Module path of the counter. Defaults to `::core::module_path!()`.
+/// - `level:` - Verbosity level of the counter. Defaults to `INFO`.
+/// - `describe:` - Description of the counter. If specified, `$name` will be used twice.
+/// - `unit:` - Unit of measurement of the counter. Description must be provided in order to specify units.
 ///
 /// ## Labels
 ///
 /// Labels can be passed as _one_ of following:
-/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be expression that results in `&'static str` or `String`
+/// - Arbitrary number of `<key> => <value>` where `key` and `value` can be a string literal or an expression that results in `String` or `&'static str`.
 /// - Static reference to collection of **Label**
 /// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html)
 ///
@@ -473,7 +473,7 @@ macro_rules! gauge {
 /// let histogram = histogram!(name);
 ///
 /// let histogram = histogram!(format!("{}_via_format", "name"));
-/// //Full histogram customization example
+/// // Full histogram customization example
 /// let histogram = histogram!(
 ///     describe: "super counter",
 ///     unit: metrics::Unit::Bytes,
