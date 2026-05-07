@@ -236,7 +236,7 @@ macro_rules! __register_metric {
             $($rest)*
         )
     };
-    // `description:` — replace the accumulator's `describe` slot.
+    // `description:` — replace the accumulator's `description` slot.
     (
         $describe:ident,
         $register:ident,
