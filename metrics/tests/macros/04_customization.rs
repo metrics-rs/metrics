@@ -16,23 +16,23 @@ fn level_only() {
 
 #[allow(dead_code)]
 fn describe_only() {
-    counter!(describe: "rendering counter", "qwe").increment(1);
-    gauge!(describe: "rendering gauge", "qwe").set(1.0);
-    histogram!(describe: "rendering histogram", "qwe").record(1.0);
+    counter!(description: "rendering counter", "qwe").increment(1);
+    gauge!(description: "rendering gauge", "qwe").set(1.0);
+    histogram!(description: "rendering histogram", "qwe").record(1.0);
 }
 
 #[allow(dead_code)]
 fn describe_with_unit() {
-    counter!(describe: "rendering counter", unit: Unit::Count, "qwe").increment(1);
-    gauge!(describe: "rendering gauge", unit: Unit::Count, "qwe").set(1.0);
-    histogram!(describe: "rendering histogram", unit: Unit::Count, "qwe").record(1.0);
+    counter!(description: "rendering counter", unit: Unit::Count, "qwe").increment(1);
+    gauge!(description: "rendering gauge", unit: Unit::Count, "qwe").set(1.0);
+    histogram!(description: "rendering histogram", unit: Unit::Count, "qwe").record(1.0);
 }
 
 #[allow(dead_code)]
 fn unit_with_describe() {
-    counter!(unit: Unit::Count, describe: "rendering counter", "qwe").increment(1);
-    gauge!(unit: Unit::Count, describe: "rendering gauge", "qwe").set(1.0);
-    histogram!(unit: Unit::Count, describe: "rendering histogram",  "qwe").record(1.0);
+    counter!(unit: Unit::Count, description: "rendering counter", "qwe").increment(1);
+    gauge!(unit: Unit::Count, description: "rendering gauge", "qwe").set(1.0);
+    histogram!(unit: Unit::Count, description: "rendering histogram",  "qwe").record(1.0);
 }
 
 #[allow(dead_code)]

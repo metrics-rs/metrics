@@ -88,7 +88,7 @@ macro_rules! key_var {
 ///
 /// - `target:` - Module path of the counter. Defaults to `::core::module_path!()`.
 /// - `level:` - Verbosity level of the counter. Defaults to `INFO`.
-/// - `describe:` - Description of the counter. If specified, `$name` will be used twice.
+/// - `description:` - Description of the counter. If specified, `$name` will be used twice.
 /// - `unit:` - Unit of measurement of the counter. Description must be provided in order to specify units.
 ///
 /// ## Labels
@@ -134,7 +134,7 @@ macro_rules! key_var {
 ///
 /// // Full counter customization example
 /// let counter = counter!(
-///     describe: "super counter",
+///     description: "super counter",
 ///     unit: metrics::Unit::Bytes,
 ///     target: ::core::module_path!(),
 ///     level: metrics::Level::INFO,
@@ -150,7 +150,7 @@ macro_rules! counter {
         $crate::__register_metric!(
             describe_counter,
             register_counter,
-            describe = __internal_metric_description_none__,
+            description = __internal_metric_description_none__,
             unit = __internal_metric_unit_none__,
             target = ::core::module_path!(),
             level = $crate::Level::INFO;
@@ -167,7 +167,7 @@ macro_rules! __describe_metric {
     ($method:ident, __internal_metric_description_none__, __internal_metric_unit_none__, $($rest:tt)*) => {{}};
     // Show compilation error if `unit` only specified
     ($method:ident, __internal_metric_description_none__, $unit:expr, $($rest:tt)*) => {{
-        compile_error!("'unit:' requires to specify parameter 'describe:'");
+        compile_error!("'unit:' requires to specify parameter 'description:'");
     }};
     // Found description only
     ($method:ident, $description:expr, __internal_metric_unit_none__, $name:expr) => {{
@@ -198,7 +198,7 @@ macro_rules! __register_metric {
     (
         $describe:ident,
         $register:ident,
-        describe = $description:tt,
+        description = $description:tt,
         unit = $unit:tt,
         target = $_old:expr,
         level = $level:expr;
@@ -208,7 +208,7 @@ macro_rules! __register_metric {
         $crate::__register_metric!(
             $describe,
             $register,
-            describe = $description,
+            description = $description,
             unit = $unit,
             target = $target,
             level = $level;
@@ -219,7 +219,7 @@ macro_rules! __register_metric {
     (
         $describe:ident,
         $register:ident,
-        describe = $description:tt,
+        description = $description:tt,
         unit = $unit:tt,
         target = $target:expr,
         level = $_old:expr;
@@ -229,28 +229,28 @@ macro_rules! __register_metric {
         $crate::__register_metric!(
             $describe,
             $register,
-            describe = $description,
+            description = $description,
             unit = $unit,
             target = $target,
             level = $level;
             $($rest)*
         )
     };
-    // `describe:` — replace the accumulator's `describe` slot.
+    // `description:` — replace the accumulator's `describe` slot.
     (
         $describe:ident,
         $register:ident,
-        describe = $old:tt,
+        description = $old:tt,
         unit = $unit:tt,
         target = $target:expr,
         level = $level:expr;
-        describe: $description:expr,
+        description: $description:expr,
         $($rest:tt)*
     ) => {
         $crate::__register_metric!(
             $describe,
             $register,
-            describe = $description,
+            description = $description,
             unit = $unit,
             target = $target,
             level = $level;
@@ -261,7 +261,7 @@ macro_rules! __register_metric {
     (
         $describe:ident,
         $register:ident,
-        describe = $description:tt,
+        description = $description:tt,
         unit = $old:tt,
         target = $target:expr,
         level = $level:expr;
@@ -271,7 +271,7 @@ macro_rules! __register_metric {
         $crate::__register_metric!(
             $describe,
             $register,
-            describe = $description,
+            description = $description,
             unit = $unit,
             target = $target,
             level = $level;
@@ -282,13 +282,13 @@ macro_rules! __register_metric {
     (
         $describe:ident,
         $register:ident,
-        describe = $description:tt,
+        description = $description:tt,
         unit = $unit:tt,
         target = $target:expr,
         level = $level:expr;
         $name:expr $(, $label_key:expr $(=> $label_value:expr)?)* $(,)?
     ) => {{
-        $crate::__describe_metric!(describe_counter, $description, $unit, $name);
+        $crate::__describe_metric!($describe, $description, $unit, $name);
 
         let metric_key = $crate::key_var!($name $(, $label_key $(=> $label_value)?)*);
         let metadata = $crate::metadata_var!($target, $level);
@@ -329,7 +329,7 @@ macro_rules! __register_metric {
 ///
 /// - `target:` - Module path of the counter. Defaults to `::core::module_path!()`.
 /// - `level:` - Verbosity level of the counter. Defaults to `INFO`.
-/// - `describe:` - Description of the counter. If specified, `$name` will be used twice.
+/// - `description:` - Description of the counter. If specified, `$name` will be used twice.
 /// - `unit:` - Unit of measurement of the counter. Description must be provided in order to specify units.
 ///
 /// ## Labels
@@ -375,7 +375,7 @@ macro_rules! __register_metric {
 /// let gauge = gauge!(format!("{}_via_format", "name"));
 /// // Full gauge customization example
 /// let gauge = gauge!(
-///     describe: "super gauge",
+///     description: "super gauge",
 ///     unit: metrics::Unit::Bytes,
 ///     target: ::core::module_path!(),
 ///     level: metrics::Level::INFO,
@@ -391,7 +391,7 @@ macro_rules! gauge {
         $crate::__register_metric!(
             describe_gauge,
             register_gauge,
-            describe = __internal_metric_description_none__,
+            description = __internal_metric_description_none__,
             unit = __internal_metric_unit_none__,
             target = ::core::module_path!(),
             level = $crate::Level::INFO;
@@ -432,7 +432,7 @@ macro_rules! gauge {
 ///
 /// - `target:` - Module path of the counter. Defaults to `::core::module_path!()`.
 /// - `level:` - Verbosity level of the counter. Defaults to `INFO`.
-/// - `describe:` - Description of the counter. If specified, `$name` will be used twice.
+/// - `description:` - Description of the counter. If specified, `$name` will be used twice.
 /// - `unit:` - Unit of measurement of the counter. Description must be provided in order to specify units.
 ///
 /// ## Labels
@@ -475,7 +475,7 @@ macro_rules! gauge {
 /// let histogram = histogram!(format!("{}_via_format", "name"));
 /// // Full histogram customization example
 /// let histogram = histogram!(
-///     describe: "super counter",
+///     description: "super counter",
 ///     unit: metrics::Unit::Bytes,
 ///     target: ::core::module_path!(),
 ///     level: metrics::Level::INFO,
@@ -491,7 +491,7 @@ macro_rules! histogram {
         $crate::__register_metric!(
             describe_histogram,
             register_histogram,
-            describe = __internal_metric_description_none__,
+            description = __internal_metric_description_none__,
             unit = __internal_metric_unit_none__,
             target = ::core::module_path!(),
             level = $crate::Level::INFO;
