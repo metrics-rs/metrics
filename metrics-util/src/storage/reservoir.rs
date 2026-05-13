@@ -12,12 +12,13 @@ use std::{
     },
 };
 
-use rand::{rngs::OsRng, Rng, SeedableRng};
+use rand::rngs::SysRng;
+use rand::{RngExt, SeedableRng};
 use rand_xoshiro::Xoshiro256StarStar;
 
 thread_local! {
     static FAST_RNG: UnsafeCell<Xoshiro256StarStar> = {
-        UnsafeCell::new(Xoshiro256StarStar::try_from_rng(&mut OsRng).unwrap())
+        UnsafeCell::new(Xoshiro256StarStar::try_from_rng(&mut SysRng).unwrap())
     };
 }
 

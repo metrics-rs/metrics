@@ -55,7 +55,7 @@ metrics = { version = "^0.24.5", path = "../metrics" }
 rapidhash = { workspace = true }
 ordered-float = { workspace = true, optional = true }
 quanta = { workspace = true, optional = true }
-rand = { workspace = true, optional = true }
+rand = { workspace = true, optional = true, features = ["sys_rng"] }
 rand_xoshiro = { workspace = true, default-features = false, optional = true }
 radix_trie = { workspace = true, optional = true }
 sketches-ddsketch = { workspace = true, optional = true }
