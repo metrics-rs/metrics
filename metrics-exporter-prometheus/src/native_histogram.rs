@@ -5,6 +5,7 @@
 
 use std::collections::btree_map::Entry;
 use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
+use std::sync::PoisonError;
 
 /// IEEE 754 frexp implementation matching Go's math.Frexp behavior.
 /// Returns (mantissa, exponent) such that f = mantissa × 2^exponent,
@@ -924,12 +925,12 @@ impl NativeHistogram {
 
     /// Returns a snapshot of the positive buckets.
     pub(crate) fn positive_buckets(&self) -> std::collections::BTreeMap<i32, u64> {
-        self.positive_buckets.read().unwrap().clone()
+        self.positive_buckets.read().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
     /// Returns a snapshot of the negative buckets.
     pub(crate) fn negative_buckets(&self) -> std::collections::BTreeMap<i32, u64> {
-        self.negative_buckets.read().unwrap().clone()
+        self.negative_buckets.read().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
     /// Returns the configuration used by this histogram.

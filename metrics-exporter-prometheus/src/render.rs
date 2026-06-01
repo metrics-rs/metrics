@@ -24,6 +24,7 @@ use crate::LabelSet;
 /// first, then gauge families, then distribution families. Implements
 /// [`ExactSizeIterator`] so callers can pre-allocate or make layout decisions
 /// before consuming.
+#[derive(Debug)]
 pub struct RenderedMetrics {
     counters: HashMapIntoIter<String, HashMap<LabelSet, u64>>,
     gauges: HashMapIntoIter<String, HashMap<LabelSet, f64>>,
@@ -53,23 +54,6 @@ impl Iterator for RenderedMetrics {
         None
     }
 
-    fn fold<B, F: FnMut(B, Self::Item) -> B>(self, init: B, mut f: F) -> B {
-        let mut acc = init;
-        for (name, by_labels) in self.counters {
-            acc = f(
-                acc,
-                render_counter(&name, by_labels, &self.descriptions_rd, self.counter_suffix),
-            );
-        }
-        for (name, by_labels) in self.gauges {
-            acc = f(acc, render_gauge(&name, by_labels, &self.descriptions_rd));
-        }
-        for (name, by_labels) in self.distributions {
-            acc = f(acc, render_distribution(&name, by_labels, &self.descriptions_rd));
-        }
-        acc
-    }
-
     fn size_hint(&self) -> (usize, Option<usize>) {
         let len = self.counters.len() + self.gauges.len() + self.distributions.len();
         (len, Some(len))
@@ -88,6 +72,23 @@ pub struct LabelPair {
     pub value: String,
 }
 
+/// The Prometheus metric type of a [`MetricFamily`].
+///
+/// Carried explicitly so the type is known even for an empty family, rather
+/// than inferred from a sample. Mirrors `io.prometheus.client.MetricType`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum MetricKind {
+    /// A monotonically increasing counter.
+    Counter,
+    /// A gauge that can go up and down.
+    Gauge,
+    /// A client-side summary with pre-computed quantiles.
+    Summary,
+    /// A classic or native Prometheus histogram.
+    Histogram,
+}
+
 /// A named group of metrics that share the same metric name, help text, and
 /// value type — corresponding to a single Prometheus `MetricFamily`.
 #[derive(Debug)]
@@ -98,6 +99,10 @@ pub struct MetricFamily {
     pub name: String,
     /// The `HELP` description, if one was registered.
     pub help: Option<String>,
+    /// The registered unit, if one was provided at registration.
+    pub unit: Option<metrics::Unit>,
+    /// The Prometheus metric type of this family.
+    pub kind: MetricKind,
     /// The individual time-series samples within this family, each
     /// distinguished by its label set.
     pub metrics: Vec<Metric>,
@@ -242,7 +247,14 @@ fn render_counter(
     descriptions_rd: &DescriptionReadHandle,
     counter_suffix: Option<&'static str>,
 ) -> MetricFamily {
-    render_metric(name, by_labels, descriptions_rd, counter_suffix, MetricValue::Counter)
+    render_metric(
+        name,
+        by_labels,
+        descriptions_rd,
+        counter_suffix,
+        MetricKind::Counter,
+        MetricValue::Counter,
+    )
 }
 
 fn render_gauge(
@@ -250,7 +262,7 @@ fn render_gauge(
     by_labels: std::collections::HashMap<LabelSet, f64>,
     descriptions_rd: &DescriptionReadHandle,
 ) -> MetricFamily {
-    render_metric(name, by_labels, descriptions_rd, None, MetricValue::Gauge)
+    render_metric(name, by_labels, descriptions_rd, None, MetricKind::Gauge, MetricValue::Gauge)
 }
 
 fn render_distribution(
@@ -258,15 +270,25 @@ fn render_distribution(
     by_labels: indexmap::IndexMap<LabelSet, crate::Distribution>,
     descriptions_rd: &DescriptionReadHandle,
 ) -> MetricFamily {
-    render_metric(name, by_labels, descriptions_rd, None, render_distribution_value)
+    let kind = match by_labels.values().next() {
+        Some(crate::Distribution::Summary(..)) => MetricKind::Summary,
+        _ => MetricKind::Histogram,
+    };
+    render_metric(name, by_labels, descriptions_rd, None, kind, render_distribution_value)
 }
 
-fn get_help(name: &str, descriptions_rd: &DescriptionReadHandle) -> Option<String> {
-    descriptions_rd
-        .get_one(name)
-        .as_deref()
-        .map(|(desc, _)| desc.clone().into_owned())
-        .filter(|desc| !desc.is_empty())
+fn get_help_and_unit(
+    name: &str,
+    descriptions_rd: &DescriptionReadHandle,
+) -> (Option<String>, Option<metrics::Unit>) {
+    match descriptions_rd.get_one(name).as_deref() {
+        Some((desc, unit)) => {
+            let help = Some(desc.clone().into_owned()).filter(|desc| !desc.is_empty());
+            // `metrics::Unit` is `Copy`.
+            (help, *unit)
+        }
+        None => (None, None),
+    }
 }
 
 fn get_labels(labels: LabelSet) -> Vec<LabelPair> {
@@ -278,11 +300,15 @@ fn render_metric<T>(
     by_labels: impl IntoIterator<Item = (LabelSet, T)>,
     descriptions_rd: &DescriptionReadHandle,
     counter_suffix: Option<&'static str>,
+    kind: MetricKind,
     mut render_value: impl FnMut(T) -> MetricValue,
 ) -> MetricFamily {
+    let (help, unit) = get_help_and_unit(name, descriptions_rd);
     MetricFamily {
         name: add_suffix_to_name(sanitize_metric_name(name), counter_suffix),
-        help: get_help(name, descriptions_rd),
+        help,
+        unit,
+        kind,
         metrics: by_labels
             .into_iter()
             .map(|(labels, value)| Metric {
@@ -421,7 +447,36 @@ fn make_buckets(buckets: std::collections::BTreeMap<i32, u64>) -> (Vec<BucketSpa
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+    use std::collections::HashMap;
+
+    use indexmap::IndexMap;
+
     use super::*;
+    use crate::common::Snapshot;
+    use crate::distribution::Distribution;
+    use crate::recorder::new_description_handles;
+
+    fn buckets(pairs: &[(i32, u64)]) -> BTreeMap<i32, u64> {
+        pairs.iter().copied().collect()
+    }
+
+    fn label_set(name: &str, k: &str, v: &str) -> LabelSet {
+        LabelSet::from_key_and_global(
+            &metrics::Key::from_parts(
+                String::from(name),
+                vec![metrics::Label::new(String::from(k), String::from(v))],
+            ),
+            &IndexMap::new(),
+        )
+    }
+
+    fn classic_histogram() -> Distribution {
+        let mut dist = Distribution::new_histogram(&[1.0, 5.0, 10.0]);
+        let now = quanta::Instant::now();
+        dist.record_samples(&[(0.5, now), (2.0, now), (7.0, now)]);
+        dist
+    }
 
     #[test]
     fn test_add_suffix_to_name() {
@@ -431,5 +486,153 @@ mod tests {
             "requests_total"
         );
         assert_eq!(add_suffix_to_name("requests".to_owned(), None), "requests");
+    }
+
+    #[test]
+    fn make_buckets_empty() {
+        let (spans, deltas) = make_buckets(BTreeMap::new());
+        assert!(spans.is_empty());
+        assert!(deltas.is_empty());
+    }
+
+    #[test]
+    fn make_buckets_single() {
+        // One bucket at index 2, count 5.
+        let (spans, deltas) = make_buckets(buckets(&[(2, 5)]));
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].offset, 2);
+        assert_eq!(spans[0].length, 1);
+        assert_eq!(deltas, vec![5]);
+    }
+
+    #[test]
+    fn make_buckets_contiguous() {
+        // Indices 0,1,2 with counts 1,2,3 -> deltas are 1,+1,+1.
+        let (spans, deltas) = make_buckets(buckets(&[(0, 1), (1, 2), (2, 3)]));
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].offset, 0);
+        assert_eq!(spans[0].length, 3);
+        assert_eq!(deltas, vec![1, 1, 1]);
+    }
+
+    #[test]
+    fn make_buckets_small_gap_merged() {
+        // Gap of 2 (indices 0 and 3) is bridged with empty buckets in one span,
+        // matching the Go encoder. Empty buckets emit -prev_count deltas.
+        let (spans, deltas) = make_buckets(buckets(&[(0, 4), (3, 4)]));
+        assert_eq!(spans.len(), 1, "gap of <=2 must not create a new span");
+        assert_eq!(spans[0].offset, 0);
+        assert_eq!(spans[0].length, 4); // bucket 0, two empties, bucket 3
+        // bucket0: 4-0=4; empty: -4; empty: 0; bucket3: 4-0=4
+        assert_eq!(deltas, vec![4, -4, 0, 4]);
+    }
+
+    #[test]
+    fn make_buckets_large_gap_new_span() {
+        // Gap of 3 (indices 0 and 4) creates a new span with offset = gap.
+        let (spans, deltas) = make_buckets(buckets(&[(0, 4), (4, 7)]));
+        assert_eq!(spans.len(), 2, "gap of >2 must create a new span");
+        assert_eq!(spans[0].offset, 0);
+        assert_eq!(spans[0].length, 1);
+        assert_eq!(spans[1].offset, 4 - 1); // offset from next expected index (1) to 4
+        assert_eq!(spans[1].length, 1);
+        // prev_count is NOT reset across a new span: bucket0 delta = 4-0 = 4;
+        // bucket4 delta = 7 - prev_count(4) = 3.
+        assert_eq!(deltas, vec![4, 3]);
+    }
+
+    #[test]
+    fn make_buckets_negative_indices() {
+        let (spans, deltas) = make_buckets(buckets(&[(-2, 3), (-1, 5)]));
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].offset, -2);
+        assert_eq!(spans[0].length, 2);
+        assert_eq!(deltas, vec![3, 2]); // 3, then 5-3=2
+    }
+
+    #[test]
+    fn rendered_metrics_yields_counters_then_gauges_then_distributions() {
+        let mut counters = HashMap::new();
+        counters.insert("c".to_string(), {
+            let mut m = HashMap::new();
+            m.insert(label_set("c", "k", "v"), 1u64);
+            m
+        });
+        let mut gauges = HashMap::new();
+        gauges.insert("g".to_string(), {
+            let mut m = HashMap::new();
+            m.insert(label_set("g", "k", "v"), 1.0f64);
+            m
+        });
+        let mut distributions = HashMap::new();
+        distributions.insert("d".to_string(), {
+            let mut m = IndexMap::new();
+            m.insert(label_set("d", "k", "v"), classic_histogram());
+            m
+        });
+
+        let snapshot = Snapshot { counters, gauges, distributions };
+        let (mut wr, rd) = new_description_handles();
+        wr.publish();
+
+        let kinds: Vec<MetricKind> =
+            render_snapshot_and_descriptions(snapshot, rd, Some("total"))
+                .map(|f| f.kind)
+                .collect();
+
+        assert_eq!(kinds, vec![MetricKind::Counter, MetricKind::Gauge, MetricKind::Histogram]);
+    }
+
+    #[test]
+    fn gauge_family_carries_kind_and_unit() {
+        let mut gauges = HashMap::new();
+        gauges.insert("mem_used".to_string(), {
+            let mut m = HashMap::new();
+            m.insert(label_set("mem_used", "host", "a"), 1.0f64);
+            m
+        });
+        let snapshot =
+            Snapshot { counters: HashMap::new(), gauges, distributions: HashMap::new() };
+
+        let (mut wr, rd) = new_description_handles();
+        wr.update(
+            "mem_used".to_string(),
+            (metrics::SharedString::const_str("Memory used"), Some(metrics::Unit::Bytes)),
+        );
+        wr.publish();
+
+        let family = render_snapshot_and_descriptions(snapshot, rd, None).next().unwrap();
+        assert_eq!(family.kind, MetricKind::Gauge);
+        assert_eq!(family.unit, Some(metrics::Unit::Bytes));
+        assert_eq!(family.help.as_deref(), Some("Memory used"));
+    }
+
+    #[test]
+    fn rendered_metrics_is_exact_size() {
+        let mut counters = HashMap::new();
+        counters.insert("c".to_string(), {
+            let mut m = HashMap::new();
+            m.insert(label_set("c", "k", "v"), 1u64);
+            m
+        });
+        let mut gauges = HashMap::new();
+        gauges.insert("g".to_string(), {
+            let mut m = HashMap::new();
+            m.insert(label_set("g", "k", "v"), 1.0f64);
+            m
+        });
+        let snapshot =
+            Snapshot { counters, gauges, distributions: HashMap::new() };
+        let (mut wr, rd) = new_description_handles();
+        wr.publish();
+
+        let mut iter = render_snapshot_and_descriptions(snapshot, rd, Some("total"));
+        assert_eq!(iter.len(), 2);
+        assert_eq!(iter.size_hint(), (2, Some(2)));
+        let _ = iter.next();
+        assert_eq!(iter.len(), 1, "len must shrink as items are consumed");
+        let _ = iter.next();
+        assert_eq!(iter.len(), 0);
+        assert!(iter.next().is_none());
     }
 }
