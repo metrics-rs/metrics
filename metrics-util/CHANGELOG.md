@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- New `Histogram::record_n` and `Summary::add_n` methods for recording a value multiple times in
+  constant time.
+
+### Changed
+
+- `HistogramFn` for `Generational<T>` and `FanoutHistogram` now forwards `record_many` to the inner
+  implementation(s) instead of falling back to the default loop of `record` calls.
+- Updated `sketches-ddsketch` to `0.4`, which provides the constant-time weighted
+  `DDSketch::add_with_count` backing `Summary::add_n`.
+
 ## [0.20.4] - 2026-05-13
 
 ### Fixed

@@ -90,6 +90,12 @@ impl HistogramFn for FanoutHistogram {
             histogram.record(value);
         }
     }
+
+    fn record_many(&self, value: f64, count: usize) {
+        for histogram in &self.histograms {
+            histogram.record_many(value, count);
+        }
+    }
 }
 
 impl From<FanoutHistogram> for Histogram {

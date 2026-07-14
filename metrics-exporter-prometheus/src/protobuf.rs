@@ -158,7 +158,7 @@ pub(crate) fn render_protobuf_to_write<W: Write>(
                     pb::Metric {
                         label: label_pairs,
                         summary: Some(pb::Summary {
-                            sample_count: Some(summary.count() as u64),
+                            sample_count: Some(summary.count()),
                             sample_sum: Some(sum),
                             quantile: quantile_values,
 

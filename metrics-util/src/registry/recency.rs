@@ -124,6 +124,16 @@ where
     fn record(&self, value: f64) {
         self.with_increment(|h| h.record(value))
     }
+
+    fn record_many(&self, value: f64, count: usize) {
+        // A zero count records nothing, so it must not bump the generation
+        // either — recency-based idle eviction relies on the generation only
+        // moving when the metric actually changes.
+        if count == 0 {
+            return;
+        }
+        self.with_increment(|h| h.record_many(value, count))
+    }
 }
 
 impl<T> From<Generational<T>> for Counter
@@ -344,5 +354,46 @@ where
         }
 
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Generational;
+    use metrics::HistogramFn;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Default)]
+    struct CallCounter {
+        record_calls: AtomicUsize,
+        record_many_calls: AtomicUsize,
+    }
+
+    impl HistogramFn for CallCounter {
+        fn record(&self, _value: f64) {
+            self.record_calls.fetch_add(1, Ordering::Relaxed);
+        }
+
+        fn record_many(&self, _value: f64, _count: usize) {
+            self.record_many_calls.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    #[test]
+    fn histogram_record_many_forwards_to_inner() {
+        // If `Generational` fell back to the default `record_many` (a loop of
+        // `record` calls), the inner impl's own `record_many` would never run
+        // and this would be 1000 `record` calls instead.
+        let generational = Generational::new(CallCounter::default());
+        generational.record_many(42.0, 1000);
+
+        assert_eq!(generational.get_inner().record_many_calls.load(Ordering::Relaxed), 1);
+        assert_eq!(generational.get_inner().record_calls.load(Ordering::Relaxed), 0);
+
+        // A zero count records nothing and must not bump the generation, or
+        // recency-based idle eviction would keep the metric alive forever.
+        let generation = generational.get_generation();
+        generational.record_many(1.0, 0);
+        assert_eq!(generational.get_generation(), generation);
     }
 }

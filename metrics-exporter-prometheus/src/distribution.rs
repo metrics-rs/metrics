@@ -67,21 +67,27 @@ impl Distribution {
     }
 
     /// Records the given `samples` in the current distribution.
-    pub fn record_samples(&mut self, samples: &[(f64, Instant)]) {
-        match self {
-            Distribution::Histogram(hist) => {
-                hist.record_many(samples.iter().map(|(sample, _ts)| sample));
+    ///
+    /// Each entry is `(value, count, timestamp)`, recording `value` as if it
+    /// had been observed `count` times at `timestamp`. Recording is O(1) in
+    /// `count` for every distribution type.
+    pub fn record_samples(&mut self, samples: &[(f64, usize, Instant)]) {
+        for &(value, count, ts) in samples {
+            // A zero count records nothing; skipping it here also keeps an
+            // infinite value from poisoning the summary sum (inf * 0.0 == NaN).
+            if count == 0 {
+                continue;
             }
-            Distribution::Summary(hist, _, sum) => {
-                for (sample, ts) in samples {
-                    hist.add(*sample, *ts);
-                    *sum += *sample;
+            match self {
+                Distribution::Histogram(hist) => hist.record_n(value, count),
+                Distribution::Summary(hist, _, sum) => {
+                    hist.add_n(value, count, ts);
+                    #[allow(clippy::cast_precision_loss)]
+                    {
+                        *sum += value * (count as f64);
+                    }
                 }
-            }
-            Distribution::NativeHistogram(hist) => {
-                for (sample, _ts) in samples {
-                    hist.observe(*sample);
-                }
+                Distribution::NativeHistogram(hist) => hist.observe_n(value, count),
             }
         }
     }
@@ -206,8 +212,9 @@ pub struct RollingSummary {
     // This is the maximum duration a bucket will be kept.
     max_bucket_duration: Duration,
     // Total samples since creation of this summary.  This is separate from the Summary since it is
-    // never reset.
-    count: usize,
+    // never reset. u64 rather than usize: weighted counts make 2^32 reachable
+    // on 32-bit targets, and a wrapped total renders as a counter reset.
+    count: u64,
 }
 
 impl Default for RollingSummary {
@@ -238,8 +245,20 @@ impl RollingSummary {
     ///
     /// Any values that expire at the `value_ts` are removed from the `RollingSummary`.
     pub fn add(&mut self, value: f64, now: Instant) {
+        self.add_n(value, 1, now);
+    }
+
+    /// Add a sample `value` to the `RollingSummary` `n` times, as if `add` had been called `n`
+    /// times with the same `now`, in constant time.
+    ///
+    /// Any values that expire at the `value_ts` are removed from the `RollingSummary`.
+    pub fn add_n(&mut self, value: f64, n: usize, now: Instant) {
+        if n == 0 {
+            return;
+        }
+
         // The count is incremented even if this value is too old to be saved in any bucket.
-        self.count += 1;
+        self.count += n as u64;
 
         // If we can find a bucket that this value belongs in, then we can just add it in and be
         // done.
@@ -252,7 +271,7 @@ impl RollingSummary {
             }
 
             if now >= bucket.begin && now < end {
-                bucket.summary.add(value);
+                bucket.summary.add_n(value, n);
                 return;
             }
         }
@@ -264,7 +283,7 @@ impl RollingSummary {
 
         if self.buckets.is_empty() {
             let mut summary = Summary::with_defaults();
-            summary.add(value);
+            summary.add_n(value, n);
             self.buckets.push(Bucket { begin: now, summary });
             return;
         }
@@ -275,7 +294,7 @@ impl RollingSummary {
         let reftime = self.buckets[0].begin;
 
         let mut summary = Summary::with_defaults();
-        summary.add(value);
+        summary.add_n(value, n);
 
         // If the value is newer than the first bucket then count upwards to the new bucket time.
         let mut begin;
@@ -319,7 +338,7 @@ impl RollingSummary {
     }
 
     /// Gets the totoal number of samples this summary has seen so far.
-    pub fn count(&self) -> usize {
+    pub fn count(&self) -> u64 {
         self.count
     }
 
@@ -334,6 +353,59 @@ mod tests {
     use super::*;
 
     use quanta::Clock;
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn record_samples_ignores_zero_count_entries() {
+        // Zero-count entries can only arrive via direct callers of this pub
+        // API (the registry filters them); an infinite value with count zero
+        // must not poison the summary sum — the one piece of state updated
+        // here rather than in a callee with its own zero guard. The weighted
+        // happy path is covered end to end in tests/record_many.rs.
+        let (clock, mock) = Clock::mock();
+        mock.increment(Duration::from_secs(3600));
+        let now = clock.now();
+
+        let mut dist = Distribution::new_summary(
+            Arc::new(vec![]),
+            DEFAULT_SUMMARY_BUCKET_DURATION,
+            DEFAULT_SUMMARY_BUCKET_COUNT,
+        );
+        dist.record_samples(&[(2.0, 3, now), (f64::INFINITY, 0, now)]);
+        let Distribution::Summary(summary, _, sum) = &dist else {
+            panic!("expected summary");
+        };
+        assert_eq!(summary.count(), 3);
+        assert_eq!(*sum, 6.0);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn rolling_summary_add_n_equals_repeated_add() {
+        let (clock, mock) = Clock::mock();
+        mock.increment(Duration::from_secs(3600));
+
+        let mut repeated = RollingSummary::default();
+        let mut counted = RollingSummary::default();
+
+        for (v, n) in [(42.0, 500usize), (7.0, 250)] {
+            for _ in 0..n {
+                repeated.add(v, clock.now());
+            }
+            counted.add_n(v, n, clock.now());
+            mock.increment(Duration::from_secs(20));
+        }
+        counted.add_n(9.0, 0, clock.now()); // no-op
+
+        assert_eq!(repeated.count(), counted.count());
+        assert_eq!(repeated.buckets().len(), counted.buckets().len());
+        let now = clock.now();
+        let (r, c) = (repeated.snapshot(now), counted.snapshot(now));
+        assert_eq!(r.count(), c.count());
+        for q in [0.25, 0.5, 0.75, 0.99] {
+            assert_eq!(r.quantile(q), c.quantile(q), "quantile {q} diverged");
+        }
+    }
 
     #[test]
     fn new_rolling_summary() {

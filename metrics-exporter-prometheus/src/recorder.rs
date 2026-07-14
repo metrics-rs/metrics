@@ -246,7 +246,7 @@ impl Inner {
                             );
                         }
 
-                        (sum, summary.count() as u64)
+                        (sum, summary.count())
                     }
                     Distribution::Histogram(histogram) => {
                         for (le, count) in histogram.buckets() {

@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- `HistogramFn` for `Arc<T>` now forwards `record_many` to the inner implementation instead of
+  falling back to the default loop of `record` calls, so `O(1)` `record_many` implementations are
+  reachable through handle wrappers.
+
 ## [0.24.6] - 2026-05-13
 
 ### Added

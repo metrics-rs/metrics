@@ -711,8 +711,22 @@ impl NativeHistogram {
     }
 
     /// Records a single observation.
+    #[cfg(test)]
     pub(crate) fn observe(&self, value: f64) {
-        self.count.fetch_add(1, Ordering::Relaxed);
+        self.observe_n(value, 1);
+    }
+
+    /// Records an observation `n` times, as if `observe` had been called `n`
+    /// times, in constant time.
+    ///
+    /// Observing with an `n` of zero is a no-op.
+    pub(crate) fn observe_n(&self, value: f64, n: usize) {
+        if n == 0 {
+            return;
+        }
+        let n = n as u64;
+
+        self.count.fetch_add(n, Ordering::Relaxed);
 
         // Skip sparse bucket logic and sum updates for NaN values
         if value.is_nan() {
@@ -723,7 +737,8 @@ impl NativeHistogram {
         loop {
             let current_sum_bits = self.sum.load(Ordering::Relaxed);
             let current_sum = f64::from_bits(current_sum_bits);
-            let new_sum = current_sum + value;
+            #[allow(clippy::cast_precision_loss)]
+            let new_sum = current_sum + value * (n as f64);
 
             if self
                 .sum
@@ -798,12 +813,12 @@ impl NativeHistogram {
             // Use single entry API call to avoid race condition
             match buckets.entry(key) {
                 Entry::Vacant(entry) => {
-                    entry.insert(1);
+                    entry.insert(n);
                     self.bucket_count.fetch_add(1, Ordering::Relaxed);
                     added_new_bucket = true;
                 }
                 Entry::Occupied(mut entry) => {
-                    *entry.get_mut() += 1;
+                    *entry.get_mut() += n;
                 }
             }
         } else if value < -zero_threshold {
@@ -811,17 +826,17 @@ impl NativeHistogram {
             // Use single entry API call to avoid race condition
             match buckets.entry(key) {
                 Entry::Vacant(entry) => {
-                    entry.insert(1);
+                    entry.insert(n);
                     self.bucket_count.fetch_add(1, Ordering::Relaxed);
                     added_new_bucket = true;
                 }
                 Entry::Occupied(mut entry) => {
-                    *entry.get_mut() += 1;
+                    *entry.get_mut() += n;
                 }
             }
         } else {
             // Value is within zero threshold
-            self.zero_count.fetch_add(1, Ordering::Relaxed);
+            self.zero_count.fetch_add(n, Ordering::Relaxed);
         }
 
         // Check bucket limit after releasing locks
@@ -1001,6 +1016,28 @@ mod tests {
         let (m, e) = frexp(-2.0);
         assert!((m - (-0.5)).abs() < f64::EPSILON);
         assert_eq!(e, 2);
+    }
+
+    #[test]
+    fn test_observe_n_equals_repeated_observe() {
+        let config = NativeHistogramConfig::new(2.0, 160, 0.001).unwrap();
+        let repeated = NativeHistogram::new(config.clone());
+        let counted = NativeHistogram::new(config);
+
+        // Positive, negative, zero-threshold, and NaN paths, with mixed counts.
+        for (v, n) in [(4.2, 1_000usize), (-7.0, 250), (0.0001, 33), (123.45, 1), (f64::NAN, 5)] {
+            for _ in 0..n {
+                repeated.observe(v);
+            }
+            counted.observe_n(v, n);
+        }
+        counted.observe_n(42.0, 0); // no-op
+
+        assert_eq!(repeated.count(), counted.count());
+        assert!((repeated.sum() - counted.sum()).abs() < 1e-6);
+        assert_eq!(repeated.zero_count(), counted.zero_count());
+        assert_eq!(repeated.positive_buckets(), counted.positive_buckets());
+        assert_eq!(repeated.negative_buckets(), counted.negative_buckets());
     }
 
     #[test]

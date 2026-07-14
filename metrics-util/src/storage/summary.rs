@@ -92,11 +92,20 @@ impl Summary {
     ///
     /// If the absolute value of `value` is smaller than given `min_value`, it will be added as a zero.
     pub fn add(&mut self, value: f64) {
+        self.add_n(value, 1);
+    }
+
+    /// Adds a sample to the summary `n` times, as if `add` had been called `n` times, in constant
+    /// time.
+    ///
+    /// If the absolute value of `value` is smaller than given `min_value`, it will be added as a
+    /// zero. Adding with an `n` of zero is a no-op.
+    pub fn add_n(&mut self, value: f64, n: usize) {
         if value.is_infinite() {
             return;
         }
 
-        self.sketch.add(value);
+        self.sketch.add_with_count(value, n as u64);
     }
 
     /// Gets the estimated value at the given quantile.

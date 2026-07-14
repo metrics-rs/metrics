@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- **Breaking:** `Distribution::record_samples` now takes `(f64, usize, Instant)` entries — the
+  middle element is the number of times the value was observed.
+- `Histogram::record_many` is now `O(1)` in time and buffered memory instead of `O(count)`: the
+  registry buffers one `(value, count, timestamp)` entry per call, and all three distribution types
+  (bucketed histogram, summary, native histogram) apply counts in constant time when draining.
+
 ## [0.18.3] - 2026-04-30
 
 ### Fixed

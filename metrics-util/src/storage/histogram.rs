@@ -49,13 +49,27 @@ impl Histogram {
 
     /// Records a single sample.
     pub fn record(&mut self, sample: f64) {
-        self.sum += sample;
-        self.count += 1;
+        self.record_n(sample, 1);
+    }
+
+    /// Records a sample `n` times, as if `record` had been called `n` times,
+    /// in constant time (relative to `n`).
+    ///
+    /// Recording with an `n` of zero is a no-op.
+    pub fn record_n(&mut self, sample: f64, n: usize) {
+        // Guard, not just an optimization: an infinite sample with n == 0
+        // would otherwise poison the sum (inf * 0.0 == NaN).
+        if n == 0 {
+            return;
+        }
+        let n = n as u64;
+        self.sum += sample * (n as f64);
+        self.count += n;
 
         // Add the sample to every bucket where the value is less than the bound.
         for (idx, bucket) in self.bounds.iter().enumerate() {
             if sample <= *bucket {
-                self.buckets[idx] += 1;
+                self.buckets[idx] += n;
             }
         }
     }
@@ -128,5 +142,26 @@ mod tests {
 
         assert_eq!(histogram.count(), values.len() as u64 + 1);
         assert_eq!(histogram.sum(), 581.0);
+    }
+
+    #[test]
+    fn test_record_n() {
+        let buckets = &[10.0, 25.0, 100.0];
+        let mut weighted = Histogram::new(buckets).expect("histogram should have been created");
+        let mut repeated = Histogram::new(buckets).expect("histogram should have been created");
+
+        for (value, n) in [(3.0, 1_000usize), (56.0, 250), (202.0, 17), (10.0, 1)] {
+            weighted.record_n(value, n);
+            for _ in 0..n {
+                repeated.record(value);
+            }
+        }
+        weighted.record_n(42.0, 0); // no-op
+        weighted.record_n(f64::INFINITY, 0); // no-op, must not NaN the sum
+
+        assert_eq!(weighted.buckets(), repeated.buckets());
+        assert_eq!(weighted.count(), repeated.count());
+        assert_eq!(weighted.count(), 1268);
+        assert_eq!(weighted.sum(), repeated.sum());
     }
 }

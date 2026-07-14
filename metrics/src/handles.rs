@@ -38,6 +38,8 @@ pub trait HistogramFn {
     fn record(&self, value: f64);
 
     /// Records a value into the histogram multiple times.
+    ///
+    /// A `count` of zero must be a complete no-op, with no observable side effects.
     fn record_many(&self, value: f64, count: usize) {
         for _ in 0..count {
             self.record(value);
@@ -214,6 +216,10 @@ where
     fn record(&self, value: f64) {
         (**self).record(value);
     }
+
+    fn record_many(&self, value: f64, count: usize) {
+        (**self).record_many(value, count);
+    }
 }
 
 impl<T> From<Arc<T>> for Counter
@@ -240,5 +246,40 @@ where
 {
     fn from(inner: Arc<T>) -> Self {
         Histogram::from_arc(inner)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::HistogramFn;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    #[derive(Default)]
+    struct CallCounter {
+        record_calls: AtomicUsize,
+        record_many_calls: AtomicUsize,
+    }
+
+    impl HistogramFn for CallCounter {
+        fn record(&self, _value: f64) {
+            self.record_calls.fetch_add(1, Ordering::Relaxed);
+        }
+
+        fn record_many(&self, _value: f64, _count: usize) {
+            self.record_many_calls.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    #[test]
+    fn arc_forwards_record_many_to_inner() {
+        // Without the forwarding impl, `Arc<T>` would fall back to the trait's
+        // default `record_many` (a loop of `record` calls), defeating any O(1)
+        // implementation on the inner type.
+        let inner = Arc::new(CallCounter::default());
+        HistogramFn::record_many(&inner, 42.0, 1000);
+
+        assert_eq!(inner.record_many_calls.load(Ordering::Relaxed), 1);
+        assert_eq!(inner.record_calls.load(Ordering::Relaxed), 0);
     }
 }
