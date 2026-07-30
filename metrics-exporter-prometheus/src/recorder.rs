@@ -465,4 +465,11 @@ impl PrometheusHandle {
     pub fn run_upkeep(&self) {
         self.inner.run_upkeep();
     }
+
+    /// Clears the underlying registry via [`Registry::clear()`](metrics_util::registry::Registry::clear).
+    ///
+    /// Note that this is eventually consistent. See also the docs on [`Registry::clear()`].
+    pub fn clear(&self) {
+        self.inner.registry.clear();
+    }
 }
