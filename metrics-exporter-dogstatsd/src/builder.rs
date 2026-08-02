@@ -98,6 +98,7 @@ pub struct DogStatsDBuilder {
     histogram_sampling: bool,
     histogram_reservoir_size: usize,
     histograms_as_distributions: bool,
+    sanitize_labels: bool,
     global_labels: Vec<Label>,
     global_prefix: Option<String>,
 }
@@ -241,6 +242,15 @@ impl DogStatsDBuilder {
         self
     }
 
+    /// Sets whether labels are sanitized according to Datadog's tag rules.
+    ///
+    /// Defaults to `true`.
+    #[must_use]
+    pub fn with_label_sanitization(mut self, enabled: bool) -> Self {
+        self.sanitize_labels = enabled;
+        self
+    }
+
     /// Adds a global prefix for every metric name.
     ///
     /// Global prefix is applied to all metrics. Its intended use is to introduce a configurable
@@ -367,6 +377,7 @@ impl DogStatsDBuilder {
             flush_interval,
             write_timeout: self.write_timeout,
             global_labels: self.global_labels,
+            sanitize_labels: self.sanitize_labels,
         };
 
         if self.synchronous {
@@ -415,6 +426,7 @@ impl Default for DogStatsDBuilder {
             histogram_sampling: false,
             histogram_reservoir_size: DEFAULT_HISTOGRAM_RESERVOIR_SIZE,
             histograms_as_distributions: true,
+            sanitize_labels: true,
             global_labels: Vec::default(),
             global_prefix: Option::default(),
         }
@@ -424,6 +436,15 @@ impl Default for DogStatsDBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn label_sanitization_configuration() {
+        let builder = DogStatsDBuilder::default();
+        assert!(builder.sanitize_labels);
+
+        let builder = builder.with_label_sanitization(false);
+        assert!(!builder.sanitize_labels);
+    }
 
     #[test]
     fn default_flush_interval_agg_mode() {
