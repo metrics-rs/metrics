@@ -3,6 +3,7 @@ use std::vec::Drain;
 use metrics::{Key, Label};
 
 const SMALLEST_VALID_PAYLOAD: &[u8] = b"a:0|c\n";
+const MAX_TAG_LENGTH: usize = 200;
 
 #[derive(Clone, Copy)]
 enum MetricType {
@@ -108,6 +109,7 @@ pub(super) struct PayloadWriter {
     trailer_buf: Vec<u8>,
     with_length_prefix: bool,
     global_tags: Vec<Label>,
+    sanitize_labels: bool,
 }
 
 impl PayloadWriter {
@@ -137,6 +139,7 @@ impl PayloadWriter {
             trailer_buf: Vec::new(),
             with_length_prefix,
             global_tags: Vec::new(),
+            sanitize_labels: true,
         };
 
         writer.prepare_for_write();
@@ -146,6 +149,11 @@ impl PayloadWriter {
     /// Sets the global labels to apply to all metrics.
     pub fn with_global_labels(mut self, global_labels: &[Label]) -> Self {
         self.global_tags = global_labels.to_vec();
+        self
+    }
+
+    pub fn with_label_sanitization(mut self, enabled: bool) -> Self {
+        self.sanitize_labels = enabled;
         self
     }
 
@@ -286,6 +294,7 @@ impl PayloadWriter {
         let tags = key.labels();
         let mut wrote_tag = false;
         for tag in tags.chain(self.global_tags.iter()) {
+            let trailer_len = self.trailer_buf.len();
             // If we haven't written a tag yet, write out the tags prefix first.
             //
             // Otherwise, write a tag separator.
@@ -293,10 +302,13 @@ impl PayloadWriter {
                 self.trailer_buf.push(b',');
             } else {
                 self.trailer_buf.extend_from_slice(b"|#");
-                wrote_tag = true;
             }
 
-            write_tag(&mut self.trailer_buf, tag);
+            if write_tag(&mut self.trailer_buf, tag, self.sanitize_labels) {
+                wrote_tag = true;
+            } else {
+                self.trailer_buf.truncate(trailer_len);
+            }
         }
 
         if let Some(timestamp) = maybe_timestamp {
@@ -564,16 +576,55 @@ impl<'a> Payloads<'a> {
     }
 }
 
-fn write_tag(buf: &mut Vec<u8>, label: &Label) {
-    // If the label value is empty, we treat it as a bare label. This means all we write is something like
-    // `label_name`, instead of a more naive form, like `label_name:`.
-    buf.extend_from_slice(label.key().as_bytes());
-    if label.value().is_empty() {
-        return;
+fn write_tag(buf: &mut Vec<u8>, label: &Label, sanitize_labels: bool) -> bool {
+    if !sanitize_labels {
+        buf.extend_from_slice(label.key().as_bytes());
+        if !label.value().is_empty() {
+            buf.push(b':');
+            buf.extend_from_slice(label.value().as_bytes());
+        }
+        return true;
     }
 
-    buf.push(b':');
-    buf.extend_from_slice(label.value().as_bytes());
+    let start = buf.len();
+    let mut chars_written = 0;
+    let mut last_was_underscore = false;
+    let separator = (!label.value().is_empty()).then_some(':');
+    let chars = label.key().chars().chain(separator).chain(label.value().chars());
+
+    'tag: for character in chars {
+        for character in character.to_lowercase() {
+            if chars_written == MAX_TAG_LENGTH {
+                break 'tag;
+            }
+            if chars_written == 0 && !character.is_alphabetic() {
+                continue;
+            }
+
+            let character = if character.is_alphanumeric()
+                || matches!(character, '_' | '-' | ':' | '.' | '/')
+            {
+                character
+            } else {
+                '_'
+            };
+
+            if character == '_' && last_was_underscore {
+                continue;
+            }
+
+            let mut encoded = [0; 4];
+            buf.extend_from_slice(character.encode_utf8(&mut encoded).as_bytes());
+            chars_written += 1;
+            last_was_underscore = character == '_';
+        }
+    }
+
+    if last_was_underscore {
+        buf.pop();
+    }
+
+    buf.len() != start
 }
 
 #[cfg(test)]
@@ -584,7 +635,7 @@ mod tests {
     use crate::writer::SMALLEST_VALID_PAYLOAD;
     const SMALLEST_VALID_PAYLOAD_LEN: usize = SMALLEST_VALID_PAYLOAD.len();
 
-    use super::PayloadWriter;
+    use super::{write_tag, PayloadWriter};
 
     #[derive(Debug)]
     enum InputMetric {
@@ -700,6 +751,67 @@ mod tests {
             let actual = string_from_writer(&mut writer);
             assert_eq!(actual, expected);
         }
+    }
+
+    #[test]
+    fn sanitizes_labels_by_default() {
+        let key = Key::from_parts("test_counter", &[("tag", "Foo|Bar")]);
+        let mut writer = PayloadWriter::new(8192, false);
+
+        let result = writer.write_counter(&key, 1, None, None);
+        assert_eq!(result.payloads_written(), 1);
+
+        let actual = string_from_writer(&mut writer);
+        assert_eq!(actual, "test_counter:1|c|#tag:foo_bar\n");
+    }
+
+    #[test]
+    fn sanitizes_labels_using_datadog_rules() {
+        let key =
+            Key::from_parts("test_counter", &[("_Env NAME", "Staging|East___"), ("RÉGION", "気")]);
+        let mut writer = PayloadWriter::new(8192, false);
+
+        let result = writer.write_counter(&key, 1, None, None);
+        assert_eq!(result.payloads_written(), 1);
+
+        let actual = string_from_writer(&mut writer);
+        assert_eq!(actual, "test_counter:1|c|#env_name:staging_east,région:気\n");
+    }
+
+    #[test]
+    fn limits_sanitized_labels_to_two_hundred_characters() {
+        let label = Label::new("tag", "x".repeat(250));
+        let mut buf = Vec::new();
+
+        assert!(write_tag(&mut buf, &label, true));
+
+        let tag = String::from_utf8(buf).unwrap();
+        assert_eq!(tag.chars().count(), 200);
+        assert!(tag.starts_with("tag:"));
+    }
+
+    #[test]
+    fn omits_labels_that_are_empty_after_sanitizing() {
+        let key = Key::from_parts("test_counter", &[("123", "___")]);
+        let mut writer = PayloadWriter::new(8192, false);
+
+        let result = writer.write_counter(&key, 1, None, None);
+        assert_eq!(result.payloads_written(), 1);
+
+        let actual = string_from_writer(&mut writer);
+        assert_eq!(actual, "test_counter:1|c\n");
+    }
+
+    #[test]
+    fn allows_label_sanitization_to_be_disabled() {
+        let key = Key::from_parts("test_counter", &[("tag", "Foo|Bar")]);
+        let mut writer = PayloadWriter::new(8192, false).with_label_sanitization(false);
+
+        let result = writer.write_counter(&key, 1, None, None);
+        assert_eq!(result.payloads_written(), 1);
+
+        let actual = string_from_writer(&mut writer);
+        assert_eq!(actual, "test_counter:1|c|#tag:Foo|Bar\n");
     }
 
     #[test]

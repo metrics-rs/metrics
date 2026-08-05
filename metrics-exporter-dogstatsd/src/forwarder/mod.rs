@@ -121,6 +121,8 @@ pub(crate) struct ForwarderConfiguration {
 
     /// Global labels to attach to all metrics.
     pub global_labels: Vec<Label>,
+
+    pub sanitize_labels: bool,
 }
 
 impl ForwarderConfiguration {
