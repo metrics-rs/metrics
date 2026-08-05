@@ -42,7 +42,7 @@ use super::ExporterConfig;
 use super::ExporterFuture;
 
 /// Builder for creating and installing a Prometheus recorder/exporter.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PrometheusBuilder {
     #[cfg_attr(
         not(any(
