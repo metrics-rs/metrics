@@ -1,6 +1,6 @@
 use metrics::{counter, gauge, histogram};
 use metrics_exporter_dogstatsd::DogStatsDBuilder;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use rand_xoshiro::Xoshiro256StarStar;
 
 fn main() {
