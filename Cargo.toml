@@ -37,7 +37,7 @@ http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1.8", default-features = false, features = ["server", "client"] }
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "rustls-native-certs"] }
 hyper-util = { version = "0.1", default-features = false, features = ["tokio", "service", "client", "client-legacy", "http1"] }
-indexmap = { version = "2.6", default-features = false, features = ["std"] }
+indexmap = { version = "2.13", default-features = false, features = ["std"] }
 ipnet = { version = "2", default-features = false, features = ["std"] }
 itertools = { version = "0.14", default-features = false }
 itoa = { version = "1", default-features = false }
