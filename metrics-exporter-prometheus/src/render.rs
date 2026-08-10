@@ -523,7 +523,7 @@ mod tests {
         assert_eq!(spans.len(), 1, "gap of <=2 must not create a new span");
         assert_eq!(spans[0].offset, 0);
         assert_eq!(spans[0].length, 4); // bucket 0, two empties, bucket 3
-        // bucket0: 4-0=4; empty: -4; empty: 0; bucket3: 4-0=4
+                                        // bucket0: 4-0=4; empty: -4; empty: 0; bucket3: 4-0=4
         assert_eq!(deltas, vec![4, -4, 0, 4]);
     }
 
@@ -576,9 +576,7 @@ mod tests {
         wr.publish();
 
         let kinds: Vec<MetricKind> =
-            render_snapshot_and_descriptions(snapshot, rd, Some("total"))
-                .map(|f| f.kind)
-                .collect();
+            render_snapshot_and_descriptions(snapshot, rd, Some("total")).map(|f| f.kind).collect();
 
         assert_eq!(kinds, vec![MetricKind::Counter, MetricKind::Gauge, MetricKind::Histogram]);
     }
@@ -591,8 +589,7 @@ mod tests {
             m.insert(label_set("mem_used", "host", "a"), 1.0f64);
             m
         });
-        let snapshot =
-            Snapshot { counters: HashMap::new(), gauges, distributions: HashMap::new() };
+        let snapshot = Snapshot { counters: HashMap::new(), gauges, distributions: HashMap::new() };
 
         let (mut wr, rd) = new_description_handles();
         wr.update(
@@ -621,8 +618,7 @@ mod tests {
             m.insert(label_set("g", "k", "v"), 1.0f64);
             m
         });
-        let snapshot =
-            Snapshot { counters, gauges, distributions: HashMap::new() };
+        let snapshot = Snapshot { counters, gauges, distributions: HashMap::new() };
         let (mut wr, rd) = new_description_handles();
         wr.publish();
 

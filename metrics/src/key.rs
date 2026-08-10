@@ -628,9 +628,9 @@ mod tests {
 
     #[test]
     fn test_buildhasherdefault_keyhasher_agrees_with_get_hash() {
-        use std::hash::{BuildHasher, BuildHasherDefault};
         #[allow(deprecated)]
         use crate::KeyHasher;
+        use std::hash::{BuildHasher, BuildHasherDefault};
 
         // The Registry in `metrics-util` versions 0.19.0..=0.20.1 uses
         // `BuildHasherDefault<metrics::KeyHasher>` as the HashMap's BuildHasher, while looking
@@ -646,9 +646,9 @@ mod tests {
 
     #[test]
     fn test_keyhasher_byte_mode_distinguishes_inputs() {
-        use std::hash::{BuildHasher, BuildHasherDefault};
         #[allow(deprecated)]
         use crate::KeyHasher;
+        use std::hash::{BuildHasher, BuildHasherDefault};
 
         // Validates the byte-mode fallback path used by `metrics_util::DefaultHashable<H>` in
         // `metrics-util 0.19.x`: when `Hash::hash` writes bytes (not just `write_u64`), the

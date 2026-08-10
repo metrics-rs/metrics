@@ -261,12 +261,14 @@ mod tests {
 
     #[test]
     fn empty_distribution_family_is_skipped() {
-        let mut distributions: HashMap<String, IndexMap<LabelSet, crate::distribution::Distribution>> = HashMap::new();
+        let mut distributions: HashMap<
+            String,
+            IndexMap<LabelSet, crate::distribution::Distribution>,
+        > = HashMap::new();
         // A named distribution family with no series.
         distributions.insert("empty_hist".to_string(), IndexMap::new());
 
-        let snapshot =
-            Snapshot { counters: HashMap::new(), gauges: HashMap::new(), distributions };
+        let snapshot = Snapshot { counters: HashMap::new(), gauges: HashMap::new(), distributions };
         let (mut wr, rd) = new_description_handles();
         wr.publish();
 
@@ -286,7 +288,8 @@ mod tests {
         let (mut wr, rd) = new_description_handles();
         wr.publish();
 
-        let data = render_protobuf(crate::render::render_snapshot_and_descriptions(snapshot, rd, None));
+        let data =
+            render_protobuf(crate::render::render_snapshot_and_descriptions(snapshot, rd, None));
         let family = decode_one(&data);
 
         assert_eq!(family.name.as_deref(), Some("req_latency"));
@@ -318,7 +321,8 @@ mod tests {
         let (mut wr, rd) = new_description_handles();
         wr.publish();
 
-        let data = render_protobuf(crate::render::render_snapshot_and_descriptions(snapshot, rd, None));
+        let data =
+            render_protobuf(crate::render::render_snapshot_and_descriptions(snapshot, rd, None));
         let family = decode_one(&data);
 
         assert_eq!(family.r#type.unwrap(), pb::MetricType::Summary as i32);
@@ -338,7 +342,8 @@ mod tests {
         let (mut wr, rd) = new_description_handles();
         wr.publish();
 
-        let data = render_protobuf(crate::render::render_snapshot_and_descriptions(snapshot, rd, None));
+        let data =
+            render_protobuf(crate::render::render_snapshot_and_descriptions(snapshot, rd, None));
         let family = decode_one(&data);
 
         assert_eq!(family.r#type.unwrap(), pb::MetricType::Histogram as i32);
@@ -363,7 +368,8 @@ mod tests {
         let (mut wr, rd) = new_description_handles();
         wr.publish();
 
-        let data = render_protobuf(crate::render::render_snapshot_and_descriptions(snapshot, rd, None));
+        let data =
+            render_protobuf(crate::render::render_snapshot_and_descriptions(snapshot, rd, None));
         let hist = decode_one(&data).metric[0].histogram.as_ref().unwrap().clone();
 
         assert_eq!(hist.sample_count, Some(3));
