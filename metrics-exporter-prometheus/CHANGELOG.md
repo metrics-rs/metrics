@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- New public `render` module exposing a format-agnostic structured representation of a metrics
+  snapshot (`MetricFamily`, `Metric`, `MetricValue`, `MetricKind`, and related types), plus
+  `PrometheusHandle::render_snapshot_and_descriptions` to obtain it directly — enabling consumers
+  to export metrics (e.g. over FFI) without an intermediate text or protobuf encoding.
+  ([#686](https://github.com/metrics-rs/metrics/pull/686))
+
 ## [0.18.3] - 2026-04-30
 
 ### Fixed
