@@ -8,7 +8,7 @@ use std::sync::{Mutex, PoisonError, RwLock};
 
 use indexmap::IndexMap;
 use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
-use metrics_util::registry::{Recency, Registry};
+use metrics_util::registry::{Recency, RetainedKeyRegistry};
 use quanta::Instant;
 
 use crate::common::{LabelSet, Snapshot};
@@ -42,7 +42,7 @@ pub(crate) fn new_description_handles() -> (DescriptionWriteHandle, DescriptionR
 
 #[derive(Debug)]
 pub(crate) struct Inner {
-    pub registry: Registry<Key, GenerationalAtomicStorage>,
+    pub registry: RetainedKeyRegistry<GenerationalAtomicStorage>,
     pub recency: Recency<Key>,
     pub distributions: RwLock<HashMap<String, IndexMap<LabelSet, Distribution>>>,
     pub distribution_builder: DistributionBuilder,
@@ -380,18 +380,15 @@ impl Recorder for PrometheusRecorder {
     }
 
     fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
-        let key = key.to_retained();
-        self.inner.registry.get_or_create_counter(&key, |c| c.clone().into())
+        self.inner.registry.get_or_create_counter(key, |c| c.clone().into())
     }
 
     fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
-        let key = key.to_retained();
-        self.inner.registry.get_or_create_gauge(&key, |c| c.clone().into())
+        self.inner.registry.get_or_create_gauge(key, |c| c.clone().into())
     }
 
     fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
-        let key = key.to_retained();
-        self.inner.registry.get_or_create_histogram(&key, |c| c.clone().into())
+        self.inner.registry.get_or_create_histogram(key, |c| c.clone().into())
     }
 }
 

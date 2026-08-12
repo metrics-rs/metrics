@@ -1,7 +1,7 @@
 use std::{collections::HashSet, time::SystemTime};
 
 use metrics::Key;
-use metrics_util::registry::Registry;
+use metrics_util::registry::RetainedKeyRegistry;
 use tracing::error;
 
 use crate::{
@@ -35,14 +35,14 @@ pub struct StateConfiguration {
 /// Exporter state.
 pub(crate) struct State {
     config: StateConfiguration,
-    registry: Registry<Key, ClientSideAggregatedStorage>,
+    registry: RetainedKeyRegistry<ClientSideAggregatedStorage>,
 }
 
 impl State {
     /// Creates a new `State` from the given configuration.
     pub fn new(config: StateConfiguration) -> Self {
         State {
-            registry: Registry::new(ClientSideAggregatedStorage::new(
+            registry: RetainedKeyRegistry::new(ClientSideAggregatedStorage::new(
                 config.histogram_sampling,
                 config.histogram_reservoir_size,
             )),
@@ -51,7 +51,7 @@ impl State {
     }
 
     /// Returns a reference to the registry.
-    pub fn registry(&self) -> &Registry<Key, ClientSideAggregatedStorage> {
+    pub fn registry(&self) -> &RetainedKeyRegistry<ClientSideAggregatedStorage> {
         &self.registry
     }
 
