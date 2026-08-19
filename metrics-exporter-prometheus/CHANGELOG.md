@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- `idle_timeout` no longer removes metrics whose handle is still held by the application. Removing
+  them freed nothing, since the handle owns the metric's storage, and it stranded the holder: its
+  later updates landed in storage no longer reachable from the registry, so the metric stayed
+  missing from the scrape output for good. Such a metric is now removed on the first render after
+  its last handle is dropped.
+
 ## [0.18.3] - 2026-04-30
 
 ### Fixed

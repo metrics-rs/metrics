@@ -55,14 +55,15 @@ pub(crate) struct Inner {
 
 impl Inner {
     fn get_recent_metrics(&self) -> Snapshot {
+        // Sweep idle metrics before snapshotting, so that a metric being removed is not rendered
+        // one last time on its way out.  Metrics the application still holds a handle to are never
+        // removed, however idle: see `Recency`.
+        self.recency.evict_idle_counters(&self.registry);
+        self.recency.evict_idle_gauges(&self.registry);
+
         let mut counters = HashMap::new();
         let counter_handles = self.registry.get_counter_handles();
         for (key, counter) in counter_handles {
-            let gen = counter.get_generation();
-            if !self.recency.should_store_counter(&key, gen, &self.registry) {
-                continue;
-            }
-
             let name = sanitize_metric_name(key.name());
             let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
             let value = counter.get_inner().load(Ordering::Acquire);
@@ -74,11 +75,6 @@ impl Inner {
         let mut gauges = HashMap::new();
         let gauge_handles = self.registry.get_gauge_handles();
         for (key, gauge) in gauge_handles {
-            let gen = gauge.get_generation();
-            if !self.recency.should_store_gauge(&key, gen, &self.registry) {
-                continue;
-            }
-
             let name = sanitize_metric_name(key.name());
             let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
             let value = f64::from_bits(gauge.get_inner().load(Ordering::Acquire));
@@ -90,28 +86,23 @@ impl Inner {
         // Update distributions
         self.drain_histograms_to_distributions();
         // Remove expired histograms
-        let histogram_handles = self.registry.get_histogram_handles();
-        for (key, histogram) in histogram_handles {
-            let gen = histogram.get_generation();
-            if !self.recency.should_store_histogram(&key, gen, &self.registry) {
-                // Since we store aggregated distributions directly, when we're told that a metric
-                // is not recent enough and should be/was deleted from the registry, we also need to
-                // delete it on our side as well.
-                let name = sanitize_metric_name(key.name());
-                let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
-                let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
-                let delete_by_name = if let Some(by_name) = wg.get_mut(&name) {
-                    by_name.swap_remove(&labels);
-                    by_name.is_empty()
-                } else {
-                    false
-                };
+        for key in self.recency.evict_idle_histograms(&self.registry) {
+            // Since we store aggregated distributions directly, when a histogram is removed from
+            // the registry, we also need to delete it on our side as well.
+            let name = sanitize_metric_name(key.name());
+            let labels = LabelSet::from_key_and_global(&key, &self.global_labels);
+            let mut wg = self.distributions.write().unwrap_or_else(PoisonError::into_inner);
+            let delete_by_name = if let Some(by_name) = wg.get_mut(&name) {
+                by_name.swap_remove(&labels);
+                by_name.is_empty()
+            } else {
+                false
+            };
 
-                // If there's no more variants in the per-metric-name distribution map, then delete
-                // it entirely, otherwise we end up with weird empty output during render.
-                if delete_by_name {
-                    wg.remove(&name);
-                }
+            // If there's no more variants in the per-metric-name distribution map, then delete it
+            // entirely, otherwise we end up with weird empty output during render.
+            if delete_by_name {
+                wg.remove(&name);
             }
         }
 
