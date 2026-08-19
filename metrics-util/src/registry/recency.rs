@@ -22,6 +22,13 @@
 //! `Recency` uses the generation of a metric, along with a measurement of time when a metric is
 //! observed, to build a complete picture that allows deciding if a given metric has gone "idle" or
 //! not, and thus whether it should actually be deleted.
+//!
+//! Idleness alone is not sufficient to delete a metric, however, as the caller may still be holding
+//! the handle it was given when the metric was registered.  Deleting the registry's entry for such
+//! a metric frees nothing, since the handle owns the storage, and it orphans the holder: its
+//! subsequent updates land in storage the registry can no longer reach, and the metric is silent
+//! for good.  `Recency` therefore only deletes metrics that the registry holds the last reference
+//! to.
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -74,6 +81,17 @@ impl<T> Generational<T> {
     /// Gets the current generation.
     pub fn get_generation(&self) -> Generation {
         Generation(self.gen.load(Ordering::Acquire))
+    }
+
+    /// Whether anything other than the registry is holding this metric.
+    ///
+    /// Every clone of a `Generational` clones `gen`, and a handle handed out at registration owns
+    /// one such clone, so a strong count above one means the metric has a live holder.  This is
+    /// only meaningful from inside [`Registry::retain_counters`] and friends, where the map's own
+    /// copy is the sole reference the registry owns, and where holding the shard lock means no
+    /// further clone can be handed out while we decide.
+    fn is_held(&self) -> bool {
+        Arc::strong_count(&self.gen) > 1
     }
 
     /// Acquires a reference to the inner value, and increments the generation.
@@ -214,6 +232,11 @@ impl GenerationalAtomicStorage {
 /// metric has occurred for the purposes of removing idle metrics from the registry.  In addition,
 /// it will remove the value from the registry itself to reduce the aforementioned bloat.
 ///
+/// Metrics whose handles are still held outside of the registry are never removed, however idle
+/// they are: the holder can still write to such a metric, and removing it would silence those
+/// writes while freeing nothing.  Such a metric is removed by the first sweep after its last
+/// handle is dropped, without being granted a fresh idle period.
+///
 /// [`Recency`] is separate from [`Registry`] specifically to avoid imposing any slowdowns when
 /// tracking recency does not matter, despite their otherwise tight coupling.
 #[derive(Debug)]
@@ -244,105 +267,185 @@ where
         Recency { mask, inner: Mutex::new((clock, HashMap::new())), idle_timeout }
     }
 
-    /// Checks if the given counter should be stored, based on its known recency.
+    /// Removes idle counters from the given registry, returning the keys that were removed.
     ///
-    /// If the given key has been updated recently enough, and should continue to be stored, this
-    /// method will return `true` and will update the last update time internally.  If the given key
-    /// has not been updated recently enough, the key will be removed from the given registry if the
-    /// given generation also matches.
-    pub fn should_store_counter<S>(
-        &self,
-        key: &K,
-        gen: Generation,
-        registry: &Registry<K, S>,
-    ) -> bool
+    /// A counter is removed if it has not been updated within the idle timeout and the registry
+    /// holds the last reference to it.  A counter the application is still holding a handle to is
+    /// kept, however idle, and is removed by the first call made after that handle is dropped.
+    pub fn evict_idle_counters<S>(&self, registry: &Registry<K, GenerationalStorage<S>>) -> Vec<K>
     where
         S: Storage<K>,
     {
-        self.should_store(key, gen, registry, MetricKind::Counter, |registry, key| {
-            registry.delete_counter(key)
-        })
+        self.evict(MetricKind::Counter, |f| registry.retain_counters(f))
     }
 
-    /// Checks if the given gauge should be stored, based on its known recency.
+    /// Removes idle gauges from the given registry, returning the keys that were removed.
     ///
-    /// If the given key has been updated recently enough, and should continue to be stored, this
-    /// method will return `true` and will update the last update time internally.  If the given key
-    /// has not been updated recently enough, the key will be removed from the given registry if the
-    /// given generation also matches.
-    pub fn should_store_gauge<S>(&self, key: &K, gen: Generation, registry: &Registry<K, S>) -> bool
+    /// A gauge is removed if it has not been updated within the idle timeout and the registry holds
+    /// the last reference to it.  A gauge the application is still holding a handle to is kept,
+    /// however idle, and is removed by the first call made after that handle is dropped.
+    pub fn evict_idle_gauges<S>(&self, registry: &Registry<K, GenerationalStorage<S>>) -> Vec<K>
     where
         S: Storage<K>,
     {
-        self.should_store(key, gen, registry, MetricKind::Gauge, |registry, key| {
-            registry.delete_gauge(key)
-        })
+        self.evict(MetricKind::Gauge, |f| registry.retain_gauges(f))
     }
 
-    /// Checks if the given histogram should be stored, based on its known recency.
+    /// Removes idle histograms from the given registry, returning the keys that were removed.
     ///
-    /// If the given key has been updated recently enough, and should continue to be stored, this
-    /// method will return `true` and will update the last update time internally.  If the given key
-    /// has not been updated recently enough, the key will be removed from the given registry if the
-    /// given generation also matches.
-    pub fn should_store_histogram<S>(
-        &self,
-        key: &K,
-        gen: Generation,
-        registry: &Registry<K, S>,
-    ) -> bool
+    /// A histogram is removed if it has not been updated within the idle timeout and the registry
+    /// holds the last reference to it.  A histogram the application is still holding a handle to is
+    /// kept, however idle, and is removed by the first call made after that handle is dropped.
+    ///
+    /// Exporters that keep their own state per metric, such as aggregated distributions, should use
+    /// the returned keys to drop the state belonging to the removed histograms.
+    pub fn evict_idle_histograms<S>(&self, registry: &Registry<K, GenerationalStorage<S>>) -> Vec<K>
     where
         S: Storage<K>,
     {
-        self.should_store(key, gen, registry, MetricKind::Histogram, |registry, key| {
-            registry.delete_histogram(key)
-        })
+        self.evict(MetricKind::Histogram, |f| registry.retain_histograms(f))
     }
 
-    fn should_store<F, S>(
-        &self,
-        key: &K,
-        gen: Generation,
-        registry: &Registry<K, S>,
-        kind: MetricKind,
-        delete_op: F,
-    ) -> bool
+    fn evict<T, R>(&self, kind: MetricKind, retain: R) -> Vec<K>
     where
-        F: Fn(&Registry<K, S>, &K) -> bool,
-        S: Storage<K>,
+        R: FnOnce(&mut dyn FnMut(&K, &Generational<T>) -> bool),
     {
-        if let Some(idle_timeout) = self.idle_timeout {
-            if self.mask.matches(kind) {
-                let mut guard = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
-                let (clock, entries) = guard.deref_mut();
+        let mut evicted = Vec::new();
 
-                let now = clock.now();
-                let deleted = if let Some((last_gen, last_update)) = entries.get_mut(key) {
-                    // If the value is the same as the latest value we have internally, and
-                    // we're over the idle timeout period, then remove it and continue.
-                    if *last_gen == gen {
-                        // If the delete returns false, that means that our generation counter is
-                        // out-of-date, and that the metric has been updated since, so we don't
-                        // actually want to delete it yet.
-                        (now - *last_update) > idle_timeout && delete_op(registry, key)
-                    } else {
-                        // Value has changed, so mark it such.
-                        *last_update = now;
-                        *last_gen = gen;
-                        false
-                    }
+        let idle_timeout = match self.idle_timeout {
+            Some(idle_timeout) if self.mask.matches(kind) => idle_timeout,
+            _ => return evicted,
+        };
+
+        let mut guard = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+        let (clock, entries) = guard.deref_mut();
+        let now = clock.now();
+
+        // Deciding from inside `retain` is what makes `is_held` sound: the shard write lock is held
+        // for the whole visit, and handles are only ever cloned out of the registry under that same
+        // lock, so no holder can appear between the check and the removal.
+        retain(&mut |key, handle| {
+            let gen = handle.get_generation();
+            let evict = if let Some((last_gen, last_update)) = entries.get_mut(key) {
+                // If the value is the same as the latest value we have internally, and we're over
+                // the idle timeout period, then remove it, unless somebody still holds it.
+                if *last_gen == gen {
+                    (now - *last_update) > idle_timeout && !handle.is_held()
                 } else {
-                    entries.insert(key.clone(), (gen, now));
+                    // Value has changed, so mark it such.
+                    *last_update = now;
+                    *last_gen = gen;
                     false
-                };
-
-                if deleted {
-                    entries.remove(key);
-                    return false;
                 }
+            } else {
+                entries.insert(key.clone(), (gen, now));
+                false
+            };
+
+            if evict {
+                entries.remove(key);
+                evicted.push(key.clone());
             }
+
+            !evict
+        });
+
+        evicted
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use metrics::{Counter, CounterFn, Gauge, Histogram, Key};
+    use quanta::Clock;
+
+    use super::{GenerationalStorage, Recency};
+    use crate::{registry::Registry, MetricKindMask};
+
+    fn recency(clock: Clock, mask: MetricKindMask) -> Recency<Key> {
+        Recency::new(clock, mask, Some(Duration::from_secs(10)))
+    }
+
+    #[test]
+    fn evicts_idle_counters_but_not_held_ones() {
+        let (clock, mock) = Clock::mock();
+        let registry = Registry::new(GenerationalStorage::atomic());
+        let recency = recency(clock, MetricKindMask::ALL);
+
+        let held = Key::from_name("held");
+        let transient = Key::from_name("transient");
+        let handle: Counter = registry.get_or_create_counter(&held, |c| c.clone().into());
+        handle.increment(1);
+        let _: Counter = registry.get_or_create_counter(&transient, |c| c.clone().into());
+
+        // The first sweep only records when each metric was last seen.
+        assert!(recency.evict_idle_counters(&registry).is_empty());
+
+        mock.increment(Duration::from_secs(11));
+        assert_eq!(recency.evict_idle_counters(&registry), vec![transient.clone()]);
+        assert!(registry.get_counter(&transient).is_none());
+        assert!(registry.get_counter(&held).is_some(), "still held by the caller");
+
+        // Dropping the last handle makes it evictable right away: being held does not grant a
+        // metric a fresh idle period.
+        drop(handle);
+        assert_eq!(recency.evict_idle_counters(&registry), vec![held.clone()]);
+        assert!(registry.get_counter(&held).is_none());
+    }
+
+    #[test]
+    fn evicts_idle_histograms_and_returns_their_keys() {
+        let (clock, mock) = Clock::mock();
+        let registry = Registry::new(GenerationalStorage::atomic());
+        let recency = recency(clock, MetricKindMask::ALL);
+
+        let key = Key::from_name("histogram");
+        let handle: Histogram = registry.get_or_create_histogram(&key, |h| h.clone().into());
+        handle.record(1.0);
+
+        assert!(recency.evict_idle_histograms(&registry).is_empty());
+
+        mock.increment(Duration::from_secs(11));
+        assert!(recency.evict_idle_histograms(&registry).is_empty(), "still held by the caller");
+
+        drop(handle);
+        assert_eq!(recency.evict_idle_histograms(&registry), vec![key.clone()]);
+        assert!(registry.get_histogram(&key).is_none());
+    }
+
+    #[test]
+    fn keeps_metrics_that_are_still_being_updated() {
+        let (clock, mock) = Clock::mock();
+        let registry = Registry::new(GenerationalStorage::atomic());
+        let recency = recency(clock, MetricKindMask::ALL);
+
+        let key = Key::from_name("busy");
+        registry.get_or_create_counter(&key, |c| c.increment(1));
+
+        for _ in 0..3 {
+            mock.increment(Duration::from_secs(11));
+            registry.get_or_create_counter(&key, |c| c.increment(1));
+            assert!(recency.evict_idle_counters(&registry).is_empty());
         }
 
-        true
+        mock.increment(Duration::from_secs(11));
+        assert_eq!(recency.evict_idle_counters(&registry), vec![key]);
+    }
+
+    #[test]
+    fn ignores_metrics_outside_the_mask() {
+        let (clock, mock) = Clock::mock();
+        let registry = Registry::new(GenerationalStorage::atomic());
+        let recency = recency(clock, MetricKindMask::COUNTER);
+
+        let key = Key::from_name("gauge");
+        let _: Gauge = registry.get_or_create_gauge(&key, |g| g.clone().into());
+
+        assert!(recency.evict_idle_gauges(&registry).is_empty());
+        mock.increment(Duration::from_secs(11));
+        assert!(recency.evict_idle_gauges(&registry).is_empty());
+        assert!(registry.get_gauge(&key).is_some());
     }
 }
