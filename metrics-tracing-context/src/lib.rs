@@ -75,6 +75,39 @@
 //! multiple times only keeps the most recently recorded value, including if a field was already present
 //! from a parent span and is then recorded dynamically in the current span.
 //!
+//! ## Configuring field merge policies
+//!
+//! The merge behavior can be customized per field name by configuring a
+//! [`FieldMergePolicy`] on [`MetricsLayer`]. This is particularly useful for hierarchical
+//! values, such as component paths, where nested spans should compose their values into a
+//! single label instead of overriding each other:
+//!
+//! ```rust
+//! # use metrics_util::{debugging::DebuggingRecorder, layers::Layer};
+//! # use tracing_subscriber::{layer::SubscriberExt, Registry};
+//! use metrics_tracing_context::{FieldMergePolicy, MetricsLayer, TracingContextLayer};
+//!
+//! # let my_recorder = DebuggingRecorder::new();
+//! let metrics_layer = MetricsLayer::new()
+//!     .with_field_merge_policy("component", FieldMergePolicy::Append("."));
+//! let subscriber = Registry::default().with(metrics_layer);
+//! let recorder = TracingContextLayer::all().layer(my_recorder);
+//! # metrics::with_local_recorder(&recorder, || {
+//! # use tracing::{span, Level};
+//! # let root = span!(Level::TRACE, "root", component = "analyzer");
+//! # let _root_guard = root.enter();
+//! # let leaf = span!(Level::TRACE, "leaf", component = "worker");
+//! # let _leaf_guard = leaf.enter();
+//! # use metrics::counter;
+//! counter!("jobs_processed").increment(1);
+//! # });
+//! ```
+//!
+//! With this configuration, a metric emitted within both spans would carry
+//! `component = "analyzer.worker"`, as the values are composed from the span ancestry.
+//! Fields without an explicitly configured policy continue to use
+//! [`FieldMergePolicy::Override`], which preserves this crate's historical behavior.
+//!
 //! ## Span fields and ancestry
 //!
 //! Likewise, we capture the sum of all fields for a span and its parent span(s), meaning that if you have the
@@ -106,9 +139,11 @@ use metrics::{
 };
 use metrics_util::layers::Layer;
 
+pub mod field_merge;
 pub mod label_filter;
 mod tracing_integration;
 
+pub use field_merge::FieldMergePolicy;
 pub use label_filter::LabelFilter;
 use tracing_integration::Map;
 pub use tracing_integration::{Labels, MetricsLayer};

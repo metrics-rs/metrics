@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use metrics::{counter, Key, KeyName, Label};
-use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
+use metrics_tracing_context::{FieldMergePolicy, LabelFilter, MetricsLayer, TracingContextLayer};
 use metrics_util::debugging::{DebugValue, DebuggingRecorder, Snapshot};
 use metrics_util::{layers::Layer, CompositeKey, MetricKind};
 use tracing::dispatcher::{set_default, Dispatch};
@@ -70,12 +70,31 @@ static SAME_CALLSITE_PATH_2: &[Label] = &[
     Label::from_static_parts("path2_specific", "bar"),
     Label::from_static_parts("path2_specific_dynamic", "bar_dynamic"),
 ];
+static COMPONENT_WORKER_PATH: &[Label] =
+    &[Label::from_static_parts("component", "analyzer.worker")];
+static COMPONENT_TASK_PATH: &[Label] =
+    &[Label::from_static_parts("component", "analyzer.worker.task")];
+static COMPONENT_SKIPPED_PATH: &[Label] = &[Label::from_static_parts("component", "analyzer.task")];
+static COMPONENT_INHERITED: &[Label] = &[Label::from_static_parts("component", "analyzer")];
+static COMPONENT_RECORDED_PATH: &[Label] =
+    &[Label::from_static_parts("component", "analyzer.worker")];
+static COMPONENT_RECORDED_LEAF_PATH: &[Label] =
+    &[Label::from_static_parts("component", "analyzer.worker.leaf")];
+static COMPONENT_METRIC_LABEL_WINS: &[Label] = &[Label::from_static_parts("component", "manual")];
+static PER_FIELD_ISOLATION: &[Label] = &[
+    Label::from_static_parts("component", "outer_c.inner_c"),
+    Label::from_static_parts("shared", "inner_s"),
+];
 
-fn with_tracing_layer<F>(layer: TracingContextLayer<F>, f: impl FnOnce()) -> Snapshot
+fn with_metrics_tracing_layer<F>(
+    metrics_layer: MetricsLayer,
+    layer: TracingContextLayer<F>,
+    f: impl FnOnce(),
+) -> Snapshot
 where
     F: LabelFilter + Clone + 'static,
 {
-    let subscriber = Registry::default().with(MetricsLayer::new());
+    let subscriber = Registry::default().with(metrics_layer);
     let _tracing_guard = set_default(&Dispatch::new(subscriber));
 
     let recorder = DebuggingRecorder::new();
@@ -85,6 +104,13 @@ where
     metrics::with_local_recorder(&recorder, f);
 
     snapshotter.snapshot()
+}
+
+fn with_tracing_layer<F>(layer: TracingContextLayer<F>, f: impl FnOnce()) -> Snapshot
+where
+    F: LabelFilter + Clone + 'static,
+{
+    with_metrics_tracing_layer(MetricsLayer::new(), layer, f)
 }
 
 #[test]
@@ -773,4 +799,269 @@ fn test(
     ));
 
     assert_eq!(snapshot, expected);
+}
+
+#[test]
+fn test_field_merge_policy_append_nested_spans() {
+    let snapshot = with_metrics_tracing_layer(
+        MetricsLayer::new().with_field_merge_policy("component", FieldMergePolicy::Append(".")),
+        TracingContextLayer::all(),
+        || {
+            let worker = || {
+                let span = span!(Level::TRACE, "worker", component = "worker");
+                let _guard = span.enter();
+
+                counter!("my_counter").increment(1);
+            };
+
+            let analyzer = || {
+                let span = span!(Level::TRACE, "analyzer", component = "analyzer");
+                let _guard = span.enter();
+                worker();
+            };
+
+            analyzer();
+        },
+    );
+
+    let snapshot = snapshot.into_vec();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::from_static_parts(MY_COUNTER, COMPONENT_WORKER_PATH)
+            ),
+            None,
+            None,
+            DebugValue::Counter(1),
+        )]
+    );
+}
+
+#[test]
+fn test_field_merge_policy_append_three_levels() {
+    let snapshot = with_metrics_tracing_layer(
+        MetricsLayer::new().with_field_merge_policy("component", FieldMergePolicy::Append(".")),
+        TracingContextLayer::all(),
+        || {
+            let task = || {
+                let span = span!(Level::TRACE, "task", component = "task");
+                let _guard = span.enter();
+
+                counter!("my_counter").increment(1);
+            };
+
+            let worker = || {
+                let span = span!(Level::TRACE, "worker", component = "worker");
+                let _guard = span.enter();
+                task();
+            };
+
+            let analyzer = || {
+                let span = span!(Level::TRACE, "analyzer", component = "analyzer");
+                let _guard = span.enter();
+                worker();
+            };
+
+            analyzer();
+        },
+    );
+
+    let snapshot = snapshot.into_vec();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::from_static_parts(MY_COUNTER, COMPONENT_TASK_PATH)
+            ),
+            None,
+            None,
+            DebugValue::Counter(1),
+        )]
+    );
+}
+
+#[test]
+fn test_field_merge_policy_append_with_unannotated_span() {
+    let snapshot = with_metrics_tracing_layer(
+        MetricsLayer::new().with_field_merge_policy("component", FieldMergePolicy::Append(".")),
+        TracingContextLayer::all(),
+        || {
+            let task = || {
+                let span = span!(Level::TRACE, "task", component = "task");
+                let _guard = span.enter();
+
+                counter!("my_counter").increment(1);
+            };
+
+            let middle = || {
+                let span = span!(Level::TRACE, "middle");
+                let _guard = span.enter();
+                task();
+            };
+
+            let analyzer = || {
+                let span = span!(Level::TRACE, "analyzer", component = "analyzer");
+                let _guard = span.enter();
+                middle();
+            };
+
+            analyzer();
+        },
+    );
+
+    let snapshot = snapshot.into_vec();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::from_static_parts(MY_COUNTER, COMPONENT_SKIPPED_PATH)
+            ),
+            None,
+            None,
+            DebugValue::Counter(1),
+        )]
+    );
+}
+
+#[test]
+fn test_field_merge_policy_record_composes() {
+    let snapshot = with_metrics_tracing_layer(
+        MetricsLayer::new().with_field_merge_policy("component", FieldMergePolicy::Append(".")),
+        TracingContextLayer::all(),
+        || {
+            let parent = span!(Level::TRACE, "parent", component = "analyzer");
+            let _parent_guard = parent.enter();
+
+            let span = span!(Level::TRACE, "child", component = tracing_core::field::Empty);
+            let _span_guard = span.enter();
+
+            counter!("my_counter").increment(1);
+
+            span.record("component", "worker");
+            counter!("my_counter").increment(1);
+
+            span.record("component", "leaf");
+            counter!("my_counter").increment(1);
+        },
+    );
+
+    let snapshot = snapshot.into_vec();
+
+    assert_eq!(
+        snapshot,
+        vec![
+            (
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::from_static_parts(MY_COUNTER, COMPONENT_INHERITED)
+                ),
+                None,
+                None,
+                DebugValue::Counter(1),
+            ),
+            (
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::from_static_parts(MY_COUNTER, COMPONENT_RECORDED_PATH)
+                ),
+                None,
+                None,
+                DebugValue::Counter(1),
+            ),
+            (
+                CompositeKey::new(
+                    MetricKind::Counter,
+                    Key::from_static_parts(MY_COUNTER, COMPONENT_RECORDED_LEAF_PATH)
+                ),
+                None,
+                None,
+                DebugValue::Counter(1),
+            ),
+        ]
+    );
+}
+
+#[test]
+fn test_field_merge_policy_metric_labels_take_precedence() {
+    let snapshot = with_metrics_tracing_layer(
+        MetricsLayer::new().with_field_merge_policy("component", FieldMergePolicy::Append(".")),
+        TracingContextLayer::all(),
+        || {
+            let worker = || {
+                let span = span!(Level::TRACE, "worker", component = "worker");
+                let _guard = span.enter();
+
+                counter!("my_counter", "component" => "manual").increment(1);
+            };
+
+            let analyzer = || {
+                let span = span!(Level::TRACE, "analyzer", component = "analyzer");
+                let _guard = span.enter();
+                worker();
+            };
+
+            analyzer();
+        },
+    );
+
+    let snapshot = snapshot.into_vec();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::from_static_parts(MY_COUNTER, COMPONENT_METRIC_LABEL_WINS)
+            ),
+            None,
+            None,
+            DebugValue::Counter(1),
+        )]
+    );
+}
+
+#[test]
+fn test_field_merge_policy_per_field_isolation() {
+    let snapshot = with_metrics_tracing_layer(
+        MetricsLayer::new().with_field_merge_policy("component", FieldMergePolicy::Append(".")),
+        TracingContextLayer::all(),
+        || {
+            let inner = || {
+                let span = span!(Level::TRACE, "inner", component = "inner_c", shared = "inner_s");
+                let _guard = span.enter();
+
+                counter!("my_counter").increment(1);
+            };
+
+            let outer = || {
+                let span = span!(Level::TRACE, "outer", component = "outer_c", shared = "outer_s");
+                let _guard = span.enter();
+                inner();
+            };
+
+            outer();
+        },
+    );
+
+    let snapshot = snapshot.into_vec();
+
+    assert_eq!(
+        snapshot,
+        vec![(
+            CompositeKey::new(
+                MetricKind::Counter,
+                Key::from_static_parts(MY_COUNTER, PER_FIELD_ISOLATION)
+            ),
+            None,
+            None,
+            DebugValue::Counter(1),
+        )]
+    );
 }
