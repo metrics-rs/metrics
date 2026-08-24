@@ -2,7 +2,7 @@
 use std::os::unix::net::{UnixDatagram, UnixStream};
 use std::{
     io::{self, Write as _},
-    net::{Ipv4Addr, UdpSocket},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
     sync::Arc,
     thread::sleep,
     time::Instant,
@@ -15,6 +15,16 @@ use crate::{
     telemetry::{Telemetry, TelemetryUpdate},
     writer::PayloadWriter,
 };
+
+/// Returns the local address to bind to when connecting to the given remote addresses.
+///
+/// A socket can only connect within its own address family, so this follows the first address that will be tried.
+fn udp_bind_addr(addrs: &[SocketAddr]) -> SocketAddr {
+    match addrs.first() {
+        Some(SocketAddr::V6(_)) => (Ipv6Addr::UNSPECIFIED, 0).into(),
+        _ => (Ipv4Addr::UNSPECIFIED, 0).into(),
+    }
+}
 
 enum Client {
     Udp(UdpSocket),
@@ -29,13 +39,11 @@ enum Client {
 impl Client {
     fn from_forwarder_config(config: &ForwarderConfiguration) -> io::Result<Self> {
         match &config.remote_addr {
-            RemoteAddr::Udp(addrs) => {
-                UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).and_then(|socket| {
-                    socket.connect(&addrs[..])?;
-                    socket.set_write_timeout(Some(config.write_timeout))?;
-                    Ok(Client::Udp(socket))
-                })
-            }
+            RemoteAddr::Udp(addrs) => UdpSocket::bind(udp_bind_addr(addrs)).and_then(|socket| {
+                socket.connect(&addrs[..])?;
+                socket.set_write_timeout(Some(config.write_timeout))?;
+                Ok(Client::Udp(socket))
+            }),
 
             #[cfg(unix)]
             RemoteAddr::Unixgram(path) => UnixDatagram::unbound().and_then(|socket| {
@@ -210,5 +218,23 @@ impl Forwarder {
 
             self.update_telemetry(&telemetry_update);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn udp_bind_addr_matches_remote_address_family() {
+        let v4 = SocketAddr::from((Ipv4Addr::LOCALHOST, 8125));
+        let v6 = SocketAddr::from((Ipv6Addr::LOCALHOST, 8125));
+        let v4_bind = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0));
+        let v6_bind = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0));
+
+        assert_eq!(udp_bind_addr(&[v4]), v4_bind);
+        assert_eq!(udp_bind_addr(&[v6]), v6_bind);
+        assert_eq!(udp_bind_addr(&[v6, v4]), v6_bind);
+        assert_eq!(udp_bind_addr(&[v4, v6]), v4_bind);
     }
 }
