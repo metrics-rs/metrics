@@ -121,6 +121,81 @@ mod http_listener_test {
         });
     }
 
+    #[test]
+    fn test_standalone_serve() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap_or_else(|e| panic!("Failed to create test runtime: {:?}", e));
+
+        runtime.block_on(async {
+            let recorder = PrometheusBuilder::new().build_recorder();
+            let handle = recorder.handle();
+
+            let labels = vec![Label::new("wutang", "forever")];
+            let key = Key::from_parts("basic_gauge", labels);
+            let gauge = recorder.register_gauge(&key, &METADATA);
+            gauge.set(-1.23);
+
+            // The listener is bound separately, after the recorder has been built.
+            let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], 0)))
+                .await
+                .expect("failed to bind listener");
+            let socket_address =
+                listener.local_addr().expect("failed to obtain listener local address");
+
+            runtime.spawn(metrics_exporter_prometheus::http_listener::serve(
+                listener, handle, None,
+            ));
+
+            let uri = format!("http://{socket_address}")
+                .parse::<Uri>()
+                .unwrap_or_else(|e| panic!("Error parsing URI: {:?}", e));
+
+            let (status, body, _) = read_from(uri, None).await;
+
+            assert_eq!(status, StatusCode::OK);
+            assert!(String::from_utf8(body)
+                .unwrap()
+                .contains("basic_gauge{wutang=\"forever\"} -1.23"));
+        });
+    }
+
+    #[test]
+    fn test_standalone_serve_allowlist_rejection() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap_or_else(|e| panic!("Failed to create test runtime: {:?}", e));
+
+        runtime.block_on(async {
+            let recorder = PrometheusBuilder::new().build_recorder();
+            let handle = recorder.handle();
+
+            let listener = TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], 0)))
+                .await
+                .expect("failed to bind listener");
+            let socket_address =
+                listener.local_addr().expect("failed to obtain listener local address");
+
+            // The allowlist does not cover 127.0.0.1, so the request must be rejected.
+            let allowed = vec!["192.168.0.0/16".parse().expect("failed to parse network")];
+            runtime.spawn(metrics_exporter_prometheus::http_listener::serve(
+                listener,
+                handle,
+                Some(allowed),
+            ));
+
+            let uri = format!("http://{socket_address}")
+                .parse::<Uri>()
+                .unwrap_or_else(|e| panic!("Error parsing URI: {:?}", e));
+
+            let (status, _, _) = read_from(uri, None).await;
+
+            assert_eq!(status, StatusCode::FORBIDDEN);
+        });
+    }
+
     async fn get_available_port(listen_address: [u8; 4]) -> u16 {
         let socket_address = SocketAddr::from((listen_address, 0));
         TcpListener::bind(socket_address)

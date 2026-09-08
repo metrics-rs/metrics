@@ -90,7 +90,7 @@ impl ExporterConfig {
 }
 
 #[cfg(feature = "http-listener")]
-mod http_listener;
+pub(crate) mod http_listener;
 
 #[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
 mod push_gateway;
