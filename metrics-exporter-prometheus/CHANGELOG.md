@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- New `http_listener` module exposing standalone `serve` (and `serve_uds`) functions that run the
+  scrape endpoint HTTP server on an already-bound listener with a `PrometheusHandle`, allowing the
+  exporter to be configured and started after the recorder has been built and installed.
+  ([#708](https://github.com/metrics-rs/metrics/issues/708))
+
 ## [0.18.3] - 2026-04-30
 
 ### Fixed
