@@ -747,8 +747,7 @@ pub(crate) mod const_cow {
 
     impl Cow<'static, [Label]> {
         pub(crate) const fn as_const_slice(&self) -> &[Label] {
-            let borrowed_ptr =
-                slice_from_raw_parts(self.ptr.as_ptr(), self.metadata.len()) as *const [Label];
+            let borrowed_ptr = slice_from_raw_parts(self.ptr.as_ptr(), self.metadata.len());
 
             // SAFETY: We only ever hold a pointer to a borrowed value of at least the lifetime of
             // `Self`, or an owned value which we have ownership of (albeit indirectly when using
