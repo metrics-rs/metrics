@@ -144,6 +144,59 @@ pub use self::exporter::builder::PrometheusBuilder;
 )]
 pub use self::exporter::ExporterFuture;
 
+/// Standalone HTTP listener serving the Prometheus scrape endpoint.
+///
+/// The [`serve`][http_listener::serve] and [`serve_uds`][http_listener::serve_uds] functions run
+/// the same HTTP server that [`PrometheusBuilder::build`] creates when configured with an HTTP
+/// listener, but accept an already-bound listener and a [`PrometheusHandle`]. This decouples
+/// building/installing the recorder from starting the exporter, which is useful when the recorder
+/// must be installed as early as possible but the listen address only becomes known later — for
+/// example, after configuration has been read — or when the listener is provided externally.
+///
+/// Note that unlike [`PrometheusBuilder::build`], no upkeep task is spawned automatically: the
+/// caller is responsible for calling [`PrometheusHandle::run_upkeep`] periodically. See the
+/// **Upkeep and maintenance** section in the top-level crate documentation for more information.
+///
+/// ```no_run
+/// use metrics_exporter_prometheus::PrometheusBuilder;
+///
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     // Build and install the recorder as early as possible.
+///     let handle = PrometheusBuilder::new().install_recorder()?;
+///
+///     // ... read configuration, do other startup work ...
+///     let listen_address = "0.0.0.0:9000";
+///
+///     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+///     runtime.block_on(async move {
+///         // Drive the upkeep of the recorder, since no upkeep task is spawned for us.
+///         let upkeep_handle = handle.clone();
+///         tokio::spawn(async move {
+///             loop {
+///                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+///                 upkeep_handle.run_upkeep();
+///             }
+///         });
+///
+///         // Only now is the scrape endpoint socket bound.
+///         let listener = tokio::net::TcpListener::bind(listen_address).await?;
+///         metrics_exporter_prometheus::http_listener::serve(listener, handle, None).await?;
+///         Ok(())
+///     })
+/// }
+/// ```
+#[cfg(feature = "http-listener")]
+#[cfg_attr(docsrs, doc(cfg(feature = "http-listener")))]
+pub mod http_listener {
+    pub use crate::exporter::http_listener::{serve, HttpListeningError};
+
+    #[cfg(feature = "uds-listener")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "uds-listener")))]
+    pub use crate::exporter::http_listener::serve_uds;
+
+    pub use ipnet::IpNet;
+}
+
 pub mod formatting;
 #[cfg(feature = "protobuf")]
 pub mod protobuf;

@@ -34,9 +34,13 @@ enum ListenerType {
 }
 
 /// Error type for HTTP listening.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum HttpListeningError {
+    /// The HTTP server encountered an error while serving.
+    #[error("http server error: {0}")]
     Hyper(hyper::Error),
+    /// An I/O error occurred while serving.
+    #[error("i/o error: {0}")]
     Io(std::io::Error),
 }
 
@@ -194,6 +198,76 @@ enum ResponseFormat {
     Protobuf,
 }
 
+/// Serves the Prometheus scrape endpoint on an already-bound TCP listener.
+///
+/// This is the same HTTP server that is spawned when configuring [`PrometheusBuilder`] with
+/// [`with_http_listener`], exposed as a standalone function so that the listener can be bound
+/// after the recorder has been built and installed — for example, once configuration has been
+/// read, or when the listener is provided externally (e.g. via socket activation).
+///
+/// The server responds to GET requests on any request path with the metrics in the Prometheus
+/// [exposition format], except for `/health`, which unconditionally responds with `OK`.
+///
+/// If `allowed_addresses` is `Some`, clients whose IP address is not covered by any of the given
+/// networks receive a 403 Forbidden response.
+///
+/// The returned future serves connections indefinitely and normally never resolves. Dropping it
+/// stops accepting new connections; requests already being served run to completion on their own
+/// spawned tasks.
+///
+/// Unlike [`PrometheusBuilder::build`][crate::PrometheusBuilder::build], calling this function
+/// does not spawn an upkeep task: the caller is responsible for calling
+/// [`PrometheusHandle::run_upkeep`] periodically. See the **Upkeep and maintenance** section in
+/// the top-level crate documentation for more information.
+///
+/// [`PrometheusBuilder`]: crate::PrometheusBuilder
+/// [`with_http_listener`]: crate::PrometheusBuilder::with_http_listener
+/// [exposition format]: https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format
+///
+/// ## Errors
+///
+/// Only unrecoverable server errors cause the future to resolve with an error; failure to accept
+/// or serve an individual connection is logged and does not terminate the server.
+pub async fn serve(
+    listener: TcpListener,
+    handle: PrometheusHandle,
+    allowed_addresses: Option<Vec<IpNet>>,
+) -> Result<(), HttpListeningError> {
+    let exporter = HttpListeningExporter {
+        handle,
+        allowed_addresses,
+        listener_type: ListenerType::Tcp(listener),
+    };
+
+    exporter.serve().await
+}
+
+/// Serves the Prometheus scrape endpoint on an already-bound Unix domain socket listener.
+///
+/// This is the Unix domain socket equivalent of [`serve`], matching the behavior of configuring
+/// [`PrometheusBuilder`][crate::PrometheusBuilder] with
+/// [`with_http_uds_listener`][crate::PrometheusBuilder::with_http_uds_listener]. Refer to
+/// [`serve`] for the full details on server behavior and the caller's upkeep responsibilities.
+/// No IP allowlisting is performed for Unix domain sockets.
+///
+/// ## Errors
+///
+/// Only unrecoverable server errors cause the future to resolve with an error; failure to accept
+/// or serve an individual connection is logged and does not terminate the server.
+#[cfg(feature = "uds-listener")]
+pub async fn serve_uds(
+    listener: UnixListener,
+    handle: PrometheusHandle,
+) -> Result<(), HttpListeningError> {
+    let exporter = HttpListeningExporter {
+        handle,
+        allowed_addresses: None,
+        listener_type: ListenerType::Uds(listener),
+    };
+
+    exporter.serve().await
+}
+
 /// Creates an `ExporterFuture` implementing a http listener that serves prometheus metrics.
 ///
 /// # Errors
@@ -211,13 +285,9 @@ pub(crate) fn new_http_listener(
         .map_err(|e| BuildError::FailedToCreateHTTPListener(e.to_string()))?;
     let listener = TcpListener::from_std(listener).unwrap();
 
-    let exporter = HttpListeningExporter {
-        handle,
-        allowed_addresses,
-        listener_type: ListenerType::Tcp(listener),
-    };
-
-    Ok(Box::pin(async move { exporter.serve().await.map_err(super::ExporterError::HttpListener) }))
+    Ok(Box::pin(async move {
+        serve(listener, handle, allowed_addresses).await.map_err(super::ExporterError::HttpListener)
+    }))
 }
 
 /// Creates an `ExporterFuture` implementing a http listener that serves prometheus metrics.
@@ -236,11 +306,8 @@ pub(crate) fn new_http_uds_listener(
     }
     let listener = UnixListener::bind(listen_path)
         .map_err(|e| BuildError::FailedToCreateHTTPListener(e.to_string()))?;
-    let exporter = HttpListeningExporter {
-        handle,
-        allowed_addresses: None,
-        listener_type: ListenerType::Uds(listener),
-    };
 
-    Ok(Box::pin(async move { exporter.serve().await.map_err(super::ExporterError::HttpListener) }))
+    Ok(Box::pin(async move {
+        serve_uds(listener, handle).await.map_err(super::ExporterError::HttpListener)
+    }))
 }
