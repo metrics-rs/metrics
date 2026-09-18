@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- **Breaking change**: `Recency::should_store_counter`, `should_store_gauge` and
+  `should_store_histogram` have been replaced by `Recency::evict_idle_counters`,
+  `evict_idle_gauges` and `evict_idle_histograms`, which sweep the registry themselves and return
+  the keys they removed. Exporters that keep per-metric state on the side, such as aggregated
+  distributions, should key their cleanup off the returned keys.
+- Metrics whose handles are still held outside of the registry are no longer removed for being
+  idle. Removing them freed nothing, since the handle owns the metric's storage, and it silenced
+  the holder: its later updates landed in storage the registry could no longer reach. Such a
+  metric is removed by the first sweep after its last handle is dropped.
+
 ## [0.20.4] - 2026-05-13
 
 ### Fixed

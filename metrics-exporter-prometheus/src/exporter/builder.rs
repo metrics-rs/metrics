@@ -393,6 +393,13 @@ impl PrometheusBuilder {
     /// generate rendered output, and so metrics will not be removed unless a request has been made recently enough to
     /// prune the idle metrics.
     ///
+    /// Metrics whose handles the application still holds are the exception: they are never removed, however long they
+    /// stay idle.  A handle -- the [`Counter`](metrics::Counter), [`Gauge`](metrics::Gauge) or
+    /// [`Histogram`](metrics::Histogram) returned when the metric is registered -- owns the metric's storage, so
+    /// removing the registry's entry would free nothing, and would strand its holder: later updates through that handle
+    /// would land in storage that no longer backs anything in the scrape output, silencing the metric for good.  Once
+    /// the last handle to such a metric is dropped, it is pruned like any other idle metric, on the next render.
+    ///
     /// Further, the metric kind "mask" configures which metrics will be considered by the idle timeout.  If the kind of
     /// a metric being considered for idle timeout is not of a kind represented by the mask, it will not be affected,
     /// even if it would have otherwise been removed for exceeding the idle timeout.
@@ -926,9 +933,64 @@ mod tests {
         let rendered = handle.render();
         assert_eq!(rendered, expected);
 
+        // Only unheld metrics are removed, so let go of them first.
+        drop(counter1);
+        drop(gauge1);
+        drop(histo1);
+
         mock.increment(Duration::from_secs(2));
         let rendered = handle.render();
         assert_eq!(rendered, "");
+    }
+
+    #[test]
+    fn test_idle_timeout_keeps_held_handles() {
+        let (clock, mock) = Clock::mock();
+
+        let recorder = PrometheusBuilder::new()
+            .idle_timeout(MetricKindMask::ALL, Some(Duration::from_secs(10)))
+            .set_quantiles(&[0.0, 1.0])
+            .unwrap()
+            .build_with_clock(clock);
+
+        let key = Key::from_name("basic_counter");
+        let counter1 = recorder.register_counter(&key, &METADATA);
+        counter1.increment(42);
+
+        let key = Key::from_name("basic_gauge");
+        let gauge1 = recorder.register_gauge(&key, &METADATA);
+        gauge1.set(-3.14);
+
+        let key = Key::from_name("basic_histogram");
+        let histo1 = recorder.register_histogram(&key, &METADATA);
+        histo1.record(1.0);
+
+        let handle = recorder.handle();
+        let expected = concat!(
+            "# TYPE basic_counter counter\n",
+            "basic_counter 42\n\n",
+            "# TYPE basic_gauge gauge\n",
+            "basic_gauge -3.14\n\n",
+            "# TYPE basic_histogram summary\n",
+            "basic_histogram{quantile=\"0\"} 1\n",
+            "basic_histogram{quantile=\"1\"} 1\n",
+            "basic_histogram_sum 1\n",
+            "basic_histogram_count 1\n\n",
+        );
+
+        assert_eq!(handle.render(), expected);
+
+        // Far past the idle timeout and never updated again, but all three handles are still held:
+        // removing them would silence metrics that their holder can still write to.
+        mock.increment(Duration::from_secs(30));
+        assert_eq!(handle.render(), expected);
+
+        // Dropping the handles makes them removable, and they go on the very next render: being
+        // held does not grant a metric a fresh idle period.
+        drop(counter1);
+        drop(gauge1);
+        drop(histo1);
+        assert_eq!(handle.render(), "");
     }
 
     #[test]
@@ -975,6 +1037,10 @@ mod tests {
         mock.increment(Duration::from_secs(9));
         let rendered = handle.render();
         assert_eq!(rendered, expected);
+
+        drop(counter1);
+        drop(gauge1);
+        drop(histo1);
 
         mock.increment(Duration::from_secs(2));
         let rendered = handle.render();
@@ -1055,6 +1121,10 @@ mod tests {
             "basic_histogram_count{type=\"special\"} 1\n\n",
         );
 
+        drop(counter1);
+        drop(gauge1);
+        drop(histo1);
+
         mock.increment(Duration::from_secs(2));
         let rendered = handle.render();
         assert_eq!(rendered, expected_after);
@@ -1102,6 +1172,11 @@ mod tests {
 
         counter1.increment(1);
 
+        // Dropped so that the counter surviving below is down to its recent update rather than to
+        // us holding it.
+        drop(counter1);
+        drop(gauge1);
+
         let expected_after = concat!("# TYPE basic_counter counter\n", "basic_counter 43\n\n",);
 
         mock.increment(Duration::from_secs(2));
@@ -1134,8 +1209,10 @@ mod tests {
         assert_eq!(rendered, expected);
 
         // Now increment the counter and advance time by two seconds: this pushes it over the idle
-        // timeout threshold, but it should not be removed since it has been updated.
+        // timeout threshold, but it should not be removed since it has been updated.  Dropped
+        // right after, since a held metric is never removed for being idle.
         counter1.increment(1);
+        drop(counter1);
 
         let expected_after = concat!("# TYPE basic_counter counter\n", "basic_counter 43\n\n",);
 
