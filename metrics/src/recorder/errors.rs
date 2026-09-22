@@ -1,4 +1,12 @@
-use std::{error::Error, fmt};
+use core::fmt;
+
+// `core::error::Error` was only stabilized in Rust 1.81, while this crate supports older versions.
+// Going through `std` when it is available keeps the MSRV unchanged for the default feature set.
+#[cfg(feature = "std")]
+use std::error::Error;
+
+#[cfg(not(feature = "std"))]
+use core::error::Error;
 
 const SET_RECORDER_ERROR: &str =
     "attempted to set a recorder after the metrics system was already initialized";

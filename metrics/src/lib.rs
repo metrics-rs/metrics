@@ -264,13 +264,36 @@
 //! of a given closure. While in that closure, the given recorder will act as if it was the global recorder for the
 //! current thread. Once the closure returns, the true global recorder takes priority again for the current thread.
 //!
+//! Local recorders are backed by thread-local storage, and so require the `std` feature. See below.
+//!
+//! # Feature flags
+//!
+//! - **`std`** *(enabled by default)* -- links the standard library and enables local (thread-scoped) recorders.
+//!
+//! With `std` disabled, this crate is `no_std` and only requires `alloc`, making it usable from code that cannot link
+//! the standard library. The metric types, keys, labels, emission macros, and the global recorder all work unchanged;
+//! only local recorders are unavailable, as there is no portable `no_std` equivalent of thread-local storage.
+//!
+//! A global allocator is still required, since keys and labels are heap-allocated.
+//!
 //! [metrics-exporter-tcp]: https://docs.rs/metrics-exporter-tcp
 //! [metrics-exporter-prometheus]: https://docs.rs/metrics-exporter-prometheus
 //! [metrics-util]: https://docs.rs/metrics-util
 //! [AtomicBucket]: https://docs.rs/metrics-util/0.5.0/metrics_util/struct.AtomicBucket.html
 //! [Handle]: https://docs.rs/metrics-util/0.5.0/metrics_util/enum.Handle.html
+#![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg), deny(rustdoc::broken_intra_doc_links))]
+
+extern crate alloc;
+
+/// Re-exports used by the macros in this crate.
+///
+/// Not part of the public API; do not rely on anything here.
+#[doc(hidden)]
+pub mod __private {
+    pub use alloc::vec;
+}
 
 pub mod atomics;
 

@@ -1,11 +1,12 @@
 use crate::{cow::Cow, IntoLabels, Label, SharedString};
-use rapidhash::v3::{rapidhash_v3_nano_inline, RapidSecrets};
-use std::{
+use alloc::vec::Vec;
+use core::{
     borrow::Borrow,
     cmp, fmt,
     hash::{Hash, Hasher},
     slice::Iter,
 };
+use rapidhash::v3::{rapidhash_v3_nano_inline, RapidSecrets};
 
 const NO_LABELS: [Label; 0] = [];
 
@@ -54,7 +55,7 @@ impl Borrow<str> for KeyName {
     }
 }
 
-impl From<KeyName> for std::borrow::Cow<'static, str> {
+impl From<KeyName> for alloc::borrow::Cow<'static, str> {
     fn from(name: KeyName) -> Self {
         name.0.into()
     }
@@ -394,7 +395,7 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use super::Key;
     use crate::{KeyName, Label};

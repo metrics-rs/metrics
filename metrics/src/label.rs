@@ -1,4 +1,5 @@
-use std::slice::Iter;
+use alloc::vec::Vec;
+use core::slice::Iter;
 
 use crate::SharedString;
 
@@ -94,7 +95,7 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod label_tests {
     use super::*;
 

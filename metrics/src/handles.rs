@@ -1,4 +1,5 @@
-use std::{fmt::Debug, sync::Arc};
+use alloc::sync::Arc;
+use core::fmt::Debug;
 
 use crate::IntoF64;
 
@@ -53,7 +54,7 @@ pub struct Counter {
 }
 
 impl Debug for Counter {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Counter").finish_non_exhaustive()
     }
 }
@@ -66,7 +67,7 @@ pub struct Gauge {
 }
 
 impl Debug for Gauge {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Gauge").finish_non_exhaustive()
     }
 }
@@ -79,7 +80,7 @@ pub struct Histogram {
 }
 
 impl Debug for Histogram {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Histogram").finish_non_exhaustive()
     }
 }

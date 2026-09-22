@@ -21,6 +21,15 @@ bench = false
 [[bench]]
 name = "macros"
 harness = false
+# Benchmarks use local recorders (and criterion), both of which require std.
+required-features = ["std"]
+
+[features]
+default = ["std"]
+
+# Enables functionality that requires the standard library, most notably local
+# (thread-scoped) recorders. Disable for `no_std` targets; `alloc` is always required.
+std = []
 
 [dependencies]
 rapidhash = { workspace = true }

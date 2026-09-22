@@ -1,4 +1,4 @@
-use std::hash::Hasher;
+use core::hash::Hasher;
 
 use rapidhash::fast::RapidHasher;
 
@@ -38,8 +38,8 @@ enum KeyHasherState {
 }
 
 #[allow(deprecated)]
-impl std::fmt::Debug for KeyHasher {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for KeyHasher {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("KeyHasher").finish_non_exhaustive()
     }
 }
@@ -65,7 +65,7 @@ impl Hasher for KeyHasher {
         // Any byte write transitions to byte mode. If a prior `write_u64` had stored a
         // pre-hashed value, fold it into the byte hasher first so multi-write hashing
         // remains well-defined and deterministic.
-        let mut hasher = match std::mem::replace(&mut self.0, KeyHasherState::Empty) {
+        let mut hasher = match core::mem::replace(&mut self.0, KeyHasherState::Empty) {
             KeyHasherState::Empty => RapidHasher::default_const(),
             KeyHasherState::PreHashed(prior) => {
                 let mut h = RapidHasher::default_const();
@@ -81,7 +81,7 @@ impl Hasher for KeyHasher {
     fn write_u64(&mut self, i: u64) {
         // The pre-hashed fast path: store the value directly so `finish` returns it verbatim.
         // If we've already transitioned to byte mode, stay there.
-        self.0 = match std::mem::replace(&mut self.0, KeyHasherState::Empty) {
+        self.0 = match core::mem::replace(&mut self.0, KeyHasherState::Empty) {
             KeyHasherState::Empty | KeyHasherState::PreHashed(_) => KeyHasherState::PreHashed(i),
             KeyHasherState::Bytes(mut h) => {
                 h.write_u64(i);
@@ -333,7 +333,7 @@ macro_rules! into_f64 {
 
 use into_f64;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use std::time::Duration;
 

@@ -1,4 +1,10 @@
-use std::{
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
+use core::{
     borrow::Borrow,
     cmp::Ordering,
     fmt,
@@ -7,7 +13,6 @@ use std::{
     mem::ManuallyDrop,
     ops::Deref,
     ptr::{slice_from_raw_parts, NonNull},
-    sync::Arc,
 };
 
 #[derive(Clone, Copy)]
@@ -335,17 +340,17 @@ where
     }
 }
 
-impl<'a> From<std::borrow::Cow<'a, str>> for Cow<'a, str> {
+impl<'a> From<alloc::borrow::Cow<'a, str>> for Cow<'a, str> {
     #[inline]
-    fn from(s: std::borrow::Cow<'a, str>) -> Self {
+    fn from(s: alloc::borrow::Cow<'a, str>) -> Self {
         match s {
-            std::borrow::Cow::Borrowed(bs) => Cow::from_borrowed(bs),
-            std::borrow::Cow::Owned(os) => Cow::from_owned(os),
+            alloc::borrow::Cow::Borrowed(bs) => Cow::from_borrowed(bs),
+            alloc::borrow::Cow::Owned(os) => Cow::from_owned(os),
         }
     }
 }
 
-impl<'a, T: Cowable + ?Sized> From<Cow<'a, T>> for std::borrow::Cow<'a, T> {
+impl<'a, T: Cowable + ?Sized> From<Cow<'a, T>> for alloc::borrow::Cow<'a, T> {
     #[inline]
     fn from(value: Cow<'a, T>) -> Self {
         match value.metadata.kind() {
@@ -729,7 +734,7 @@ fn clone_shared<T: Cowable + ?Sized>(
 pub(crate) mod const_cow {
     use super::*;
     use crate::Label;
-    use std::ptr::slice_from_raw_parts;
+    use core::ptr::slice_from_raw_parts;
 
     impl Cow<'static, str> {
         pub(crate) const fn as_const_str(&self) -> &str {
@@ -758,7 +763,7 @@ pub(crate) mod const_cow {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "std"))]
     mod tests {
         use super::*;
         use std::sync::Arc;

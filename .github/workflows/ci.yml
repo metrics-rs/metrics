@@ -29,6 +29,19 @@ jobs:
         tool: cargo-hack
     - name: Check Feature Matrix
       run: cargo hack check --all --all-targets --feature-powerset --release
+  no-std:
+    name: Check no_std
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Rust Stable
+      run: rustup default stable
+    - name: Check metrics builds without std
+      run: cargo check -p metrics --no-default-features --all-targets
+    - name: Check the emission macros expand without std
+      # `metrics` building on its own is not enough: the macros expand into user code, so a `std`
+      # path inside a macro body only fails at the call site. `ci/nostd-check` is that call site.
+      run: cargo check --manifest-path ci/nostd-check/Cargo.toml
   test:
     name: Test (rust-toolchain.toml)
     runs-on: ubuntu-latest

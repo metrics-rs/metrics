@@ -1,3 +1,4 @@
+use alloc::{format, string::String};
 /// Verbosity of a metric.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd)]
 pub struct Level(LevelInner);
@@ -19,7 +20,7 @@ impl Level {
     pub const ERROR: Self = Self(LevelInner::Error);
 }
 
-impl std::convert::TryFrom<&str> for Level {
+impl core::convert::TryFrom<&str> for Level {
     type Error = String;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -93,7 +94,7 @@ impl<'a> Metadata<'a> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use std::convert::TryFrom as _;
 

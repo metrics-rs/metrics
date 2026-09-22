@@ -10,12 +10,12 @@
 //! As such, the atomic types that we provide handle implementations for are publicly re-exporter
 //! here for downstream crates to utilize.
 
-use std::sync::atomic::Ordering;
+use core::sync::atomic::Ordering;
 
+#[cfg(not(target_pointer_width = "32"))]
+pub use core::sync::atomic::AtomicU64;
 #[cfg(target_pointer_width = "32")]
 pub use portable_atomic::AtomicU64;
-#[cfg(not(target_pointer_width = "32"))]
-pub use std::sync::atomic::AtomicU64;
 
 use super::{CounterFn, GaugeFn};
 

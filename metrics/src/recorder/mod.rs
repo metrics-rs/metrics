@@ -1,4 +1,5 @@
-use std::{cell::Cell, marker::PhantomData, ptr::NonNull};
+#[cfg(feature = "std")]
+use core::{cell::Cell, marker::PhantomData, ptr::NonNull};
 
 mod cell;
 use self::cell::RecorderOnceCell;
@@ -14,6 +15,7 @@ use crate::{Counter, Gauge, Histogram, Key, KeyName, Metadata, SharedString, Uni
 static NOOP_RECORDER: NoopRecorder = NoopRecorder;
 static GLOBAL_RECORDER: RecorderOnceCell = RecorderOnceCell::new();
 
+#[cfg(feature = "std")]
 thread_local! {
     static LOCAL_RECORDER: Cell<Option<NonNull<dyn Recorder>>> = Cell::new(None);
 }
@@ -67,7 +69,7 @@ macro_rules! impl_recorder {
                 unit: Option<$crate::Unit>,
                 description: $crate::SharedString,
             ) {
-                std::ops::Deref::deref(self).describe_counter(key, unit, description)
+                core::ops::Deref::deref(self).describe_counter(key, unit, description)
             }
 
             fn describe_gauge(
@@ -76,7 +78,7 @@ macro_rules! impl_recorder {
                 unit: Option<$crate::Unit>,
                 description: $crate::SharedString,
             ) {
-                std::ops::Deref::deref(self).describe_gauge(key, unit, description)
+                core::ops::Deref::deref(self).describe_gauge(key, unit, description)
             }
 
             fn describe_histogram(
@@ -85,7 +87,7 @@ macro_rules! impl_recorder {
                 unit: Option<$crate::Unit>,
                 description: $crate::SharedString,
             ) {
-                std::ops::Deref::deref(self).describe_histogram(key, unit, description)
+                core::ops::Deref::deref(self).describe_histogram(key, unit, description)
             }
 
             fn register_counter(
@@ -93,7 +95,7 @@ macro_rules! impl_recorder {
                 key: &$crate::Key,
                 metadata: &$crate::Metadata<'_>,
             ) -> $crate::Counter {
-                std::ops::Deref::deref(self).register_counter(key, metadata)
+                core::ops::Deref::deref(self).register_counter(key, metadata)
             }
 
             fn register_gauge(
@@ -101,7 +103,7 @@ macro_rules! impl_recorder {
                 key: &$crate::Key,
                 metadata: &$crate::Metadata<'_>,
             ) -> $crate::Gauge {
-                std::ops::Deref::deref(self).register_gauge(key, metadata)
+                core::ops::Deref::deref(self).register_gauge(key, metadata)
             }
 
             fn register_histogram(
@@ -109,7 +111,7 @@ macro_rules! impl_recorder {
                 key: &$crate::Key,
                 metadata: &$crate::Metadata<'_>,
             ) -> $crate::Histogram {
-                std::ops::Deref::deref(self).register_histogram(key, metadata)
+                core::ops::Deref::deref(self).register_histogram(key, metadata)
             }
         }
     };
@@ -117,8 +119,8 @@ macro_rules! impl_recorder {
 
 impl_recorder!(T, &T);
 impl_recorder!(T, &mut T);
-impl_recorder!(T, std::boxed::Box<T>);
-impl_recorder!(T, std::sync::Arc<T>);
+impl_recorder!(T, alloc::boxed::Box<T>);
+impl_recorder!(T, alloc::sync::Arc<T>);
 
 /// Guard for setting a local recorder.
 ///
@@ -132,11 +134,13 @@ impl_recorder!(T, std::sync::Arc<T>);
 /// The guard has a lifetime parameter `'a` that is bounded using a `PhantomData` type. This upholds the guard's
 /// contravariance, it must live _at most as long_ as the recorder it takes a reference to. The bounded lifetime
 /// prevents accidental use-after-free errors when using a guard directly through [`crate::set_default_local_recorder`].
+#[cfg(feature = "std")]
 pub struct LocalRecorderGuard<'a> {
     prev_recorder: Option<NonNull<dyn Recorder>>,
     phantom: PhantomData<&'a dyn Recorder>,
 }
 
+#[cfg(feature = "std")]
 impl<'a> LocalRecorderGuard<'a> {
     /// Creates a new `LocalRecorderGuard` and sets the thread-local recorder.
     fn new(recorder: &'a (dyn Recorder + 'a)) -> Self {
@@ -144,7 +148,7 @@ impl<'a> LocalRecorderGuard<'a> {
         // has an implied `'static` bound on `dyn Recorder`. We enforce that all usages of `LOCAL_RECORDER`
         // are limited to `'a` as we mediate its access entirely through `LocalRecorderGuard<'a>`.
         let recorder_ptr = unsafe {
-            std::mem::transmute::<*const (dyn Recorder + 'a), *mut (dyn Recorder + 'static)>(
+            core::mem::transmute::<*const (dyn Recorder + 'a), *mut (dyn Recorder + 'static)>(
                 recorder as &'a (dyn Recorder + 'a),
             )
         };
@@ -160,6 +164,7 @@ impl<'a> LocalRecorderGuard<'a> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> Drop for LocalRecorderGuard<'a> {
     fn drop(&mut self) {
         // Clear the thread-local recorder.
@@ -202,6 +207,7 @@ where
 /// The function is suitable for capturing metrics in asynchronous code that uses a single threaded runtime.
 ///
 /// If a global recorder is set, it will be restored once the guard is dropped.
+#[cfg(feature = "std")]
 #[must_use]
 pub fn set_default_local_recorder(recorder: &dyn Recorder) -> LocalRecorderGuard<'_> {
     LocalRecorderGuard::new(recorder)
@@ -212,6 +218,7 @@ pub fn set_default_local_recorder(recorder: &dyn Recorder) -> LocalRecorderGuard
 /// This only applies as long as the closure is running, and on the thread where `with_local_recorder` is called. This
 /// does not extend to other threads, and so is not suitable for capturing metrics in asynchronous code where multiple
 /// threads are involved.
+#[cfg(feature = "std")]
 pub fn with_local_recorder<T>(recorder: &dyn Recorder, f: impl FnOnce() -> T) -> T {
     let _local = LocalRecorderGuard::new(recorder);
     f()
@@ -222,8 +229,12 @@ pub fn with_local_recorder<T>(recorder: &dyn Recorder, f: impl FnOnce() -> T) ->
 /// If a local recorder has been set, it will be used. Otherwise, the global recorder will be used.  If neither a local
 /// recorder or global recorder have been set, a no-op recorder will be used.
 ///
+/// Local recorders require thread-local storage, and so are only available with the `std` feature enabled. Without it,
+/// only the global recorder is consulted.
+///
 /// It should typically not be necessary to call this function directly, as it is used primarily by generated code. You
 /// should prefer working with the macros provided by `metrics` instead: `counter!`, `gauge!`, `histogram!`, etc.
+#[cfg(feature = "std")]
 pub fn with_recorder<T>(f: impl FnOnce(&dyn Recorder) -> T) -> T {
     LOCAL_RECORDER.with(|local_recorder| {
         if let Some(recorder) = local_recorder.get() {
@@ -240,7 +251,22 @@ pub fn with_recorder<T>(f: impl FnOnce(&dyn Recorder) -> T) -> T {
     })
 }
 
-#[cfg(test)]
+/// Runs the closure with a reference to the current recorder for this scope.
+///
+/// If a global recorder has been set, it will be used. Otherwise, a no-op recorder will be used.
+///
+/// It should typically not be necessary to call this function directly, as it is used primarily by generated code. You
+/// should prefer working with the macros provided by `metrics` instead: `counter!`, `gauge!`, `histogram!`, etc.
+#[cfg(not(feature = "std"))]
+pub fn with_recorder<T>(f: impl FnOnce(&dyn Recorder) -> T) -> T {
+    if let Some(global_recorder) = GLOBAL_RECORDER.try_load() {
+        f(global_recorder)
+    } else {
+        f(&NOOP_RECORDER)
+    }
+}
+
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use std::sync::{atomic::Ordering, Arc};
 

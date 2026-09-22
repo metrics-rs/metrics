@@ -1,5 +1,6 @@
 use super::{Recorder, SetRecorderError};
-use std::{
+use alloc::boxed::Box;
+use core::{
     cell::UnsafeCell,
     sync::atomic::{AtomicUsize, Ordering},
 };
