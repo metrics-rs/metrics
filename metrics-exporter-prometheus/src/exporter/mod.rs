@@ -28,8 +28,10 @@ use hyper::Uri;
 ))]
 #[derive(Debug)]
 pub enum ExporterError {
+    /// An HTTP listener failed.
     #[cfg(feature = "http-listener")]
     HttpListener(HttpListeningError),
+    /// A push gateway operation failed.
     PushGateway(()),
 }
 /// Convenience type for Future implementing an exporter.
