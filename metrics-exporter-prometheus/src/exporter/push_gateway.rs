@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use http_body_util::{BodyExt, Collected, Full};
@@ -21,10 +22,9 @@ pub(super) fn new_push_gateway(
 ) -> ExporterFuture {
     let http_method = if use_http_post_method { Method::POST } else { Method::PUT };
     Box::pin(async move {
-        let provider = CryptoProvider::get_default()
-            .expect("no process-level CryptoProvider available -- call rustls' CryptoProvider::install_default() before this point");
+        let provider = get_crypto_provider();
         let https = hyper_rustls::HttpsConnectorBuilder::new()
-            .with_provider_and_native_roots(provider.clone())
+            .with_provider_and_native_roots(provider)
             .expect("no native root CA certificates found")
             .https_or_http()
             .enable_http1()
@@ -80,6 +80,31 @@ pub(super) fn new_push_gateway(
             }
         }
     })
+}
+
+/// Gets the `CryptoProvider` to use for TLS connections to the push gateway.
+///
+/// If a process-level default provider has been installed, it is used. Otherwise, when the `push-gateway` feature is
+/// enabled, we fall back to the bundled `aws-lc-rs` provider.
+///
+/// # Panics
+///
+/// Panics if no process-level default provider has been installed and the `push-gateway` feature is not enabled (i.e.
+/// only `push-gateway-no-tls-provider` is enabled).
+fn get_crypto_provider() -> Arc<CryptoProvider> {
+    if let Some(provider) = CryptoProvider::get_default() {
+        return Arc::clone(provider);
+    }
+
+    #[cfg(feature = "push-gateway")]
+    {
+        Arc::new(rustls::crypto::aws_lc_rs::default_provider())
+    }
+
+    #[cfg(not(feature = "push-gateway"))]
+    {
+        panic!("no process-level CryptoProvider available -- call rustls' CryptoProvider::install_default() before this point, or enable the `push-gateway` feature to use the bundled provider");
+    }
 }
 
 #[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]

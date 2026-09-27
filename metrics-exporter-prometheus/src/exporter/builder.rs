@@ -133,11 +133,20 @@ impl PrometheusBuilder {
     ///
     /// Defaults to disabled.
     ///
+    /// ## TLS
+    ///
+    /// If a process-level default [`CryptoProvider`][crypto_provider] has been installed, it will be used for TLS
+    /// connections to the push gateway. Otherwise, when the `push-gateway` feature is enabled, the bundled `aws-lc-rs`
+    /// provider is used. When only the `push-gateway-no-tls-provider` feature is enabled, a default provider _must_ be
+    /// installed, via [`CryptoProvider::install_default`][install_default], before the exporter is started.
+    ///
     /// ## Errors
     ///
     /// If the given endpoint cannot be parsed into a valid URI, an error variant will be returned describing the error.
     ///
     /// [push gateway]: https://prometheus.io/docs/instrumenting/pushing/
+    /// [crypto_provider]: https://docs.rs/rustls/0.23/rustls/crypto/struct.CryptoProvider.html
+    /// [install_default]: https://docs.rs/rustls/0.23/rustls/crypto/struct.CryptoProvider.html#method.install_default
     #[cfg(any(feature = "push-gateway", feature = "push-gateway-no-tls-provider"))]
     #[cfg_attr(
         docsrs,
