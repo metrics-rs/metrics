@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- The push gateway exporter no longer panics when using the default `push-gateway` feature and no process-level
+  `rustls` `CryptoProvider` has been installed. It now falls back to the bundled `aws-lc-rs` provider in that case.
+  ([#711](https://github.com/metrics-rs/metrics/issues/711))
+
 ## [0.18.3] - 2026-04-30
 
 ### Fixed
