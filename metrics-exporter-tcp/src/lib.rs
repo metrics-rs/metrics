@@ -436,7 +436,6 @@ fn run_transport(
                         let done = drive_connection(conn, wbuf, msgs);
                         if done {
                             clients_to_remove.push(*token);
-                            state.decrement_clients();
                             continue;
                         }
 
@@ -458,7 +457,6 @@ fn run_transport(
                         let done = drive_connection(conn, wbuf, msgs);
                         if done {
                             clients_to_remove.push(*token);
-                            state.decrement_clients();
                         }
                     }
 
@@ -639,4 +637,89 @@ fn would_block(err: &io::Error) -> bool {
 
 fn interrupted(err: &io::Error) -> bool {
     err.kind() == io::ErrorKind::Interrupted
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{TcpListener as StdTcpListener, TcpStream as StdTcpStream};
+    use std::time::Duration;
+
+    // Poll `client_count` until `pred` holds or the bounded retry budget is
+    // exhausted. Termination is decided by the predicate, not by elapsed time;
+    // the short sleep only yields to the exporter thread between checks.
+    fn poll_until<F>(recorder: &TcpRecorder, pred: F) -> bool
+    where
+        F: Fn(usize) -> bool,
+    {
+        for _ in 0..1000 {
+            if pred(recorder.state.client_count.load(Ordering::Acquire)) {
+                return true;
+            }
+            thread::sleep(Duration::from_millis(1));
+        }
+        false
+    }
+
+    // Regression test for https://github.com/metrics-rs/metrics/issues/676
+    //
+    // When the metric fan-out (WAKER) path detects a disconnected client it must
+    // only count it down once. Previously the WAKER branch decremented
+    // `client_count` itself *and* the shared removal loop decremented it again,
+    // so a single disconnect subtracted twice and wrapped the `AtomicUsize`
+    // around. That corrupted the `count == 1` transition in `decrement_clients`,
+    // leaving `should_send` stuck `false` and silently dropping every metric
+    // after one connect/disconnect cycle.
+    #[test]
+    fn waker_removal_decrements_client_count_once() {
+        // Discover a free ephemeral port on localhost, then hand it to the
+        // exporter. Binding-then-dropping avoids depending on a fixed port.
+        let probe = StdTcpListener::bind("127.0.0.1:0").expect("failed to bind probe listener");
+        let addr = probe.local_addr().expect("failed to read probe addr");
+        drop(probe);
+
+        let recorder =
+            TcpBuilder::new().listen_address(addr).build().expect("failed to build TCP recorder");
+
+        // Connect a real client and wait until the exporter has accepted it and
+        // bumped the client count to exactly one.
+        let client = StdTcpStream::connect(addr).expect("failed to connect to exporter");
+        assert!(
+            poll_until(&recorder, |count| count == 1),
+            "exporter never registered the connected client",
+        );
+
+        // Register a counter and record once while the client is alive so the
+        // fan-out (WAKER) path first runs against a live connection.
+        let metadata = metrics::Metadata::new("test", metrics::Level::INFO, None);
+        let counter = recorder.register_counter(&Key::from_name("issue_676"), &metadata);
+        counter.increment(1);
+
+        // Disconnect the client, then keep recording to drive the WAKER fan-out
+        // path until it observes the broken connection and removes the client.
+        // On the buggy code this double-decrements and wraps `client_count` to a
+        // huge value; on the fix it settles back to zero.
+        drop(client);
+
+        let mut removed = false;
+        for _ in 0..1000 {
+            counter.increment(1);
+            if recorder.state.client_count.load(Ordering::Acquire) == 0 {
+                removed = true;
+                break;
+            }
+            // Give the exporter thread a chance to process the wake and let the
+            // peer reset arrive so the next write fails deterministically. The
+            // loop exits on the count check above, not on elapsed time.
+            thread::sleep(Duration::from_millis(1));
+        }
+
+        let final_count = recorder.state.client_count.load(Ordering::Acquire);
+        assert!(
+            removed,
+            "client_count never returned to 0 after a WAKER-path disconnect \
+             (double-decrement wrapped it to {final_count}); should_send is now {}",
+            recorder.state.should_send(),
+        );
+    }
 }
