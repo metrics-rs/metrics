@@ -2,7 +2,7 @@
 name = "metrics"
 version = "0.24.6"
 edition = "2018"
-rust-version = { workspace = true }
+rust-version = "1.71.1"
 
 description = "A lightweight metrics facade."
 license = { workspace = true }

@@ -69,6 +69,7 @@ prost-types = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
+quanta = { workspace = true, features = ["mock"] }
 rand = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["fmt"] }

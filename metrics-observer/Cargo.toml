@@ -2,7 +2,7 @@
 name = "metrics-observer"
 version = "0.5.1"
 edition = "2018"
-rust-version = "1.74.0"
+rust-version = { workspace = true }
 
 description = "Text-based UI for metrics-exporter-tcp."
 license = { workspace = true }

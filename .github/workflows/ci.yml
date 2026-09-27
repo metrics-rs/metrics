@@ -63,8 +63,12 @@ jobs:
       run: sudo apt-get install protobuf-compiler
     - name: Install Rust 1.71.1
       run: rustup install 1.71.1
+    - name: Check core metrics MSRV
+      run: cargo +1.71.1 check --lib --all-features -p metrics
+    - name: Install Rust 1.87
+      run: rustup install 1.87
     - name: Check library MSRV
-      run: cargo +1.71.1 check --lib --all-features --workspace --exclude metrics-observer
+      run: cargo +1.87 check --lib --all-features --workspace --exclude metrics-observer
   bin-msrv:
     name: Check binary MSRV
     runs-on: ubuntu-latest
@@ -72,10 +76,10 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install Protobuf Compiler
       run: sudo apt-get install protobuf-compiler
-    - name: Install Rust 1.74.0
-      run: rustup install 1.74.0
+    - name: Install Rust 1.87
+      run: rustup install 1.87
     - name: Check binary MSRV
-      run: cargo +1.74.0 check --bin metrics-observer
+      run: cargo +1.87 check --bin metrics-observer
   docs:
     runs-on: ubuntu-latest
     env:
