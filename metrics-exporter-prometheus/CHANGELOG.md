@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The HTTP listener no longer retries immediately when `accept()` fails for a reason other than one
+  connection (`ConnectionAborted`, `ConnectionReset`, or `ConnectionRefused`). It logs that error and
+  waits one second before accepting again, on both the TCP listener and the Unix socket listener.
+  ([#717](https://github.com/metrics-rs/metrics/issues/717))
 - The push gateway exporter no longer panics when using the default `push-gateway` feature and no process-level
   `rustls` `CryptoProvider` has been installed. It now falls back to the bundled `aws-lc-rs` provider in that case.
   ([#711](https://github.com/metrics-rs/metrics/issues/711))

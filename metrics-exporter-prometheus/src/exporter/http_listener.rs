@@ -40,6 +40,25 @@ pub enum HttpListeningError {
     Io(std::io::Error),
 }
 
+const ACCEPT_ERROR_BACKOFF: std::time::Duration = std::time::Duration::from_secs(1);
+
+fn is_connection_accept_error(error: &std::io::Error) -> bool {
+    matches!(
+        error.kind(),
+        std::io::ErrorKind::ConnectionAborted
+            | std::io::ErrorKind::ConnectionReset
+            | std::io::ErrorKind::ConnectionRefused
+    )
+}
+
+async fn handle_accept_error(error: std::io::Error) {
+    if is_connection_accept_error(&error) {
+        return;
+    }
+    warn!(error = ?error, "Error accepting connection; retrying in 1s.");
+    tokio::time::sleep(ACCEPT_ERROR_BACKOFF).await;
+}
+
 impl HttpListeningExporter {
     pub async fn serve(&self) -> Result<(), HttpListeningError> {
         match &self.listener_type {
@@ -58,7 +77,7 @@ impl HttpListeningExporter {
             let stream = match listener.accept().await {
                 Ok((stream, _)) => stream,
                 Err(e) => {
-                    warn!(error = ?e, "Error accepting connection. Ignoring request.");
+                    handle_accept_error(e).await;
                     continue;
                 }
             };
@@ -104,7 +123,7 @@ impl HttpListeningExporter {
             let stream = match listener.accept().await {
                 Ok((stream, _)) => stream,
                 Err(e) => {
-                    warn!(error = ?e, "Error accepting connection. Ignoring request.");
+                    handle_accept_error(e).await;
                     continue;
                 }
             };
@@ -243,4 +262,56 @@ pub(crate) fn new_http_uds_listener(
     };
 
     Ok(Box::pin(async move { exporter.serve().await.map_err(super::ExporterError::HttpListener) }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{handle_accept_error, is_connection_accept_error};
+    use std::io::{Error, ErrorKind};
+    use std::time::Duration;
+
+    fn emfile() -> Error {
+        Error::from_raw_os_error(if cfg!(windows) { 4 } else { 24 })
+    }
+
+    #[test]
+    fn connection_accept_errors_are_not_backed_off() {
+        for kind in
+            [ErrorKind::ConnectionAborted, ErrorKind::ConnectionReset, ErrorKind::ConnectionRefused]
+        {
+            let error = Error::new(kind, "closed");
+            assert!(is_connection_accept_error(&error), "kind={:?}", kind);
+        }
+        assert!(!is_connection_accept_error(&emfile()));
+        assert!(!is_connection_accept_error(&Error::new(ErrorKind::PermissionDenied, "blocked")));
+    }
+
+    #[test]
+    fn connection_accept_errors_do_not_sleep() {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
+        runtime.block_on(async {
+            for kind in [
+                ErrorKind::ConnectionAborted,
+                ErrorKind::ConnectionReset,
+                ErrorKind::ConnectionRefused,
+            ] {
+                let started = std::time::Instant::now();
+                handle_accept_error(Error::new(kind, "closed")).await;
+                assert!(started.elapsed() < Duration::from_millis(50), "kind={:?}", kind);
+            }
+        });
+    }
+
+    #[test]
+    fn other_accept_errors_sleep_before_retry() {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
+        runtime.block_on(async {
+            for error in [emfile(), Error::new(ErrorKind::PermissionDenied, "blocked")] {
+                let result =
+                    tokio::time::timeout(Duration::from_millis(50), handle_accept_error(error))
+                        .await;
+                assert!(result.is_err(), "accept error must not retry immediately");
+            }
+        });
+    }
 }
