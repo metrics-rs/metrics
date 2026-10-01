@@ -93,7 +93,9 @@ mod tests {
     static METADATA: metrics::Metadata =
         metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
+    // `PrefixLayer::new` leaks its prefix on purpose, which Miri's leak checker reports at exit.
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_basic_functionality() {
         let inputs = vec![
             RecorderOperation::DescribeCounter(

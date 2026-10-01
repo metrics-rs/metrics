@@ -372,15 +372,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam-epoch"
-version = "0.9.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b82ac4a3c2ca9c3460964f020e1402edd5753411d7737aa39c3714ad1b5420e"
-dependencies = [
- "crossbeam-utils",
-]
-
-[[package]]
 name = "crossbeam-queue"
 version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1172,6 +1163,7 @@ name = "metrics-exporter-prometheus"
 version = "0.18.3"
 dependencies = [
  "base64",
+ "criterion",
  "evmap",
  "http-body-util",
  "hyper",
@@ -1252,12 +1244,12 @@ dependencies = [
  "aho-corasick",
  "approx",
  "criterion",
- "crossbeam-epoch",
  "crossbeam-queue",
  "crossbeam-utils",
  "getopts",
  "hashbrown 0.16.1",
  "indexmap",
+ "loom",
  "metrics",
  "mockall",
  "ndarray",
@@ -1269,7 +1261,6 @@ dependencies = [
  "predicates-tree",
  "quanta",
  "quickcheck",
- "quickcheck_macros",
  "radix_trie",
  "rand 0.9.2",
  "rand_xoshiro",
@@ -1698,17 +1689,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
 dependencies = [
  "rand 0.8.5",
-]
-
-[[package]]
-name = "quickcheck_macros"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f71ee38b42f8459a88d3362be6f9b841ad2d5421844f61eb1c59c11bff3ac14a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
