@@ -33,7 +33,7 @@ use quanta::{Clock, Instant};
 use crate::Hashable;
 use crate::{
     kind::MetricKindMask,
-    registry::{AtomicStorage, Registry, Storage},
+    registry::{storage_strategy::Registry, AtomicStorage, Storage, StorageStrategy},
     MetricKind,
 };
 
@@ -250,14 +250,15 @@ where
     /// method will return `true` and will update the last update time internally.  If the given key
     /// has not been updated recently enough, the key will be removed from the given registry if the
     /// given generation also matches.
-    pub fn should_store_counter<S>(
+    pub fn should_store_counter<S, Strategy>(
         &self,
         key: &K,
         gen: Generation,
-        registry: &Registry<K, S>,
+        registry: &Registry<K, S, Strategy>,
     ) -> bool
     where
         S: Storage<K>,
+        Strategy: StorageStrategy<K>,
     {
         self.should_store(key, gen, registry, MetricKind::Counter, |registry, key| {
             registry.delete_counter(key)
@@ -270,9 +271,15 @@ where
     /// method will return `true` and will update the last update time internally.  If the given key
     /// has not been updated recently enough, the key will be removed from the given registry if the
     /// given generation also matches.
-    pub fn should_store_gauge<S>(&self, key: &K, gen: Generation, registry: &Registry<K, S>) -> bool
+    pub fn should_store_gauge<S, Strategy>(
+        &self,
+        key: &K,
+        gen: Generation,
+        registry: &Registry<K, S, Strategy>,
+    ) -> bool
     where
         S: Storage<K>,
+        Strategy: StorageStrategy<K>,
     {
         self.should_store(key, gen, registry, MetricKind::Gauge, |registry, key| {
             registry.delete_gauge(key)
@@ -285,31 +292,33 @@ where
     /// method will return `true` and will update the last update time internally.  If the given key
     /// has not been updated recently enough, the key will be removed from the given registry if the
     /// given generation also matches.
-    pub fn should_store_histogram<S>(
+    pub fn should_store_histogram<S, Strategy>(
         &self,
         key: &K,
         gen: Generation,
-        registry: &Registry<K, S>,
+        registry: &Registry<K, S, Strategy>,
     ) -> bool
     where
         S: Storage<K>,
+        Strategy: StorageStrategy<K>,
     {
         self.should_store(key, gen, registry, MetricKind::Histogram, |registry, key| {
             registry.delete_histogram(key)
         })
     }
 
-    fn should_store<F, S>(
+    fn should_store<F, S, Strategy>(
         &self,
         key: &K,
         gen: Generation,
-        registry: &Registry<K, S>,
+        registry: &Registry<K, S, Strategy>,
         kind: MetricKind,
         delete_op: F,
     ) -> bool
     where
-        F: Fn(&Registry<K, S>, &K) -> bool,
+        F: Fn(&Registry<K, S, Strategy>, &K) -> bool,
         S: Storage<K>,
+        Strategy: StorageStrategy<K>,
     {
         if let Some(idle_timeout) = self.idle_timeout {
             if self.mask.matches(kind) {
