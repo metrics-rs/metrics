@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Added `FieldMergePolicy` and `MetricsLayer::with_field_merge_policy`, allowing the merge
+  behavior for duplicate span field names to be configured per field, such as composing
+  hierarchical values (e.g. `component = "analyzer.worker"`) across nested spans.
+
 ## [0.18.1] - 2025-06-20
 
 ### Changed
