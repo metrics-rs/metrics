@@ -22,6 +22,10 @@ bench = false
 name = "macros"
 harness = false
 
+[[bench]]
+name = "descriptions"
+harness = false
+
 [dependencies]
 rapidhash = { workspace = true }
 

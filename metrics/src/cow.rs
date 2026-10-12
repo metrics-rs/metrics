@@ -228,7 +228,12 @@ impl<'a> Cow<'a, str> {
 }
 
 impl Cow<'static, str> {
-    pub(crate) fn to_retained(&self) -> Self {
+    /// Returns string storage that is cheap to clone for long-lived retention.
+    ///
+    /// An owned string is copied into an Arc once. Static and shared strings reuse their existing
+    /// storage. Cloning the returned value, or calling this method on it again, does not copy the
+    /// string contents.
+    pub fn to_retained(&self) -> Self {
         match self.metadata.kind() {
             Kind::Borrowed | Kind::Shared => self.clone(),
             Kind::Owned => Cow::from_shared(Arc::<str>::from(self.deref())),
