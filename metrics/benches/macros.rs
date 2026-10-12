@@ -2,9 +2,10 @@
 extern crate criterion;
 
 use criterion::Criterion;
+use std::sync::Arc;
 
 use metrics::{
-    counter, Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit,
+    counter, Counter, Gauge, Histogram, Key, KeyName, Label, Metadata, Recorder, SharedString, Unit,
 };
 
 #[derive(Debug)]
@@ -84,5 +85,42 @@ fn macro_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, macro_benchmark);
+fn shared_labels_benchmark(c: &mut Criterion) {
+    // Compare seven keys with sixteen labels each. Share the strings in both cases to isolate
+    // the cost of copying and retaining the label arrays.
+    let label_names = [
+        "label_0", "label_1", "label_2", "label_3", "label_4", "label_5", "label_6", "label_7",
+        "label_8", "label_9", "label_10", "label_11", "label_12", "label_13", "label_14",
+        "label_15",
+    ];
+    let labels: Vec<Label> = label_names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| Label::new(*name, Arc::<str>::from(i.to_string())))
+        .collect();
+    let shared: Arc<[Label]> = labels.clone().into();
+    let names =
+        ["metric_0", "metric_1", "metric_2", "metric_3", "metric_4", "metric_5", "metric_6"];
+    let mut group = c.benchmark_group("shared_labels/retain_seven_keys");
+
+    group.bench_function("owned", |b| {
+        b.iter(|| {
+            names
+                .iter()
+                .map(|name| Key::from_parts(*name, labels.clone()).to_retained())
+                .collect::<Vec<_>>()
+        });
+    });
+    group.bench_function("shared", |b| {
+        b.iter(|| {
+            names
+                .iter()
+                .map(|name| Key::from_parts(*name, Arc::clone(&shared)).to_retained())
+                .collect::<Vec<_>>()
+        });
+    });
+    group.finish();
+}
+
+criterion_group!(benches, macro_benchmark, shared_labels_benchmark);
 criterion_main!(benches);
