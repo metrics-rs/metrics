@@ -466,3 +466,49 @@ impl PrometheusHandle {
         self.inner.run_upkeep();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::PrometheusBuilder;
+    use metrics::{counter, gauge, histogram, Label};
+
+    #[test]
+    fn registry_preserves_shared_labels_and_content_identity() {
+        let labels: Arc<[Label]> =
+            vec![Label::new("label_a", "value_a"), Label::new("label_b", "value_b")].into();
+        let weak = Arc::downgrade(&labels);
+        let recorder = PrometheusBuilder::new().build_recorder();
+
+        metrics::with_local_recorder(&recorder, || {
+            counter!("counter_a", Arc::clone(&labels)).increment(3);
+            counter!("counter_b", Arc::clone(&labels)).increment(1);
+            gauge!("gauge_a", Arc::clone(&labels)).set(2);
+            histogram!("histogram_a", Arc::clone(&labels)).record(0.5);
+
+            // An independently allocated, reordered set must find the existing counter.
+            let reversed: Arc<[Label]> = labels.iter().rev().cloned().collect();
+            counter!("counter_a", reversed).increment(4);
+        });
+
+        {
+            let counters = recorder.inner.registry.get_counter_handles();
+            let gauges = recorder.inner.registry.get_gauge_handles();
+            let histograms = recorder.inner.registry.get_histogram_handles();
+            assert_eq!(counters.len(), 2);
+            assert_eq!(gauges.len(), 1);
+            assert_eq!(histograms.len(), 1);
+            for key in counters.keys().chain(gauges.keys()).chain(histograms.keys()) {
+                assert_eq!(key.labels().as_slice().as_ptr(), labels.as_ptr());
+            }
+        }
+
+        let rendered = recorder.handle().render();
+        assert!(rendered.contains("counter_a{label_a=\"value_a\",label_b=\"value_b\"} 7"));
+        assert!(rendered.contains("gauge_a{label_a=\"value_a\",label_b=\"value_b\"} 2"));
+        drop(labels);
+        assert!(weak.upgrade().is_some());
+        drop(recorder);
+        assert!(weak.upgrade().is_none());
+    }
+}
