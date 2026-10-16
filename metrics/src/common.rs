@@ -15,6 +15,17 @@ use crate::cow::Cow;
 /// (`counter!`, etc), as well as the various conversion implementations
 /// ([`From<T>`](std::convert::From)), generally allow users to pass whichever variant of a value
 /// (static, owned, shared) is best for them.
+///
+/// Use `SharedString::to_retained` before cloning a dynamic description for several instruments.
+/// The returned value shares its string contents across clones.
+///
+/// ```
+/// use metrics::{describe_counter, describe_gauge, SharedString};
+///
+/// let description = SharedString::from(String::from("Example description")).to_retained();
+/// describe_counter!("counter_a", description.clone());
+/// describe_gauge!("gauge_a", description.clone());
+/// ```
 pub type SharedString = Cow<'static, str>;
 
 /// Key-specific hashing algorithm.
