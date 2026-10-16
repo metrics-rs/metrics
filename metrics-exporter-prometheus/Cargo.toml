@@ -68,6 +68,7 @@ prost = { workspace = true, optional = true }
 prost-types = { workspace = true, optional = true }
 
 [dev-dependencies]
+criterion = { workspace = true }
 proptest = { workspace = true }
 rand = { workspace = true }
 tracing = { workspace = true }
@@ -75,6 +76,10 @@ tracing-subscriber = { workspace = true, features = ["fmt"] }
 
 [build-dependencies]
 prost-build = { workspace = true, optional = true }
+
+[[bench]]
+name = "histogram_contention"
+harness = false
 
 [[example]]
 name = "native_histograms"
