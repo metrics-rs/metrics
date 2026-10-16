@@ -10,7 +10,7 @@
 ![contributors-badge][]
 
 [conduct-badge]: https://img.shields.io/badge/%E2%9D%A4-code%20of%20conduct-blue.svg
-[conduct]: https://github.com/metrics-rs/metrics/blob/master/CODE_OF_CONDUCT.md
+[conduct]: https://github.com/metrics-rs/metrics/blob/main/CODE_OF_CONDUCT.md
 [license-badge]: https://img.shields.io/badge/license-MIT-blue
 [docs-badge]: https://docs.rs/metrics/badge.svg
 [docs]: https://docs.rs/metrics
