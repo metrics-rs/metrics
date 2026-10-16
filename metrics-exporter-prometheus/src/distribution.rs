@@ -152,8 +152,8 @@ impl DistributionBuilder {
         }
 
         // Default to summary
-        let b_duration = self.bucket_duration.map_or(DEFAULT_SUMMARY_BUCKET_DURATION, |d| d);
-        let b_count = self.bucket_count.map_or(DEFAULT_SUMMARY_BUCKET_COUNT, |c| c);
+        let b_duration = self.bucket_duration.unwrap_or(DEFAULT_SUMMARY_BUCKET_DURATION);
+        let b_count = self.bucket_count.unwrap_or(DEFAULT_SUMMARY_BUCKET_COUNT);
 
         Distribution::new_summary(self.quantiles.clone(), b_duration, b_count)
     }

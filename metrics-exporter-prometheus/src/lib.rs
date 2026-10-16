@@ -142,7 +142,7 @@ pub use self::exporter::builder::PrometheusBuilder;
         feature = "push-gateway-no-tls-provider"
     )))
 )]
-pub use self::exporter::ExporterFuture;
+pub use self::exporter::{ExporterError, ExporterFuture};
 
 pub mod formatting;
 #[cfg(feature = "protobuf")]

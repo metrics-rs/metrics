@@ -5,6 +5,7 @@ use std::{
     cmp, fmt,
     hash::{Hash, Hasher},
     slice::Iter,
+    sync::Arc,
 };
 
 const NO_LABELS: [Label; 0] = [];
@@ -102,9 +103,30 @@ impl Key {
         L: IntoLabels,
     {
         let name = name.into();
-        let labels = Cow::from_owned(labels.into_labels());
+        let labels = labels.into_shared_labels();
 
         Self::builder(name, labels)
+    }
+
+    /// Creates a [`Key`] that shares an immutable label array with other keys.
+    ///
+    /// The array is retained without copying its labels. [`Key::from_parts`] and the metric macros
+    /// also accept `Arc<[Label]>` directly.
+    ///
+    /// ```
+    /// use metrics::{counter, gauge, Key, Label};
+    /// use std::sync::Arc;
+    ///
+    /// let labels: Arc<[Label]> = vec![Label::new("label_a", "value_a")].into();
+    /// let key = Key::from_shared_labels("counter_a", Arc::clone(&labels));
+    /// let counter = counter!("counter_a", Arc::clone(&labels));
+    /// let gauge = gauge!("gauge_a", Arc::clone(&labels));
+    /// ```
+    pub fn from_shared_labels<N>(name: N, labels: Arc<[Label]>) -> Self
+    where
+        N: Into<KeyName>,
+    {
+        Self::from_parts(name, labels)
     }
 
     /// Creates a [`Key`] from a non-static name and a static set of labels.
@@ -142,6 +164,17 @@ impl Key {
     /// Name of this key as a [`KeyName`]
     pub fn name_shared(&self) -> KeyName {
         self.name.clone()
+    }
+
+    /// Creates a key with a different name and the same labels.
+    ///
+    /// Static and shared label storage is reused. Owned label storage is copied into an Arc,
+    /// so cloning the returned key does not copy its label array.
+    pub fn with_name<N>(&self, name: N) -> Self
+    where
+        N: Into<KeyName>,
+    {
+        Self::builder(name.into(), self.labels.to_retained())
     }
 
     /// Labels of this key, if they exist.
@@ -248,6 +281,9 @@ impl PartialEq for Key {
         if self.labels.len() != other.labels.len() {
             return false;
         }
+        if std::ptr::eq(self.labels.as_ref(), other.labels.as_ref()) {
+            return true;
+        }
         match self.labels.len() {
             0 => true,
             1 => self.labels[0] == other.labels[0],
@@ -304,6 +340,9 @@ impl Ord for Key {
             cmp::Ordering::Less => return cmp::Ordering::Less,
             cmp::Ordering::Equal => {}
             cmp::Ordering::Greater => return cmp::Ordering::Greater,
+        }
+        if std::ptr::eq(self.labels.as_ref(), other.labels.as_ref()) {
+            return cmp::Ordering::Equal;
         }
         match self.labels.len() {
             0 => cmp::Ordering::Equal,
@@ -397,7 +436,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::Key;
-    use crate::{KeyName, Label};
+    use crate::{KeyName, Label, SharedLabels};
     use std::{cmp, collections::HashMap, ops::Deref, sync::Arc};
 
     static BORROWED_NAME: &str = "name";
@@ -405,6 +444,77 @@ mod tests {
     static BORROWED_BASIC: Key = Key::from_static_name(BORROWED_NAME);
     static LABELS: [Label; 1] = [Label::from_static_parts("key", "value")];
     static BORROWED_LABELS: Key = Key::from_static_parts(BORROWED_NAME, &LABELS);
+
+    #[test]
+    fn shared_labels_survive_cloning_retention_and_renaming() {
+        let labels: Arc<[Label]> =
+            (0..16).map(|i| Label::new(format!("key{}", i), i.to_string())).collect();
+        let weak = Arc::downgrade(&labels);
+        let key = Key::from_shared_labels("metric_a", Arc::clone(&labels));
+        let keys = [
+            key.clone(),
+            key.to_retained(),
+            key.with_name("metric_b"),
+            Key::from_parts("metric_c", SharedLabels::from(Arc::clone(&labels))),
+        ];
+
+        for candidate in &keys {
+            assert_eq!(candidate.labels().as_slice().as_ptr(), labels.as_ptr());
+        }
+        assert_eq!(key, keys[0]);
+        assert_eq!(key.cmp(&keys[0]), cmp::Ordering::Equal);
+        assert_ne!(key, keys[2]);
+        assert_eq!(keys[2], Key::from_parts("metric_b", labels.as_ref().to_vec()));
+        assert_eq!(
+            keys[2].get_hash(),
+            Key::from_parts("metric_b", labels.as_ref().to_vec()).get_hash()
+        );
+
+        drop(labels);
+        drop(key);
+        assert!(weak.upgrade().is_some());
+        drop(keys);
+        assert!(weak.upgrade().is_none());
+    }
+
+    #[test]
+    fn shared_labels_use_content_identity_and_order_independent_hashes() {
+        for count in [0, 1, 2, 7, 8, 16] {
+            let labels: Arc<[Label]> =
+                (0..count).map(|i| Label::new(format!("key{}", i), i.to_string())).collect();
+            let shared = Key::from_parts("metric_a", Arc::clone(&labels));
+            let mut reversed = labels.as_ref().to_vec();
+            reversed.reverse();
+            let independent = Key::from_shared_labels("metric_a", reversed.into());
+            let owned = Key::from_parts("metric_a", labels.as_ref().to_vec());
+
+            assert_eq!(shared, independent);
+            assert_eq!(shared, owned);
+            assert_eq!(shared.cmp(&independent), cmp::Ordering::Equal);
+            assert_eq!(shared.get_hash(), independent.get_hash());
+            assert_eq!(shared.get_hash(), owned.get_hash());
+
+            let mut map = HashMap::new();
+            map.insert(shared, 42);
+            assert_eq!(map.insert(independent, 43), Some(42));
+            assert_eq!(map.len(), 1);
+            assert_eq!(map.get(&owned), Some(&43));
+        }
+    }
+
+    #[test]
+    fn changing_or_extracting_shared_labels_copies_without_mutating_other_keys() {
+        let labels: Arc<[Label]> = vec![Label::new("label_a", "value_a")].into();
+        let key = Key::from_parts("metric_a", Arc::clone(&labels));
+        let expanded = key.with_extra_labels(vec![Label::new("label_b", "value_b")]);
+        assert_eq!(expanded.labels().len(), 2);
+        assert_eq!(key.labels().as_slice(), labels.as_ref());
+
+        let (_, mut extracted) = key.clone().into_parts();
+        extracted[0] = Label::new("label_a", "value_c");
+        assert_eq!(key.labels().as_slice(), labels.as_ref());
+        assert_eq!(key.labels().next().unwrap().value(), "value_a");
+    }
 
     #[test]
     fn test_key_ord_and_partialord() {
