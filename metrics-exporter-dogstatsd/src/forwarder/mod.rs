@@ -121,6 +121,9 @@ pub(crate) struct ForwarderConfiguration {
 
     /// Global labels to attach to all metrics.
     pub global_labels: Vec<Label>,
+
+    /// Whether metric names and labels are sanitized according to Datadog's rules.
+    pub sanitize: bool,
 }
 
 impl ForwarderConfiguration {
