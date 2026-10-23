@@ -289,6 +289,9 @@ pub use self::key::*;
 mod label;
 pub use self::label::*;
 
+mod label_set;
+pub use self::label_set::{LabelSet, Labels};
+
 mod metadata;
 pub use self::metadata::*;
 

@@ -1,11 +1,11 @@
 use std::{slice::Iter, sync::Arc};
 
-use crate::{cow::Cow, SharedString};
+use crate::{cow::Cow, LabelSet, SharedString};
 
 /// Label storage that can be owned, borrowed from a static slice, or shared through an [`Arc`].
 ///
 /// Construct this from an `Arc<[Label]>` to reuse one immutable label array across metric names.
-/// Cloning shared storage clones the Arc; cloning owned storage copies the labels.
+/// Use [`LabelSet`] when label sets also share prefixes.
 pub type SharedLabels = Cow<'static, [Label]>;
 
 /// Metadata for a metric key in the form of a key/value pair.
@@ -87,6 +87,17 @@ pub trait IntoLabels {
     {
         self.into_labels().into()
     }
+
+    /// Consumes this value, preserving shared arrays and label prefixes when supported.
+    ///
+    /// The default uses [`IntoLabels::into_shared_labels`], so existing implementations retain
+    /// their shared storage without any changes.
+    fn into_label_set(self) -> LabelSet
+    where
+        Self: Sized,
+    {
+        self.into_shared_labels().into()
+    }
 }
 
 impl IntoLabels for Arc<[Label]> {
@@ -106,6 +117,50 @@ impl IntoLabels for SharedLabels {
 
     fn into_shared_labels(self) -> SharedLabels {
         self
+    }
+}
+
+impl IntoLabels for &SharedLabels {
+    fn into_labels(self) -> Vec<Label> {
+        self.iter().cloned().collect()
+    }
+
+    fn into_shared_labels(self) -> SharedLabels {
+        self.to_retained()
+    }
+}
+
+impl IntoLabels for LabelSet {
+    fn into_labels(self) -> Vec<Label> {
+        self.into_owned()
+    }
+
+    fn into_shared_labels(self) -> SharedLabels {
+        LabelSet::into_shared_labels(self)
+    }
+
+    fn into_label_set(self) -> LabelSet {
+        self
+    }
+}
+
+impl IntoLabels for &LabelSet {
+    fn into_shared_labels(self) -> SharedLabels {
+        self.to_shared_labels()
+    }
+
+    fn into_labels(self) -> Vec<Label> {
+        self.iter().cloned().collect()
+    }
+
+    fn into_label_set(self) -> LabelSet {
+        self.to_retained()
+    }
+}
+
+impl IntoLabels for crate::Labels<'_> {
+    fn into_labels(self) -> Vec<Label> {
+        self.cloned().collect()
     }
 }
 

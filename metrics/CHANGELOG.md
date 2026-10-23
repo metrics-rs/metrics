@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- `Key::labels()` now returns `metrics::Labels` and iterates over shared label sets
+  without flattening. Code that names `std::slice::Iter<Label>` must use `metrics::Labels`
+  instead. Call `labels().as_slice()` when a contiguous slice is required; this can
+  allocate and cache a flat copy of a combined set.
+
 ## [0.24.6] - 2026-05-13
 
 ### Added
