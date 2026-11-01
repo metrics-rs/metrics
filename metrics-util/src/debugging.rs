@@ -157,12 +157,17 @@ impl DebuggingRecorder {
     }
 
     fn describe_metric(&self, rkey: CompositeKeyName, unit: Option<Unit>, desc: SharedString) {
+        let desc = desc.to_retained();
         let mut metadata = self.inner.metadata.lock().expect("metadata lock poisoned");
-        let (uentry, dentry) = metadata.entry(rkey).or_insert((None, desc.to_owned()));
-        if unit.is_some() {
-            *uentry = unit;
-        }
-        *dentry = desc;
+        metadata
+            .entry(rkey)
+            .and_modify(|(uentry, dentry)| {
+                if unit.is_some() {
+                    *uentry = unit;
+                }
+                *dentry = desc.clone();
+            })
+            .or_insert((unit, desc));
     }
 
     fn track_metric(&self, ckey: CompositeKey) {
@@ -227,6 +232,70 @@ impl Default for DebuggingRecorder {
 mod tests {
     use super::*;
     use metrics::Label;
+
+    #[test]
+    fn snapshots_share_owned_descriptions_across_label_sets_and_collections() {
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+        metrics::with_local_recorder(&recorder, || {
+            metrics::describe_counter!(
+                "counter_a",
+                Unit::Count,
+                String::from("Example description")
+            );
+            metrics::describe_gauge!("gauge_a", String::from("Example description"));
+            metrics::describe_histogram!("histogram_a", String::from("Example description"));
+            for value in 0..3 {
+                let _ = metrics::counter!("counter_a", "label_a" => value.to_string());
+                let _ = metrics::gauge!("gauge_a", "label_a" => value.to_string());
+                let _ = metrics::histogram!("histogram_a", "label_a" => value.to_string());
+            }
+        });
+
+        let first = snapshotter.snapshot().into_vec();
+        let second = snapshotter.snapshot().into_vec();
+        assert_eq!(first.len(), 9);
+        assert_eq!(second.len(), 9);
+        for name in ["counter_a", "gauge_a", "histogram_a"] {
+            let mut descriptions = first
+                .iter()
+                .chain(&second)
+                .filter(|(key, _, _, _)| key.key().name() == name)
+                .map(|(_, _, description, _)| description.as_ref().unwrap());
+            let reference = descriptions.next().unwrap();
+            for description in descriptions {
+                assert_eq!(description.as_ptr(), reference.as_ptr());
+                assert_eq!(description.as_ref(), "Example description");
+            }
+        }
+
+        // Updating metadata must not change descriptions held by an earlier snapshot.
+        recorder.describe_counter(
+            "counter_a".into(),
+            Some(Unit::Bytes),
+            String::from("Updated description").into(),
+        );
+        recorder.describe_counter(
+            "counter_a".into(),
+            None,
+            String::from("Final description").into(),
+        );
+        let updated = snapshotter.snapshot().into_vec();
+        let counters: Vec<_> =
+            updated.iter().filter(|(key, _, _, _)| key.key().name() == "counter_a").collect();
+        assert_eq!(counters.len(), 3);
+        for (_, unit, description, _) in &counters {
+            assert_eq!(*unit, Some(Unit::Bytes));
+            let description = description.as_ref().unwrap();
+            assert_eq!(description.as_ref(), "Final description");
+            assert_eq!(description.as_ptr(), counters[0].2.as_ref().unwrap().as_ptr());
+        }
+        drop(recorder);
+        drop(snapshotter);
+        for (_, _, description, _) in &first {
+            assert_eq!(description.as_ref().unwrap().as_ref(), "Example description");
+        }
+    }
 
     #[test]
     fn test_debugging_recorder() {

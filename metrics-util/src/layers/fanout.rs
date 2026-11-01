@@ -111,23 +111,42 @@ impl fmt::Debug for Fanout {
     }
 }
 
+impl Fanout {
+    fn describe_metric(
+        &self,
+        key_name: KeyName,
+        unit: Option<Unit>,
+        description: SharedString,
+        describe: impl Fn(&dyn Recorder, KeyName, Option<Unit>, SharedString),
+    ) {
+        if let Some((last, others)) = self.recorders.split_last() {
+            let description =
+                if others.is_empty() { description } else { description.to_retained() };
+            for recorder in others {
+                describe(&**recorder, key_name.clone(), unit, description.clone());
+            }
+            describe(&**last, key_name, unit, description);
+        }
+    }
+}
+
 impl Recorder for Fanout {
     fn describe_counter(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
-        for recorder in &self.recorders {
-            recorder.describe_counter(key_name.clone(), unit, description.clone());
-        }
+        self.describe_metric(key_name, unit, description, |recorder, key, unit, description| {
+            recorder.describe_counter(key, unit, description);
+        });
     }
 
     fn describe_gauge(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
-        for recorder in &self.recorders {
-            recorder.describe_gauge(key_name.clone(), unit, description.clone());
-        }
+        self.describe_metric(key_name, unit, description, |recorder, key, unit, description| {
+            recorder.describe_gauge(key, unit, description);
+        });
     }
 
     fn describe_histogram(&self, key_name: KeyName, unit: Option<Unit>, description: SharedString) {
-        for recorder in &self.recorders {
-            recorder.describe_histogram(key_name.clone(), unit, description.clone());
-        }
+        self.describe_metric(key_name, unit, description, |recorder, key, unit, description| {
+            recorder.describe_histogram(key, unit, description);
+        });
     }
 
     fn register_counter(&self, key: &Key, metadata: &Metadata<'_>) -> Counter {
@@ -194,7 +213,82 @@ impl FanoutBuilder {
 mod tests {
     use super::FanoutBuilder;
     use crate::test_util::*;
-    use metrics::{Counter, Gauge, Histogram, Recorder, Unit};
+    use metrics::{
+        Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit,
+    };
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Default)]
+    struct DescriptionRecorder(Mutex<Vec<SharedString>>);
+
+    impl Recorder for DescriptionRecorder {
+        fn describe_counter(&self, _: KeyName, _: Option<Unit>, description: SharedString) {
+            self.0.lock().unwrap().push(description);
+        }
+
+        fn describe_gauge(&self, _: KeyName, _: Option<Unit>, description: SharedString) {
+            self.0.lock().unwrap().push(description);
+        }
+
+        fn describe_histogram(&self, _: KeyName, _: Option<Unit>, description: SharedString) {
+            self.0.lock().unwrap().push(description);
+        }
+
+        fn register_counter(&self, _: &Key, _: &Metadata<'_>) -> Counter {
+            Counter::noop()
+        }
+
+        fn register_gauge(&self, _: &Key, _: &Metadata<'_>) -> Gauge {
+            Gauge::noop()
+        }
+
+        fn register_histogram(&self, _: &Key, _: &Metadata<'_>) -> Histogram {
+            Histogram::noop()
+        }
+    }
+
+    #[test]
+    fn fanout_shares_owned_descriptions_between_recorders() {
+        let recorders: Vec<_> = (0..3).map(|_| Arc::new(DescriptionRecorder::default())).collect();
+        let fanout = recorders
+            .iter()
+            .fold(FanoutBuilder::default(), |builder, recorder| {
+                builder.add_recorder(Arc::clone(recorder))
+            })
+            .build();
+
+        fanout.describe_counter(
+            "counter_a".into(),
+            None,
+            String::from("Example description").into(),
+        );
+        fanout.describe_gauge("gauge_a".into(), None, String::from("Example description").into());
+        fanout.describe_histogram(
+            "histogram_a".into(),
+            None,
+            String::from("Example description").into(),
+        );
+
+        let descriptions: Vec<_> =
+            recorders.iter().map(|recorder| recorder.0.lock().unwrap()).collect();
+        for kind in 0..3 {
+            for entries in &descriptions {
+                assert_eq!(entries.len(), 3);
+                assert_eq!(entries[kind].as_ref(), "Example description");
+                assert_eq!(entries[kind].as_ptr(), descriptions[0][kind].as_ptr());
+            }
+        }
+    }
+
+    #[test]
+    fn single_recorder_receives_owned_description_without_copying() {
+        let recorder = Arc::new(DescriptionRecorder::default());
+        let fanout = FanoutBuilder::default().add_recorder(Arc::clone(&recorder)).build();
+        let description = SharedString::from(String::from("Example description"));
+        let original = description.as_ptr();
+        fanout.describe_counter("counter_a".into(), None, description);
+        assert_eq!(recorder.0.lock().unwrap()[0].as_ptr(), original);
+    }
 
     static METADATA: metrics::Metadata =
         metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
