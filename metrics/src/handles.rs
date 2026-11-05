@@ -94,7 +94,7 @@ impl Counter {
     }
 
     /// Creates a `Counter` based on a shared handler.
-    pub fn from_arc<F: CounterFn + Send + Sync + 'static>(a: Arc<F>) -> Self {
+    pub fn from_arc(a: Arc<dyn CounterFn + Send + Sync + 'static>) -> Self {
         Self { inner: Some(a) }
     }
 
@@ -123,7 +123,7 @@ impl Gauge {
     }
 
     /// Creates a `Gauge` based on a shared handler.
-    pub fn from_arc<F: GaugeFn + Send + Sync + 'static>(a: Arc<F>) -> Self {
+    pub fn from_arc(a: Arc<dyn GaugeFn + Send + Sync + 'static>) -> Self {
         Self { inner: Some(a) }
     }
 
@@ -159,7 +159,7 @@ impl Histogram {
     }
 
     /// Creates a `Histogram` based on a shared handler.
-    pub fn from_arc<F: HistogramFn + Send + Sync + 'static>(a: Arc<F>) -> Self {
+    pub fn from_arc(a: Arc<dyn HistogramFn + Send + Sync + 'static>) -> Self {
         Self { inner: Some(a) }
     }
 
