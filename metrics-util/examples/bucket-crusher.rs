@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use getopts::Options;
 use metrics_util::storage::AtomicBucket;
-use rand::Rng;
+use rand::RngExt;
 use tracing::{debug, error, info};
 
 const COUNTER_LOOP: usize = 1024;

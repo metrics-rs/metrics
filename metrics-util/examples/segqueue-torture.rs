@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use crossbeam_queue::SegQueue;
 use getopts::Options;
-use rand::Rng;
+use rand::RngExt;
 use tracing::{error, info};
 
 const COUNTER_LOOP: usize = 1024;

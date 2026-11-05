@@ -9,7 +9,7 @@ rust-version = "1.56.1"
 
 [dependencies]
 metrics-util = { path = "../../metrics-util" }
-rand = "0.9"
+rand = "0.10"
 ndarray = "0.13"
 ndarray-stats = "0.3"
 noisy_float = "0.1"
