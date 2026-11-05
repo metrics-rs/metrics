@@ -193,7 +193,8 @@ impl Forwarder {
         let mut flush_state = FlushState::default();
         let mut writer =
             PayloadWriter::new(self.config.max_payload_len, self.config.is_length_prefixed())
-                .with_global_labels(&self.config.global_labels);
+                .with_global_labels(&self.config.global_labels)
+                .with_sanitization(self.config.sanitize);
         let mut telemetry_update = TelemetryUpdate::default();
 
         let mut next_flush = Instant::now() + self.config.flush_interval;
