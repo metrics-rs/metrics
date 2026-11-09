@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The `protobuf` feature no longer needs `protoc` at build time: the code generated from `proto/metrics.proto` is
-  checked in, and a test checks it against `prost-build`'s output.
+  checked in, and a test regenerates it with `protox` and fails if the checked-in copy is out of date.
 
 ### Fixed
 
