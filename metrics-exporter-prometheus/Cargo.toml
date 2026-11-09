@@ -22,7 +22,7 @@ http-listener = ["async-runtime", "ipnet", "tracing", "_hyper-server"]
 uds-listener = ["http-listener"]
 push-gateway = ["_push-gateway-common", "hyper-rustls/aws-lc-rs", "rustls/aws_lc_rs"]
 push-gateway-no-tls-provider = ["_push-gateway-common"]
-protobuf = ["mime", "prost", "prost-types", "prost-build"]
+protobuf = ["mime", "prost", "prost-types"]
 _hyper-server = ["http-body-util", "hyper/server", "hyper-util/server-auto"]
 _push-gateway-common = [
      "async-runtime",
@@ -73,9 +73,8 @@ proptest = { workspace = true }
 rand = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["fmt"] }
-
-[build-dependencies]
-prost-build = { workspace = true, optional = true }
+prost-build = { workspace = true }
+protox = { workspace = true }
 
 [[bench]]
 name = "histogram_contention"

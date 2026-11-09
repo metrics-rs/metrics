@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- The `protobuf` feature no longer needs `protoc` at build time: the code generated from `proto/metrics.proto` is
+  checked in, and a test regenerates it with `protox` and fails if the checked-in copy is out of date.
+
 ### Fixed
 
 - The push gateway exporter no longer panics when using the default `push-gateway` feature and no process-level
