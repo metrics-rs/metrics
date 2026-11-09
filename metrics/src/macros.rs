@@ -51,9 +51,89 @@ macro_rules! key_var {
         ];
         $crate::Key::from_parts($name, labels)
     }};
+    ($name:expr, $prefix:expr, $($rest:tt)+) => {{
+        let labels = $crate::labels!($prefix, $($rest)+);
+        $crate::Key::from_parts($name, labels)
+    }};
     ($name:expr, $labels:expr) => {
         $crate::Key::from_parts($name, $labels)
     }
+}
+
+/// Creates a reusable [`LabelSet`](crate::LabelSet), combining shared sets and optional inline labels.
+///
+/// # Usage
+///
+/// - `labels!()` creates an empty set.
+/// - `labels!(key => value, ...)` creates a set from inline pairs.
+/// - `labels!(collection)` retains an existing [`IntoLabels`](crate::IntoLabels) collection.
+/// - `labels!(&first, &second, ...)` combines existing sets in input order.
+/// - `labels!(&first, &second, ..., key => value, ...)` also adds inline labels after the sets.
+///
+/// Sets passed by reference are retained without consuming them. Repeated label keys are kept;
+/// adding a label does not replace an earlier label with the same key. All forms accept a trailing
+/// comma, except the empty form.
+///
+/// # Examples
+///
+/// ```
+/// use metrics::{counter, gauge, labels};
+///
+/// let common = labels!("service" => "http");
+/// let requests = labels!(&common, "method" => "GET");
+/// let outcome = labels!("status" => "200");
+/// let responses = labels!(&requests, &outcome);
+/// let json_responses = labels!(&requests, &outcome, "format" => "json");
+///
+/// counter!("requests", &requests).increment(1);
+/// counter!("responses", &responses).increment(1);
+/// counter!("json_responses", &json_responses).increment(1);
+/// gauge!("connections", &common).set(2.0);
+/// ```
+///
+/// # Storage and iteration
+///
+/// A set made entirely from literal pairs uses static storage. Dynamic pairs use a shared array.
+/// Combinations reuse all inputs that already have static or shared storage, including inputs
+/// that themselves combine other sets. Consumed owned inputs move into shared storage.
+/// Borrowed owned inputs need a copy; see [`LabelSet::to_retained`](crate::LabelSet::to_retained).
+///
+/// Cloning a shared set, retaining a key, and renaming a key reuse that storage. Iteration through
+/// [`Key::labels`](crate::Key::labels) and key hashing do not flatten shared sets. The
+/// built-in exporters use this iterator. Explicit slice access through
+/// [`LabelSet::as_slice`](crate::LabelSet::as_slice) or [`Labels::as_slice`](crate::Labels::as_slice)
+/// builds and caches a flat array when needed.
+/// Combinations deeper than 32 levels are flattened to bound lookup and drop costs.
+#[macro_export]
+macro_rules! labels {
+    () => {
+        $crate::LabelSet::const_slice(&[])
+    };
+    ($($label_key:literal => $label_value:literal),+ $(,)?) => {{
+        static LABELS: [$crate::Label; $crate::count!($($label_key)*)] = [
+            $($crate::Label::from_static_parts($label_key, $label_value)),+
+        ];
+        $crate::LabelSet::const_slice(&LABELS)
+    }};
+    ($($label_key:expr => $label_value:expr),+ $(,)?) => {
+        $crate::LabelSet::from_shared(::core::convert::Into::into(::std::vec![
+            $($crate::Label::new($label_key, $label_value)),+
+        ]))
+    };
+    ($prefix:expr, $($label_key:expr => $label_value:expr),+ $(,)?) => {
+        $crate::LabelSet::new($prefix).into_retained().with_extra_labels(::std::vec![
+            $($crate::Label::new($label_key, $label_value)),+
+        ])
+    };
+    ($prefix:expr, $extra:expr, $($rest:tt)+) => {
+        $crate::labels!($crate::LabelSet::new($prefix).into_retained().with_extra_labels($extra), $($rest)+)
+    };
+    ($prefix:expr, $extra:expr $(,)?) => {
+        $crate::LabelSet::new($prefix).into_retained().with_extra_labels($extra)
+    };
+    ($labels:expr $(,)?) => {
+        $crate::LabelSet::new($labels).into_retained()
+    };
 }
 
 #[doc(hidden)]
@@ -230,6 +310,8 @@ macro_rules! __register_metric {
 /// - Arbitrary number of `<key> => <value>` where `key` and `value` can be a string literal or an expression that results in `String` or `&'static str`.
 /// - Static reference to collection of **Label**.
 /// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html).
+/// - A [`LabelSet`](crate::LabelSet) or other label collection followed by additional
+///   `<key> => <value>` pairs. The collection is used as a shared prefix.
 ///
 /// # Example
 /// ```
@@ -328,6 +410,8 @@ macro_rules! counter {
 /// - Arbitrary number of `<key> => <value>` where `key` and `value` can be a string literal or an expression that results in `String` or `&'static str`.
 /// - Static reference to collection of **Label**.
 /// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html).
+/// - A [`LabelSet`](crate::LabelSet) or other label collection followed by additional
+///   `<key> => <value>` pairs. The collection is used as a shared prefix.
 ///
 /// # Example
 /// ```
@@ -426,6 +510,8 @@ macro_rules! gauge {
 /// - Arbitrary number of `<key> => <value>` where `key` and `value` can be a string literal or an expression that results in `String` or `&'static str`.
 /// - Static reference to collection of **Label**.
 /// - Collection/iterator that implements [IntoLabels](trait.IntoLabels.html).
+/// - A [`LabelSet`](crate::LabelSet) or other label collection followed by additional
+///   `<key> => <value>` pairs. The collection is used as a shared prefix.
 ///
 /// # Example
 /// ```
