@@ -74,6 +74,7 @@ rand = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["fmt"] }
 prost-build = { workspace = true }
+protox = { workspace = true }
 
 [[bench]]
 name = "histogram_contention"
