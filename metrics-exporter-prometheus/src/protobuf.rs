@@ -8,10 +8,10 @@ use crate::distribution::Distribution;
 use crate::formatting::sanitize_metric_name;
 use crate::recorder::DescriptionReadHandle;
 
-// Include the generated protobuf code
+// Generated from proto/metrics.proto; tests/protobuf_codegen.rs keeps it current.
 mod pb {
     #![allow(missing_docs, clippy::trivially_copy_pass_by_ref, clippy::doc_markdown)]
-    include!(concat!(env!("OUT_DIR"), "/io.prometheus.client.rs"));
+    include!("protobuf/io.prometheus.client.rs");
 }
 
 #[cfg(feature = "http-listener")]

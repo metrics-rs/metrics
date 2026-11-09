@@ -101,7 +101,7 @@ mod http_listener_test {
 
             // Include the generated protobuf types for testing
             mod pb {
-                include!(concat!(env!("OUT_DIR"), "/io.prometheus.client.rs"));
+                include!("../src/protobuf/io.prometheus.client.rs");
             }
 
             let metric_family = pb::MetricFamily::decode_length_delimited(&mut cursor)
