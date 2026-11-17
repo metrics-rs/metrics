@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- `IntoLabels::into_labels()` now returns `LabelSet` instead of `Vec<Label>`.
+  Custom implementations can return `LabelSet::from_owned(labels)` for an owned vector,
+  or reuse static, shared, or composed storage. Call `into_labels().into_owned()`
+  when a vector is required. The `into_shared_labels()` and `into_label_set()`
+  trait methods have been removed; use `into_labels()` instead.
+
+- `Key::labels()` now returns `metrics::Labels` and iterates over shared label sets
+  without flattening. Code that names `std::slice::Iter<Label>` must use `metrics::Labels`
+  instead. Call `labels().as_slice()` when a contiguous slice is required; this can
+  allocate and cache a flat copy of a combined set.
+
 ## [0.24.6] - 2026-05-13
 
 ### Added

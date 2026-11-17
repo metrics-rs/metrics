@@ -1,11 +1,11 @@
 use std::{slice::Iter, sync::Arc};
 
-use crate::{cow::Cow, SharedString};
+use crate::{cow::Cow, LabelSet, SharedString};
 
 /// Label storage that can be owned, borrowed from a static slice, or shared through an [`Arc`].
 ///
 /// Construct this from an `Arc<[Label]>` to reuse one immutable label array across metric names.
-/// Cloning shared storage clones the Arc; cloning owned storage copies the labels.
+/// Use [`LabelSet`] when label sets also share prefixes.
 pub type SharedLabels = Cow<'static, [Label]>;
 
 /// Metadata for a metric key in the form of a key/value pair.
@@ -72,52 +72,72 @@ where
     }
 }
 
-/// A value that can be converted to a vector of [`Label`]s.
+/// A value that can be converted to a [`LabelSet`].
+///
+/// Implementations should preserve existing static or shared storage when possible.
+/// Call [`LabelSet::into_owned`] on the result when an owned vector is required.
+///
+/// ```
+/// use metrics::{IntoLabels, Label, LabelSet};
+///
+/// struct CustomLabels(Vec<Label>);
+///
+/// impl IntoLabels for CustomLabels {
+///     fn into_labels(self) -> LabelSet {
+///         LabelSet::from_owned(self.0)
+///     }
+/// }
+/// ```
 pub trait IntoLabels {
-    /// Consumes this value, turning it into a vector of [`Label`]s.
-    fn into_labels(self) -> Vec<Label>;
-
-    /// Consumes this value, preserving shared label storage when supported.
-    ///
-    /// The default implementation uses [`IntoLabels::into_labels`]. Implementations that already
-    /// have shared storage can override this method to avoid copying their label array.
-    fn into_shared_labels(self) -> SharedLabels
-    where
-        Self: Sized,
-    {
-        self.into_labels().into()
-    }
+    /// Consumes this value, preserving shared arrays and composed label sets when supported.
+    fn into_labels(self) -> LabelSet;
 }
 
 impl IntoLabels for Arc<[Label]> {
-    fn into_labels(self) -> Vec<Label> {
-        self.as_ref().to_vec()
-    }
-
-    fn into_shared_labels(self) -> SharedLabels {
+    fn into_labels(self) -> LabelSet {
         self.into()
     }
 }
 
 impl IntoLabels for SharedLabels {
-    fn into_labels(self) -> Vec<Label> {
-        self.into_owned()
+    fn into_labels(self) -> LabelSet {
+        self.into()
     }
+}
 
-    fn into_shared_labels(self) -> SharedLabels {
+impl IntoLabels for &SharedLabels {
+    fn into_labels(self) -> LabelSet {
+        self.to_retained().into()
+    }
+}
+
+impl IntoLabels for LabelSet {
+    fn into_labels(self) -> LabelSet {
         self
+    }
+}
+
+impl IntoLabels for &LabelSet {
+    fn into_labels(self) -> LabelSet {
+        self.to_retained()
+    }
+}
+
+impl IntoLabels for crate::Labels<'_> {
+    fn into_labels(self) -> LabelSet {
+        LabelSet::from_owned(self.cloned().collect())
     }
 }
 
 impl IntoLabels for Vec<Label> {
-    fn into_labels(self) -> Vec<Label> {
-        self
+    fn into_labels(self) -> LabelSet {
+        LabelSet::from_owned(self)
     }
 }
 
 impl IntoLabels for Iter<'_, Label> {
-    fn into_labels(self) -> Vec<Label> {
-        self.cloned().collect()
+    fn into_labels(self) -> LabelSet {
+        LabelSet::from_owned(self.cloned().collect())
     }
 }
 
@@ -126,8 +146,8 @@ where
     Self: IntoIterator<Item = L>,
     L: Into<Label>,
 {
-    fn into_labels(self) -> Vec<Label> {
-        self.into_iter().map(|l| l.into()).collect()
+    fn into_labels(self) -> LabelSet {
+        LabelSet::from_owned(self.into_iter().map(|l| l.into()).collect())
     }
 }
 
@@ -140,7 +160,7 @@ mod label_tests {
         let labels = [("x", "a"), ("y", "b")];
 
         fn from_slice_to_labels(labels: &[(&'static str, &'static str)]) -> Vec<Label> {
-            labels.into_labels()
+            labels.into_labels().into_owned()
         }
 
         let expected = vec![Label::new("x", "a"), Label::new("y", "b")];
@@ -154,6 +174,6 @@ mod label_tests {
         let labels_btreemap = BTreeMap::from([("customer", "Rust Foundation")]);
 
         let expected = vec![Label::new("customer", "Rust Foundation")];
-        assert_eq!(labels_btreemap.into_labels(), expected);
+        assert_eq!(labels_btreemap.into_labels().into_owned(), expected);
     }
 }
