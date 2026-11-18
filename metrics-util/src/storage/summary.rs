@@ -174,7 +174,7 @@ impl std::error::Error for MergeError {}
 mod tests {
     use super::Summary;
 
-    use quickcheck_macros::quickcheck;
+    use quickcheck::{Gen, QuickCheck};
 
     // Need this, because without the relative_eq/abs_diff_eq imports, we get weird IDE errors.
     #[allow(unused_imports)]
@@ -255,9 +255,14 @@ mod tests {
         let mut rng = rand::rng();
         let dist = Uniform::new(0.0, 100.0).unwrap();
 
+        // With fewer samples, only the quantiles with a looser tolerance are checked, as the true
+        // quantile is interpolated between samples that can be further apart than the bound.
+        let samples = if cfg!(miri) { 1_000 } else { 100_000 };
+        let quantiles: &[f64] = if cfg!(miri) { &[0.75, 0.99] } else { &[0.25, 0.5, 0.75, 0.99] };
+
         let mut summary = Summary::new(alpha, max_bins, min_value);
         let mut uniform = Vec::new();
-        for _ in 0..100_000 {
+        for _ in 0..samples {
             let value = dist.sample(&mut rng);
             uniform.push(NotNan::new(value).unwrap());
             summary.add(value);
@@ -266,7 +271,6 @@ mod tests {
         uniform.sort();
         let mut true_histogram = Array1::from(uniform);
 
-        let quantiles = &[0.25, 0.5, 0.75, 0.99];
         for quantile in quantiles {
             let aval_raw = true_histogram
                 .quantile_axis_mut(Axis(0), n64(*quantile), &Linear)
@@ -290,9 +294,17 @@ mod tests {
         let mut rng = rand::rng();
         let dist = Uniform::new(-100.0, 100.0).unwrap();
 
+        // We explicitly skirt q=0.5 here to avoid the edge case quantiles as best as possible
+        // while asserting tightly to our relative error bound for everything else.
+        //
+        // With fewer samples, only the quantile with the loosest tolerance is checked, as the true
+        // quantile is interpolated between samples that can be further apart than the bound.
+        let samples = if cfg!(miri) { 1_000 } else { 100_000 };
+        let quantiles: &[f64] = if cfg!(miri) { &[0.99] } else { &[0.25, 0.47, 0.75, 0.99] };
+
         let mut summary = Summary::new(alpha, max_bins, min_value);
         let mut uniform = Vec::new();
-        for _ in 0..100_000 {
+        for _ in 0..samples {
             let value = dist.sample(&mut rng);
             uniform.push(NotNan::new(value).unwrap());
             summary.add(value);
@@ -301,9 +313,6 @@ mod tests {
         uniform.sort();
         let mut true_histogram = Array1::from(uniform);
 
-        // We explicitly skirt q=0.5 here to avoid the edge case quantiles as best as possible
-        // while asserting tightly to our relative error bound for everything else.
-        let quantiles = &[0.25, 0.47, 0.75, 0.99];
         for quantile in quantiles {
             let aval_raw = true_histogram
                 .quantile_axis_mut(Axis(0), n64(*quantile), &Linear)
@@ -335,28 +344,36 @@ mod tests {
         assert_eq!(summary.quantile(0.5), None);
     }
 
-    #[quickcheck]
-    fn quantile_validity(inputs: Vec<f64>) -> bool {
-        let mut had_non_inf = false;
+    #[test]
+    fn quantile_validity() {
+        fn property(inputs: Vec<f64>) -> bool {
+            let mut had_non_inf = false;
 
-        let mut summary = Summary::with_defaults();
-        for input in &inputs {
-            if !input.is_infinite() {
-                had_non_inf = true;
+            let mut summary = Summary::with_defaults();
+            for input in &inputs {
+                if !input.is_infinite() {
+                    had_non_inf = true;
+                }
+                summary.add(*input);
             }
-            summary.add(*input);
+
+            let qs = &[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0];
+            for q in qs {
+                let result = summary.quantile(*q);
+                if had_non_inf {
+                    assert!(result.is_some());
+                } else {
+                    assert!(result.is_none());
+                }
+            }
+
+            true
         }
 
-        let qs = &[0.0, 0.5, 0.9, 0.95, 0.99, 0.999, 1.0];
-        for q in qs {
-            let result = summary.quantile(*q);
-            if had_non_inf {
-                assert!(result.is_some());
-            } else {
-                assert!(result.is_none());
-            }
-        }
-
-        true
+        let (tests, size) = if cfg!(miri) { (3, 10) } else { (100, 100) };
+        QuickCheck::new()
+            .tests(tests)
+            .gen(Gen::new(size))
+            .quickcheck(property as fn(Vec<f64>) -> bool);
     }
 }

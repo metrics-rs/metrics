@@ -14,10 +14,10 @@
 //! gauges can be updated in such a way that their value is the same between two observations even
 //! though it had actually been changed in between.
 //!
-//! We solve for this by tracking the generation of a metric, which represents the number of times
-//! it has been modified. In doing so, we can compare the generation of a metric between
-//! observations, which only ever increases monotonically.  This provides a universal mechanism that
-//! works for all metric types.
+//! We solve for this by tracking the generation of a metric, which advances every time the metric
+//! is observed after having been modified. In doing so, we can compare the generation of a metric
+//! between observations, which only ever increases monotonically.  This provides a universal
+//! mechanism that works for all metric types.
 //!
 //! `Recency` uses the generation of a metric, along with a measurement of time when a metric is
 //! observed, to build a complete picture that allows deciding if a given metric has gone "idle" or
@@ -47,18 +47,30 @@ pub struct Generation(usize);
 /// Generation tracking for a metric.
 ///
 /// Holds a generic interior value, and provides way to access the value such that each access
-/// increments the "generation" of the value.  This provides a means to understand if the value has
-/// been updated since the last time it was observed.
+/// marks the value as modified, which advances the "generation" of the value the next time it is
+/// observed.  This provides a means to understand if the value has been updated since the last time
+/// it was observed.
 ///
 /// For example, if a gauge was observed to be X at one point in time, and then observed to be X
 /// again at a later point in time, it could have changed in between the two observations.  It also
 /// may not have changed, and thus `Generational` provides a way to determine if either of these
 /// events occurred.
+///
+/// Modifications are tracked with a single "modified" bit rather than a counter, so that writers
+/// only ever write to the shared generation state once per observation, no matter how many times
+/// they modify the value in between: the vast majority of modifications only need to read the
+/// bit, which lets many threads modify the same metric without contending on it.
 #[derive(Clone, Debug)]
 pub struct Generational<T> {
     inner: T,
     gen: Arc<AtomicUsize>,
 }
+
+// The generation state is packed into a single atomic: the low bit is the "modified" flag, and the
+// remaining bits are the generation.  Observing the value when the flag is set clears the flag and
+// advances the generation in a single step, so concurrent observers always agree on the
+// generation that a modification produced.
+const MODIFIED_BIT: usize = 1;
 
 impl<T> Generational<T> {
     /// Creates a new `Generational<T>`.
@@ -72,17 +84,53 @@ impl<T> Generational<T> {
     }
 
     /// Gets the current generation.
+    ///
+    /// If the value has been modified since the last call to `get_generation`, the generation is
+    /// advanced before being returned, and so will compare unequal to any previously returned
+    /// generation.  Otherwise, the same generation as the previous call is returned.
     pub fn get_generation(&self) -> Generation {
-        Generation(self.gen.load(Ordering::Acquire))
+        let mut state = self.gen.load(Ordering::Acquire);
+        loop {
+            if state & MODIFIED_BIT == 0 {
+                return Generation(state >> 1);
+            }
+
+            // The modified bit is set, so clear it and advance the generation.  As the state is
+            // odd, adding one both clears the low bit and increments the upper bits.
+            let advanced = state.wrapping_add(1);
+            match self.gen.compare_exchange_weak(
+                state,
+                advanced,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return Generation(advanced >> 1),
+                // Either another observer advanced the generation, or a writer set the modified
+                // bit again, so try again with the new state.
+                Err(current) => state = current,
+            }
+        }
     }
 
-    /// Acquires a reference to the inner value, and increments the generation.
+    /// Acquires a reference to the inner value, and marks it as modified.
+    ///
+    /// This advances the generation the next time it is observed via `get_generation`.
     pub fn with_increment<F, V>(&self, f: F) -> V
     where
         F: Fn(&T) -> V,
     {
         let result = f(&self.inner);
-        let _ = self.gen.fetch_add(1, Ordering::AcqRel);
+
+        // Only touch the shared state if the modified bit isn't already set, so that a run of
+        // modifications between two observations costs a single write, and every other
+        // modification is just a read of an unchanging cache line.
+        //
+        // This relies on the load eventually observing an observer's clearing of the bit, which
+        // cache coherence delivers within nanoseconds, far below the timescale of observations.
+        if self.gen.load(Ordering::Relaxed) & MODIFIED_BIT == 0 {
+            let _ = self.gen.fetch_or(MODIFIED_BIT, Ordering::Release);
+        }
+
         result
     }
 }
@@ -344,5 +392,80 @@ where
         }
 
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Generational;
+    use metrics::{CounterFn, GaugeFn, HistogramFn};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
+
+    #[test]
+    fn generation_is_stable_without_modifications() {
+        let counter = Generational::new(Arc::new(AtomicU64::new(0)));
+        let first = counter.get_generation();
+        assert_eq!(first, counter.get_generation());
+        assert_eq!(first, counter.get_generation());
+    }
+
+    #[test]
+    fn generation_advances_once_per_observation() {
+        let counter = Generational::new(Arc::new(AtomicU64::new(0)));
+        let initial = counter.get_generation();
+
+        // Any number of modifications between two observations advances the generation exactly
+        // once, and the new generation is stable until the next modification.
+        CounterFn::increment(&counter, 1);
+        CounterFn::increment(&counter, 1);
+        CounterFn::absolute(&counter, 10);
+        let after_writes = counter.get_generation();
+        assert!(after_writes > initial);
+        assert_eq!(after_writes, counter.get_generation());
+        assert_eq!(counter.get_inner().load(Ordering::Acquire), 10);
+
+        CounterFn::increment(&counter, 1);
+        let after_more_writes = counter.get_generation();
+        assert!(after_more_writes > after_writes);
+        assert_eq!(after_more_writes, counter.get_generation());
+    }
+
+    #[test]
+    fn generation_is_shared_between_clones() {
+        let gauge = Generational::new(Arc::new(AtomicU64::new(0)));
+        let cloned = gauge.clone();
+        let initial = gauge.get_generation();
+
+        GaugeFn::set(&cloned, 3.0);
+        assert!(gauge.get_generation() > initial);
+        assert_eq!(gauge.get_generation(), cloned.get_generation());
+    }
+
+    #[test]
+    fn concurrent_observers_agree_on_generation() {
+        struct Sink;
+        impl HistogramFn for Sink {
+            fn record(&self, _: f64) {}
+        }
+
+        let histogram = Arc::new(Generational::new(Sink));
+        let initial = histogram.get_generation();
+        histogram.record(1.0);
+
+        let observers = (0..8)
+            .map(|_| {
+                let histogram = Arc::clone(&histogram);
+                std::thread::spawn(move || histogram.get_generation())
+            })
+            .collect::<Vec<_>>();
+        let generations = observers.into_iter().map(|h| h.join().unwrap()).collect::<Vec<_>>();
+
+        // Every observer sees the single advanced generation, never the stale one.
+        for gen in &generations {
+            assert!(*gen > initial);
+            assert_eq!(*gen, generations[0]);
+        }
+        assert_eq!(histogram.get_generation(), generations[0]);
     }
 }

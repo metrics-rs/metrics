@@ -20,8 +20,34 @@ use crate::registry::GenerationalAtomicStorage;
 
 pub(crate) type DescriptionReadHandle =
     evmap::handles::ReadHandle<String, (SharedString, Option<Unit>)>;
-pub(crate) type DescriptionWriteHandle =
-    evmap::handles::WriteHandle<String, (SharedString, Option<Unit>)>;
+/// Coalesces descriptions until they become visible to readers.
+#[derive(Debug)]
+pub(crate) struct DescriptionWriteHandle {
+    handle: evmap::handles::WriteHandle<String, (SharedString, Option<Unit>)>,
+    pending: HashMap<String, (SharedString, Option<Unit>)>,
+}
+
+impl DescriptionWriteHandle {
+    fn contains_key(&self, key: &str) -> bool {
+        self.handle.contains_key(key)
+    }
+
+    pub(crate) fn update(&mut self, key: String, value: (SharedString, Option<Unit>)) -> &mut Self {
+        // The read handle cannot see pending writes. Retain only the last value
+        // for each name, preserving the order-dependent result of evmap updates
+        // without growing its operation log for every repeated description.
+        self.pending.insert(key, value);
+        self
+    }
+
+    pub(crate) fn publish(&mut self) -> &mut Self {
+        for (key, value) in self.pending.drain() {
+            self.handle.update(key, value);
+        }
+        self.handle.publish();
+        self
+    }
+}
 
 /// Create new evmap handles for metric descriptions.
 ///
@@ -37,7 +63,7 @@ pub(crate) fn new_description_handles() -> (DescriptionWriteHandle, DescriptionR
     // SAFETY: description key/value hashing and equality are deterministic.
     let (mut write_handle, read_handle) = unsafe { evmap::new_assert_stable() };
     write_handle.publish();
-    (write_handle, read_handle)
+    (DescriptionWriteHandle { handle: write_handle, pending: HashMap::new() }, read_handle)
 }
 
 #[derive(Debug)]
@@ -464,5 +490,127 @@ impl PrometheusHandle {
     /// grow unboundedly.
     pub fn run_upkeep(&self) {
         self.inner.run_upkeep();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::PrometheusBuilder;
+    use metrics::{counter, gauge, histogram, Label};
+
+    /// Repeated descriptions retain one pending value per name until upkeep publishes them.
+    #[test]
+    fn repeated_descriptions_have_bounded_pending_storage() {
+        let recorder = PrometheusBuilder::new().build_recorder();
+        for _ in 0..100_000 {
+            recorder.describe_counter("requests".into(), Some(Unit::Count), "Requests".into());
+        }
+        {
+            let descriptions = recorder.inner.descriptions_wr.lock().unwrap();
+            assert_eq!(descriptions.pending.len(), 1);
+            assert!(!descriptions.handle.has_pending());
+        }
+        assert!(recorder.inner.read_handle().get_one("requests").is_none());
+
+        recorder.handle().run_upkeep();
+        let descriptions = recorder.inner.read_handle();
+        assert_eq!(
+            descriptions.get_one("requests").as_deref(),
+            Some(&("Requests".into(), Some(Unit::Count)))
+        );
+        assert!(recorder.inner.descriptions_wr.lock().unwrap().pending.is_empty());
+    }
+
+    /// Sanitized-name collisions keep the last pending description and unit, then ignore updates.
+    #[test]
+    fn descriptions_preserve_publication_semantics() {
+        for unit in [None, Some(Unit::Bytes)] {
+            let recorder = PrometheusBuilder::new().build_recorder();
+            recorder.describe_counter("work.requests".into(), Some(Unit::Count), "First".into());
+            recorder.describe_histogram(
+                "work-requests".into(),
+                Some(Unit::Seconds),
+                "Middle".into(),
+            );
+            recorder.describe_gauge("work_requests".into(), unit, "Last".into());
+            metrics::with_local_recorder(&recorder, || gauge!("work_requests").set(1.0));
+            let handle = recorder.handle();
+            let rendered = handle.render();
+            assert!(rendered.contains("# HELP work_requests Last\n"));
+            assert_eq!(rendered.matches("# HELP work_requests ").count(), 1);
+            assert_eq!(
+                recorder.inner.read_handle().get_one("work_requests").as_deref(),
+                Some(&("Last".into(), unit))
+            );
+
+            recorder.describe_gauge("work.requests".into(), Some(Unit::Count), "Ignored".into());
+            handle.run_upkeep();
+            assert_eq!(handle.render(), rendered);
+            assert_eq!(
+                recorder.inner.read_handle().get_one("work_requests").as_deref(),
+                Some(&("Last".into(), unit))
+            );
+            assert!(recorder.inner.descriptions_wr.lock().unwrap().pending.is_empty());
+        }
+    }
+
+    /// Each recorder publishes its own description for a shared name.
+    #[test]
+    fn pending_descriptions_are_local_to_each_recorder() {
+        let first = PrometheusBuilder::new().build_recorder();
+        let second = PrometheusBuilder::new().build_recorder();
+        first.describe_counter("requests".into(), Some(Unit::Count), "First".into());
+        second.describe_counter("requests".into(), None, "Second".into());
+        first.handle().run_upkeep();
+        assert!(second.inner.read_handle().get_one("requests").is_none());
+        second.handle().run_upkeep();
+        assert_eq!(
+            first.inner.read_handle().get_one("requests").as_deref(),
+            Some(&("First".into(), Some(Unit::Count)))
+        );
+        assert_eq!(
+            second.inner.read_handle().get_one("requests").as_deref(),
+            Some(&("Second".into(), None))
+        );
+    }
+
+    #[test]
+    fn registry_preserves_shared_labels_and_content_identity() {
+        let labels: Arc<[Label]> =
+            vec![Label::new("label_a", "value_a"), Label::new("label_b", "value_b")].into();
+        let weak = Arc::downgrade(&labels);
+        let recorder = PrometheusBuilder::new().build_recorder();
+
+        metrics::with_local_recorder(&recorder, || {
+            counter!("counter_a", Arc::clone(&labels)).increment(3);
+            counter!("counter_b", Arc::clone(&labels)).increment(1);
+            gauge!("gauge_a", Arc::clone(&labels)).set(2);
+            histogram!("histogram_a", Arc::clone(&labels)).record(0.5);
+
+            // An independently allocated, reordered set must find the existing counter.
+            let reversed: Arc<[Label]> = labels.iter().rev().cloned().collect();
+            counter!("counter_a", reversed).increment(4);
+        });
+
+        {
+            let counters = recorder.inner.registry.get_counter_handles();
+            let gauges = recorder.inner.registry.get_gauge_handles();
+            let histograms = recorder.inner.registry.get_histogram_handles();
+            assert_eq!(counters.len(), 2);
+            assert_eq!(gauges.len(), 1);
+            assert_eq!(histograms.len(), 1);
+            for key in counters.keys().chain(gauges.keys()).chain(histograms.keys()) {
+                assert_eq!(key.labels().as_slice().as_ptr(), labels.as_ptr());
+            }
+        }
+
+        let rendered = recorder.handle().render();
+        assert!(rendered.contains("counter_a{label_a=\"value_a\",label_b=\"value_b\"} 7"));
+        assert!(rendered.contains("gauge_a{label_a=\"value_a\",label_b=\"value_b\"} 2"));
+        drop(labels);
+        assert!(weak.upgrade().is_some());
+        drop(recorder);
+        assert!(weak.upgrade().is_none());
     }
 }

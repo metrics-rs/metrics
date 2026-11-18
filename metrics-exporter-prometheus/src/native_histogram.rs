@@ -3,8 +3,9 @@
 //! This module implements Prometheus native histograms, which use exponential buckets
 //! to efficiently represent histogram data without requiring predefined bucket boundaries.
 
+use metrics::atomics::AtomicU64;
 use std::collections::btree_map::Entry;
-use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicI32, Ordering};
 
 /// IEEE 754 frexp implementation matching Go's math.Frexp behavior.
 /// Returns (mantissa, exponent) such that f = mantissa × 2^exponent,

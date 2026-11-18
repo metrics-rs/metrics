@@ -17,7 +17,7 @@ impl<R> Prefix<R> {
         new_name.push('.');
         new_name.push_str(key.name());
 
-        Key::from_parts(new_name, key.labels())
+        key.with_name(new_name)
     }
 
     fn prefix_key_name(&self, key_name: KeyName) -> KeyName {
@@ -88,12 +88,15 @@ mod tests {
     use super::{Prefix, PrefixLayer};
     use crate::layers::Layer;
     use crate::test_util::*;
-    use metrics::{Counter, Gauge, Histogram, Key, KeyName, Unit};
+    use metrics::{Counter, Gauge, Histogram, Key, KeyName, Label, Unit};
+    use std::sync::Arc;
 
     static METADATA: metrics::Metadata =
         metrics::Metadata::new(module_path!(), metrics::Level::INFO, Some(module_path!()));
 
+    // `PrefixLayer::new` leaks its prefix on purpose, which Miri's leak checker reports at exit.
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_basic_functionality() {
         let inputs = vec![
             RecorderOperation::DescribeCounter(
@@ -172,6 +175,22 @@ mod tests {
             prefixed_key.name(),
             prefixed_key_name.as_str(),
             "prefixed key and prefixed key name should match"
+        );
+    }
+
+    #[test]
+    fn prefix_preserves_shared_label_storage() {
+        let labels: Arc<[Label]> = vec![Label::new("label_a", "value_a")].into();
+        let key = Key::from_parts("metric_a", Arc::clone(&labels));
+        let prefix = Prefix { prefix: "prefix".into(), inner: () };
+        let prefixed = prefix.prefix_key(&key);
+
+        assert_eq!(prefixed.name(), "prefix.metric_a");
+        assert_eq!(prefixed.labels().as_slice().as_ptr(), labels.as_ptr());
+        assert_eq!(prefixed, Key::from_parts("prefix.metric_a", labels.as_ref().to_vec()));
+        assert_eq!(
+            prefixed.get_hash(),
+            Key::from_parts("prefix.metric_a", labels.as_ref().to_vec()).get_hash()
         );
     }
 }
