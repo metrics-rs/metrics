@@ -98,6 +98,7 @@ pub struct DogStatsDBuilder {
     histogram_sampling: bool,
     histogram_reservoir_size: usize,
     histograms_as_distributions: bool,
+    sanitize: bool,
     global_labels: Vec<Label>,
     global_prefix: Option<String>,
 }
@@ -241,6 +242,36 @@ impl DogStatsDBuilder {
         self
     }
 
+    /// Sets whether metric names and labels are sanitized according to Datadog's rules.
+    ///
+    /// When enabled, metric names -- including the global prefix -- are limited to ASCII
+    /// alphanumerics, underscores and periods, with every other character replaced by an
+    /// underscore. Metric names are case-sensitive in Datadog, so their case is preserved.
+    ///
+    /// Tag keys and values, including any [global labels][Self::with_global_labels], are lowercased
+    /// and limited to alphanumerics, underscores, minuses, colons, periods and slashes, with every
+    /// other character replaced by an underscore. Runs of underscores are collapsed and leading and
+    /// trailing underscores are trimmed. A tag whose key sanitizes away entirely is dropped, since
+    /// there is no name left to attach the value to.
+    ///
+    /// Names and tags are both truncated to 200 characters.
+    ///
+    /// Disabling this writes names and labels through verbatim, which is intended for servers other
+    /// than the Datadog Agent that accept a wider range of input. Note that doing so allows a name
+    /// or label containing `|`, `,`, `:` or a newline to produce a malformed -- or extra -- metric.
+    ///
+    /// See [Datadog's metric naming][naming] and [tag definition][tags] rules for details.
+    ///
+    /// Defaults to `true`.
+    ///
+    /// [naming]: https://docs.datadoghq.com/metrics/custom_metrics/#naming-custom-metrics
+    /// [tags]: https://docs.datadoghq.com/getting_started/tagging/#define-tags
+    #[must_use]
+    pub fn with_sanitization(mut self, enabled: bool) -> Self {
+        self.sanitize = enabled;
+        self
+    }
+
     /// Adds a global prefix for every metric name.
     ///
     /// Global prefix is applied to all metrics. Its intended use is to introduce a configurable
@@ -367,6 +398,7 @@ impl DogStatsDBuilder {
             flush_interval,
             write_timeout: self.write_timeout,
             global_labels: self.global_labels,
+            sanitize: self.sanitize,
         };
 
         if self.synchronous {
@@ -415,6 +447,7 @@ impl Default for DogStatsDBuilder {
             histogram_sampling: false,
             histogram_reservoir_size: DEFAULT_HISTOGRAM_RESERVOIR_SIZE,
             histograms_as_distributions: true,
+            sanitize: true,
             global_labels: Vec::default(),
             global_prefix: Option::default(),
         }
@@ -424,6 +457,15 @@ impl Default for DogStatsDBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn label_sanitization_configuration() {
+        let builder = DogStatsDBuilder::default();
+        assert!(builder.sanitize);
+
+        let builder = builder.with_sanitization(false);
+        assert!(!builder.sanitize);
+    }
 
     #[test]
     fn default_flush_interval_agg_mode() {
