@@ -5,7 +5,7 @@ use metrics::{
     counter, gauge, histogram, Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder,
     SetRecorderError, SharedString, Unit,
 };
-use metrics_util::registry::{AtomicStorage, Registry};
+use metrics_util::registry::{AtomicStorage, RetainedKeyRegistry};
 use portable_atomic::AtomicU64;
 use quanta::{Clock, Instant as QuantaInstant};
 use std::{
@@ -22,7 +22,7 @@ use std::{
 const LOOP_SAMPLE: u64 = 1000;
 
 pub struct Controller {
-    registry: Arc<Registry<Key, AtomicStorage>>,
+    registry: Arc<RetainedKeyRegistry<AtomicStorage>>,
 }
 
 impl Controller {
@@ -41,13 +41,13 @@ impl Controller {
 ///
 /// Simulates typical recorder implementations by utilizing `Registry`, clearing histogram buckets, etc.
 pub struct BenchmarkingRecorder {
-    registry: Arc<Registry<Key, AtomicStorage>>,
+    registry: Arc<RetainedKeyRegistry<AtomicStorage>>,
 }
 
 impl BenchmarkingRecorder {
     /// Creates a new `BenchmarkingRecorder`.
     pub fn new() -> BenchmarkingRecorder {
-        BenchmarkingRecorder { registry: Arc::new(Registry::atomic()) }
+        BenchmarkingRecorder { registry: Arc::new(RetainedKeyRegistry::atomic()) }
     }
 
     /// Gets a `Controller` attached to this recorder.
@@ -69,18 +69,15 @@ impl Recorder for BenchmarkingRecorder {
     fn describe_histogram(&self, _: KeyName, _: Option<Unit>, _: SharedString) {}
 
     fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
-        let key = key.to_retained();
-        self.registry.get_or_create_counter(&key, |c| Counter::from_arc(c.clone()))
+        self.registry.get_or_create_counter(key, |c| Counter::from_arc(c.clone()))
     }
 
     fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
-        let key = key.to_retained();
-        self.registry.get_or_create_gauge(&key, |g| Gauge::from_arc(g.clone()))
+        self.registry.get_or_create_gauge(key, |g| Gauge::from_arc(g.clone()))
     }
 
     fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
-        let key = key.to_retained();
-        self.registry.get_or_create_histogram(&key, |h| Histogram::from_arc(h.clone()))
+        self.registry.get_or_create_histogram(key, |h| Histogram::from_arc(h.clone()))
     }
 }
 
