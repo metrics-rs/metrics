@@ -209,6 +209,13 @@ impl<T> Cow<'static, [T]>
 where
     T: Clone,
 {
+    pub(crate) fn into_retained(self) -> Self {
+        match self.metadata.kind() {
+            Kind::Owned => Cow::from_shared(self.into_owned().into()),
+            Kind::Borrowed | Kind::Shared => self,
+        }
+    }
+
     pub(crate) fn to_retained(&self) -> Self {
         match self.metadata.kind() {
             Kind::Borrowed | Kind::Shared => self.clone(),
