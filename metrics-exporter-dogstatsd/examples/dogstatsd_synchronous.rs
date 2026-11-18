@@ -9,6 +9,8 @@ fn main() {
     DogStatsDBuilder::default()
         .with_remote_address("localhost:9125")
         .expect("failed to parse remote address")
+        .with_histogram_sampling(true)
+        .with_histogram_reservoir_size(128)
         .install()
         .expect("failed to install DogStatsD recorder");
 

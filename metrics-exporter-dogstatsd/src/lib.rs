@@ -103,4 +103,5 @@ pub use self::recorder::DogStatsDRecorder;
 mod state;
 mod storage;
 mod telemetry;
+pub(crate) mod util;
 mod writer;
