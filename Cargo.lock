@@ -1239,6 +1239,7 @@ dependencies = [
  "prost",
  "prost-build",
  "prost-types",
+ "protox",
  "quanta",
  "rand 0.9.2",
  "tracing",
@@ -1257,6 +1258,7 @@ dependencies = [
  "prost",
  "prost-build",
  "prost-types",
+ "protox",
  "ratatui",
 ]
 

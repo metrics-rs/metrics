@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Compile `proto/event.proto` with `protox`, so building no longer needs `protoc`.
 - Bump MSRV to 1.74.0. ([#725](https://github.com/metrics-rs/metrics/pull/725))
 
 ## [0.11.2] - 2026-04-28

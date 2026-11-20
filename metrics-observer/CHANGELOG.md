@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Compile `proto/event.proto` with `protox`, so building no longer needs `protoc`.
+
 ## [0.5.1] - 2026-04-28
 
 ### Fixed
