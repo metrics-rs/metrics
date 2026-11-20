@@ -19,8 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install Protobuf Compiler
-      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
       run: rustup default stable
     - name: Install cargo-hack
@@ -34,8 +32,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install Protobuf Compiler
-      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
       run: rustup default stable
     - name: Run Tests
@@ -48,8 +44,6 @@ jobs:
         rust_version: ['stable', 'nightly']
     steps:
     - uses: actions/checkout@v3
-    - name: Install Protobuf Compiler
-      run: sudo apt-get install protobuf-compiler
     - name: Install Rust ${{ matrix.rust_version }}
       run: rustup install ${{ matrix.rust_version }}
     - name: Run Tests
@@ -81,19 +75,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install Protobuf Compiler
-      run: sudo apt-get install protobuf-compiler
-    - name: Install Rust 1.71.1
-      run: rustup install 1.71.1
+    - name: Install Rust 1.74.0
+      run: rustup install 1.74.0
     - name: Check library MSRV
-      run: cargo +1.71.1 check --lib --all-features --workspace --exclude metrics-observer
+      run: cargo +1.74.0 check --lib --all-features --workspace --exclude metrics-observer
   bin-msrv:
     name: Check binary MSRV
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install Protobuf Compiler
-      run: sudo apt-get install protobuf-compiler
     - name: Install Rust 1.74.0
       run: rustup install 1.74.0
     - name: Check binary MSRV
@@ -104,8 +94,6 @@ jobs:
       RUSTDOCFLAGS: -Dwarnings
     steps:
     - uses: actions/checkout@v3
-    - name: Install Protobuf Compiler
-      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Nightly
       run: rustup install nightly
     - name: Check Docs
@@ -115,8 +103,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install Protobuf Compiler
-      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
       run: rustup default stable
     - name: Run Benchmarks
@@ -126,8 +112,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install Protobuf Compiler
-      run: sudo apt-get install protobuf-compiler
     - name: Install Rust Stable
       run: rustup default stable
     - name: Install Clippy

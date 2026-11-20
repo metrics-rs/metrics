@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- Bump MSRV to 1.74.0. ([#725](https://github.com/metrics-rs/metrics/pull/725))
+- The `protobuf` feature compiles `proto/metrics.proto` with `protox`, so building it no longer needs `protoc`. ([#725](https://github.com/metrics-rs/metrics/pull/725))
+
 ### Fixed
 
 - The push gateway exporter no longer panics when using the default `push-gateway` feature and no process-level
