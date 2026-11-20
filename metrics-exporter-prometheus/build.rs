@@ -1,6 +1,7 @@
 fn main() {
     #[cfg(feature = "protobuf")]
     {
-        prost_build::compile_protos(&["proto/metrics.proto"], &["proto/"]).unwrap();
+        let file_descriptors = protox::compile(["proto/metrics.proto"], ["proto/"]).unwrap();
+        prost_build::Config::new().compile_fds(file_descriptors).unwrap();
     }
 }
