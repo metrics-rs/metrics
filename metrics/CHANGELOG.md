@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Bump MSRV to 1.74.0. ([#725](https://github.com/metrics-rs/metrics/pull/725))
+
 - `IntoLabels::into_labels()` now returns `LabelSet` instead of `Vec<Label>`.
   Custom implementations can return `LabelSet::from_owned(labels)` for an owned vector,
   or reuse static, shared, or composed storage. Call `into_labels().into_owned()`
