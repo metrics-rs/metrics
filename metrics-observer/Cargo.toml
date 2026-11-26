@@ -2,13 +2,12 @@
 name = "metrics-observer"
 version = "0.5.1"
 edition = "2018"
-rust-version = "1.74.0"
+rust-version = { workspace = true }
 
 description = "Text-based UI for metrics-exporter-tcp."
 license = { workspace = true }
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 repository = { workspace = true }
-homepage = { workspace = true }
 documentation = "https://docs.rs/metrics"
 readme = "README.md"
 
@@ -17,8 +16,7 @@ keywords = ["metrics", "facade", "macros"]
 
 [dependencies]
 bytes = { workspace = true }
-chrono = { workspace = true, features = ["clock"] }
-crossbeam-channel = { workspace = true, features = ["std"] }
+jiff = { workspace = true, features = ["tz-system", "tzdb-bundle-platform", "tzdb-zoneinfo"] }
 metrics = { version = "^0.24", path = "../metrics", default-features = false }
 metrics-util = { version = "^0.20", path = "../metrics-util", default-features = false, features = ["storage"] }
 prost = { workspace = true }

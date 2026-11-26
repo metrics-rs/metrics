@@ -32,6 +32,7 @@ impl CounterFn for AtomicU64 {
 impl GaugeFn for AtomicU64 {
     fn increment(&self, value: f64) {
         loop {
+            #[allow(deprecated)] // Replace `fetch_update()` with `try_update()` when MSRV >= 1.99
             let result = self.fetch_update(Ordering::AcqRel, Ordering::Relaxed, |curr| {
                 let input = f64::from_bits(curr);
                 let output = input + value;
@@ -46,6 +47,7 @@ impl GaugeFn for AtomicU64 {
 
     fn decrement(&self, value: f64) {
         loop {
+            #[allow(deprecated)] // Replace `fetch_update()` with `try_update()` when MSRV >= 1.99
             let result = self.fetch_update(Ordering::AcqRel, Ordering::Relaxed, |curr| {
                 let input = f64::from_bits(curr);
                 let output = input - value;

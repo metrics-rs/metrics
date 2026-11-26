@@ -3,7 +3,7 @@
 mod storage;
 use std::{
     hash::BuildHasherDefault,
-    iter::repeat,
+    iter::repeat_n,
     sync::{PoisonError, RwLock},
 };
 
@@ -68,11 +68,11 @@ impl Registry<Key, AtomicStorage> {
         let shard_count = shard_count();
         let shard_mask = shard_count - 1;
         let counters =
-            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+            repeat_n((), shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
         let gauges =
-            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+            repeat_n((), shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
         let histograms =
-            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+            repeat_n((), shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
 
         Self { counters, gauges, histograms, shard_mask, storage: AtomicStorage }
     }
@@ -87,11 +87,11 @@ where
         let shard_count = shard_count();
         let shard_mask = shard_count - 1;
         let counters =
-            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+            repeat_n((), shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
         let gauges =
-            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+            repeat_n((), shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
         let histograms =
-            repeat(()).take(shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
+            repeat_n((), shard_count).map(|_| RwLock::new(RegistryHashMap::default())).collect();
 
         Self { counters, gauges, histograms, shard_mask, storage }
     }

@@ -12,12 +12,12 @@ use std::{
     },
 };
 
-use rand::{rngs::OsRng, Rng, SeedableRng};
+use rand::{rngs::SysRng, RngExt, SeedableRng};
 use rand_xoshiro::Xoshiro256StarStar;
 
 thread_local! {
     static FAST_RNG: UnsafeCell<Xoshiro256StarStar> = {
-        UnsafeCell::new(Xoshiro256StarStar::try_from_rng(&mut OsRng).unwrap())
+        UnsafeCell::new(Xoshiro256StarStar::try_from_rng(&mut SysRng).unwrap())
     };
 }
 
@@ -64,6 +64,7 @@ impl Reservoir {
         }
 
         loop {
+            #[allow(deprecated)] // Replace `fetch_update()` with `try_update()` when MSRV >= 1.99
             let result = self.unsampled_sum.fetch_update(Relaxed, Relaxed, |curr| {
                 Some((f64::from_bits(curr) + value).to_bits())
             });

@@ -91,6 +91,7 @@ impl AtomicGauge {
 
 impl GaugeFn for AtomicGauge {
     fn increment(&self, value: f64) {
+        #[allow(deprecated)] // Replace `fetch_update()` with `try_update()` when MSRV >= 1.99
         self.inner
             .fetch_update(AcqRel, Relaxed, |current| {
                 let new = f64::from_bits(current) + value;
@@ -101,6 +102,7 @@ impl GaugeFn for AtomicGauge {
     }
 
     fn decrement(&self, value: f64) {
+        #[allow(deprecated)] // Replace `fetch_update()` with `try_update()` when MSRV >= 1.99
         self.inner
             .fetch_update(AcqRel, Relaxed, |current| {
                 let new = f64::from_bits(current) - value;
