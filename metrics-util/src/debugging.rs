@@ -92,7 +92,28 @@ pub struct Snapshotter {
 }
 
 impl Snapshotter {
-    /// Takes a snapshot of the recorder.
+    /// Takes a snapshot and drains the recorded values.
+    ///
+    /// Counters and gauges are reset to zero, and recorded histogram samples are cleared.
+    /// Metric keys and descriptions are retained. A subsequent snapshot includes any new
+    /// recordings, with zero values or empty histograms for metrics that have had no updates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use metrics::gauge;
+    /// use metrics_util::debugging::{DebugValue, DebuggingRecorder};
+    ///
+    /// let recorder = DebuggingRecorder::new();
+    /// let snapshotter = recorder.snapshotter();
+    /// metrics::with_local_recorder(&recorder, || gauge!("workers").set(10.0));
+    ///
+    /// let first = snapshotter.snapshot().into_vec();
+    /// assert_eq!(first[0].3, DebugValue::Gauge(10.0.into()));
+    ///
+    /// let second = snapshotter.snapshot().into_vec();
+    /// assert_eq!(second[0].3, DebugValue::Gauge(0.0.into()));
+    /// ```
     pub fn snapshot(&self) -> Snapshot {
         let mut snapshot = Vec::new();
 

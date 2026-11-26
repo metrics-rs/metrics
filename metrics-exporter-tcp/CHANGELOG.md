@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- The `drive_connection` tracing span is now created at `TRACE` level instead of `INFO`, matching the
+  other spans in this crate. ([#644](https://github.com/metrics-rs/metrics/issues/644))
+
 ## [0.11.2] - 2026-04-28
 
 ### Fixed
