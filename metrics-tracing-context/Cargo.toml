@@ -8,7 +8,6 @@ description = "A crate to use tracing context as metrics labels."
 license = { workspace = true }
 authors = ["MOZGIII <mike-n@narod.ru>"]
 repository = { workspace = true }
-homepage = { workspace = true }
 documentation = "https://docs.rs/metrics-tracing-context"
 readme = "README.md"
 

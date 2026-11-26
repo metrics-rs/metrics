@@ -414,7 +414,7 @@ mod tests {
             let as_chars = delayered_backslashes.chars().collect::<Vec<_>>();
 
             // If the first character is a double quote, then we messed up.
-            assert!(as_chars.first().map_or(true, |c| *c != '"'),
+            assert!(as_chars.first().is_none_or(|c| *c != '"'),
                 "first character cannot be a double quote: {}", result);
 
             // Now look for unescaped characters in the rest of the string, in a windowed fashion.

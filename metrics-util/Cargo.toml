@@ -8,7 +8,6 @@ description = "Helper types/functions used by the metrics ecosystem."
 license = { workspace = true }
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 repository = { workspace = true }
-homepage = { workspace = true }
 documentation = "https://docs.rs/metrics-util"
 readme = "README.md"
 

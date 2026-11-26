@@ -8,7 +8,6 @@ description = "A lightweight metrics facade."
 license = { workspace = true }
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 repository = { workspace = true }
-homepage = { workspace = true }
 documentation = "https://docs.rs/metrics"
 readme = "README.md"
 
