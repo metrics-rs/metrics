@@ -43,7 +43,7 @@ lockfree-object-pool = { version = "0.1", default-features = false }
 loom = { version = "0.7", default-features = false }
 log = { version = "0.4", default-features = false }
 mio = { version = "1.0", default-features = false }
-mockall = { version = "0.13", default-features = false }
+mockall = { version = "0.15", default-features = false }
 ndarray = { version = "0.17", default-features = false }
 ndarray-stats = { version = "0.7", default-features = false }
 noisy_float = { version = "0.2", default-features = false }
