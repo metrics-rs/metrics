@@ -532,7 +532,7 @@ fn generate_metadata_messages(
     bufs
 }
 
-#[tracing::instrument(skip(wbuf, msgs))]
+#[tracing::instrument(level = "trace", skip(wbuf, msgs))]
 fn drive_connection(
     conn: &mut TcpStream,
     wbuf: &mut Option<Bytes>,

@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use metrics_util::AtomicBucket;
+use metrics_util::storage::AtomicBucket;
 
 static RANDOM_INTS: &[u64] = &[
     21061184, 21301862, 21331592, 21457012, 21500016, 21537837, 21581557, 21620030, 21664102,

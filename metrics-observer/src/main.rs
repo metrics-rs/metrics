@@ -3,7 +3,7 @@ use std::time::Duration;
 use std::{error::Error, io};
 use std::{fmt, io::Stdout};
 
-use chrono::Local;
+use jiff::ZonedDateTime;
 use metrics::Unit;
 use ratatui::{
     backend::CrosstermBackend,
@@ -49,7 +49,7 @@ fn run(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> Result<(), Box<dyn E
                 .constraints([Constraint::Length(4), Constraint::Percentage(90)].as_ref())
                 .split(f.area());
 
-            let current_dt = Local::now().format(" (%Y/%m/%d %I:%M:%S %p)").to_string();
+            let current_dt = ZonedDateTime::now().strftime(" (%Y/%m/%d %I:%M:%S %p)").to_string();
             let client_state = match client.state() {
                 ClientState::Disconnected(s) => {
                     let mut spans = vec![

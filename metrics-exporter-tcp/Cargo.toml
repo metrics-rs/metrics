@@ -8,7 +8,6 @@ description = "A metrics-compatible exporter that outputs metrics to clients ove
 license = { workspace = true }
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 repository = { workspace = true }
-homepage = { workspace = true }
 documentation = "https://docs.rs/metrics-exporter-tcp"
 readme = "README.md"
 

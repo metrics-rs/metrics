@@ -8,7 +8,6 @@ description = "A metrics-compatible exporter for sending metrics to the Datadog 
 license = { workspace = true }
 authors = ["Toby Lawrence <toby@nuclearfurnace.com>"]
 repository = { workspace = true }
-homepage = { workspace = true }
 documentation = "https://docs.rs/metrics-exporter-dogstatsd"
 readme = "README.md"
 
@@ -16,7 +15,6 @@ categories = ["development-tools::debugging"]
 keywords = ["metrics", "telemetry", "dogstatsd", "Datadog"]
 
 [dependencies]
-bytes = { version = "1", default-features = false }
 ryu = { version = "1", default-features = false }
 itoa = { version = "1", default-features = false }
 metrics = { version = "^0.24.6", path = "../metrics" }
