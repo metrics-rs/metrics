@@ -12,12 +12,12 @@ use std::{
     },
 };
 
-use rand::{rngs::OsRng, Rng, SeedableRng};
+use rand::{rngs::SysRng, RngExt, SeedableRng};
 use rand_xoshiro::Xoshiro256StarStar;
 
 thread_local! {
     static FAST_RNG: UnsafeCell<Xoshiro256StarStar> = {
-        UnsafeCell::new(Xoshiro256StarStar::try_from_rng(&mut OsRng).unwrap())
+        UnsafeCell::new(Xoshiro256StarStar::try_from_rng(&mut SysRng).unwrap())
     };
 }
 
@@ -54,14 +54,17 @@ impl Reservoir {
         let idx = self.count.fetch_add(1, Relaxed);
         if idx < self.values.len() {
             self.values[idx].store(value.to_bits(), Relaxed);
-        } else {
-            let maybe_idx = fastrand(idx);
+        } else if !self.values.is_empty() {
+            // Algorithm R chooses uniformly from every value seen so far,
+            // including the value being inserted at index `idx`.
+            let maybe_idx = fastrand(idx + 1);
             if maybe_idx < self.values.len() {
                 self.values[maybe_idx].store(value.to_bits(), Relaxed);
             }
         }
 
         loop {
+            #[allow(deprecated)] // Replace `fetch_update()` with `try_update()` when MSRV >= 1.99
             let result = self.unsampled_sum.fetch_update(Relaxed, Relaxed, |curr| {
                 Some((f64::from_bits(curr) + value).to_bits())
             });
@@ -286,5 +289,38 @@ mod tests {
             assert_eq!(drain.unsampled_len(), 0);
             assert_eq!(drain.unsampled_sum(), 0.0);
         });
+    }
+
+    #[test]
+    fn test_zero_capacity_tracks_count_and_sum() {
+        let reservoir = AtomicSamplingReservoir::new(0);
+        reservoir.push(1.0);
+        reservoir.push(2.0);
+
+        reservoir.consume(|drain| {
+            assert_eq!(drain.unsampled_len(), 2);
+            assert_eq!(drain.unsampled_sum(), 3.0);
+            assert_eq!(drain.len(), 0);
+            assert_eq!(drain.sample_rate(), 0.0);
+        });
+    }
+
+    #[test]
+    fn test_first_overflow_can_keep_existing_sample() {
+        // With Algorithm R, the second value has a 1/2 chance of replacing
+        // the first. The old exclusive upper bound always replaced it.
+        let mut kept_first = false;
+        for _ in 0..100 {
+            let reservoir = AtomicSamplingReservoir::new(1);
+            reservoir.push(1.0);
+            reservoir.push(2.0);
+            reservoir.consume(|mut drain| {
+                kept_first |= drain.next() == Some(1.0);
+            });
+            if kept_first {
+                break;
+            }
+        }
+        assert!(kept_first, "the first sample was always replaced");
     }
 }
