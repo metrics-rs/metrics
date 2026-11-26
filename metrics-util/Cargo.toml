@@ -21,7 +21,7 @@ bench = false
 [[bench]]
 name = "bucket"
 harness = false
-required-features = ["handles"]
+required-features = ["storage"]
 
 [[bench]]
 name = "registry"
