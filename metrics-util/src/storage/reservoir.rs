@@ -64,6 +64,7 @@ impl Reservoir {
         }
 
         loop {
+            #[allow(deprecated)] // Replace `fetch_update()` with `try_update()` when MSRV >= 1.99
             let result = self.unsampled_sum.fetch_update(Relaxed, Relaxed, |curr| {
                 Some((f64::from_bits(curr) + value).to_bits())
             });
