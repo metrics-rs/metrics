@@ -30,5 +30,5 @@ prost-build = { workspace = true }
 [dev-dependencies]
 quanta = { workspace = true }
 rand = { workspace = true }
-tracing = { workspace = true, features = ["std"] }
+tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["fmt"] }

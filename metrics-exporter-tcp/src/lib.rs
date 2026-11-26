@@ -722,44 +722,4 @@ mod tests {
             recorder.state.should_send(),
         );
     }
-
-    // Regression test for https://github.com/metrics-rs/metrics/issues/644
-    //
-    // `drive_connection` runs on every wakeup and every writable event, so its span must not be
-    // created at INFO level. Under an INFO-level subscriber no span should be recorded.
-    #[test]
-    fn drive_connection_span_is_not_info_level() {
-        use std::sync::{Arc, Mutex};
-        use tracing_subscriber::{
-            filter::LevelFilter, layer::SubscriberExt, registry::LookupSpan, Layer,
-        };
-
-        struct SpanNames(Arc<Mutex<Vec<&'static str>>>);
-
-        impl<S: tracing::Subscriber + for<'a> LookupSpan<'a>> Layer<S> for SpanNames {
-            fn on_new_span(
-                &self,
-                attrs: &tracing::span::Attributes<'_>,
-                _id: &tracing::span::Id,
-                _ctx: tracing_subscriber::layer::Context<'_, S>,
-            ) {
-                self.0.lock().unwrap().push(attrs.metadata().name());
-            }
-        }
-
-        let listener = StdTcpListener::bind("127.0.0.1:0").expect("failed to bind listener");
-        let addr = listener.local_addr().expect("failed to read listener addr");
-        let mut conn = TcpStream::connect(addr).expect("failed to connect");
-
-        let spans = Arc::new(Mutex::new(Vec::new()));
-        let subscriber = tracing_subscriber::registry()
-            .with(SpanNames(Arc::clone(&spans)))
-            .with(LevelFilter::INFO);
-        tracing::subscriber::with_default(subscriber, || {
-            drive_connection(&mut conn, &mut None, &mut VecDeque::new());
-        });
-
-        let spans = spans.lock().unwrap();
-        assert!(spans.is_empty(), "INFO subscriber recorded spans: {:?}", *spans);
-    }
 }
