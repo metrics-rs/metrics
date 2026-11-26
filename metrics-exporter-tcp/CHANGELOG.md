@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Compile `proto/event.proto` with `protox`, so building no longer needs `protoc`.
 - The `drive_connection` tracing span is now created at `TRACE` level instead of `INFO`, matching the
   other spans in this crate. ([#644](https://github.com/metrics-rs/metrics/issues/644))
 
